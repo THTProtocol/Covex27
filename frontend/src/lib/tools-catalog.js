@@ -10,10 +10,11 @@
  *     server-derived enforcement_reality:
  *       - "consensus-enforced"  the Kaspa script itself enforces the spend
  *         conditions; no off-chain co-signer is required.
- *       - "oracle-cosigned"     the script is a 2-of-2 of (oracle, party), so
- *         release requires the disclosed Covex oracle to co-sign a verified
- *         outcome. The chain still enforces that signature is present; the
- *         oracle decides which side it co-signs for.
+ *       - "oracle-cosigned"     the script is a 2-of-2 of (resolver, party), so
+ *         release requires an external resolver the deployer binds by pubkey at
+ *         deploy to co-sign a verified outcome. The chain still enforces that
+ *         signature is present; the deployer-bound resolver decides which side it
+ *         co-signs for. Covex never attests real-world facts.
  *       - "metadata"            (unused here, reserved for entries whose spend
  *         path is not script-enforced and is recorded as data only).
  *
@@ -24,7 +25,7 @@
  *
  * Honesty rules applied to every one-liner:
  *   - No "trustless", "non-custodial", or "on-chain ZK" claims.
- *   - Oracle primitives name the Covex oracle explicitly.
+ *   - Oracle primitives name the deployer-bound external resolver explicitly.
  *   - Demo-wallet primitives say so.
  */
 
@@ -104,7 +105,7 @@ export const LOGIC_PRIMITIVES = [
   {
     id: 'oracle_enforced',
     name: 'Oracle-enforced',
-    oneLiner: 'A 2-of-2 of the disclosed Covex oracle and the winner. The chain requires the oracle co-signature on a verified outcome.',
+    oneLiner: 'A 2-of-2 of an external resolver the deployer binds by pubkey at deploy and the winner. The chain requires the resolver co-signature on a verified outcome.',
     reality: 'oracle-cosigned',
     exampleId: null,
     route: '/sandbox?phase=logic&circuit=oracle_enforced',
@@ -112,7 +113,7 @@ export const LOGIC_PRIMITIVES = [
   {
     id: 'oracle_escrow',
     name: 'Oracle escrow (2-player)',
-    oneLiner: 'A 2-player pot released only to the player on the branch the disclosed Covex oracle co-signs. Demo uses the dev wallets.',
+    oneLiner: 'A 2-player pot released only to the player on the branch the deployer-bound resolver co-signs. Demo uses the dev wallets.',
     reality: 'oracle-cosigned',
     exampleId: null,
     route: '/sandbox?phase=logic&circuit=oracle_escrow',
@@ -120,7 +121,7 @@ export const LOGIC_PRIMITIVES = [
   {
     id: 'market',
     name: 'Prediction Market',
-    oneLiner: 'Parimutuel pool: stakers split the winning side, the disclosed Covex oracle co-signs the outcome.',
+    oneLiner: 'Parimutuel pool: stakers split the winning side, an external resolver the deployer binds by pubkey at deploy co-signs the outcome.',
     reality: 'oracle-cosigned',
     exampleId: null,
     route: '/sandbox?phase=logic&circuit=market',

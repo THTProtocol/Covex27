@@ -169,7 +169,7 @@ The privacy mixer is the most broken subsystem:
 
 ### Covenant Integration
 - **.sil templates not compiled**: SilverScript templates are aspirational — not compilable yet.
-- **No on-chain ZK verification**: All verification passes through the Covex oracle (off-chain).
+- **No on-chain ZK verification**: All verification passes through the external resolver (off-chain).
 
 ### DevOps
 - **GitHub push blocked**: No auth token configured.

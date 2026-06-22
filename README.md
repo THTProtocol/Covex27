@@ -25,7 +25,7 @@
 
 ---
 
-> **Status.** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet on **30 June 2026**, when Covex launches with real funds. The covenant indexer is armed behind the honesty gate today and the mainnet node is being synced ahead of launch. **The mainnet explorer is honestly empty until the first real covenant lands. No placeholder data, ever. A zero is the correct, expected reading.** Kaspa has no on-chain pairing verifier, so zero-knowledge proofs are verified off-chain by the disclosed Covex oracle, and the only thing the chain checks at unlock is that oracle's Schnorr co-signature (plus whatever the script itself enforces).
+> **Status.** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet on **30 June 2026**, when Covex launches with real funds. The covenant indexer is armed behind the honesty gate today and the mainnet node is being synced ahead of launch. **The mainnet explorer is honestly empty until the first real covenant lands. No placeholder data, ever. A zero is the correct, expected reading.** Kaspa has no on-chain pairing verifier, so zero-knowledge proofs are verified off-chain by an external resolver, and the only thing the chain checks at unlock is that oracle's Schnorr co-signature (plus whatever the script itself enforces).
 
 ---
 
@@ -75,8 +75,8 @@ Covex labels every covenant by **who actually enforces its outcome**. This vocab
 | Label | What it means | Trust assumption |
 |-------|---------------|------------------|
 | **on-chain** | The Kaspa script itself enforces the spend condition. The user's own wallet redeems. No Covex key is in the payout path. | Trustless for custody and enforcement. If Covex vanished, the funds still settle from the published script and the user's wallet. |
-| **oracle-attested** | The disclosed Covex oracle's Schnorr co-signature is consensus-required to release the funds, alongside the user's signature. The chain enforces both signatures, but the oracle key sits in the payout path. | Trust the disclosed oracle to co-sign only a server-verified result. Not trustless. Never call it "on-chain", "trustless", "guaranteed", or "verified on-chain". |
-| **full-zk** | A real Groth16 proof is generated (client-side where supported) and verified fail-closed by the disclosed Covex oracle **off-chain** before that oracle co-signs the 2-of-2 the chain requires. | Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain. Only the oracle's Schnorr co-signature is. This is oracle-attested cryptography, not on-chain ZK. |
+| **oracle-attested** | The an external resolver's Schnorr co-signature is consensus-required to release the funds, alongside the user's signature. The chain enforces both signatures, but the oracle key sits in the payout path. | Trust the external resolver to co-sign only a server-verified result. Not trustless. Never call it "on-chain", "trustless", "guaranteed", or "verified on-chain". |
+| **full-zk** | A real Groth16 proof is generated (client-side where supported) and verified fail-closed by an external resolver **off-chain** before that oracle co-signs the 2-of-2 the chain requires. | Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain. Only the oracle's Schnorr co-signature is. This is oracle-attested cryptography, not on-chain ZK. |
 | **metadata** | Discovery and display only. The covenant is a real on-chain object, but Covex is describing it, not enforcing it. | Trust nothing beyond "this is a real UTXO on the chain". |
 
 ### Which covenant types are genuinely on-chain vs oracle-attested
@@ -92,11 +92,11 @@ Covex labels every covenant by **who actually enforces its outcome**. This vocab
 
 Each of these is engine-tested against the real `kaspa-txscript` interpreter before any value is locked. These pass the acid test: *if hightable.pro vanished tomorrow, every user could still recover or settle their funds using only their own wallet and the published script.*
 
-All nineteen ZK circuits in the Covex registry verify a **real Groth16 proof** off-chain, fail-closed, by the disclosed Covex oracle. None are chain-enforced: Kaspa has no on-chain pairing verifier, and there is no proof-to-hashlock binding (the circuits use MiMC7/range/timelock math, Kaspa's hashlock is blake2b256, `escrow_2party` has no hash at all, and `backend/src/covenant_builder.rs` contains no circuit-output to hashlock binding). The only on-chain check is that oracle's Schnorr co-signature. Every one of the nineteen is ready to migrate onto an on-chain verifier if and when a future KIP-16 ships one. The canonical set lives in `frontend/src/lib/zk/circuits.js` (`VERIFIED_FULL_ZK`); there is no chain-enforced ZK set, the tier was retired because no such binding exists.
+All nineteen ZK circuits in the Covex registry verify a **real Groth16 proof** off-chain, fail-closed, by an external resolver. None are chain-enforced: Kaspa has no on-chain pairing verifier, and there is no proof-to-hashlock binding (the circuits use MiMC7/range/timelock math, Kaspa's hashlock is blake2b256, `escrow_2party` has no hash at all, and `backend/src/covenant_builder.rs` contains no circuit-output to hashlock binding). The only on-chain check is that oracle's Schnorr co-signature. Every one of the nineteen is ready to migrate onto an on-chain verifier if and when a future KIP-16 ships one. The canonical set lives in `frontend/src/lib/zk/circuits.js` (`VERIFIED_FULL_ZK`); there is no chain-enforced ZK set, the tier was retired because no such binding exists.
 
-**Oracle-attested (the Covex oracle key is consensus-required in the payout path until the trustless rebuild lands):**
+**Oracle-attested (the external resolver key is consensus-required in the payout path until the trustless rebuild lands):**
 
-- **Two-party oracle escrow**: the redeem script requires the disclosed Covex oracle's Schnorr co-signature alongside the winner's. The oracle co-signs only a server-verified result. Labeled oracle-attested, never on-chain. The trustless rebuild is a 2-of-2 off-chain state channel between the two parties, with no Covex key.
+- **Two-party oracle escrow**: the redeem script requires an external resolver's Schnorr co-signature alongside the winner's. The oracle co-signs only a server-verified result. Labeled oracle-attested, never on-chain. The trustless rebuild is a 2-of-2 off-chain state channel between the two parties, with no Covex key.
 - **Prediction markets**: built as on-chain `binary_oracle_select` bundles where the funds genuinely sit on-chain, but the real-world fact ("did outcome A happen?") must be attested by an oracle. Something off-chain has to report the result, so the honest target is k-of-n independent oracle signers with an on-chain multisig release. Labeled oracle-attested for resolution.
 - **On-chain game arenas** (chess and others): two players stake into a covenant and play in a premium client. The result is **computed by the server, not asserted by a client**. Deterministic games settle by replaying the public move log; quitting or letting the clock run out is a server-timed loss. The oracle co-signs only that verified result. The winner's unlock spends the pot on-chain, and the platform never custodies the stake, but the oracle co-signature is in the path, so this is oracle-attested.
 
@@ -118,7 +118,7 @@ The full step-by-step guide, with worked examples (chess and games arena, predic
 
 ## 4. The ZK and oracle model, honestly
 
-- **No on-chain ZK on Kaspa.** Kaspa has no pairing precompile, so Covex does **not** rely on any on-chain proof-checking opcode. All nineteen circuits in the registry verify a real Groth16 proof **off-chain** by the disclosed oracle, fail closed on a bad proof, and then the oracle co-signs the 2-of-2 the chain requires. None are chain-enforced: there is no proof-to-hashlock binding (`covenant_builder.rs` binds no circuit output to a consensus-checked hashlock), so the chain never verifies a proof. On-chain enforcement is always the Schnorr co-signature, never the proof itself.
+- **No on-chain ZK on Kaspa.** Kaspa has no pairing precompile, so Covex does **not** rely on any on-chain proof-checking opcode. All nineteen circuits in the registry verify a real Groth16 proof **off-chain** by the external resolver, fail closed on a bad proof, and then the oracle co-signs the 2-of-2 the chain requires. None are chain-enforced: there is no proof-to-hashlock binding (`covenant_builder.rs` binds no circuit output to a consensus-checked hashlock), so the chain never verifies a proof. On-chain enforcement is always the Schnorr co-signature, never the proof itself.
 - **In-browser proving where supported.** The verified circuits generate their proof client-side (snarkjs over served artifacts; `age_verification` computes its MiMC commitment in dependency-free pure JS, with the birth year never leaving the browser). The backend then verifies fail-closed before the oracle co-signs.
 - **Honest labeling of unproven circuits.** Every other catalog circuit is compiled but stays honestly **oracle-attested** until its proving key ships and a proof actually verifies. The platform never labels a circuit full-zk on the strength of a key that does not yet exist.
 - **The trusted setup is disclosed.** It is a single-contributor developer ceremony, not a production multi-party MPC ceremony. This is stated, not hidden.
@@ -186,7 +186,7 @@ flowchart TD
   C --> D["Live: anyone opens the covenant page and interacts"]
   D --> E{"How does it resolve?"}
   E -->|script-enforced| F["On-chain condition: signature, hashlock, timelock, multisig, HTLC"]
-  E -->|oracle-resolved| G["The disclosed oracle verifies the outcome, then co-signs"]
+  E -->|oracle-resolved| G["The external resolver verifies the outcome, then co-signs"]
   F --> H["Winner claims: build, sign, broadcast the spend"]
   G --> H
   H --> I["Funds release on mainnet to the rightful winner"]
@@ -202,7 +202,7 @@ flowchart TD
   Q --> FZ["full-zk"]
   Q --> MD["metadata"]
   ON --> ONx["Kaspa consensus enforces the script. Trustless. singlesig, hashlock, CLTV, CSV, multisig, HTLC, and a revealed-secret binary oracle select"]
-  OA --> OAx["The chain enforces a 2-of-2; the disclosed oracle co-signs only a verified outcome. Custody is on-chain, the outcome is attested, not trustless. Oracle escrow, markets, game pots"]
+  OA --> OAx["The chain enforces a 2-of-2; the external resolver co-signs only a verified outcome. Custody is on-chain, the outcome is attested, not trustless. Oracle escrow, markets, game pots"]
   FZ --> FZx["A Groth16 proof is verified OFF-CHAIN by the oracle, because Kaspa has no pairing verifier, which then co-signs. Oracle-verified, not on-chain-verified"]
   MD --> MDx["A descriptive label only; the chain does not enforce it"]
 ```
@@ -213,7 +213,7 @@ flowchart TD
 flowchart TD
   W["You won. Time to claim."] --> T{"Covenant type?"}
   T -->|script-enforced or revealed-secret| S1["Self-claimable WITHOUT Covex"]
-  T -->|oracle-enforced or escrow| O1["Needs the disclosed oracle co-signature"]
+  T -->|oracle-enforced or escrow| O1["Needs the external resolver co-signature"]
 
   S1 --> S2["Open the in-app redeemer, or the downloadable standalone tool saved on your device"]
   S2 --> S3["Provide: redeem script, your key, and the revealed secret from your Recovery Kit"]
@@ -232,7 +232,7 @@ flowchart TD
 ```mermaid
 sequenceDiagram
   participant B as Browser, your wallet
-  participant O as Covex oracle, fail-closed
+  participant O as external resolver, fail-closed
   participant K as Kaspa mainnet
   B->>B: Generate the Groth16 proof, bound to this covenant id
   B->>O: Submit the proof and public inputs

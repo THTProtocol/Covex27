@@ -445,7 +445,7 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
         </div>
       )}
 
-      <div className="h-auto min-h-[2rem] border-t border-white/10 light:border-slate-300/70 text-[9px] sm:text-[10px] text-gray-500 light:text-slate-600 flex items-center justify-center text-center font-mono px-3 py-1.5 shrink-0">LEGAL FLIPS ONLY · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · {potReturnPercent}% POT RETURN</div>
+      <div className="h-auto min-h-[2rem] border-t border-white/10 light:border-slate-300/70 text-[9px] sm:text-[10px] text-gray-500 light:text-slate-600 flex items-center justify-center text-center font-mono px-3 py-1.5 shrink-0">LEGAL FLIPS ONLY · DETERMINISTIC MOVE-LOG REPLAY · CO-SIGNED RELEASE · {potReturnPercent}% POT RETURN</div>
     </div>
   );
 }

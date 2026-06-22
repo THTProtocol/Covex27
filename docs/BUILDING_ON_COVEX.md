@@ -13,7 +13,7 @@ Everything you build is labeled by **who actually enforces the outcome**. This v
 | Label | Meaning | What you may NOT say |
 |-------|---------|----------------------|
 | **on-chain** | The Kaspa script enforces the spend. The user's own wallet redeems. No Covex key is in the payout path. | Nothing to avoid: this is genuinely trustless for custody and enforcement. |
-| **oracle-attested** | The disclosed Covex oracle's Schnorr co-signature is consensus-required alongside the user's. The oracle co-signs only a server-verified result. | Never "on-chain", "trustless", "guaranteed", or "verified on-chain". |
+| **oracle-attested** | The an external resolver's Schnorr co-signature is consensus-required alongside the user's. The oracle co-signs only a server-verified result. | Never "on-chain", "trustless", "guaranteed", or "verified on-chain". |
 | **full-zk** | A real Groth16 proof is generated (client-side where supported) and verified fail-closed by the oracle **off-chain**, then the oracle co-signs the 2-of-2 the chain requires. | Never "on-chain ZK" or "the chain verified the proof". Kaspa has no pairing verifier. |
 | **metadata** | Discovery and display only. A real on-chain object, described, not enforced by Covex. | Never imply Covex enforces anything. |
 
@@ -44,7 +44,7 @@ The rest of this guide expands each step, then walks seven worked examples end t
 Open the creator at `/deploy/enforced` (or the Sandbox at `/sandbox` to experiment first). Pick a type and set its parameters:
 
 - **On-chain primitives** (single-sig, hashlock, CLTV, CSV, multisig, HTLC) deploy non-custodially: your own wallet signs, the chain enforces the result. These are the default and the recommended starting point because they pass the acid test.
-- **Oracle and multi-party kinds** (oracle escrow, prediction market, games) involve the disclosed Covex oracle in the payout path. Use them when the outcome genuinely depends on something off-chain (a real-world fact, a game result), and label them oracle-attested.
+- **Oracle and multi-party kinds** (oracle escrow, prediction market, games) involve an external resolver in the payout path. Use them when the outcome genuinely depends on something off-chain (a real-world fact, a game result), and label them oracle-attested.
 
 Set fee and payout economics where the type supports it (for example a market's house fee and loser rebate). Pick a circuit only if your covenant actually proves something; otherwise leave it off rather than labeling a covenant full-zk on the strength of a key that does not exist.
 
@@ -116,7 +116,7 @@ Each example covers what it does, how to build the covenant, how to build its in
 
 **Build the website.** Start from the Escrow template. Use a clear StatRow for the locked amount, an Accordion explaining the release condition, a StakeCTA with `action: spend` for the release, and an EnforcementBadge.
 
-**Enforcement reality: on-chain.** Hashlock, HTLC, and multisig escrows are enforced by the chain and redeemed by the user's own wallet, with no Covex key in the path. They pass the acid test. The exception is the **two-party oracle escrow** variant, whose redeem script requires the Covex oracle co-signature; that one is oracle-attested until the state-channel rebuild lands. Choose the on-chain variants when you can.
+**Enforcement reality: on-chain.** Hashlock, HTLC, and multisig escrows are enforced by the chain and redeemed by the user's own wallet, with no Covex key in the path. They pass the acid test. The exception is the **two-party oracle escrow** variant, whose redeem script requires the external resolver co-signature; that one is oracle-attested until the state-channel rebuild lands. Choose the on-chain variants when you can.
 
 ### 4.4 Vesting
 

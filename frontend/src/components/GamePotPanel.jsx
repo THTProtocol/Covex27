@@ -12,11 +12,12 @@ import { explorerTxUrl } from '../lib/explorer';
  * one honest action for the viewer:
  *   - funder, both seats filled, game live   -> Lock the stake on-chain (oracle_escrow)
  *   - pot locked, game live                  -> "Pot locked, winner takes all" (read-only)
- *   - pot locked, game over, viewer won      -> Claim your winnings (oracle co-signs)
+ *   - pot locked, game over, viewer won      -> Claim your winnings (co-signed release)
  *   - pot paid                               -> link to the payout tx
  *
- * Honesty: this is the ORACLE-ATTESTED pot. The disclosed Covex oracle co-signs the payout to
- * the server-authoritative engine's verified winner; your wallet signs your half in the
+ * Honesty: this is the co-signed pot. The result is computed deterministically by replaying the
+ * signed move log (anyone can recompute); the counterparty or a deployer-bound external resolver
+ * co-signs the payout to the engine-verified winner, and your wallet signs your half in the
  * browser (non-custodial). It is NOT trustless and there is no refund branch on this kind, so
  * the copy says so. The signing needs an in-browser key wallet, exactly like covenant deploy.
  */
@@ -50,9 +51,10 @@ export default function GamePotPanel({ covenantId, gameType = 'chess', game, sea
 
   const trustNote = (
     <p className="text-[11px] leading-snug text-gray-400 light:text-slate-500 mt-2">
-      Oracle-attested: the disclosed Covex oracle co-signs the payout to the engine-verified winner. Your wallet signs
-      your half in the browser (non-custodial, custody on-chain). This is not trustless - the oracle is in the payout
-      path and this pot has no refund branch.
+      Co-signed release: the result is computed deterministically by replaying the signed move log, and the
+      counterparty or a deployer-bound external resolver co-signs the payout to the engine-verified winner. Your wallet
+      signs your half in the browser (non-custodial, custody on-chain). This is not trustless - that co-signer is in the
+      payout path and this pot has no refund branch.
     </p>
   );
 
@@ -91,11 +93,11 @@ export default function GamePotPanel({ covenantId, gameType = 'chess', game, sea
     return wrap(
       <>
         <div className="text-[12px] text-gray-300 light:text-slate-700">
-          Both seats are filled. Lock the <span className="font-bold">{potKas} KAS</span> stake into a real on-chain 2-of-2 escrow. At the end, the disclosed oracle co-signs the payout to the winner the engine verifies.
+          Both seats are filled. Lock the <span className="font-bold">{potKas} KAS</span> stake into a real on-chain 2-of-2 escrow. At the end, the counterparty or a deployer-bound resolver co-signs the payout to the winner the engine verifies.
         </div>
         <div className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-200 light:text-amber-800">
           <AlertTriangle size={12} className="mt-0.5 shrink-0" />
-          <span>If the match draws or the oracle is unavailable, this oracle pot has no refund branch and the stake can be permanently locked.</span>
+          <span>If the match draws or the co-signer is unavailable, this pot has no refund branch and the stake can be permanently locked.</span>
         </div>
         <button type="button" disabled={busy}
           onClick={() => run(() => lockPot({ covenantId, token: seatToken, stakeKas: Number(potKas), network, privKeyHex }))}
@@ -112,7 +114,7 @@ export default function GamePotPanel({ covenantId, gameType = 'chess', game, sea
     return wrap(
       <div className="flex items-start gap-2 text-[12px] text-gray-300 light:text-slate-700">
         <ShieldCheck size={14} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
-        <span>Pot locked on-chain. Winner takes all: when the engine decides the result, the winner claims it (the oracle co-signs the payout to them).</span>
+        <span>Pot locked on-chain. Winner takes all: when the engine decides the result, the winner claims it (the counterparty or a deployer-bound resolver co-signs the payout to them).</span>
       </div>,
     );
   }
@@ -144,7 +146,7 @@ export default function GamePotPanel({ covenantId, gameType = 'chess', game, sea
     return wrap(
       <div className="flex items-start gap-2 text-[12px] text-amber-200 light:text-amber-800">
         <AlertTriangle size={14} className="mt-0.5 shrink-0" />
-        <span>This match has no verified winner (a draw, or the oracle could not resolve it). This oracle pot has no refund branch, so the {potKas} KAS stake may be permanently locked on-chain.</span>
+        <span>This match has no verified winner (a draw, or the co-signer could not resolve it). This pot has no refund branch, so the {potKas} KAS stake may be permanently locked on-chain.</span>
       </div>,
     );
   }

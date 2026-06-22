@@ -62,12 +62,13 @@ describe('enforcementSummary', () => {
     expect(s.oracleNote).toBe('');
   });
 
-  it('returns a non-empty oracleNote for full-zk that names the disclosed Covex oracle', () => {
+  it('returns a non-empty oracleNote for full-zk that references off-chain verification and never a Covex oracle', () => {
     const s = enforcementSummary('full-zk');
     expect(s).toBeTruthy();
     expect(typeof s.oracleNote).toBe('string');
     expect(s.oracleNote.length).toBeGreaterThan(0);
-    expect(s.oracleNote).toContain('disclosed Covex oracle');
+    expect(s.oracleNote.toLowerCase()).not.toContain('covex oracle');
+    expect(s.oracleNote).toMatch(/external resolver|off-chain/i);
   });
 
   it('returns a sensible default for an unknown reality without throwing', () => {

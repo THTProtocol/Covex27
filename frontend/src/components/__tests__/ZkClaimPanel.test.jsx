@@ -82,10 +82,10 @@ vi.mock('../../lib/zk/provers', () => ({
 
 vi.mock('../../lib/enforcement-copy', () => ({
   REALITY_HEADLINE: {
-    'full-zk': 'Zero-knowledge proof, oracle-verified off-chain',
+    'full-zk': 'Zero-knowledge proof, verified off-chain',
   },
   REALITY_BODY: {
-    'full-zk': 'Verified fail-closed off-chain by the disclosed Covex oracle.',
+    'full-zk': 'Verified fail-closed off-chain by you, the counterparty, or any external verifier.',
   },
 }));
 
@@ -135,15 +135,15 @@ function renderWith(Panel, overrides) {
 // Source: ZkClaimPanel.jsx line ~110 + the success block ~250. These are the
 // honesty-absolute labels the panel renders ONLY in the matching state. If any
 // of these strings drift, the panel is overclaiming or underclaiming.
-const HEADER_LABEL_ORACLE_VERIFIED = 'Oracle-verified ZK claim';
+const HEADER_LABEL_ORACLE_VERIFIED = 'Off-chain ZK proof claim';
 // No circuit is chain-enforced: every ZK circuit renders the full-zk
-// (oracle-verified off-chain) reality, so the panel renders REALITY_BODY['full-zk'].
-const VERIFIED_FAIL_CLOSED_BODY   = 'Verified fail-closed off-chain by the disclosed Covex oracle.';
-const SUCCESS_LABEL               = 'Proof verified and co-signed by the oracle';
-const REFUSED_LABEL               = 'Oracle refused to co-sign';
+// (proof verified off-chain) reality, so the panel renders REALITY_BODY['full-zk'].
+const VERIFIED_FAIL_CLOSED_BODY   = 'Verified fail-closed off-chain by you, the counterparty, or any external verifier.';
+const SUCCESS_LABEL               = 'Proof verified off-chain and co-signed';
+const REFUSED_LABEL               = 'Cosign refused';
 const PROVING_BUTTON_TEXT         = 'Proving in your browser...';
-const SUBMIT_BUTTON_TEXT          = 'Submit to oracle for co-signature';
-const SUBMITTING_BUTTON_TEXT      = 'Oracle verifying...';
+const SUBMIT_BUTTON_TEXT          = 'Submit proof for 2-of-2 cosign';
+const SUBMITTING_BUTTON_TEXT      = 'Verifying proof...';
 const GENERATE_BUTTON_TEXT        = 'Generate proof in browser';
 
 // --- initial-render tests ------------------------------------------------
@@ -240,14 +240,16 @@ describe('ZkClaimPanel state machine', () => {
     });
     // The honesty-positive label appears ONLY in the success terminal state.
     expect(html).toContain(SUCCESS_LABEL);
-    // Honest framing: oracle verified off-chain fail-closed.
-    expect(html).toContain('verified this Groth16 proof off-chain');
+    // Honest framing: proof verified off-chain fail-closed (anyone can re-run it).
+    expect(html).toContain('Groth16 proof was verified off-chain');
     expect(html).toContain('fail-closed');
-    // The actual oracle co-signature is surfaced.
+    // The actual co-signature is surfaced.
     expect(html).toContain('deadbeef00112233');
     // The "trustless" / "on-chain ZK" honesty trap MUST NOT appear.
     expect(html).not.toMatch(/trustless/i);
     expect(html).not.toMatch(/on-chain (zero-knowledge|zk verifier)/i);
+    // Covex must NOT be presented as the attester/verifier of the proof.
+    expect(html).not.toMatch(/Covex oracle/i);
   });
 
   it('submitting -> done(refused): renders the fail-closed honest refusal copy, no co-signature', async () => {
@@ -278,15 +280,15 @@ describe('ZkClaimPanel state machine', () => {
     expect(html).not.toContain(SUCCESS_LABEL);
   });
 
-  it('error path (oracle network failure): renders the honest oracle-request-failed copy', async () => {
+  it('error path (cosign network failure): renders the honest cosign-request-failed copy', async () => {
     const Panel = await importPanel();
     const html = renderWith(Panel, {
       status: 'error',
       proofObj: FAKE_PROOF,
       publicSignals: FAKE_PUBLIC_SIGNALS,
-      errMsg: 'Oracle request failed: NetworkError',
+      errMsg: 'Cosign request failed: NetworkError',
     });
-    expect(html).toContain('Oracle request failed');
+    expect(html).toContain('Cosign request failed');
     expect(html).not.toContain(SUCCESS_LABEL);
   });
 });

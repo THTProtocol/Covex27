@@ -26,7 +26,7 @@ function OgCard({ name, reality, directUrl }) {
   const badge = REALITY_BADGE_LABEL[reality] || REALITY_BADGE_LABEL['on-chain'];
   // Honest palette mirrored from TrustBadge so this preview never overclaims:
   // on-chain emerald, full-zk violet (a real Groth16 proof verified off-chain by
-  // the disclosed oracle, never chain-enforced), hybrid sky, oracle amber,
+  // the external resolver, never chain-enforced), hybrid sky, oracle amber,
   // fallback slate.
   const palette = {
     'on-chain': { fg: '#34d399', bg: 'rgba(16,185,129,0.16)', stroke: 'rgba(16,185,129,0.55)' },

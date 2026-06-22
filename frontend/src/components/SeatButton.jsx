@@ -10,9 +10,11 @@ import { useWallet } from './WalletContext';
  * click: the button is disabled and relabeled "Connect wallet to take a seat",
  * wired straight to the connect modal. Spectating stays open without a wallet.
  *
- * Honesty: the subline states that outcomes are decided by the disclosed Covex
- * oracle (off-chain, server-authoritative) while custody and payout are on-chain.
- * This is not trustless and the copy never says otherwise.
+ * Honesty: the subline states that the result is computed deterministically by
+ * replaying the signed move log (off-chain, server-authoritative, anyone can
+ * recompute) and the counterparty or a deployer-bound external resolver co-signs
+ * the release, while custody and payout are on-chain. This is not trustless and
+ * the copy never says otherwise.
  */
 export default function SeatButton({
   status,
@@ -75,8 +77,9 @@ export default function SeatButton({
 export function TrustNote({ className = '' }) {
   return (
     <p className={`text-[11px] leading-snug text-gray-400 light:text-slate-500 text-center max-w-[340px] ${className}`}>
-      Outcome is decided by the disclosed Covex oracle (off-chain, server-authoritative), not Kaspa consensus.
-      Custody and payout are on-chain. This is not trustless.
+      The result is computed deterministically by replaying the signed move log off-chain (server-authoritative,
+      anyone can recompute), not by Kaspa consensus; the counterparty or a deployer-bound external resolver co-signs the
+      release. Custody and payout are on-chain. This is not trustless.
     </p>
   );
 }

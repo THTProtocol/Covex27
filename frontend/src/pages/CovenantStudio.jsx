@@ -272,7 +272,7 @@ export default function CovenantStudio() {
     return () => clearInterval(iv);
   }, [id]);
 
-  // On-chain action log + disclosed oracle key, so the Studio PREVIEW shows EXACTLY what a
+  // On-chain action log + external resolver key, so the Studio PREVIEW shows EXACTLY what a
   // visitor sees: ActivityFeed / Leaderboard / PoolChart populate from real indexed actions,
   // and {{oracle_pubkey}} resolves to the real disclosed BIP340 key instead of the literal
   // token. Mirrors CovenantInteractive verbatim so the preview is faithful, not a hollow shell.
@@ -355,7 +355,7 @@ export default function CovenantStudio() {
       kickoff: covenant.kickoff_utc || covenant.kickoff || '',
       settle_at: covenant.settle_at || covenant.settle_utc || covenant.resolved_at || '',
       timelock: covenant.lock_daa != null ? covenant.lock_daa : (covenant.timelock_daa != null ? covenant.timelock_daa : ''),
-      // Disclosed oracle identity (BIP340 x-only key) + outcome commitments, when present, so
+      // external resolver identity (BIP340 x-only key) + outcome commitments, when present, so
       // an oracle-signer display shows the REAL key instead of the literal {{oracle_pubkey}}.
       oracle_pubkey: oraclePubkey || '',
       commitment_a: covenant.h_a || '',
@@ -796,7 +796,7 @@ function StudioHelpDrawer({ onClose }) {
     },
     {
       title: 'How is enforcement displayed?',
-      body: <p>EnforcementBadge shows the server's enforcement_reality for this covenant. You cannot override it on the page. The Kaspa script holds the funds at a P2SH commitment. Where the script alone can settle, payouts are consensus-enforced; otherwise the disclosed Covex oracle co-signs the payout transaction (fail-closed if the oracle is unavailable). The fund destination is derived from the indexed covenant record, not from this field.</p>,
+      body: <p>EnforcementBadge shows the server's enforcement_reality for this covenant. You cannot override it on the page. The Kaspa script holds the funds at a P2SH commitment. Where the script alone can settle, payouts are consensus-enforced; otherwise an external resolver the deployer binds by pubkey at deploy co-signs the payout transaction (fail-closed if the resolver is unavailable). Covex never attests real-world facts. The fund destination is derived from the indexed covenant record, not from this field.</p>,
     },
   ];
   return (
@@ -1140,7 +1140,7 @@ function PageSettingsModal({ covenant, saving, onSave, onClose }) {
               />
             </div>
             <p className="text-[11px] text-gray-500 light:text-slate-500 mt-1.5 leading-relaxed">
-              This is the suggested stake shown on the public page and arena. It never sets a fund destination, which is always derived from the indexed covenant record. Custody and payouts are consensus-enforced where the script supports it, or oracle co-signed by the disclosed Covex oracle, fail-closed.
+              This is the suggested stake shown on the public page and arena. It never sets a fund destination, which is always derived from the indexed covenant record. Custody and payouts are consensus-enforced where the script supports it, or co-signed by an external resolver the deployer binds by pubkey at deploy, fail-closed.
             </p>
           </div>
         </div>

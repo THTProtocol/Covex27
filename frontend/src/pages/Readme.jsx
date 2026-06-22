@@ -7,9 +7,9 @@ import { VERIFIED_FULL_ZK } from '../lib/zk/circuits.js';
 
 // Honest count pulled from the single source of truth (lib/zk/circuits.js).
 // Do NOT hard-code this; the registry is the only place it may diverge.
-// All VERIFIED_FULL_ZK circuits are Groth16-verified OFF-CHAIN by the disclosed
-// Covex oracle (fail-closed); the only on-chain check is the oracle's Schnorr
-// co-signature. There is no chain-enforced ZK tier.
+// All VERIFIED_FULL_ZK circuits are Groth16-verified OFF-CHAIN by you, the
+// counterparty, or any external verifier (fail-closed); the only on-chain check
+// is a deployer-bound resolver's Schnorr co-signature. There is no chain-enforced ZK tier.
 const ZK_TOTAL = VERIFIED_FULL_ZK.size;
 
 /*
@@ -51,11 +51,11 @@ const REALITIES = [
   { name: 'On-chain enforced', icon: ShieldCheck, cls: 'text-emerald-300 light:text-emerald-700 border-emerald-500/40 bg-emerald-500/10',
     trust: 'Zero trust', desc: 'Funds are locked in the exact 35-byte P2SH commitment. Kaspa consensus runs the redeem script and releases the money only if its conditions are met. No third party can move it. The chain is the referee.' },
   { name: 'Zero-knowledge', icon: Cpu, cls: 'text-violet-300 light:text-violet-700 border-violet-500/40 bg-violet-500/10',
-    trust: 'Proof, oracle-verified off-chain', desc: `A real Groth16 zero-knowledge proof is verified fail-closed by the disclosed Covex oracle before release; the oracle will not co-sign without a valid proof. Live today for all ${ZK_TOTAL} circuits with served keys and a working in-browser prover (the canonical list lives in lib/zk/circuits.js as VERIFIED_FULL_ZK). Kaspa has no on-chain pairing verifier, so the Groth16 check is always off-chain: all ${ZK_TOTAL} are oracle-verified off-chain, and the only on-chain check is the oracle's BIP340 Schnorr co-signature that the proof result gates.` },
+    trust: 'Proof, verified off-chain', desc: `A real Groth16 zero-knowledge proof is verified fail-closed off-chain by you, the counterparty, or any external verifier (snarkjs against the audited vkey) before release; a valid proof gates a 2-of-2 cosign plus a CSV timeout. Live today for all ${ZK_TOTAL} circuits with served keys and a working in-browser prover (the canonical list lives in lib/zk/circuits.js as VERIFIED_FULL_ZK). Kaspa has no on-chain pairing verifier, so the Groth16 check is always off-chain: all ${ZK_TOTAL} are verified off-chain, and the only on-chain check is a deployer-bound resolver's BIP340 Schnorr co-signature that the proof result gates.` },
   { name: 'Hybrid', icon: Layers, cls: 'text-sky-300 light:text-sky-700 border-sky-500/40 bg-sky-500/10',
     trust: 'Proof + named oracle', desc: 'The Groth16 proof is mandatory and verified fail-closed; the named oracle only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
   { name: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 light:text-amber-700 border-amber-500/40 bg-amber-500/10',
-    trust: 'Named oracle', desc: 'An off-chain outcome is signed by a named oracle whose co-signature the chain requires via the redeem script. For an engine-resolved game result the disclosed Covex oracle co-signs (anyone can recompute it). For a real-world fact (a market event, a price, a data feed) the covenant binds to an external resolver the creator chooses; Covex does not attest outside events. Either way the settlement itself is on-chain.' },
+    trust: 'Named resolver', desc: 'An off-chain outcome is signed by a named resolver, bound by pubkey at deploy, whose co-signature the chain requires via the redeem script. For an engine-resolved game result, the outcome is computed deterministically by replaying the signed move log (anyone can recompute it) and the counterparty or a deployer-bound external resolver co-signs the release. For a real-world fact (a market event, a price, a data feed) the covenant binds to an external resolver the creator chooses; Covex never attests outside events. Either way the settlement itself is on-chain.' },
 ];
 
 // Inline pill palette for PRIMITIVES (matches REALITIES above). Keyed by p.reality.
@@ -89,7 +89,7 @@ const PRIMITIVES = [
   { name: 'Oracle-Enforced 2-of-2', reality: 'oracle-attested', script: '2-of-2 multisig of [ oracle_xonly , winner ]',
     what: 'The chain requires the oracle’s signature AND the winner’s. The oracle only signs a verified outcome, and its co-sign is consensus-required.' },
   { name: 'Oracle Escrow (game pot)', reality: 'oracle-attested', script: '<oracle> OP_CHECKSIGVERIFY\nOP_IF <playerA> OP_CHECKSIG OP_ELSE <playerB> OP_CHECKSIG OP_ENDIF',
-    what: 'The chain pays the pot only to the oracle-declared winner: the oracle co-signs, the winning player signs their branch.' },
+    what: 'The chain pays the pot only to the resolver-declared winner: the counterparty or a deployer-bound external resolver co-signs, the winning player signs their branch.' },
 ];
 
 // The 7 KIP-10 introspection opcodes live on Kaspa mainnet since Crescendo (May 2025).
@@ -237,7 +237,7 @@ export default function Readme() {
         <p className="text-sm text-gray-300 leading-relaxed max-w-3xl mb-6">
           These are the actual redeem scripts Covex builds and verifies against Kaspa’s <span className="text-white">TxScriptEngine</span>{' '}
           before any value is locked. Nine are pure on-chain (the chain alone enforces them); two are oracle-attested (the
-          script still requires a disclosed oracle's co-signature over the declared outcome).
+          script still requires a external resolver's co-signature over the declared outcome).
         </p>
         <div className="grid md:grid-cols-2 gap-4">
           {PRIMITIVES.map((p) => (
@@ -260,9 +260,10 @@ export default function Readme() {
             <p className="text-sm text-gray-300 leading-relaxed mb-4">
               For conditions richer than a signature (membership, ranges, identity, computation), Covex uses real{' '}
               <strong className="text-white">Groth16 zero-knowledge proofs</strong>. The prover generates a proof with
-              circom + snarkjs; the disclosed Covex oracle verifies it <span className="text-kaspa-green">fail-closed</span> off-chain (no proof body,
-              no missing key, no soft-pass). Only when a proof genuinely verifies does the oracle add its co-signature to the
-              2-of-2 the chain requires, so the named oracle co-signs only a verified proof and the chain enforces that co-signature at unlock.
+              circom + snarkjs; you, the counterparty, or any external verifier checks it <span className="text-kaspa-green">fail-closed</span> off-chain
+              (snarkjs against the audited vkey: no proof body, no missing key, no soft-pass). Only when a proof genuinely verifies does a
+              deployer-bound resolver add its co-signature to the 2-of-2 the chain requires, so the named resolver co-signs only a verified proof
+              and the chain enforces that co-signature at unlock.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {ZK_VERIFIED.map((z) => (
@@ -273,11 +274,11 @@ export default function Readme() {
               ))}
             </div>
             <p className="text-xs text-gray-400 mt-4 leading-relaxed">
-              These {ZK_TOTAL} circuits have real Groth16 proofs that the disclosed Covex oracle verifies fail-closed before it
-              co-signs. All {ZK_TOTAL} are oracle-verified off-chain: Kaspa has no on-chain pairing verifier, so the Groth16
-              verification itself is always off-chain, and the only on-chain check is the disclosed oracle’s BIP340 Schnorr
-              co-signature. A bad proof is rejected (fail-closed), but the named oracle’s co-signature is what the chain checks;
-              this is oracle-verified, not on-chain-trustless. More circuits are compiled and graduate as their proving keys
+              These {ZK_TOTAL} circuits have real Groth16 proofs that you, the counterparty, or any external verifier checks fail-closed before a
+              deployer-bound resolver co-signs. All {ZK_TOTAL} are verified off-chain: Kaspa has no on-chain pairing verifier, so the Groth16
+              verification itself is always off-chain, and the only on-chain check is a deployer-bound resolver’s BIP340 Schnorr
+              co-signature. A bad proof is rejected (fail-closed), but the resolver’s co-signature is what the chain checks;
+              this is verified off-chain, not on-chain-trustless. More circuits are compiled and graduate as their proving keys
               ship and each proof is verified. Honest caveat: the current trusted setup is a single-contributor dev ceremony.
               High-value mainnet covenants warrant an independent multi-party ceremony first.
             </p>
@@ -288,8 +289,8 @@ export default function Readme() {
               {[
                 ['Prove', 'You generate a Groth16 proof of the statement (e.g. “my committed value is in range”). Your secret never leaves your machine.'],
                 ['Verify', 'The backend runs snarkjs verification, fail-closed. A bodyless or invalid proof is rejected outright.'],
-                ['Co-sign', 'Only on a valid proof does the oracle add its BIP340 signature to the 2-of-2 the script demands.'],
-                ['Settle', 'Kaspa’s OP_CHECKMULTISIG enforces both signatures. The funds release, gated by an oracle-verified proof plus the disclosed oracle’s consensus-required co-signature.'],
+                ['Co-sign', 'Only on a valid proof does a deployer-bound resolver add its BIP340 signature to the 2-of-2 the script demands.'],
+                ['Settle', 'Kaspa’s OP_CHECKMULTISIG enforces both signatures. The funds release, gated by an off-chain-verified proof plus the deployer-bound resolver’s consensus-required co-signature.'],
               ].map(([t, d], i) => (
                 <li key={i} className="flex items-start gap-3">
                   <span className="shrink-0 w-6 h-6 rounded-full bg-kaspa-green/10 border border-kaspa-green/30 text-kaspa-green text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
@@ -307,11 +308,12 @@ export default function Readme() {
           <Card>
             <Radio className="text-kaspa-green mb-3" size={22} />
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
-              When an engine-resolved game outcome is off-chain, the disclosed Covex oracle attests it (a result anyone can
-              recompute) with a real <strong className="text-white">secp256k1 BIP340 Schnorr signature</strong>, never a
-              forgeable keyed hash. For a real-world fact like a settled market, the covenant binds instead to an external
-              resolver the creator chooses, which signs the same way; Covex does not attest outside events. Every signer's
-              x-only public key is published openly, so anyone can verify the attestation.
+              When an engine-resolved game outcome is off-chain, it is computed deterministically by replaying the signed move
+              log (a result anyone can recompute) and the counterparty or a deployer-bound external resolver co-signs the release
+              with a real <strong className="text-white">secp256k1 BIP340 Schnorr signature</strong>, never a forgeable keyed hash.
+              For a real-world fact like a settled market, the covenant binds to an external resolver the creator chooses by pubkey
+              at deploy, which signs the same way; Covex never attests outside events. Every signer's x-only public key is published
+              openly, so anyone can verify the attestation.
             </p>
             <Script>{`message  = covex-oracle:{covenant_id}:{outcome}:{timestamp}
 signature = schnorr_sign( sha256(message), oracle_key )
@@ -319,13 +321,13 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
           </Card>
           <div>
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
-              Crucially, the oracle is held to the same standard as everything else: it will <span className="text-white">refuse to sign</span> an
-              outcome whose ZK proof does not verify, and for games it is bound to the server-recorded result, so it cannot mint
+              Crucially, the resolver is held to the same standard as everything else: it will <span className="text-white">refuse to sign</span> an
+              outcome whose ZK proof does not verify, and for games it is bound to the deterministic replay of the signed move log, so it cannot mint
               a signature for an arbitrary requested outcome.
             </p>
             <p className="text-sm text-gray-300 leading-relaxed">
-              On-chain, the oracle’s signature is one half of a 2-of-2 multisig the script requires. That makes its co-sign{' '}
-              <span className="text-kaspa-green">consensus-required</span>. The disclosed oracle is a named, accountable party,
+              On-chain, the resolver’s signature is one half of a 2-of-2 multisig the script requires. That makes its co-sign{' '}
+              <span className="text-kaspa-green">consensus-required</span>. The deployer-bound resolver is a named, accountable party bound by pubkey at deploy,
               and the payout still settles on Kaspa.
             </p>
           </div>
@@ -382,8 +384,8 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
             [Boxes, 'Build in the Sandbox', 'One window: a free circuit library drives a live preview (enforcement, resolution flow, an accurate payout simulator and example SilverScript), then the builder deploys it.'],
             [FileCode2, 'Start from a template', 'An official catalog across primitives, ZK proofs, oracle markets, DeFi, identity and games. Each opens preconfigured in the sandbox.'],
             [Coins, 'Deploy non-custodially', 'Lock real funds into an enforced P2SH primitive; redeem them by satisfying the script with your own key. Covex never holds the money.'],
-            [Hash, 'Prove with ZK', 'Generate a real Groth16 proof for membership, range or age claims; the disclosed oracle verifies it fail-closed off-chain, then co-signs the 2-of-2 the chain requires to release the funds.'],
-            [Sparkles, 'Play the arenas', 'Stake head-to-head games; a server-authoritative engine decides the result and the oracle co-signs the pot to the winner on-chain.'],
+            [Hash, 'Prove with ZK', 'Generate a real Groth16 proof for membership, range or age claims; you, the counterparty, or any external verifier checks it fail-closed off-chain, then a deployer-bound resolver co-signs the 2-of-2 the chain requires to release the funds.'],
+            [Sparkles, 'Play the arenas', 'Stake head-to-head games; a server-authoritative engine replays the signed move log (anyone can recompute) and the counterparty or a deployer-bound external resolver co-signs the pot to the winner on-chain.'],
           ].map(([Icon, t, d]) => (
             <Card key={t}>
               <Icon className="text-kaspa-green mb-3" size={22} />

@@ -70,8 +70,8 @@ const ZK_CIRCUIT_TYPES_RAW = [
   // Shared primitives (VRF, timers, pot math, transcript, wincond, ai) reused across.
   // ═══════════════════════════════════════════
   // chess_v1 removed (ZK circuit deleted; oracle-only chess possible via custom if needed)
-  { id: 'chess_blitz', name: 'Chess Blitz (3+2)', description: '3 min + 2s increment. FIDE ruleset via oracle. Per-turn timer: only clock of player-to-move ticks. Red <30s. Zero = auto-loss + PAYOUT COMPUTED. Reality: oracle-attested (full rules engine). Use cases: timed Kaspa chess covenants.', circuit: 'chess_blitz', accent: '#49EACB', category: 'game', variant: true, reality: 'oracle-attested' },
-  { id: 'chess_bullet', name: 'Chess Bullet (1+0)', description: '1 min no increment. Oracle-enforced FIDE circuit, aggressive clock. Zero = instant auto-resolve. Reality: oracle-attested. Use cases: high-speed Kaspa skill duels.', circuit: 'chess_bullet', accent: '#49EACB', category: 'game', variant: true, reality: 'oracle-attested' },
+  { id: 'chess_blitz', name: 'Chess Blitz (3+2)', description: '3 min + 2s increment. FIDE ruleset via a deterministic server-authoritative engine (anyone can recompute the move log). Per-turn timer: only clock of player-to-move ticks. Red <30s. Zero = auto-loss + PAYOUT COMPUTED. Reality: oracle-attested (full rules engine). Use cases: timed Kaspa chess covenants.', circuit: 'chess_blitz', accent: '#49EACB', category: 'game', variant: true, reality: 'oracle-attested' },
+  { id: 'chess_bullet', name: 'Chess Bullet (1+0)', description: '1 min no increment. Deterministic server-authoritative FIDE engine, aggressive clock. Zero = instant auto-resolve. Reality: oracle-attested. Use cases: high-speed Kaspa skill duels.', circuit: 'chess_bullet', accent: '#49EACB', category: 'game', variant: true, reality: 'oracle-attested' },
   { id: 'chess_legal_move', name: 'Chess Legal Move Proof', description: 'Property proof (hybrid): ZK proves a specific move was legal per FIDE (incl. castling/en-passant/pawn rules) without full board reveal in some modes. Oracle attests final result. Reality: hybrid (property). Artifacts: partial (chess lib). Use cases for Kaspa covenants: on-turn move validation in chess covenants + anti-cheat. (vision §4.3 chess)', circuit: 'chess_legal_move', accent: '#49EACB', category: 'game', variant: true, reality: 'hybrid' },
   { id: 'chess_ai_move', name: 'Chess AI/Move Optimality Proof', description: 'Compute+ZK hybrid: prove this move was best per engine eval at depth X (RISC0/SP1 guest for eval). Prevents collusion. Reality: oracle-attested (starts; full compute planned). Artifacts: none yet (see compute layer). Use cases: Kaspa chess with AI-fairness or anti-AI-bot rules. (vision §4.3, §4.6)', circuit: 'chess_ai_move', accent: '#49EACB', category: 'game', variant: true, reality: 'oracle-attested' },
   { id: 'chess_checkmate', name: 'Chess Checkmate / Stalemate Proof', description: 'Property proof: ZK or attested proves final position is checkmate/stalemate/insufficient material per FIDE. Reality: hybrid. Use cases: automatic payout trigger in chess covenants without trusting UI. (vision §4.3)', circuit: 'chess_checkmate', accent: '#49EACB', category: 'game', variant: true, reality: 'hybrid' },
@@ -98,7 +98,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'checkers_v1', name: 'Checkers (Standard)', description: '8×8 American checkers, forced jumps, kings. Oracle-attested rules. Per-turn timer. Zero = auto-resolve. Reality: oracle-attested. Use cases: classic checkers on Kaspa.', circuit: 'checkers_v1', accent: '#A855F7', category: 'game', reality: 'oracle-attested' },
   { id: 'tictactoe_v1', name: 'Tic-Tac-Toe', description: 'Full ZK: Groth16 proof per legal move (3×3, full in-circuit win/draw). MiMC7 board hash. Falls back to oracle attestation. Artifacts in zk/games/tictactoe/. Reality: full-zk. Use cases: entry-level full-zk teaching covenants.', circuit: 'tictactoe_v1', accent: '#EC4899', category: 'game', reality: 'full-zk', artifacts: true },
   { id: 'reversi_v1', name: 'Reversi / Othello', description: '8×8, capture-flip mechanics. Oracle-attested rules. Per-turn timer. Reality: oracle-attested. Use cases: flip-based Kaspa games.', circuit: 'reversi_v1', accent: '#06B6D4', category: 'game', reality: 'oracle-attested' },
-  { id: 'rps_v1', name: 'Rock Paper Scissors', description: 'Best of 3 with a commit-reveal protocol so picks stay secret until both are locked. Two-wallet arena, oracle co-signed result (not trustless), winner takes the pot minus the creator fee. Reality: oracle-attested. Use cases: quick-stake Kaspa skill/luck duels.', circuit: 'rps_v1', accent: '#F2557A', category: 'game', reality: 'oracle-attested' },
+  { id: 'rps_v1', name: 'Rock Paper Scissors', description: 'Best of 3 with a commit-reveal protocol so picks stay secret until both are locked. Two-wallet arena; the result is computed deterministically by replaying the signed move log (anyone can recompute), then the counterparty or a deployer-bound external resolver co-signs the release (not trustless). Winner takes the pot minus the creator fee. Reality: oracle-attested. Use cases: quick-stake Kaspa skill/luck duels.', circuit: 'rps_v1', accent: '#F2557A', category: 'game', reality: 'oracle-attested' },
   { id: 'battleship_v1', name: 'Battleship', description: '10×10 fleet placement + salvo. VRF for ship placement fairness. Per-turn (salvo phase). Oracle-attested. Reality: hybrid. Use cases: hidden placement Kaspa battleship.', circuit: 'battleship_v1', accent: '#84CC16', category: 'game', reality: 'hybrid' },
   { id: 'battleship_placement', name: 'Battleship Ship Placement Proof', description: 'Property: prove valid non-overlapping fleet placement (VRF or committed). Reality: hybrid. Use cases: fair setup in Kaspa battleship. (vision §4.3)', circuit: 'battleship_placement', accent: '#84CC16', category: 'game', variant: true, reality: 'hybrid' },
   { id: 'scrabble_v1', name: 'Scrabble', description: '15×15 board, dictionary validation, premium squares. Oracle word-check. Per-turn timer. Reality: oracle-attested. Use cases: word game covenants.', circuit: 'scrabble_v1', accent: '#F97316', category: 'game', reality: 'oracle-attested' },
@@ -118,11 +118,11 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'cribbage_v1', name: 'Cribbage', description: '2-4 player peg-scoring + discard. Oracle counting. Per-turn timer. Reality: oracle-attested.', circuit: 'cribbage_v1', accent: '#FDA4AF', category: 'game', reality: 'oracle-attested' },
   { id: 'mahjong_v1', name: 'Mahjong (Riichi)', description: '4-player tile-matching with yaku scoring. VRF wall shuffle + oracle-attested. Per-turn timer. Reality: hybrid.', circuit: 'mahjong_v1', accent: '#C084FC', category: 'game', reality: 'hybrid' },
   // Shared game primitives (vision §4.3)
-  { id: 'vrf_dice_roll', name: 'VRF Dice Roll (Shared)', description: 'Full ZK: a verifiable dice roll forced by Poseidon(secret, public seed) - roll = (hash mod faces)+1, so no one can cherry-pick the result. Generated in your browser (the secret never leaves it) and verified fail-closed by the disclosed oracle. Use cases: backgammon/yahtzee/risk/monopoly/catan dice fairness in Kaspa covenants. (vision §4.1 VRF, §4.3 shared)', circuit: 'vrf_dice_roll', accent: '#EC4899', category: 'game', variant: true, reality: 'full-zk', artifacts: true },
-  { id: 'relative_timelock', name: 'Relative Timelock (DAA)', description: 'Full ZK: Groth16 proof that current_daa >= reference_daa + lock_duration, with valid exposed as a public output (the oracle requires valid==1, so an unsatisfied lock cannot be passed off as satisfied). Generated in your browser, verified fail-closed by the disclosed oracle. Use cases: dispute periods, cooldown windows, turn timers, delayed reveals on Kaspa. (vision §4.2)', circuit: 'relative_timelock', accent: '#10B981', category: 'kaspa', variant: true, reality: 'full-zk', artifacts: true },
-  { id: 'script_constraint', name: 'Script Constraint / Fee Cap', description: 'Full ZK: prove you know the (hidden) script_hash whose Poseidon bundle with constraint_id + value equals a public root - bind a covenant to a constraint without revealing the script. Generated in your browser, verified fail-closed by the disclosed oracle. Use cases: enforce covenant rules, fee caps, pot returns. (vision §4.2)', circuit: 'script_constraint', accent: '#F59E0B', category: 'kaspa', variant: true, reality: 'full-zk', artifacts: true },
-  { id: 'pot_split_math', name: 'Pot / Treasury Split Math', description: 'Full ZK: prove winner_share + fee + return == total_pot at the chosen bps - a verifiable fair split. Honest bound: the amounts are public, so this is a correctness proof (not a privacy proof). Generated in your browser, verified fail-closed by the disclosed oracle. Use cases: fair pot distribution in games/auctions. (vision §4.2/4.4)', circuit: 'pot_split_math', accent: '#EF4444', category: 'kaspa', variant: true, reality: 'full-zk', artifacts: true },
-  { id: 'turn_timer', name: 'Per-Turn Timer Proof', description: 'Full ZK: prove a move happened within max_delta DAA, with the exact last-move time kept as a PRIVATE witness and on_time exposed as a public output (the oracle requires on_time==1). Generated in your browser, verified fail-closed by the disclosed oracle. Use cases: clock enforcement in chess/poker. (vision §4.3)', circuit: 'turn_timer', accent: '#06B6D4', category: 'game', variant: true, reality: 'full-zk', artifacts: true },
+  { id: 'vrf_dice_roll', name: 'VRF Dice Roll (Shared)', description: 'Full ZK: a verifiable dice roll forced by Poseidon(secret, public seed) - roll = (hash mod faces)+1, so no one can cherry-pick the result. Generated in your browser (the secret never leaves it) and verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Use cases: backgammon/yahtzee/risk/monopoly/catan dice fairness in Kaspa covenants. (vision §4.1 VRF, §4.3 shared)', circuit: 'vrf_dice_roll', accent: '#EC4899', category: 'game', variant: true, reality: 'full-zk', artifacts: true },
+  { id: 'relative_timelock', name: 'Relative Timelock (DAA)', description: 'Full ZK: Groth16 proof that current_daa >= reference_daa + lock_duration, with valid exposed as a public output (the verifier requires valid==1, so an unsatisfied lock cannot be passed off as satisfied). Generated in your browser, verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Use cases: dispute periods, cooldown windows, turn timers, delayed reveals on Kaspa. (vision §4.2)', circuit: 'relative_timelock', accent: '#10B981', category: 'kaspa', variant: true, reality: 'full-zk', artifacts: true },
+  { id: 'script_constraint', name: 'Script Constraint / Fee Cap', description: 'Full ZK: prove you know the (hidden) script_hash whose Poseidon bundle with constraint_id + value equals a public root - bind a covenant to a constraint without revealing the script. Generated in your browser, verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Use cases: enforce covenant rules, fee caps, pot returns. (vision §4.2)', circuit: 'script_constraint', accent: '#F59E0B', category: 'kaspa', variant: true, reality: 'full-zk', artifacts: true },
+  { id: 'pot_split_math', name: 'Pot / Treasury Split Math', description: 'Full ZK: prove winner_share + fee + return == total_pot at the chosen bps - a verifiable fair split. Honest bound: the amounts are public, so this is a correctness proof (not a privacy proof). Generated in your browser, verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Use cases: fair pot distribution in games/auctions. (vision §4.2/4.4)', circuit: 'pot_split_math', accent: '#EF4444', category: 'kaspa', variant: true, reality: 'full-zk', artifacts: true },
+  { id: 'turn_timer', name: 'Per-Turn Timer Proof', description: 'Full ZK: prove a move happened within max_delta DAA, with the exact last-move time kept as a PRIVATE witness and on_time exposed as a public output (the verifier requires on_time==1). Generated in your browser, verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Use cases: clock enforcement in chess/poker. (vision §4.3)', circuit: 'turn_timer', accent: '#06B6D4', category: 'game', variant: true, reality: 'full-zk', artifacts: true },
   { id: 'vrf_card_deal', name: 'VRF Card Deal (Shared)', description: 'VRF: provable card from committed shuffle/deck. Reality: oracle-attested. Use cases: poker/blackjack/gin/hearts/mahjong fair deals on Kaspa. (vision §4.3)', circuit: 'vrf_card_deal', accent: '#EC4899', category: 'game', variant: true, reality: 'oracle-attested' },
   { id: 'pot_math_verify', name: 'Pot Math + Split Verification (Shared)', description: 'DeFi/game: prove weighted split (stake/score/VRF) + fees without trusting off-chain. Reality: hybrid (verifiable math + oracle). Use cases: all pot-based Kaspa game covenants. (vision §4.3, §4.4)', circuit: 'pot_math_verify', accent: '#FB923C', category: 'game', variant: true, reality: 'hybrid' },
   { id: 'move_transcript', name: 'Move Transcript Validity Proof', description: 'Hash-chain of moves: prove sequence valid + no tampering. Reality: hybrid. Use cases: dispute resolution + replay in Kaspa game covenants. (vision §4.3)', circuit: 'move_transcript', accent: '#10B981', category: 'game', variant: true, reality: 'hybrid' },
@@ -136,38 +136,38 @@ const ZK_CIRCUIT_TYPES_RAW = [
   // FOUNDATIONAL CRYPTO PRIMITIVES (expanded §4.1 to 25+)
   // Building blocks, multiple proving systems.
   // ═══════════════════════════════════════════
-  { id: 'merkle_membership', name: 'Merkle Membership', description: 'Full ZK: proves a key/value pair exists in a committed Merkle tree. Whitelist eligibility, DAO voting power, airdrop claims, token-gated access. Groth16 proof verified off-chain by the disclosed Covex oracle (fail-closed); the only on-chain check is the oracle co-signature, not chain-enforced. Real artifacts in zk/ (circom + snarkjs verifier). Reality: full-zk. Use cases: Kaspa DAO/treasury gating, private airdrops. (vision §4.1)', circuit: 'merkle_generic', accent: '#3B82F6', category: 'crypto', reality: 'full-zk', artifacts: true },
+  { id: 'merkle_membership', name: 'Merkle Membership', description: 'Full ZK: proves a key/value pair exists in a committed Merkle tree. Whitelist eligibility, DAO voting power, airdrop claims, token-gated access. A real Groth16 proof, verified OFF-CHAIN (by you, the counterparty, or any external verifier; snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier; the only on-chain check is a 2-of-2 cosign + CSV timeout, not chain-enforced ZK. Real artifacts in zk/ (circom + snarkjs verifier). Reality: full-zk. Use cases: Kaspa DAO/treasury gating, private airdrops. (vision §4.1)', circuit: 'merkle_generic', accent: '#3B82F6', category: 'crypto', reality: 'full-zk', artifacts: true },
   { id: 'merkle_dao', name: 'Merkle DAO Voting', description: 'Full ZK: voting power = merkle leaf value. Threshold quorum. No individual votes revealed. Uses same artifacts as merkle_membership. Reality: full-zk. Use cases: private weighted voting on Kaspa DAOs.', circuit: 'merkle_dao', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'full-zk', artifacts: true },
   { id: 'merkle_airdrop', name: 'Merkle Airdrop Claim', description: 'Full ZK: prove eligibility without revealing other claimers. Single-use nullifier per leaf. Same artifacts as membership. Reality: full-zk. Use cases: fair Kaspa token claims.', circuit: 'merkle_airdrop', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'full-zk', artifacts: true },
   { id: 'merkle_sparse', name: 'Merkle Sparse / Verkle Tree', description: 'Membership in sparse/Verkle tree (gas-efficient). Reality: oracle-attested (full-zk planned). Use cases: large set proofs on Kaspa. (vision §4.1)', circuit: 'merkle_sparse', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'oracle-attested' },
-  { id: 'range_proof', name: 'Range Proof', description: 'Full ZK: prove a committed value is within [min, max] without revealing it. MiMC7(value) commitment + 64-bit range, generated in your browser (the value never leaves it) and verified fail-closed by the disclosed oracle; the only on-chain check is the oracle co-signature, not chain-enforced. Use cases: collateral, age, balances on Kaspa covenants.', circuit: 'bulletproofs_v1', accent: '#22C55E', category: 'crypto', reality: 'full-zk' },
-  { id: 'range_collateral', name: 'Collateral Range Proof', description: 'Prove collateral >= loan amount * threshold without disclosing the amount, on the range_proof circuit. Its in-browser generator is not separately wired yet, so the disclosed oracle attests today (the backend Groth16-verifies a supplied proof fail-closed). Use cases: DeFi loans on Kaspa.', circuit: 'bulletproofs_collateral', accent: '#22C55E', category: 'crypto', variant: true, reality: 'oracle-attested' },
+  { id: 'range_proof', name: 'Range Proof', description: 'Full ZK: prove a committed value is within [min, max] without revealing it. MiMC7(value) commitment + 64-bit range, generated in your browser (the value never leaves it) and verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier; the only on-chain check is a 2-of-2 cosign + CSV timeout, not chain-enforced ZK. Use cases: collateral, age, balances on Kaspa covenants.', circuit: 'bulletproofs_v1', accent: '#22C55E', category: 'crypto', reality: 'full-zk' },
+  { id: 'range_collateral', name: 'Collateral Range Proof', description: 'Prove collateral >= loan amount * threshold without disclosing the amount, on the range_proof circuit. Its in-browser generator is not separately wired yet, so today a supplied Groth16 proof is verified OFF-CHAIN (snarkjs against the audited vkey) and a deployer-bound resolver co-signs the release. Use cases: DeFi loans on Kaspa.', circuit: 'bulletproofs_collateral', accent: '#22C55E', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'range_128bit', name: 'Range Proof 128/256-bit', description: 'Extended range for larger values (u128/u256). Reality: hybrid (current 64-bit base + attested). Use cases: high-value Kaspa UTXO/treasury proofs. (vision §4.1)', circuit: 'range_128', accent: '#22C55E', category: 'crypto', variant: true, reality: 'hybrid' },
   { id: 'schnorr_knowledge', name: 'Schnorr Knowledge Proof', description: 'Oracle-path (no artifacts yet): standard Sigma protocol - prove knowledge of discrete log without revealing it. Building block for ring sigs, DLCs. Artifacts planned. Reality: oracle-attested. Use cases: UTXO ownership on Kaspa.', circuit: 'schnorr_generic', accent: '#6366F1', category: 'crypto', reality: 'oracle-attested' },
   { id: 'pedersen_commitment', name: 'Pedersen Commitment', description: 'Oracle-path (no artifacts yet): homomorphic commitment scheme. Prove committed value satisfies linear equation. Used for UTXO amount hiding + range proof combo. Artifacts planned. Reality: oracle-attested. Use cases: private amounts in Kaspa covenants. (vision §4.1)', circuit: 'pedersen_generic', accent: '#8B5CF6', category: 'crypto', reality: 'oracle-attested' },
   { id: 'pedersen_curve_variant', name: 'Pedersen (Curve/Generator Variants)', description: 'Multiple curves/generators for Pedersen. Reality: oracle-attested (planned). Use cases: amount hiding + homomorphic in Kaspa DeFi/privacy. (vision §4.1)', circuit: 'pedersen_variant', accent: '#8B5CF6', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'hash_preimage', name: 'Hash Preimage Proof', description: 'Full ZK: Groth16 MiMC7 preimage proof (HTLC-style commitment). Honest limit: MiMC7 not SHA256/Blake2b. Artifacts in zk/hash_preimage/. Reality: full-zk. Use cases: HTLCs, timelocks, commitments on Kaspa.', circuit: 'hash_preimage', accent: '#F59E0B', category: 'crypto', reality: 'full-zk', artifacts: true },
   { id: 'poseidon_hash', name: 'Poseidon / MiMC7 / Rescue Hash', description: 'STARK-friendly hash variants for commitments. Reality: oracle-attested (circom planned). Use cases: efficient ZK in Kaspa (future STARKs). (vision §4.1)', circuit: 'poseidon_hash', accent: '#F59E0B', category: 'crypto', variant: true, reality: 'oracle-attested' },
-  { id: 'vrf_random', name: 'Committed Random (VRF)', description: 'Full ZK: output_val = Poseidon(hidden secret, public seed, VRF key), so a random value is provably forced by a committed secret and cannot be cherry-picked. Generated in your browser (the secret never leaves it), verified fail-closed by the disclosed oracle. Use cases: fair coin flips, card shuffles, lottery draws without a trusted dealer. (vision §4.1)', circuit: 'vrf_random', accent: '#EC4899', category: 'crypto', reality: 'full-zk', artifacts: true },
+  { id: 'vrf_random', name: 'Committed Random (VRF)', description: 'Full ZK: output_val = Poseidon(hidden secret, public seed, VRF key), so a random value is provably forced by a committed secret and cannot be cherry-picked. Generated in your browser (the secret never leaves it), verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Use cases: fair coin flips, card shuffles, lottery draws without a trusted dealer. (vision §4.1)', circuit: 'vrf_random', accent: '#EC4899', category: 'crypto', reality: 'full-zk', artifacts: true },
   { id: 'vrf_shuffle', name: 'VRF Shuffle (Deck)', description: 'Oracle-path (no artifacts yet): provably fair deck/card shuffle. Each player contributes entropy. No trusted dealer. Uses VRF building block. Reality: oracle-attested. Use cases: card games on Kaspa. (vision §4.1)', circuit: 'vrf_shuffle', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'vrf_permutation', name: 'VRF Permutation / Shuffle Full', description: 'Full permutation proof for VRF deck (beyond simple deal). Reality: oracle-attested (full zk planned). Use cases: provable fair shuffles for poker/mahjong etc. (vision §4.1 VRF)', circuit: 'vrf_permutation', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'commit_reveal_vrf', name: 'Commit-Reveal with ZK (VRF)', description: 'Hide commit until reveal; prove correct reveal + VRF derivation. Reality: oracle-attested. Use cases: sealed-bid + fair reveal in Kaspa auctions/games. (vision §4.1)', circuit: 'commit_reveal_vrf', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'distributed_random', name: 'Distributed Randomness Beacon', description: 'Multiple parties contribute; ZK for correctness + aggregation. Reality: oracle-attested. Use cases: multi-party fair random for Kaspa DAOs/tourneys. (vision §4.1)', circuit: 'distributed_random', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'bls_signature', name: 'BLS Threshold Signature', description: 'Oracle-path (no artifacts yet): aggregate BLS signatures for multi-oracle consensus. M-of-N threshold without revealing individual keys. Artifacts planned for multi-oracle federation. Reality: oracle-attested. Use cases: decentralized oracle on Kaspa covenants. (vision §4.1, §4.7)', circuit: 'bls_threshold', accent: '#14B8A6', category: 'crypto', reality: 'oracle-attested' },
-  { id: 'nullifier_set', name: 'Nullifier Set Proof', description: 'Full ZK: prove a public nullifier and set anchor both derive from one hidden secret (nullifier = Poseidon(secret), anchor = Poseidon(secret, nullifier)), so a covenant can reject a re-used nullifier without learning the secret. Generated in your browser, verified fail-closed by the disclosed oracle (which also tracks the spent set). Use cases: double-spend prevention in Kaspa privacy. (vision §4.1)', circuit: 'nullifier_set', accent: '#FB923C', category: 'crypto', reality: 'full-zk', artifacts: true },
+  { id: 'nullifier_set', name: 'Nullifier Set Proof', description: 'Full ZK: prove a public nullifier and set anchor both derive from one hidden secret (nullifier = Poseidon(secret), anchor = Poseidon(secret, nullifier)), so a covenant can reject a re-used nullifier without learning the secret. Generated in your browser, verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey); the deployer-bound resolver also tracks the spent set. Use cases: double-spend prevention in Kaspa privacy. (vision §4.1)', circuit: 'nullifier_set', accent: '#FB923C', category: 'crypto', reality: 'full-zk', artifacts: true },
   { id: 'schnorr_batch', name: 'Schnorr Batch / Threshold', description: 'Batch or threshold Schnorr knowledge. Reality: oracle-attested. Use cases: efficient multi-sig on Kaspa. (vision §4.1)', circuit: 'schnorr_batch', accent: '#6366F1', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'ring_signature', name: 'Ring Signature / Linkable', description: 'Anonymous but linkable (for anti-sybil) ring sigs. Reality: oracle-attested. Use cases: private voting/DAO actions on Kaspa. (vision §4.1)', circuit: 'ring_sig', accent: '#6366F1', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'shuffle_proof', name: 'Shuffle Proof (General)', description: 'ZK shuffle for decks or arbitrary lists. Reality: oracle-attested (RISC0). Use cases: fair random in games + private ordering. (vision §4.1)', circuit: 'shuffle_proof', accent: '#EC4899', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'recursive_verify', name: 'Recursive Proof Verification', description: 'Prove a Groth16/RISC0 proof inside another (aggregation). Reality: oracle-attested (future full). Use cases: batch 100 game outcomes in one Kaspa covenant. (vision §4.1, §4.9)', circuit: 'recursive_verify', accent: '#A855F7', category: 'crypto', variant: true, reality: 'oracle-attested' },
-  { id: 'commitment_open', name: 'Commitment Opening', description: 'Full ZK: prove you know the (value, blinding) opening of a public Poseidon commitment C = Poseidon(value, blinding), without revealing either. Foundational privacy primitive. Generated in your browser (the opening never leaves it), verified fail-closed by the disclosed oracle. Keys are a single-contributor Covex dev ceremony (not a production MPC). Use cases: hidden bids, sealed values, the opening half of commit-reveal. (vision §4.1)', circuit: 'commitment_open', accent: '#8B5CF6', category: 'crypto', reality: 'full-zk', artifacts: true },
-  { id: 'set_non_membership', name: 'Set Non-Membership (Blocklist)', description: 'Full ZK: prove a PRIVATE value is NOT in a sorted blocklist (depth-4 sorted Merkle), by bracketing it strictly between two adjacent blocked entries with a valid Merkle path. Sanctions-free / not-blocklisted attestation without revealing the value. Generated in your browser, verified fail-closed by the disclosed oracle. Dev ceremony keys, not a production MPC. Use cases: prove an address is not on a deny-list. (vision §4.1)', circuit: 'set_non_membership', accent: '#FB923C', category: 'crypto', reality: 'full-zk', artifacts: true },
-  { id: 'anon_membership_nullifier', name: 'Anonymous Membership + Nullifier', description: 'Full ZK: prove Merkle membership of a private identity commitment AND emit a deterministic public nullifier = Poseidon(identity, externalNullifier), so the same identity cannot act twice (one-person-one-action). Your identity stays in your browser; the disclosed oracle verifies fail-closed and tracks the spent nullifier set. Dev ceremony keys, not a production MPC. Use cases: anonymous voting, single-claim airdrops. (vision §4.1, §4.5)', circuit: 'anon_membership_nullifier', accent: '#EC4899', category: 'crypto', reality: 'full-zk', artifacts: true },
+  { id: 'commitment_open', name: 'Commitment Opening', description: 'Full ZK: prove you know the (value, blinding) opening of a public Poseidon commitment C = Poseidon(value, blinding), without revealing either. Foundational privacy primitive. Generated in your browser (the opening never leaves it), verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Keys are a single-contributor dev ceremony (not a production MPC). Use cases: hidden bids, sealed values, the opening half of commit-reveal. (vision §4.1)', circuit: 'commitment_open', accent: '#8B5CF6', category: 'crypto', reality: 'full-zk', artifacts: true },
+  { id: 'set_non_membership', name: 'Set Non-Membership (Blocklist)', description: 'Full ZK: prove a PRIVATE value is NOT in a sorted blocklist (depth-4 sorted Merkle), by bracketing it strictly between two adjacent blocked entries with a valid Merkle path. Sanctions-free / not-blocklisted attestation without revealing the value. Generated in your browser, verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Dev ceremony keys, not a production MPC. Use cases: prove an address is not on a deny-list. (vision §4.1)', circuit: 'set_non_membership', accent: '#FB923C', category: 'crypto', reality: 'full-zk', artifacts: true },
+  { id: 'anon_membership_nullifier', name: 'Anonymous Membership + Nullifier', description: 'Full ZK: prove Merkle membership of a private identity commitment AND emit a deterministic public nullifier = Poseidon(identity, externalNullifier), so the same identity cannot act twice (one-person-one-action). Your identity stays in your browser; the proof is verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey), and the deployer-bound resolver tracks the spent nullifier set. Dev ceremony keys, not a production MPC. Use cases: anonymous voting, single-claim airdrops. (vision §4.1, §4.5)', circuit: 'anon_membership_nullifier', accent: '#EC4899', category: 'crypto', reality: 'full-zk', artifacts: true },
 
   // ═══════════════════════════════════════════
   // KASPA and COVENANT NATIVE (detailed section 4.2, 20 plus. Highest priority)
   // "the why Covex on Kaspa" layer. UTXO, script, timelock, state, replay, fees, silverc.
   // ═══════════════════════════════════════════
-  { id: 'utxo_ownership', name: 'UTXO Note Proof', description: 'Full ZK: prove knowledge of the full Poseidon-committed UTXO note (pubkey x/y + amount + signature parts) behind a public utxo_hash, without revealing it. Generated in your browser, verified fail-closed by the disclosed oracle. Honest bound: this opens the commitment, it does not by itself verify a Schnorr signature, so it is a note-binding primitive (a separate signature circuit covers spend authorization). Use cases: binding covenants to committed Kaspa notes. (vision §4.2)', circuit: 'basic_utxo_ownership', accent: '#06B6D4', category: 'kaspa', reality: 'full-zk', artifacts: true },
+  { id: 'utxo_ownership', name: 'UTXO Note Proof', description: 'Full ZK: prove knowledge of the full Poseidon-committed UTXO note (pubkey x/y + amount + signature parts) behind a public utxo_hash, without revealing it. Generated in your browser, verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Honest bound: this opens the commitment, it does not by itself verify a Schnorr signature, so it is a note-binding primitive (a separate signature circuit covers spend authorization). Use cases: binding covenants to committed Kaspa notes. (vision §4.2)', circuit: 'basic_utxo_ownership', accent: '#06B6D4', category: 'kaspa', reality: 'full-zk', artifacts: true },
   { id: 'utxo_ownership_schnorr', name: 'UTXO Ownership + Amount Commitment', description: 'Schnorr + Pedersen amount hidden + range. Reality: hybrid (planned). Use cases: private balance ownership proofs for Kaspa covenants. (vision §4.2)', circuit: 'utxo_own_commit', accent: '#06B6D4', category: 'kaspa', variant: true, reality: 'hybrid' },
   { id: 'utxo_spend_auth', name: 'UTXO Spend Authority (N-of-M)', description: 'Oracle-path (no artifacts yet): enhanced multi-party UTXO spend. Prove N-of-M UTXO holders authorize a spend. Combines utxo_ownership + multisig_threshold. Reality: oracle-attested. Use cases: complex multi-owner Kaspa covenant unlocks. (vision §4.2)', circuit: 'utxo_spend_auth', accent: '#06B6D4', category: 'kaspa', variant: true, reality: 'oracle-attested' },
   { id: 'script_hash_match', name: 'Script Hash Validation', description: 'Oracle-path (no artifacts yet): prove a particular locking script (script_hash) was used. Verify covenant constraints on-chain. SilverScript -> Kaspa Script attestation. Core covenant primitive. Reality: oracle-attested. Use cases: prove exact SilverScript payload on Kaspa. (vision §4.2)', circuit: 'script_hash_match', accent: '#84CC16', category: 'kaspa', reality: 'oracle-attested' },
@@ -194,13 +194,13 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'collateral_loan', name: 'Collateralized Loan', description: 'Hybrid: prove locked collateral >= loan * threshold. Liquidation trigger on price feed. ZK range proof for collateral + oracle price attestation. Multi-oracle consensus for price. Reality: hybrid. Use cases: Kaspa collateralized lending covenants. (vision §4.4)', circuit: 'collateral_loan', accent: '#DC2626', category: 'defi', reality: 'hybrid' },
   { id: 'liquidation_threshold', name: 'Liquidation Threshold', description: 'Hybrid: prove collateral value < liquidation threshold via oracle price + ZK range proof. Automatic liquidation trigger for under-collateralized positions. Multi-oracle price consensus. Reality: hybrid. Use cases: auto-liquidate Kaspa loans. (vision §4.4)', circuit: 'liq_threshold', accent: '#DC2626', category: 'defi', reality: 'hybrid' },
   { id: 'collateral_ltv', name: 'LTV / Health Factor Proof', description: 'Hybrid: prove LTV safety from collateral/debt/maxLtv (dev pot10 Groth16 + real verify). Use cases: dynamic collateral covenants on Kaspa. (vision §4.4)', circuit: 'collateral_ltv', accent: '#DC2626', category: 'defi', variant: true, reality: 'hybrid', artifacts: true },
-  { id: 'balance_threshold', name: 'Balance Threshold (KYC-free)', description: 'Full ZK: prove a committed balance meets a minimum (balance >= min_balance) WITHOUT revealing the balance, from commitment = Poseidon(balance, salt). valid is a public output the oracle requires == 1, so an under-threshold balance produces a verifying proof that FAILS the gate. The balance stays in your browser; verified fail-closed by the disclosed oracle. Dev ceremony keys, not a production MPC. Use cases: KYC-free solvency / income / accredited-investor gating on Kaspa covenants. (vision §4.4, §4.8)', circuit: 'balance_threshold', accent: '#22C55E', category: 'defi', reality: 'full-zk', artifacts: true },
-  { id: 'solvency_sum', name: 'Proof of Reserves', description: 'Full ZK: prove the sum of four committed reserve buckets (each C_i = Poseidon(amount_i, salt_i)) meets a public threshold, HIDING every amount. valid is a public output the oracle requires == 1, so a custodian short of the threshold cannot pass the gate. Generated in your browser, verified fail-closed by the disclosed oracle. Dev ceremony keys, not a production MPC. Use cases: exchange / treasury proof of reserves on Kaspa. (vision §4.4)', circuit: 'solvency_sum', accent: '#10B981', category: 'defi', reality: 'full-zk', artifacts: true },
+  { id: 'balance_threshold', name: 'Balance Threshold (KYC-free)', description: 'Full ZK: prove a committed balance meets a minimum (balance >= min_balance) WITHOUT revealing the balance, from commitment = Poseidon(balance, salt). valid is a public output the verifier requires == 1, so an under-threshold balance produces a verifying proof that FAILS the gate. The balance stays in your browser; verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Dev ceremony keys, not a production MPC. Use cases: KYC-free solvency / income / accredited-investor gating on Kaspa covenants. (vision §4.4, §4.8)', circuit: 'balance_threshold', accent: '#22C55E', category: 'defi', reality: 'full-zk', artifacts: true },
+  { id: 'solvency_sum', name: 'Proof of Reserves', description: 'Full ZK: prove the sum of four committed reserve buckets (each C_i = Poseidon(amount_i, salt_i)) meets a public threshold, HIDING every amount. valid is a public output the verifier requires == 1, so a custodian short of the threshold cannot pass the gate. Generated in your browser, verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Dev ceremony keys, not a production MPC. Use cases: exchange / treasury proof of reserves on Kaspa. (vision §4.4)', circuit: 'solvency_sum', accent: '#10B981', category: 'defi', reality: 'full-zk', artifacts: true },
   { id: 'yield_accrual', name: 'Yield Accrual Snapshot', description: 'Oracle-attested: verifiable yield/interest calculation over time. A = P * (1+r)^t. Oracle provides rate attestation + on-chain time proof. ZK for calculation accuracy planned. Reality: oracle-attested. Use cases: Kaspa lending yield claims. (vision §4.4)', circuit: 'yield_accrual', accent: '#FBBF24', category: 'defi', reality: 'oracle-attested' },
   { id: 'yield_compounding', name: 'Compounding Yield Proof', description: 'Oracle-attested: verifiable compound interest over N periods. A = P * (1+r)^n with oracle-attested rate per period. Useful for lending pools, staking rewards, DAO treasury growth. Reality: oracle-attested. Use cases: compound on Kaspa treasuries. (vision §4.4)', circuit: 'yield_compound', accent: '#FBBF24', category: 'defi', variant: true, reality: 'oracle-attested' },
   { id: 'token_gated', name: 'Token-Gated Access', description: 'Hybrid: prove ownership of a specific token/NFT via merkle + UTXO proof. Gated covenant entry, premium features. Uses merkle_membership artifacts for the ZK part. Reality: hybrid. Use cases: premium Kaspa features gated by holdings. (vision §4.4, §4.8)', circuit: 'token_gated', accent: '#D946EF', category: 'defi', reality: 'hybrid' },
   { id: 'pot_distribution', name: 'Multi-Party Pot Split', description: 'Oracle-attested: verifiable split of total pot among N participants. Weighted by stake, score, or predefined shares. On-chain verifiable math. ZK planned. Reality: oracle-attested. Use cases: all Kaspa pot payouts (games + DeFi). (vision §4.4)', circuit: 'pot_split', accent: '#FB923C', category: 'defi', reality: 'oracle-attested' },
-  { id: 'escrow_2party', name: '2-Party Escrow', description: 'Full ZK: DAA timelock escrow - outcome 0 = timeout refund, 1 = still locked. Groth16 proof verified off-chain by the disclosed Covex oracle (fail-closed); the only on-chain check is the oracle co-signature, not chain-enforced. Dev pot10 Groth16. Use cases: simple Kaspa escrow deals with honest timeout refund. (vision §4.4)', circuit: 'escrow_2party', accent: '#38BDF8', category: 'defi', reality: 'full-zk', artifacts: true },
+  { id: 'escrow_2party', name: '2-Party Escrow', description: 'Full ZK: DAA timelock escrow - outcome 0 = timeout refund, 1 = still locked. A real Groth16 proof, verified OFF-CHAIN (by you, the counterparty, or any external verifier; snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier; the only on-chain check is a 2-of-2 cosign + CSV timeout, not chain-enforced ZK. Dev pot10 Groth16. Use cases: simple Kaspa escrow deals with honest timeout refund. (vision §4.4)', circuit: 'escrow_2party', accent: '#38BDF8', category: 'defi', reality: 'full-zk', artifacts: true },
   { id: 'escrow_multiparty', name: 'Multi-Party Escrow', description: 'Oracle-attested: N-party escrow with M-of-N release threshold. Milestone-based with oracle verification. Combines timelock + multisig. Reality: oracle-attested. Use cases: milestone Kaspa projects. (vision §4.4)', circuit: 'escrow_multi', accent: '#38BDF8', category: 'defi', variant: true, reality: 'oracle-attested' },
   { id: 'auction_dutch', name: 'Dutch Auction', description: 'Oracle-attested: price descends linearly over blocks. First bidder wins at current price. Verifiable price curve via oracle timestamp + range. Reality: oracle-attested. Use cases: Kaspa Dutch auction covenants. (vision §4.4)', circuit: 'auction_dutch', accent: '#A78BFA', category: 'defi', reality: 'oracle-attested' },
   { id: 'auction_english', name: 'English Auction', description: 'Oracle-attested: ascending bids, reserve price, time extension on late bids. Verifiable bid ordering. Oracle timestamp. Reality: oracle-attested. Use cases: ascending Kaspa auctions. (vision §4.4)', circuit: 'auction_english', accent: '#A78BFA', category: 'defi', variant: true, reality: 'oracle-attested' },
@@ -287,7 +287,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'nft_gating', name: 'NFT Ownership Gating', description: 'Hybrid: prove ownership of a specific NFT collection via merkle + UTXO proof. Gated covenant entry, premium game access, token-gated communities. Uses merkle artifacts. Reality: hybrid. Use cases: NFT-gated Kaspa clubs/arenas. (vision §4.8)', circuit: 'nft_gating', accent: '#D946EF', category: 'gating', reality: 'hybrid' },
   { id: 'nft_collection_gating', name: 'NFT Collection + Trait Gating', description: 'Merkle + trait range (e.g. rarity > X). Reality: hybrid. Use cases: trait-based access on Kaspa. (vision §4.8)', circuit: 'nft_trait_gate', accent: '#D946EF', category: 'gating', variant: true, reality: 'hybrid' },
   { id: 'reputation_threshold', name: 'Reputation Threshold', description: 'Oracle-path (no artifacts yet): prove on-chain reputation >= threshold via nullifier + range proof. Reputation-based matchmaking, trust scoring. Nullifier prevents double-counting. Reality: oracle-attested. Use cases: trust-gated Kaspa matchmaking. (vision §4.8)', circuit: 'rep_threshold', accent: '#FB923C', category: 'gating', reality: 'oracle-attested' },
-  { id: 'age_verification', name: 'Age Verification (KYC-free)', description: 'Full ZK: MiMC birth-year commitment + prove age >= min_age without revealing birth year. Groth16 proof verified off-chain by the disclosed Covex oracle (fail-closed); the only on-chain check is the oracle co-signature, not chain-enforced. Dev pot10 Groth16. Reality: full-zk. Use cases: age-gated Kaspa communities without KYC. (vision §4.8)', circuit: 'age_verify_v1', accent: '#9CA3AF', category: 'gating', reality: 'full-zk', artifacts: true },
+  { id: 'age_verification', name: 'Age Verification (KYC-free)', description: 'Full ZK: MiMC birth-year commitment + prove age >= min_age without revealing birth year. A real Groth16 proof, verified OFF-CHAIN (by you, the counterparty, or any external verifier; snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier; the only on-chain check is a 2-of-2 cosign + CSV timeout, not chain-enforced ZK. Dev pot10 Groth16. Reality: full-zk. Use cases: age-gated Kaspa communities without KYC. (vision §4.8)', circuit: 'age_verify_v1', accent: '#9CA3AF', category: 'gating', reality: 'full-zk', artifacts: true },
   { id: 'credential_edu', name: 'Credential: Education / Cert Proof', description: 'Prove degree or cert from issuer without PII. Reality: oracle-attested. Use cases: professional gated Kaspa DAOs. (vision §4.8)', circuit: 'cred_edu', accent: '#9CA3AF', category: 'gating', variant: true, reality: 'oracle-attested' },
   { id: 'credential_income', name: 'Credential: Income Bracket Proof', description: 'Prove bracket (e.g. >$X) via range/issuer without exact. Reality: oracle-attested. Use cases: tiered access. (vision §4.8)', circuit: 'cred_income', accent: '#9CA3AF', category: 'gating', variant: true, reality: 'oracle-attested' },
   { id: 'private_group_member', name: 'Private Group / DAO Membership', description: 'Merkle or accumulator prove member without revealing which. Reality: hybrid. Use cases: gated private Kaspa groups. (vision §4.8)', circuit: 'priv_group', accent: '#8B5CF6', category: 'gating', variant: true, reality: 'hybrid' },
@@ -338,12 +338,12 @@ const ZK_CIRCUIT_TYPES_RAW = [
 // Per-reality visual treatment for the circuit cards: an accent colour + a readable pill label.
 // HONEST taxonomy for a mainnet-live world: there is NO on-chain pairing verifier on Kaspa, so a
 // Groth16 proof is never checked on-chain. Every ZK circuit is therefore oracle-attested: the proof
-// (when one exists) is verified OFF-CHAIN by the disclosed Covex oracle (fail-closed), and only the
-// oracle's BIP340 co-signature is checked on-chain (Schnorr). 'full-zk' is NEVER rendered as a badge
-// here; the post-processing below collapses it to 'oracle-attested'. 'hybrid' likewise routes to the
-// oracle-attested label so no card claims trustless / on-chain ZK. Circuits with a real in-browser
-// Groth16 prover keep their separate "in-browser prover" chip (a true capability), but the proof is
-// still oracle-verified off-chain, not on-chain.
+// (when one exists) is verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs
+// against the audited vkey), and only a 2-of-2 cosign + CSV timeout is checked on-chain (Schnorr).
+// 'full-zk' is NEVER rendered as a badge here; the post-processing below collapses it to
+// 'oracle-attested'. 'hybrid' likewise routes to the oracle-attested label so no card claims trustless
+// / on-chain ZK. Circuits with a real in-browser Groth16 prover keep their separate "in-browser prover"
+// chip (a true capability), but the proof is still verified off-chain, not on-chain.
 const REALITY_META = {
   'full-zk':         { label: 'Oracle-attested', short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
   'hybrid':          { label: 'Oracle-attested', short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
@@ -357,19 +357,20 @@ const realityMeta = (r) => REALITY_META[r] || REALITY_META['oracle-attested'];
 // end-to-end today: a working in-browser prover (IN_BROWSER_PROVERS) and/or a fail-closed backend
 // Groth16 verify (STRICT_GROTH16). That is exactly the `zkVerifiedOffChain` flag the post-processor
 // computes below from the canonical registry sets, so this tier CANNOT drift from what really
-// verifies. Everything else is "roadmap": fully buildable, but resolved by the disclosed oracle
-// attesting the outcome, with no dedicated prover wired yet. The badge is distinct from the
+// verifies. Everything else is "roadmap": fully buildable, but resolved by a deployer-bound external
+// resolver attesting the outcome, with no dedicated prover wired yet. The badge is distinct from the
 // enforcement-reality (Oracle-attested) badge: enforcement says HOW the outcome is checked on-chain
-// (always the oracle co-signature), readiness says WHETHER a real proof exists for it yet.
+// (a 2-of-2 cosign + CSV timeout), readiness says WHETHER a real proof exists for it yet.
 const READINESS_META = {
   production: { label: 'Production', short: 'Production', text: 'text-emerald-300 light:text-emerald-700', bg: 'bg-emerald-500/12 light:bg-emerald-50', border: 'border-emerald-500/35 light:border-emerald-300' },
   roadmap:    { label: 'Roadmap',    short: 'Roadmap',    text: 'text-violet-300 light:text-violet-700',   bg: 'bg-violet-500/12 light:bg-violet-50',   border: 'border-violet-500/35 light:border-violet-300' },
 };
 const readinessMeta = (tier) => READINESS_META[tier] || READINESS_META.roadmap;
 // Rewrite legacy "Full ZK" / "Hybrid" prose to the honest mainnet framing: the proof is verified
-// OFF-CHAIN by the disclosed Covex oracle (fail-closed), the trusted setup is a single-contributor
-// dev ceremony (not a production MPC), and there is no on-chain proof verification. We never use the
-// words full-zk, trustless, or on-chain ZK to describe a circuit's verification.
+// OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey),
+// the trusted setup is a single-contributor dev ceremony (not a production MPC), and there is no
+// on-chain proof verification. We never use the words full-zk, trustless, or on-chain ZK to describe
+// a circuit's verification.
 const scrubZkProse = (d) =>
   (d || '')
     .replace(/^Full ZK:\s*/i, 'Oracle-attested: ')
@@ -442,11 +443,12 @@ const scrubRoadmapProse = (d, isRoadmap = true) => {
 // HONEST REALITY for a mainnet-live world (no on-chain pairing verifier on Kaspa): NO circuit is
 // on-chain ZK. Every 'full-zk' and 'hybrid' label is collapsed to 'oracle-attested' here, so no card
 // ever renders a Zero-knowledge / trustless / on-chain badge. The verification that actually happens
-// is: the Groth16 proof (when a prover exists) is checked OFF-CHAIN by the disclosed oracle
-// fail-closed, and only the oracle's BIP340 co-signature is verified on-chain (Schnorr). Circuits in
-// VERIFIED_FULL_ZK / IN_BROWSER_PROVERS still genuinely produce a real proof in your browser - that
-// capability is surfaced as a separate "in-browser prover" chip - but the proof is oracle-verified
-// off-chain, not on-chain. This is a pure downgrade; it never promotes a circuit's claim.
+// is: the Groth16 proof (when a prover exists) is checked OFF-CHAIN by you, the counterparty, or any
+// external verifier (snarkjs against the audited vkey), and only a 2-of-2 cosign + CSV timeout is
+// verified on-chain (Schnorr). Circuits in VERIFIED_FULL_ZK / IN_BROWSER_PROVERS still genuinely
+// produce a real proof in your browser - that capability is surfaced as a separate "in-browser prover"
+// chip - but the proof is verified off-chain, not on-chain. This is a pure downgrade; it never
+// promotes a circuit's claim.
 // De-dupe by id (the raw list has a couple of repeats, e.g. relative_timelock):
 // keep the first occurrence so React keys stay unique and the circuit list never double-renders.
 const _seenCircuitIds = new Set();
@@ -591,7 +593,7 @@ export function generateSilverScriptForConfig(cfg) {
           covenantName: 'ChessDuelCovenant',
           outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw',
           outcomeBranches: `      // 2% platform fee already taken at resolution (winner takes all minus fee)
-      // FIDE RULESET (enforced by the oracle-attested server engine, not a ZK circuit):
+      // FIDE RULESET (enforced by the deterministic server-authoritative engine, not a ZK circuit):
       // • Standard 8x8 starting position + all piece movement rules
       // • Pawn: forward only, double-step from rank 2/7, captures diagonally, en passant
       // • Knight: L-shape (2,1), can jump
@@ -707,17 +709,17 @@ export function generateSilverScriptForConfig(cfg) {
       resolveBlock = `\n  ;; ── Resolution: Custom Oracle\n  ;; Key: ${(customOracleKey || '').slice(0, 16)}...`;
       break;
     default:
-      resolveBlock = `\n  ;; ── Resolution: Covex Oracle (standard)`;
+      resolveBlock = `\n  ;; ── Resolution: deployer-bound resolver co-signature`;
       break;
   }
 
   const topupsBlock = allowTopups ? '\n  ;; Allow top-ups after creation\n  OpAddToPot' : '';
   const reusableBlock = reusable ? '\n  ;; Reusable covenant\n  OpReuseCovenant' : '';
-  // Chess clock config: base time per side + Fischer increment. Enforced by the oracle's
-  // server-authoritative clock (only the player-to-move clock decrements; zero = loss).
+  // Chess clock config: base time per side + Fischer increment. Enforced by the
+  // server-authoritative engine clock (only the player-to-move clock decrements; zero = loss).
   const isChess = gameType.startsWith('chess');
   const clockBlock = isChess
-    ? `\n  ;; ── Per-turn clock (oracle-enforced, server-authoritative)
+    ? `\n  ;; ── Per-turn clock (server-authoritative engine)
   ;; Each side starts with ${chessBaseMinutes} min; +${chessIncrementSeconds}s added after each move.
   ;; Only the player-to-move clock decrements; reaching zero is an automatic loss.
   clock_base_ms:    ${chessBaseMinutes * 60 * 1000}
@@ -729,7 +731,7 @@ export function generateSilverScriptForConfig(cfg) {
 ;; Game: ${GAME_TYPES.find(g => g.id === gameType)?.name || gameType}
 ;; Fee: ${feePercent}% | Resolution: ${resolutionMode}${isChess ? ` | Time: ${chessBaseMinutes}m + ${chessIncrementSeconds}s` : ''}
 ;; Generated by Covex Premium Builder
-${isChess ? ";; Chess is resolved by Covex's server-authoritative engine enforcing the full FIDE ruleset (castling, en passant, 50-move, repetition, checkmate); the disclosed oracle co-signs only the engine-verified outcome. There is no chess ZK circuit (full FIDE in a SNARK is not shipped)." : ''}
+${isChess ? ";; Chess is resolved by a server-authoritative engine enforcing the full FIDE ruleset (castling, en passant, 50-move, repetition, checkmate); the result is computed deterministically by replaying the signed move log (anyone can recompute), then the counterparty or a deployer-bound external resolver co-signs the release. There is no chess ZK circuit (full FIDE in a SNARK is not shipped)." : ''}
 ;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Covenant ${gameMeta.covenantName} {
@@ -1700,7 +1702,7 @@ contract VisualCovenant {
         resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier key: ${zkVerifierKey || '(built-in)'}\n  ;; Full FIDE chess ruleset proven (castling/en-passant/checkmate/50-move/repetition)\n  OpZkVerify ${zkVerifierKey || '0x00'} ;; circuit: ${zkCircuit}`;
         break;
       default:
-        resolveBlock = `\n  ;; ── Resolution: Covex Oracle (default)\n  OpCheckSig covex_oracle_pubkey`;
+        resolveBlock = `\n  ;; ── Resolution: deployer-bound resolver co-signature\n  OpCheckSig resolver_pubkey ;; resolver_pubkey (deployer-bound)`;
         break;
     }
 
@@ -2827,9 +2829,9 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-start gap-3">
             <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5 light:text-amber-600" />
             <div className="text-[11px] text-amber-300/90 leading-relaxed light:text-amber-800">
-              <strong className="text-amber-200 light:text-amber-900">Technical reality:</strong> Every circuit here is oracle-attested. Kaspa has no on-chain pairing verifier, so a Groth16 proof is never checked on-chain. Where a circuit has a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock, committed-random VRF, turn timer, script constraint, pot split) a real Groth16 proof is generated in your browser and verified OFF-CHAIN by the disclosed Covex oracle (fail-closed: a missing or invalid proof is rejected). The remaining circuits are attested by the oracle without a proof. In all cases the trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC.
-              <strong className="text-amber-200 light:text-amber-900"> Oracle attestation IS live:</strong> POST /api/oracle/verify-and-sign verifies any supplied proof off-chain and returns a real BIP340-signed outcome.
-              The oracle co-signature is the only thing checked on-chain (Schnorr) at covenant unlock. There is no on-chain proof verification.
+              <strong className="text-amber-200 light:text-amber-900">Technical reality:</strong> Every circuit here is oracle-attested. Kaspa has no on-chain pairing verifier, so a Groth16 proof is never checked on-chain. Where a circuit has a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock, committed-random VRF, turn timer, script constraint, pot split) a real Groth16 proof is generated in your browser and verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey; fail-closed: a missing or invalid proof is rejected). The remaining circuits are attested by a deployer-bound external resolver without a proof. In all cases the trusted setup is a single-contributor dev ceremony, not a production multi-party MPC.
+              <strong className="text-amber-200 light:text-amber-900"> Off-chain verification IS live:</strong> POST /api/oracle/verify-and-sign verifies any supplied proof off-chain and returns a real BIP340-signed outcome that a deployer-bound resolver can co-sign.
+              The release gates on a 2-of-2 cosign + CSV timeout checked on-chain (Schnorr) at covenant unlock. There is no on-chain proof verification.
             </div>
           </div>
         </div>
@@ -2919,7 +2921,7 @@ ${gameMeta.outcomeBranches}
                   <div className="relative mb-1">
                     <span
                       title={isRoadmap
-                        ? 'Roadmap circuit: buildable today and resolved by the disclosed Covex oracle, with no dedicated proof generator wired yet.'
+                        ? 'Roadmap circuit: buildable today and resolved by a deployer-bound external resolver, with no dedicated proof generator wired yet.'
                         : 'Production circuit: ships a real Groth16 prover and/or fail-closed verifier, verified end-to-end (valid accepted, tampered rejected).'}
                       className={`inline-flex items-center gap-1 text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border ${tier.bg} ${tier.text} ${tier.border}`}
                     >
@@ -2981,7 +2983,7 @@ ${gameMeta.outcomeBranches}
                   <span className="text-[10px] text-gray-500 light:text-slate-400">{production.length}</span>
                 </div>
                 <p className="text-[10px] text-gray-400 mb-2 light:text-slate-500">
-                  Ship a real Groth16 prover and/or fail-closed verifier, proven end-to-end (valid accepted, tampered rejected). Verified off-chain by the disclosed Covex oracle.
+                  Ship a real Groth16 prover and/or fail-closed verifier, proven end-to-end (valid accepted, tampered rejected). Verified off-chain by you, the counterparty, or any external verifier (snarkjs against the audited vkey).
                 </p>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                   {production.map(renderCard)}
@@ -2999,7 +3001,7 @@ ${gameMeta.outcomeBranches}
                 {showRoadmapZK && (
                   <>
                     <p className="text-[10px] text-gray-400 mt-2 mb-2 light:text-slate-500">
-                      Buildable today and resolved by the disclosed Covex oracle, but with no dedicated proof generator wired yet. They are honest previews, not finished ZK features.
+                      Buildable today and resolved by a deployer-bound external resolver, but with no dedicated proof generator wired yet. They are honest previews, not finished ZK features.
                     </p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                       {roadmap.map(renderCard)}
@@ -3056,7 +3058,7 @@ ${gameMeta.outcomeBranches}
             <div className="mt-3 ml-2 pl-4 border-l-2 border-kaspa-green/20 space-y-4">
               <div className="text-[10px] text-amber-300/80 leading-relaxed">
                 <AlertTriangle size={10} className="inline mr-1 text-amber-400" />
-                Circuit specifications detail the ZK proving design and constraint targets. Verification is oracle-attested: any proof is checked off-chain by the disclosed Covex oracle (fail-closed) and the oracle co-signature is verified on-chain (Schnorr). Kaspa has no on-chain pairing verifier, so there is no on-chain proof checking.
+                Circuit specifications detail the ZK proving design and constraint targets. Verification is off-chain: any proof is checked by you, the counterparty, or any external verifier (snarkjs against the audited vkey; fail-closed) and a deployer-bound resolver co-signs, with the release gating on a 2-of-2 cosign + CSV timeout verified on-chain (Schnorr). Kaspa has no on-chain pairing verifier, so there is no on-chain proof checking.
               </div>
               {(() => {
                 const details = (() => {
@@ -3112,9 +3114,9 @@ ${gameMeta.outcomeBranches}
                         verifierKey: zkVerifierKey || '0xRISC0_GENERIC_V1',
                         publicInputs: ['Program image ID (hash)', 'Output commitment', 'Input commitment'],
                         privateWitness: ['Full execution trace of the RISC-V program', 'Memory state at each cycle'],
-                        whatItProves: 'The design goal: a program, run on the committed input, produces the committed output, provable without re-executing it. Honest status: this is a roadmap tier. The backend does NOT verify a RISC Zero receipt today (the verifier is a fail-closed stub), so resolution is oracle-attested - the disclosed Covex oracle attests the outcome.',
+                        whatItProves: 'The design goal: a program, run on the committed input, produces the committed output, provable without re-executing it. Honest status: this is a roadmap tier. The backend does NOT verify a RISC Zero receipt today (the verifier is a fail-closed stub), so resolution is attested by a deployer-bound external resolver the creator binds by pubkey at deploy.',
                         gasEstimate: '~100K-1M constraints (program-dependent)',
-                        covenantFlow: 'Today: an off-chain worker submits the output and the disclosed Covex oracle attests it, releasing the payout (oracle-attested). Roadmap: once receipt verification against the program image ID ships, the proof itself can gate the payout.',
+                        covenantFlow: 'Today: an off-chain worker submits the output and a deployer-bound external resolver attests it, co-signing the release. Roadmap: once receipt verification against the program image ID ships, the proof itself can gate the payout.',
                       };
                     default:
                       return {
@@ -3123,9 +3125,9 @@ ${gameMeta.outcomeBranches}
                         verifierKey: zkVerifierKey || '(manual entry required)',
                         publicInputs: ['User-defined public inputs'],
                         privateWitness: ['User-defined private witness'],
-                        whatItProves: 'Supply any audited ZK circuit. The verifier key is recorded as covenant metadata today; it is not yet an on-chain verifier (Kaspa has no pairing verifier until KIP-16/Toccata). Until then, resolution runs through the disclosed Covex oracle. On-chain verification against your own key is on the roadmap.',
+                        whatItProves: 'Supply any audited ZK circuit. The verifier key is recorded as covenant metadata today; it is not yet an on-chain verifier (Kaspa has no pairing verifier until KIP-16/Toccata). Until then, resolution runs through a deployer-bound external resolver the creator binds by pubkey at deploy. On-chain verification against your own key is on the roadmap.',
                         gasEstimate: 'Unknown (circuit-dependent)',
-                        covenantFlow: 'Depositor locks KAS and records a verifier key as metadata. Resolution today goes through the disclosed Covex oracle; once on-chain pairing verification ships (KIP-16/Toccata), the covenant can verify a proof against this key directly.',
+                        covenantFlow: 'Depositor locks KAS and records a verifier key as metadata. Resolution today goes through a deployer-bound external resolver; once on-chain pairing verification ships (KIP-16/Toccata), the covenant can verify a proof against this key directly.',
                       };
                   }
                 })();
@@ -3199,12 +3201,12 @@ ${gameMeta.outcomeBranches}
             {[
               {
                 id: 'zk', icon: Cpu, title: 'ZK Proof (Zero-Knowledge)',
-                desc: 'A real Groth16 proof is generated in your browser, so player data stays private, and verified FAIL-CLOSED by the disclosed Covex oracle (Kaspa has no on-chain pairing verifier yet). Only a proof the oracle verifies releases the funds; an invalid or missing proof is rejected.',
+                desc: 'A real Groth16 proof is generated in your browser, so player data stays private, and verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey; Kaspa has no on-chain pairing verifier yet). Only a proof that verifies releases the funds; an invalid or missing proof is rejected.',
                 tier: 'Recommended for on-chain games',
               },
               {
-                id: 'oracle', icon: Shield, title: 'Covex Oracle (engine result)',
-                desc: 'For engine-resolved games only (chess, poker, dice). Covex replays the public move log, a result anyone can recompute, and co-signs it. Use this only when the outcome is a deterministic game result. For a real-world fact (a match score, a price, weather) choose External Resolver instead: Covex does not attest outside events.',
+                id: 'oracle', icon: Shield, title: 'Deterministic engine result (resolver co-signed)',
+                desc: 'For engine-resolved games only (chess, poker, dice). A server-authoritative engine replays the public move log, a result anyone can recompute, then the counterparty or a deployer-bound external resolver co-signs the release. Use this only when the outcome is a deterministic game result. For a real-world fact (a match score, a price, weather) choose External Resolver instead: Covex does not attest outside events.',
                 tier: 'Deterministic game results only',
               },
               {
@@ -3434,7 +3436,7 @@ ${gameMeta.outcomeBranches}
           </div>
 
           <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed -mt-1">
-            Client-side chess.js validates all FIDE rules locally. After the game, results are submitted to the live Covex Oracle (POST /api/oracle/verify-and-sign), which replays the move log server-side and returns a real BIP340-signed outcome. The oracle co-signature is verified on-chain (Schnorr) at covenant unlock. This is oracle-attested, not an on-chain ZK proof: Kaspa has no on-chain pairing verifier.
+            Client-side chess.js validates all FIDE rules locally. After the game, the signed move log is submitted to a server-authoritative engine (POST /api/oracle/verify-and-sign) that replays it deterministically (anyone can recompute) and returns a real BIP340-signed outcome; the counterparty or a deployer-bound external resolver co-signs the release. The release gates on a 2-of-2 cosign + CSV timeout verified on-chain (Schnorr) at covenant unlock. This is oracle-attested, not an on-chain ZK proof: Kaspa has no on-chain pairing verifier.
           </p>
 
           {/* Stake + Pot Summary - requires equal stake from both sides before pro play */}
@@ -3622,7 +3624,7 @@ ${gameMeta.outcomeBranches}
           </div>
 
           <div className="text-[10px] text-gray-400 light:text-slate-500 px-1">
-            chess.js validates all FIDE rules client-side. After both sides stake the same amount the full-screen professional arena (chess.com smooth: large board, clocks, move list) becomes available. Results submitted to live oracle for signed attestation (real ZK when circuit ready).
+            chess.js validates all FIDE rules client-side. After both sides stake the same amount the full-screen professional arena (chess.com smooth: large board, clocks, move list) becomes available. The signed move log is replayed deterministically by a server-authoritative engine (anyone can recompute) and the counterparty or a deployer-bound external resolver co-signs the release (real ZK when circuit ready).
           </div>
         </section>
       )}
@@ -4254,11 +4256,11 @@ ${gameMeta.outcomeBranches}
         </p>
 
         <div className="space-y-3">
-          {/* Covex Oracle */}
+          {/* Deterministic engine result (resolver co-signed) */}
           <ResolutionCard
             icon={Shield}
-            title="Covex Oracle (engine result)"
-            desc="For engine-resolved games only: Covex replays the public move log (a result anyone can recompute) and co-signs it. Not for real-world facts. For a match score, a price, or weather, choose External Resolver below: Covex does not attest outside events."
+            title="Deterministic engine result (resolver co-signed)"
+            desc="For engine-resolved games only: a server-authoritative engine replays the public move log (a result anyone can recompute), then the counterparty or a deployer-bound external resolver co-signs the release. Not for real-world facts. For a match score, a price, or weather, choose External Resolver below: Covex does not attest outside events."
             selected={resolutionMode === 'oracle'}
             onClick={() => setResolutionMode('oracle')}
             accent="kaspa-green"
@@ -4291,7 +4293,7 @@ ${gameMeta.outcomeBranches}
           <ResolutionCard
             icon={Zap}
             title="ZK Proof (Zero-Knowledge)"
-            desc="A real Groth16 proof is generated in your browser to keep your data private, then verified fail-closed by the disclosed Covex oracle (Kaspa has no on-chain pairing verifier yet). Only a verified proof releases the funds. Choose a pre-built circuit or provide your own verifier key."
+            desc="A real Groth16 proof is generated in your browser to keep your data private, then verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey; Kaspa has no on-chain pairing verifier yet). Only a verified proof releases the funds. Choose a pre-built circuit or provide your own verifier key."
             selected={resolutionMode === 'zk'}
             onClick={() => setResolutionMode('zk')}
             accent="purple"
@@ -4402,11 +4404,11 @@ ${gameMeta.outcomeBranches}
 
           <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed">
             {gameType === 'range_proof'
-              ? 'Paste (or generate) a Groth16 proof for the RangeProof circuit. Proves knowledge of a value inside [min, max] without revealing it. Verified by the Covex Oracle (snarkjs + vkey). Valid proof (valid=1) produces signed outcome 0 (proven/claimant).'
+              ? 'Paste (or generate) a Groth16 proof for the RangeProof circuit. Proves knowledge of a value inside [min, max] without revealing it. Verified off-chain by you, the counterparty, or any external verifier (snarkjs + the audited vkey). Valid proof (valid=1) produces signed outcome 0 (proven/claimant).'
               : gameType === 'merkle_membership'
-              ? 'Paste a Groth16 proof for the MerkleMembership circuit. The proof is verified off-chain by the Covex Oracle using snarkjs against the audited verification key. A valid proof produces a signed outcome (claimant wins at outcome 0; depositor wins at outcome 1). The signature is then used to unlock the covenant on-chain.'
+              ? 'Paste a Groth16 proof for the MerkleMembership circuit. The proof is verified off-chain by you, the counterparty, or any external verifier using snarkjs against the audited verification key. A valid proof produces a signed outcome (claimant wins at outcome 0; depositor wins at outcome 1). The deployer-bound resolver co-signature is then used to unlock the covenant on-chain.'
               : gameType === 'age_verification'
-              ? 'Generate (or paste) a Groth16 proof for the Age Verification circuit. The MiMC7 birth-year commitment is computed locally and the proof is generated in-browser over the served wasm/zkey artifacts, so your birth year never leaves the device. Proves a birthdate meets an age threshold without revealing the exact date. The Covex Oracle verifies the proof off-chain (snarkjs + vkey) and signs the outcome.'
+              ? 'Generate (or paste) a Groth16 proof for the Age Verification circuit. The MiMC7 birth-year commitment is computed locally and the proof is generated in-browser over the served wasm/zkey artifacts, so your birth year never leaves the device. Proves a birthdate meets an age threshold without revealing the exact date. The proof is verified off-chain by you, the counterparty, or any external verifier (snarkjs + vkey) and a deployer-bound resolver co-signs the outcome.'
               : gameType === 'verifiable'
               ? 'Paste a proof for Verifiable Computation (RISC Zero or general). Proves correct execution of arbitrary computation. Oracle-attested - no client-side generator yet (program-dependent). Submit any valid JSON + public inputs for oracle signing.'
               : 'Paste a proof for your Custom Circuit. Supply any audited circuit definition and verifier key. Oracle-attested - no client-side generator. Submit any valid JSON + public inputs for oracle signing.'}
@@ -4741,9 +4743,9 @@ ${gameMeta.outcomeBranches}
                   <CheckCircle2 size={20} className="text-emerald-400" />
                 </div>
                 <div>
-                  <p className="text-base font-bold text-emerald-400">Oracle Verification Successful</p>
+                  <p className="text-base font-bold text-emerald-400">Off-Chain Verification Successful</p>
                   <p className="text-xs text-emerald-300/80">
-                    ZK proof verified by snarkjs against audited verification key. Outcome signed by Covex Oracle.
+                    ZK proof verified by snarkjs against the audited verification key. Outcome co-signed by a deployer-bound resolver (BIP340).
                   </p>
                 </div>
               </div>
@@ -4804,7 +4806,7 @@ ${gameMeta.outcomeBranches}
                   <p>
                     Copy this signature and use it as witness data when unlocking the covenant.
                     The unlock transaction must include the oracle signature + outcome as witness fields.
-                    The covenant script should verify the signature against the oracle's public key before releasing funds.
+                    The covenant script should verify the signature against the resolver's public key before releasing funds.
                     See TASK 2 in the specification for the covenant template unlock path.
                   </p>
                 </div>

@@ -68,7 +68,7 @@ export default function Terms() {
           <ul className="list-disc list-inside space-y-2 pl-2 text-gray-200 light:text-slate-700">
             <li>Does not create, modify, or control any on-chain covenant.</li>
             <li>Indexes covenant UTXOs via a direct connection to a Kaspa node.</li>
-            <li>Labels each covenant's enforcement reality honestly (on-chain script-enforced, oracle-attested, or metadata-only) and never implies more enforcement than the chain provides. Zero-knowledge proofs, where used, are verified off-chain by the disclosed oracle (Kaspa has no on-chain proof verifier); only the oracle's Schnorr co-signature is checked on-chain.</li>
+            <li>Labels each covenant's enforcement reality honestly (on-chain script-enforced, oracle-attested, or metadata-only) and never implies more enforcement than the chain provides. Zero-knowledge proofs, where used, are verified off-chain by you, the counterparty, or any external verifier (Kaspa has no on-chain proof verifier); only the resolver's Schnorr co-signature is checked on-chain.</li>
             <li>Generates optional interactive interfaces for paid users; these are display layers only and do not change on-chain logic.</li>
           </ul>
         </section>
@@ -81,8 +81,8 @@ export default function Terms() {
             <strong className="text-white light:text-slate-900"> games of skill played peer-to-peer between participants</strong>. Covex is not a
             participant, is not the "house", does not take a position, does not set odds, and does not
             operate a game of chance. Any stake is locked in an on-chain covenant between the players;
-            Covex does not custody the stake and the chain (or the disclosed oracle's consensus-required
-            co-signature, where applicable) determines the recipient.
+            Covex does not custody the stake and the chain (or the consensus-required co-signature of
+            the counterparty or a deployer-bound external resolver, where applicable) determines the recipient.
           </p>
           <p>
             You are solely responsible for determining whether participating in any covenant, market, or
@@ -137,7 +137,8 @@ export default function Terms() {
             interact with put real funds at risk. The SilverScript language, the zero-knowledge circuits, and the
             trusted-setup ceremonies remain pre-production: the current ZK trusted setup is a single-contributor
             development ceremony, not an independent multi-party ceremony, and ZK proofs are verified off-chain by
-            the disclosed oracle rather than on-chain. Do not treat any of this as audited or final.
+            you, the counterparty, or any external verifier rather than on-chain (Kaspa has no on-chain pairing
+            verifier). Do not treat any of this as audited or final.
           </p>
           <p>
             You use the Platform at your own risk and assume all risks inherent to experimental blockchain

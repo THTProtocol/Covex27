@@ -22,10 +22,9 @@ const KINDS = [
   { id: 'deadman', label: "Dead-man's switch", icon: HeartPulse, blurb: 'The owner spends or refreshes any time; the heir can claim only after the timelock, so funds pass on if the owner goes silent. Demo uses the dev wallets.' },
   { id: 'relative_timelock', label: 'Relative timelock (CSV)', icon: Timer, blurb: 'Spendable only after the funds have aged a relative number of blocks (OpCheckSequenceVerify, BIP68). Node-enforced: an early spend is rejected.' },
   { id: 'timedecay', label: 'Time-decaying multisig', icon: Hourglass, blurb: 'A high quorum spends now, relaxing to a lower quorum after a deadline. Treasury recovery / inheritance. Demo uses the dev wallets.' },
-  { id: 'oracle_enforced', label: 'Oracle-enforced', icon: Scale, blurb: 'A 2-of-2 of oracle + winner: the chain requires the oracle co-signature, and the oracle co-signs only a verified outcome. On-chain-enforced oracle resolution.' },
-  { id: 'oracle_escrow', label: 'Oracle escrow (2-player)', icon: Gavel, blurb: 'A 2-player pot the chain releases only to the oracle-declared winner: needs the oracle co-signature plus the winning player on their branch. Demo uses the dev wallets.' },
+  { id: 'oracle_enforced', label: 'Resolver-enforced', icon: Scale, blurb: 'A 2-of-2 of a deployer-bound resolver + winner: the chain requires the resolver co-signature, and the resolver co-signs only a verified outcome. On-chain-enforced resolver resolution; the deployer binds the resolver by pubkey at deploy.' },
+  { id: 'oracle_escrow', label: 'Resolver escrow (2-player)', icon: Gavel, blurb: 'A 2-player pot the chain releases only to the resolver-declared winner: needs the deployer-bound resolver co-signature plus the winning player on their branch. Demo uses the dev wallets.' },
   { id: 'market', label: 'Prediction Market', icon: TrendingUp, blurb: 'A parimutuel YES/NO market. Bettors stake on outcomes; the winning side is paid on-chain via conjoined oracle covenants and losers get a rebate. You set the house fee and rebate.' },
-  { id: 'binary_oracle_select', label: 'External-oracle market', icon: Scale, blurb: 'A 2-outcome covenant bound to an EXTERNAL resolver you choose: commit the two published hashlocks and the two winner keys. The chain pays whichever side whose secret the resolver reveals; if neither is revealed, the refund key reclaims after a relative timelock. Covex is not in the payout path and attests nothing.' },
 ];
 
 // Single-signer primitives that deploy fully non-custodially (the key signs the funding tx in
@@ -123,26 +122,15 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   const [reqNow, setReqNow] = useState('2');     // timedecay quorum now
   const [reqAfter, setReqAfter] = useState('1'); // timedecay quorum after the deadline
   // External resolver for oracle kinds: the x-only pubkey the deployed covenant locks to.
-  // Blank = the disclosed Covex oracle (for engine results). Set it to bind a real-world
-  // covenant to an independent resolver you choose; the backend embeds THIS key in the redeem.
-  // Prefillable via ?resolver=<64-hex> so an external oracle provider can hand the user a
-  // ready-to-deploy link (provider-agnostic: any resolver key, no provider named).
+  // Blank = the default engine-results resolver (deterministic move-log replay). Set it to
+  // bind a real-world covenant to an independent resolver you choose; the backend embeds THIS
+  // key in the redeem. Prefillable via ?resolver=<64-hex> so an external oracle provider can
+  // hand the user a ready-to-deploy link (provider-agnostic: any resolver key, no provider named).
   const initialResolver = (() => {
     const r = (searchParams.get('resolver') || '').trim().toLowerCase();
     return /^[0-9a-f]{64}$/.test(r) ? r : '';
   })();
   const [resolverKey, setResolverKey] = useState(initialResolver);
-  // binary_oracle_select (External-oracle market): the two branch hashlocks the covenant commits to
-  // and the two winner keys. Prefillable via ?hash_a=&hash_b=&winner_a=&winner_b= so an external
-  // resolver can hand the user a ready-to-deploy link (provider-agnostic: just hex hashes + keys).
-  const hexParam = (k) => {
-    const v = (searchParams.get(k) || '').trim().toLowerCase();
-    return /^[0-9a-f]{64}$/.test(v) ? v : '';
-  };
-  const [hashA, setHashA] = useState(hexParam('hash_a'));
-  const [hashB, setHashB] = useState(hexParam('hash_b'));
-  const [winnerA, setWinnerA] = useState(hexParam('winner_a'));
-  const [winnerB, setWinnerB] = useState(hexParam('winner_b'));
   // Prediction-market params (kind === 'market'). No stake is locked at creation; the
   // market is committed and lands on its own covenant page where bets are placed.
   const [mq, setMq] = useState('');
@@ -261,7 +249,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   const onchainEntries = useMemo(() => catalog.filter((e) => e.enforcement_reality === 'on-chain'), [catalog]);
   // Multi-party / oracle primitives deploy via server-assisted dev wallets,
   // exactly like the multisig demo. Single-signer kinds stay fully non-custodial.
-  const DEV_WALLET_KINDS = ['multisig', 'htlc', 'channel', 'deadman', 'timedecay', 'oracle_enforced', 'oracle_escrow', 'binary_oracle_select'];
+  const DEV_WALLET_KINDS = ['multisig', 'htlc', 'channel', 'deadman', 'timedecay', 'oracle_enforced', 'oracle_escrow'];
   const usesDevWallets = DEV_WALLET_KINDS.includes(kind);
   // Kinds whose redeem needs an ABSOLUTE unlock DAA (tip + lockBlocks).
   const ABS_LOCK_KINDS = ['timelock', 'htlc', 'channel', 'deadman', 'timedecay'];
@@ -344,35 +332,19 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       redeem.req_after = Math.max(1, parseInt(reqAfter || '1', 10)); // quorum after the deadline
     }
     // oracle_enforced / oracle_escrow: bind to the creator-chosen EXTERNAL resolver if one is
-    // given, else fall back to the disclosed Covex oracle (server-side default). The backend's
-    // resolve_oracle_xonly embeds whichever key into the redeem script, so the deployed covenant
-    // requires THIS resolver's co-signature on-chain. The dev-wallet demo supplies the winner /
-    // player keys. Validated as a 32-byte x-only hex so a bad key fails before any funds lock.
+    // given, else fall back to the default engine-results resolver (server-side default). The
+    // backend's resolve_oracle_xonly embeds whichever key into the redeem script, so the deployed
+    // covenant requires THIS resolver's co-signature on-chain. The dev-wallet demo supplies the
+    // winner / player keys. Validated as a 32-byte x-only hex so a bad key fails before any funds lock.
     if (kind === 'oracle_enforced' || kind === 'oracle_escrow') {
       const rk = resolverKey.trim().toLowerCase();
       if (rk) {
         if (!/^[0-9a-f]{64}$/.test(rk)) {
-          setError('External resolver key must be a 32-byte x-only public key (64 hex chars). Leave blank to use the Covex oracle.');
+          setError('External resolver key must be a 32-byte x-only public key (64 hex chars). Leave blank to use the default engine-results resolver.');
           return;
         }
         redeem.oracle_pubkey_hex = rk;
       }
-    }
-    // External-oracle market: commit to the two hashlocks the resolver published + the two winner
-    // keys. The chain (not Covex) enforces blake2b(revealed_secret) == the committed hash at spend.
-    if (kind === 'binary_oracle_select') {
-      const ha = hashA.trim().toLowerCase(), hb = hashB.trim().toLowerCase();
-      const wa = winnerA.trim().toLowerCase(), wb = winnerB.trim().toLowerCase();
-      for (const [v, n] of [[ha, 'Outcome A hashlock'], [hb, 'Outcome B hashlock'], [wa, 'Winner A key'], [wb, 'Winner B key']]) {
-        if (!/^[0-9a-f]{64}$/.test(v)) {
-          setError(`${n} must be 64 hex characters (a 32-byte hash / x-only key).`);
-          return;
-        }
-      }
-      redeem.hash_a_hex = ha;
-      redeem.hash_b_hex = hb;
-      redeem.pubkeys_hex = [wa, wb];
-      redeem.lock_daa = Math.max(1, parseInt(relSeq || '10', 10)); // CSV refund delay (relative)
     }
 
     setBusy(true);
@@ -624,8 +596,8 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
 
   const KindIcon = KINDS.find((k) => k.id === kind)?.icon || ShieldCheck;
   // Market and the oracle covenants are hybrid: custody/payout settle on-chain, but the
-  // disclosed oracle decides the outcome. Only the pure P2SH primitives are on-chain-only.
-  const isHybridKind = ['oracle_enforced', 'oracle_escrow', 'market', 'binary_oracle_select'].includes(kind);
+  // deployer-bound resolver decides the outcome. Only the pure P2SH primitives are on-chain-only.
+  const isHybridKind = ['oracle_enforced', 'oracle_escrow', 'market'].includes(kind);
 
   return (
     <div className={effectiveEmbedded ? 'relative w-full space-y-6' : 'relative w-full max-w-5xl mx-auto px-4 py-10 space-y-8'}>
@@ -672,12 +644,13 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
         <p className="text-sm sm:text-base text-gray-300 light:text-slate-700 max-w-2xl leading-relaxed">
           {isHybridKind ? (
             <>Custody and payout settle on-chain: funds lock to a script hash and the chain pays the winning branch. The outcome
-            is decided by the covenant's named resolver (the disclosed Covex oracle for engine-resolved game results, or an
-            external resolver you choose for real-world facts), which co-signs or reveals only the declared result, so this is
-            hybrid, not trustless. Every spend was proven against the real Kaspa script engine before this shipped.</>
+            is decided by the covenant's named resolver (an external resolver the deployer binds by pubkey at deploy; for engine-resolved
+            game results the result is computed deterministically by replaying the signed move log, anyone can recompute), which
+            co-signs or reveals only the declared result, so this is hybrid, not trustless. Covex never attests real-world facts.
+            Every spend was proven against the real Kaspa script engine before this shipped.</>
           ) : (
             <>These covenants are enforced by Kaspa consensus itself. Funds lock to a script hash and can only move by satisfying
-            the script, no oracle, no trust. Every spend was proven against the real Kaspa script engine before this shipped.</>
+            the script, no resolver, no trust. Every spend was proven against the real Kaspa script engine before this shipped.</>
           )}
         </p>
       </div>
@@ -915,16 +888,16 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           <p className="text-[11px] text-gray-400 light:text-slate-600">Demo HTLC: the dev-wallet receiver claims by revealing a secret generated at deploy; the dev-wallet sender refunds after the timelock above. The cross-chain atomic-swap building block.</p>
         )}
         {kind === 'channel' && (
-          <p className="text-[11px] text-gray-400 light:text-slate-600">Demo 2-of-2 state-channel pot of the dev wallets: cooperative close pays the agreed winner, or the funder reclaims after the timelock above. No oracle, Covex is never in the payout path.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">Demo 2-of-2 state-channel pot of the dev wallets: cooperative close pays the agreed winner, or the funder reclaims after the timelock above. No resolver, Covex is never in the payout path.</p>
         )}
         {kind === 'deadman' && (
           <p className="text-[11px] text-gray-400 light:text-slate-600">Demo dead-man's switch: the owner (dev wallet 1) can spend any time; the heir (dev wallet 2) can claim only after the timelock above, so funds pass on if the owner goes silent.</p>
         )}
         {kind === 'oracle_enforced' && (
-          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-of-2 of the resolver and the winner (dev wallet 1). The chain requires the resolver co-signature, and the resolver co-signs only the declared outcome. Set an external resolver below to bind a real-world covenant to a key you choose, or leave it blank to use the disclosed Covex oracle (engine results only). Server-assisted demo; oracle covenants activate on mainnet at the Toccata hard fork.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-of-2 of the resolver and the winner (dev wallet 1). The chain requires the resolver co-signature, and the resolver co-signs only the declared outcome. Set an external resolver below to bind a real-world covenant to a key you choose, or leave it blank to use the default engine-results resolver (deterministic move-log replay; engine results only). Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at the Toccata hard fork.</p>
         )}
         {kind === 'oracle_escrow' && (
-          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-player pot of the dev wallets that the chain releases only to the resolver-declared winner: it needs the resolver co-signature plus the winning player on their branch. Set an external resolver below to bind to a key you choose, or leave it blank to use the disclosed Covex oracle. Server-assisted demo; oracle covenants activate on mainnet at Toccata.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-player pot of the dev wallets that the chain releases only to the resolver-declared winner: it needs the resolver co-signature plus the winning player on their branch. Set an external resolver below to bind to a key you choose, or leave it blank to use the default engine-results resolver. Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at Toccata.</p>
         )}
         {(kind === 'oracle_enforced' || kind === 'oracle_escrow') && (
           <div className="space-y-1.5">
@@ -933,40 +906,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
               type="text"
               value={resolverKey}
               onChange={(e) => setResolverKey(e.target.value)}
-              placeholder="blank = Covex oracle. Paste a 64-hex resolver pubkey to bind on-chain to your own."
+              placeholder="blank = default engine-results resolver. Paste a 64-hex resolver pubkey to bind on-chain to your own."
               className="w-full rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-300 px-3 py-2 text-xs font-mono text-gray-200 light:text-slate-800 placeholder:text-gray-600 light:placeholder:text-slate-400 focus:outline-none focus:border-kaspa-green/50"
             />
             <p className="text-[10px] text-gray-500 light:text-slate-500">When set, the deployed covenant embeds THIS key and requires its co-signature to release. Covex is not in the path. Covex does not attest real-world facts; bring your own resolver for those.</p>
-          </div>
-        )}
-        {kind === 'binary_oracle_select' && (
-          <div className="space-y-2">
-            <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-outcome market bound to an EXTERNAL resolver you choose. Commit the two hashlocks it published (for a match: outcome A and outcome B, e.g. home win vs away win). The chain pays whichever side whose secret the resolver reveals; Covex attests nothing and is not in the payout path. If neither is revealed (a third outcome like a draw), the refund reclaims after the relative timelock below. Server-assisted demo (dev wallets fund).</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[['Outcome A hashlock', hashA, setHashA, '64-hex blake2b256 hash'], ['Outcome B hashlock', hashB, setHashB, '64-hex blake2b256 hash'], ['Winner A key (x-only)', winnerA, setWinnerA, '64-hex x-only pubkey'], ['Winner B key (x-only)', winnerB, setWinnerB, '64-hex x-only pubkey']].map(([lbl, val, set, ph]) => (
-                <div key={lbl} className="space-y-1">
-                  <label className="text-[11px] font-medium text-gray-300 light:text-slate-700">{lbl}</label>
-                  <input
-                    type="text"
-                    value={val}
-                    onChange={(e) => set(e.target.value)}
-                    placeholder={ph}
-                    className="w-full rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-300 px-3 py-2 text-xs font-mono text-gray-200 light:text-slate-800 placeholder:text-gray-600 light:placeholder:text-slate-400 focus:outline-none focus:border-kaspa-green/50"
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] font-medium text-gray-300 light:text-slate-700">Refund age (relative blocks)</label>
-              <input
-                type="number"
-                min={1}
-                value={relSeq}
-                onChange={(e) => setRelSeq(e.target.value)}
-                className="w-full rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-300 px-3 py-2 text-xs font-mono text-gray-200 light:text-slate-800 focus:outline-none focus:border-kaspa-green/50"
-              />
-            </div>
-            <p className="text-[10px] text-gray-500 light:text-slate-500">The covenant commits to THESE hashes. Only the resolver can reveal a secret, and only blake2b(secret) == the committed hash unlocks a branch on-chain. No resolver is named; you choose it.</p>
           </div>
         )}
 
@@ -1028,7 +971,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
                 {/* Build -> design -> publish handoff: a 3-button rail led by the Studio
                     (the next step), with share and the live public page right beside it.
                     Above the rail, the enforcement summary tells the truth about WHAT the
-                    chain actually does with this covenant (consensus vs oracle co-sign). */}
+                    chain actually does with this covenant (consensus vs resolver co-sign). */}
                 {(() => {
                   const sum = enforcementSummary(c.reality || 'on-chain');
                   const cid = `${c.tx}:0`;

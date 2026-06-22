@@ -8,7 +8,7 @@ import { Button } from './ui/Button';
  * FirstCovenantTour
  *
  * 7-step coachmark tour for new visitors. Honesty-first copy: the tour describes
- * enforcement reality (consensus-enforced primitives vs. oracle co-signed
+ * enforcement reality (consensus-enforced primitives vs. resolver co-signed
  * outcomes) and never claims trustless / on-chain ZK / non-custodial.
  *
  * Activation:
@@ -72,7 +72,7 @@ export const STEPS = [
     // URL carried a later phase still starts the build tour at step one.
     route: '/sandbox?phase=create',
     title: 'Phase 1: Create',
-    body: 'Pick a template. Each template tells you what is consensus-enforced (the script the Kaspa node verifies) and what is oracle co-signed (resolved by the disclosed Covex oracle, fail-closed).',
+    body: 'Pick a template. Each template tells you what is consensus-enforced (the script the Kaspa node verifies) and what is co-signed off-chain (resolved by a deployer-bound resolver the deployer chooses by pubkey, fail-closed).',
     nextLabel: 'Next: logic',
     // Seed a real demo selection so the logic panel actually mounts during the
     // tour instead of the "pick a covenant first" empty state. merkle_membership
@@ -84,7 +84,7 @@ export const STEPS = [
     anchor: 'sandbox-logic',
     route: '/sandbox?phase=logic&circuit=merkle_membership&kind=zk',
     title: 'Phase 2: Logic',
-    body: 'Set the parameters: amounts, thresholds, deadlines, the oracle outcome to watch. The Sandbox shows the exact enforcement label for each field so nothing is hidden.',
+    body: 'Set the parameters: amounts, thresholds, deadlines, the resolver outcome to watch. The Sandbox shows the exact enforcement label for each field so nothing is hidden.',
     nextLabel: 'Next: deploy',
     nextRoute: '/sandbox?phase=deploy&circuit=merkle_membership&kind=zk',
   },
@@ -278,11 +278,11 @@ export default function FirstCovenantTour() {
 
     if (out.id === 'sandbox-create') {
       const s = enforcementSummary(sandboxReality);
-      out.body = `Pick a template. Each template discloses its enforcement reality so nothing is hidden: ${s.badge.toLowerCase()} (${s.headline.toLowerCase()}) is the baseline, and oracle-attested or full-zk templates make the disclosed Covex oracle's role explicit.`;
+      out.body = `Pick a template. Each template discloses its enforcement reality so nothing is hidden: ${s.badge.toLowerCase()} (${s.headline.toLowerCase()}) is the baseline, and oracle-attested or full-zk templates make the deployer-bound resolver's role explicit (an external resolver the deployer chooses; Covex never attests real-world facts).`;
     }
     if (out.id === 'sandbox-logic') {
       const s = enforcementSummary(sandboxReality);
-      out.body = `Set the parameters: amounts, thresholds, deadlines, the oracle outcome to watch. The Sandbox shows the exact enforcement label for each field. ${s.headline}: ${s.body}`;
+      out.body = `Set the parameters: amounts, thresholds, deadlines, the resolver outcome to watch. The Sandbox shows the exact enforcement label for each field. ${s.headline}: ${s.body}`;
     }
     if (out.id === 'sandbox-deploy') {
       const s = enforcementSummary(sandboxReality);
@@ -295,7 +295,7 @@ export default function FirstCovenantTour() {
       const s = enforcementSummary(publicReality);
       const notTrustless =
         publicReality === 'full-zk' || publicReality === 'oracle-attested'
-          ? ' This is not trustless: the disclosed Covex oracle contributes the consensus-required co-signature, and that is the honest disclosure shown on every covenant page.'
+          ? ' This is not trustless: the deployer-bound resolver (an external resolver the deployer chooses by pubkey) contributes the consensus-required co-signature, and that is the honest disclosure shown on every covenant page.'
           : '';
       out.body = `This is a real on-chain covenant. The badge shows the disclosed enforcement reality. ${s.headline}: ${s.body}${notTrustless} From here, anyone can participate by signing in their own wallet. The tour ends here.`;
     }

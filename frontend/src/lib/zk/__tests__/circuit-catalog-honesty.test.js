@@ -148,9 +148,10 @@ describe('ZK_CIRCUIT_TYPES catalog honesty (pinned against the real export)', ()
 
   it('the four ex-chain-enforced circuits are present but NOT chain-enforced', () => {
     // They still exist as real Groth16 circuits, but their proof is verified
-    // off-chain by the disclosed oracle; the only on-chain check is the oracle's
-    // Schnorr co-signature. So they must collapse to 'oracle-attested', never a
-    // chain-enforced or 'on-chain' label.
+    // off-chain by anyone (you, the counterparty, or any external verifier); a valid
+    // proof gates a 2-of-2 cosign whose Schnorr co-signature is the only on-chain
+    // check. So they must collapse to 'oracle-attested', never a chain-enforced or
+    // 'on-chain' label.
     const ids = ['merkle_membership', 'age_verification', 'escrow_2party', 'range_proof'];
     for (const id of ids) {
       const c = ZK_CIRCUIT_TYPES.find((x) => x.id === id);
@@ -176,9 +177,10 @@ describe('ZK_CIRCUIT_TYPES catalog honesty (pinned against the real export)', ()
   });
 
   it('prediction markets and oracle escrow are oracle-attested, never "on-chain"', () => {
-    // Markets resolve on a real-world fact an oracle must report, and oracle
-    // escrow needs the Covex oracle co-signature in the payout path. Neither is
-    // trustless, so neither may carry the 'on-chain' badge.
+    // Markets resolve on a real-world fact a deployer-bound external resolver must
+    // report, and resolver escrow needs that resolver's co-signature in the payout
+    // path (Covex never attests outcomes). Neither is trustless, so neither may carry
+    // the 'on-chain' badge.
     const oracleResolvedIds = ['prediction_market', 'oracle_single'];
     for (const id of oracleResolvedIds) {
       const c = ZK_CIRCUIT_TYPES.find((x) => x.id === id);

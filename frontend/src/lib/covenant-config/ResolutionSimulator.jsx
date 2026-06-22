@@ -118,25 +118,26 @@ function releaseBranches(circuit) {
     ],
   };
   if (/escrow/.test(c)) return {
-    title: 'Oracle escrow',
+    title: 'Resolver escrow',
     branches: [
-      { label: 'Winner paid', to: 'Declared winner', cond: 'the oracle co-signs and the winner signs their branch', when: 'on resolution', accent: '#49EACB' },
+      { label: 'Winner paid', to: 'Declared winner', cond: 'a deployer-bound external resolver co-signs and the winner signs their branch', when: 'on resolution', accent: '#49EACB' },
     ],
   };
-  // Genuinely ZK-verified eligibility gates (real Groth16 proof, verified fail-closed by the
-  // disclosed Covex oracle off-chain). Only these can honestly claim a proof gates the spend.
+  // Genuinely ZK-verified eligibility gates (real Groth16 proof, verified fail-closed OFF-CHAIN
+  // by you, the counterparty, or any external verifier). Only these can honestly claim a proof
+  // gates the spend; a valid proof gates a 2-of-2 cosign (Kaspa has no on-chain pairing verifier).
   if (/merkle|member|whitelist|age|range/.test(c)) return {
     title: 'Proof-gated release',
     branches: [
-      { label: 'Release', to: 'Eligible holder', cond: 'presents a real zero-knowledge proof of eligibility that the disclosed Covex oracle verifies off-chain (fail-closed)', when: 'any time', accent: '#49EACB' },
+      { label: 'Release', to: 'Eligible holder', cond: 'presents a real zero-knowledge proof of eligibility that anyone can verify off-chain (snarkjs against the audited vkey, fail-closed), gating a 2-of-2 cosign', when: 'any time', accent: '#49EACB' },
     ],
   };
-  // kyc / credential / nft / reputation / identity / age-gate resolve oracle-attested today:
-  // the disclosed oracle attests eligibility with a signature; no ZK proof gates the spend.
+  // kyc / credential / nft / reputation / identity / age-gate resolve resolver-attested today:
+  // a deployer-bound external resolver attests eligibility with a signature; no ZK proof gates the spend.
   if (/kyc|identity|credential|nft|reputation|gate/.test(c)) return {
-    title: 'Oracle-attested gate',
+    title: 'Resolver-attested gate',
     branches: [
-      { label: 'Release', to: 'Eligible holder', cond: 'is attested eligible by the disclosed Covex oracle, which signs the attestation the covenant verifies', when: 'any time', accent: '#49EACB' },
+      { label: 'Release', to: 'Eligible holder', cond: 'is attested eligible by a deployer-bound external resolver, which signs the attestation the covenant verifies', when: 'any time', accent: '#49EACB' },
     ],
   };
   return {

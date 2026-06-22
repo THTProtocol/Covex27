@@ -8,11 +8,13 @@
 // BIP340 signature is produced HERE with the in-browser private key (an imported / dev-mode
 // wallet) and only the signature bytes ever leave the browser.
 //
-// Honesty: the POT path is an oracle_escrow [oracle, player1, player2]. The Covex oracle
-// co-signs the payout to the server-authoritative engine's verified winner (game_pot_outcome,
-// which fails closed). That is ORACLE-ATTESTED, not trustless: the disclosed oracle is in the
-// payout path, and the escrow has no refund branch, so a permanently-lost oracle key would
-// freeze the pot. The trustless alternative is the 2-of-2 state channel (lock-channel /
+// Honesty: the POT path is an oracle_escrow [resolver, player1, player2], where the first pubkey
+// slot is the deployer-bound resolver (the counterparty or an external resolver the deployer
+// binds), NOT Covex. The result is computed deterministically by replaying the signed move log
+// (anyone can recompute); that resolver co-signs the payout to the engine-verified winner
+// (game_pot_outcome, which fails closed). That is a co-signed release, not trustless: the
+// resolver is in the payout path, and the escrow has no refund branch, so a permanently-lost
+// resolver key would freeze the pot. The trustless alternative is the 2-of-2 state channel (lock-channel /
 // settle-channel), which keeps Covex out of the redeem entirely; its cooperative close needs
 // both players to co-sign and is wired separately.
 
@@ -120,7 +122,7 @@ export function potState(game, viewerAddress) {
   if (locked) {
     if (finished && isWinner) return { phase: 'claimable', winnerAddr, potKas: game.pot_amount_kas, potTx: game.pot_tx };
     if (finished && winnerAddr) return { phase: 'settling-other', winnerAddr, potKas: game.pot_amount_kas, potTx: game.pot_tx };
-    // Finished but NO verified winner (a draw, or the oracle could not resolve the result):
+    // Finished but NO verified winner (a draw, or the co-signer could not resolve the result):
     // plain oracle_escrow has no refund branch, so the stake is stuck. Surface that honestly
     // instead of implying a payout that can never happen.
     if (finished) return { phase: 'frozen', potKas: game.pot_amount_kas, potTx: game.pot_tx };

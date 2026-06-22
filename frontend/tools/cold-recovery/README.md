@@ -8,7 +8,7 @@ cleared from the input after signing.
 
 This document is honest about what the chain actually enforces. Read the claimability
 matrix before you trust any single sentence of marketing: some spend paths are fully
-self-claimable offline, and some still need the Covex oracle's signature and are not.
+self-claimable offline, and some still need the external resolver's signature and are not.
 
 ## Files
 
@@ -147,7 +147,7 @@ You also need, separately and securely, your **private key** for the relevant ro
 
 "Offline-claimable" means the Kaspa chain (or a revealed public secret plus the named
 key's `OpCheckSig`) enforces the spend end to end, so you alone can satisfy it with no
-Covex oracle. Where a path needs the Covex oracle's signature, it is **not** offline-
+external resolver. Where a path needs the external resolver's signature, it is **not** offline-
 claimable here, and this tool will say so rather than pretend otherwise.
 
 | kind | offline-claimable? | how |
@@ -161,13 +161,13 @@ claimable here, and this tool will say so rather than pretend otherwise.
 | `channel` | yes | cooperative close needs both party sigs; refund = funder sig after `lockTime` |
 | `deadman` | yes | owner (IF) any time, or heir (ELSE) after CLTV |
 | `binary_oracle_select` | yes | winner reveals the PUBLIC winning preimage + branch-key sig; refund = refund key after lock. The reveal is a hashlock, not an oracle signature. |
-| `oracle` | no | win path is a 2-of-2 with the Covex oracle key; needs the oracle half-signature. No chain-enforced refund branch. |
+| `oracle` | no | win path is a 2-of-2 with the external resolver key; needs the oracle half-signature. No chain-enforced refund branch. |
 | `oracle_enforced` | no | same as `oracle`: needs the oracle half-signature. No chain-enforced refund branch. |
-| `oracle_escrow` | no | payout needs the Covex oracle signature. No chain-enforced refund branch. |
-| `oracle_enforced_refundable` | refund branch only | WIN path needs the Covex oracle signature (not offline). REFUND branch (refund key, after `lock_daa`) is offline-claimable. |
-| `oracle_escrow_refundable` | refund branch only | WIN path needs the Covex oracle signature (not offline). REFUND branch (refund key, after `lock_daa`) is offline-claimable. |
+| `oracle_escrow` | no | payout needs the external resolver signature. No chain-enforced refund branch. |
+| `oracle_enforced_refundable` | refund branch only | WIN path needs the external resolver signature (not offline). REFUND branch (refund key, after `lock_daa`) is offline-claimable. |
+| `oracle_escrow_refundable` | refund branch only | WIN path needs the external resolver signature (not offline). REFUND branch (refund key, after `lock_daa`) is offline-claimable. |
 
-Plainly stated: the `oracle_*` win paths depend on Covex oracle **liveness**. If Covex is
+Plainly stated: the `oracle_*` win paths depend on external resolver **liveness**. If Covex is
 down, those winners cannot claim with this tool until the oracle signs, or - for the
 `*_refundable` kinds - until the refund timelock elapses and the refund key reclaims the
 funds. That is a liveness dependency, not a trustless guarantee, and this tool does not
@@ -216,7 +216,7 @@ describe it as trustless.
 - `oracle_enforced_refundable` / `oracle_escrow_refundable`: if you have the oracle
   signature, paste it in Advanced and use the win branch. Otherwise use `refund` after
   `lock_daa` with the refund key - that branch is chain-enforced and offline-claimable.
-- `oracle` / `oracle_enforced` / `oracle_escrow`: the win path needs the Covex oracle
+- `oracle` / `oracle_enforced` / `oracle_escrow`: the win path needs the external resolver
   signature. Without it, these are not claimable by this tool, and they have no chain-
   enforced refund branch. Plan for this when choosing a kind for funds you must be able to
   recover unilaterally.

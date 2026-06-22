@@ -1,4 +1,4 @@
-# Connecting ZK Circuits + Covex Oracle to Kaspa Covenants (Easy Mode)
+# Connecting ZK Circuits + external resolver to Kaspa Covenants (Easy Mode)
 
 This folder shows **exactly** how to wire any Covex circuit + oracle signature into a real Kaspa covenant using SilverScript (aa20-aa23 patterns, DAA timelocks, UTXO ownership, pot math, oracle pubkey binding).
 
@@ -34,7 +34,7 @@ This folder shows **exactly** how to wire any Covex circuit + oracle signature i
      "message": "covex-oracle:my-poker-pot-42:0:1717...",
      "public_inputs": [...],
      "circuit_type": "pot_split_math",
-     "covenant_hint": "Use signature + outcome for covenant_id 'my-poker-pot-42'. Check against Covex oracle pubkey. circuit=pot_split_math"
+     "covenant_hint": "Use signature + outcome for covenant_id 'my-poker-pot-42'. Check against external resolver pubkey. circuit=pot_split_math"
    }
    ```
 

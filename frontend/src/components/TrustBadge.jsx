@@ -15,9 +15,9 @@ import TransparencyModal from './TransparencyModal';
  * and these two primitives are the source of truth all other surfaces import
  * from (puckConfig's EnforcementBadge, Explorer cards, Sandbox panels).
  *   on-chain   = emerald  (Kaspa consensus enforces - strongest signal)
- *   hybrid     = sky      (script + oracle input)
- *   oracle     = amber    (Covex oracle signature, not chain-gated)
- *   full-zk    = violet   (real Groth16 proof, oracle-verified OFF-CHAIN, fail-closed)
+ *   hybrid     = sky      (script + external resolver input)
+ *   oracle     = amber    (external resolver signature, not chain-gated)
+ *   full-zk    = violet   (real Groth16 proof verified OFF-CHAIN, gating a 2-of-2 cosign + CSV timeout)
  *   decorative = slate    (metadata only, no enforcement)
  * The classes below already match this palette - TrustBadge has always used
  * amber for oracle, so no visual change is required after the Badge.jsx
@@ -25,7 +25,7 @@ import TransparencyModal from './TransparencyModal';
  */
 // A single binary_oracle_select covenant is one LEG of a parimutuel market, not a
 // bare on-chain primitive: its custody is script-locked but WHICH side wins is set by
-// the secret the disclosed oracle reveals. It must read as a market, never "no trust".
+// the secret the deployer-bound resolver reveals. It must read as a market, never "no trust".
 const isMarketLeg = (covenant) => /binary_oracle_select/.test(covenant?.covenant_type || '');
 
 // Resolve the circuit id off a covenant (custom_ui_config.circuit is the canonical slot;
@@ -39,15 +39,16 @@ function circuitIdOf(covenant) {
   return null;
 }
 
-// All 19 verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN by
-// the disclosed Covex oracle (fail-closed). No deployed circuit's proof is bound to a
-// chain-checked hashlock, so there is no "chain-enforced ZK" tier - the only on-chain
-// check is the oracle's BIP340 Schnorr co-signature.
+// All 19 verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN
+// (by you, the counterparty, or any external verifier) gating a 2-of-2 cosign + CSV
+// timeout. No deployed circuit's proof is bound to a chain-checked hashlock, and
+// Kaspa has no on-chain pairing verifier, so there is no "chain-enforced ZK" tier -
+// the only on-chain check is the BIP340 Schnorr co-signature.
 function fullZkInfo() {
   return {
     kind: 'fullzk',
-    label: 'ZK proof, oracle-verified',
-    desc: 'A real Groth16 proof, verified fail-closed by the disclosed Covex oracle. Not on-chain consensus and not trustless, but a stronger guarantee than a bare attestation.',
+    label: 'ZK proof, verified off-chain',
+    desc: 'A real Groth16 proof, verified off-chain by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier, so the proof gates a 2-of-2 cosign + CSV timeout. Not on-chain consensus and not trustless, but a stronger guarantee than a bare attestation.',
   };
 }
 
@@ -63,12 +64,12 @@ export function trustInfo(covenant, opts) {
 
   // Parimutuel markets are a hybrid: custody and every payout leg are on-chain
   // (P2SH, hashlock + winner key), but WHICH outcome wins is set by the single
-  // committed secret the disclosed oracle reveals. Never claim "no trust".
+  // committed secret the deployer-bound resolver reveals. Never claim "no trust".
   if (!explicitReality && (covenant?.covenant_type === 'prediction-market' || isMarketLeg(covenant))) {
     return {
       kind: 'hybrid',
-      label: 'On-chain custody, oracle-resolved',
-      desc: 'Every payout leg is script-locked on-chain, but which outcome wins is decided by the secret the disclosed Covex oracle reveals. On-chain-enforced, not trustless.',
+      label: 'On-chain custody, resolver-decided',
+      desc: 'Every payout leg is script-locked on-chain, but which outcome wins is decided by the secret the deployer-bound resolver reveals (an external oracle provider the deployer binds by pubkey at deploy; Covex never attests real-world facts). On-chain-enforced, not trustless.',
     };
   }
   if (reality === 'on-chain') {
@@ -85,17 +86,18 @@ export function trustInfo(covenant, opts) {
       desc: 'An on-chain script gates release but checks an oracle-supplied input.',
     };
   }
-  // All 19 verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN by
-  // the disclosed oracle (fail-closed). No circuit reduces to a chain-checked hashlock,
-  // so there is no chain-enforced ZK reality - full-zk is the strongest ZK pill.
+  // All 19 verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN
+  // (by you, the counterparty, or any external verifier) gating a 2-of-2 cosign + CSV
+  // timeout. No circuit reduces to a chain-checked hashlock, and Kaspa has no on-chain
+  // pairing verifier, so there is no chain-enforced ZK reality - full-zk is the strongest ZK pill.
   if (reality === 'full-zk') {
     return fullZkInfo();
   }
   if (reality === 'oracle-attested') {
     return {
       kind: 'oracle',
-      label: 'Oracle attested',
-      desc: 'The outcome is asserted by the Covex oracle signature. Funds are not script-gated to it yet.',
+      label: 'Resolver attested',
+      desc: 'The outcome is asserted by the deployer-bound resolver signature (an external resolver the deployer chooses; Covex never attests real-world facts). Funds are not script-gated to it yet.',
     };
   }
   if (reality === 'decorative') {
@@ -107,7 +109,7 @@ export function trustInfo(covenant, opts) {
   }
   // Fallback for older API responses that predate enforcement_reality. A
   // covenant declaring a non-none ZK circuit means a real proof is verified
-  // fail-closed off-chain by the oracle: tag it full-zk so the honesty
+  // fail-closed off-chain by an external verifier: tag it full-zk so the honesty
   // hierarchy survives even when the reality field is missing.
   const cat = `${covenant?.category || ''} ${covenant?.covenant_type || ''}`.toLowerCase();
   if (circuitId && circuitId !== 'none') {
@@ -116,8 +118,8 @@ export function trustInfo(covenant, opts) {
   if (/zk|oracle|chess|turn_timer|range|merkle|game|predict/.test(cat)) {
     return {
       kind: 'oracle',
-      label: 'Oracle attested',
-      desc: 'Outcomes are attested and signed by the Covex oracle.',
+      label: 'Resolver attested',
+      desc: 'Outcomes are attested and signed by the deployer-bound resolver (an external resolver the deployer chooses; Covex never attests real-world facts).',
     };
   }
   return {

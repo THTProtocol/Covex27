@@ -5,7 +5,7 @@
 > ("200+/250+ circuits", "12 RISC0", "decentralized multi-oracle", "100% Full Potential
 > ACHIEVED", "COMPLETE/ULTIMATE") are aspirational and do NOT reflect the deployed system.
 > The honest current reality, which is the single source of truth, is: **19 verified
-> Groth16 circuits**, each verified **OFF-CHAIN** by a **single** disclosed Covex oracle
+> Groth16 circuits**, each verified **OFF-CHAIN** by a **single** an external resolver
 > (fail-closed); none are chain-enforced; the RISC0 paths are **stubs** (no real receipt
 > verification); the "decentralized multi-oracle" is a **stub** (operators = 1, threshold
 > = 1). See `README.md` section 4 and `frontend/src/lib/zk/circuits.js` (`VERIFIED_FULL_ZK`)

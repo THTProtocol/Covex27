@@ -43,7 +43,7 @@ const ON_CHAIN_TEMPLATE_IDS = new Set(Object.keys(TEMPLATE_TO_ENFORCED_KIND));
 const MARKET_TEMPLATE_IDS = new Set(['binary-prediction-market', 'binary-prediction']);
 
 // Honest enforcement-reality label for a template, derived from its real resolution mode.
-// Constitution: ZK and oracle outcomes are verified OFF-CHAIN by the disclosed oracle,
+// Constitution: ZK and oracle outcomes are verified OFF-CHAIN by the external resolver,
 // NEVER trustless, NEVER "on-chain enforced". Games are server-authoritative + oracle-attested.
 function templateReality(template) {
   // Genuine on-chain primitives route to the enforced builder; show the emerald on-chain chip

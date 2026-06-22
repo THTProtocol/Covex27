@@ -16,7 +16,7 @@ function describeLeaf(node) {
     case 'timelock': return `after the set date, ${who(node)} sign`;
     case 'rcsv': return `after the delay, ${who(node)} sign`;
     case 'multisig': return `${p.required ?? 'M'}-of-${Array.isArray(p.pubkeys) ? p.pubkeys.length : 'N'} keys sign`;
-    case 'oracle': return 'the disclosed Covex oracle co-signs the verified outcome';
+    case 'oracle': return 'an external resolver the deployer binds by pubkey at deploy co-signs the verified outcome';
     default: return node.kind;
   }
 }
@@ -36,12 +36,12 @@ export function describe(node) {
 }
 
 // Honest enforcement label for a node: on-chain (Kaspa consensus enforces the spend rule) vs
-// oracle-attested (a disclosed signer is in the path). Never overclaims.
+// oracle-attested (a deployer-bound external resolver is in the path). Never overclaims.
 export function enforcementLabel(node) {
   const tier = compositionTier(node);
   return tier === 'oracle_gated'
-    ? 'Oracle-attested: a disclosed Covex oracle is in the spend path (not trustless).'
-    : 'On-chain: Kaspa consensus enforces the spend rule. No oracle, no custodian.';
+    ? 'Oracle-attested: a deployer-bound external resolver is in the spend path (not trustless).'
+    : 'On-chain: Kaspa consensus enforces the spend rule. No resolver, no custodian.';
 }
 
 // A one-line honest summary for the whole covenant (for the deploy confirmation + share card).

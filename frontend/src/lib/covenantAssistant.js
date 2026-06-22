@@ -5,9 +5,9 @@
 
 const REALITY_EXPLAIN = {
   'on-chain': 'Kaspa consensus enforces the spend directly. Your own wallet redeems by satisfying the published script, and no Covex key sits in the payout path. Trustless for custody and payout; metadata and labels are still computed by Covex.',
-  'full-zk': 'A real Groth16 proof is required and verified fail-closed by the disclosed Covex oracle, which gates the release. The proof cannot be faked; the oracle is the trusted verifier (Kaspa has no on-chain pairing verifier yet).',
-  hybrid: 'A zero-knowledge property proof plus an oracle attestation resolve it.',
-  'oracle-attested': 'Resolved by the named Covex oracle\'s signed attestation of the outcome, then paid out on-chain. The oracle is the one trusted component, and it is always disclosed (these stay disabled for real value on mainnet until they can be made trustless).',
+  'full-zk': 'A real Groth16 proof is required and verified off-chain (by you, the counterparty, or any external verifier) before it gates the release through a 2-of-2 cosign plus a CSV timeout. The proof cannot be faked; Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain.',
+  hybrid: 'A zero-knowledge property proof plus an external resolver attestation resolve it.',
+  'oracle-attested': 'Resolved by an external resolver the deployer binds by pubkey at deploy: the resolver signs an attestation of the outcome, then it is paid out on-chain. Covex never attests real-world facts; the resolver is the one trusted component and it is always disclosed (these stay disabled for real value on mainnet until they can be made trustless).',
   decorative: 'A metadata marker. It carries information but does not itself gate a spend.',
 };
 

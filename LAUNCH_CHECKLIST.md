@@ -62,7 +62,7 @@
 ## What users see when flipped
 
 - Singlesig, hashlock, timelock, multisig, htlc primitives: consensus-enforced, fully live
-- All 19 ZK circuits: Full ZK pill, Groth16-verified off-chain by the disclosed oracle, "Verified off-chain, oracle co-signs payout" (none chain-enforced; Kaspa has no on-chain pairing verifier and there is no proof-to-hashlock binding)
+- All 19 ZK circuits: Full ZK pill, Groth16-verified off-chain by the external resolver, "Verified off-chain, oracle co-signs payout" (none chain-enforced; Kaspa has no on-chain pairing verifier and there is no proof-to-hashlock binding)
 - Markets / oracle_escrow / oracle covenants: GATED off until owner explicitly enables (GATE 2, the `p2sh_deploy_handler` mainnet freeze in covenant_builder.rs)
 
 ## Rollback

@@ -5,25 +5,26 @@
 // look, so current call sites keep working. Adds the honest enforcement-reality
 // chips used across the app (on-chain, oracle, hybrid, full-zk, metadata) plus
 // a `dot` option for a small leading status dot. Reality labels stay accurate
-// by design: on-chain = Kaspa consensus enforces it; oracle = the disclosed
-// oracle attests; full-zk = a real proof the Covex oracle verifies fail-closed;
-// metadata = label only.
+// by design: on-chain = Kaspa consensus enforces it; oracle = the deployer-bound
+// resolver attests (an external resolver, never Covex); full-zk = a real Groth16
+// proof verified off-chain by any external verifier; metadata = label only.
 //
 // CANONICAL ENFORCEMENT-REALITY PALETTE (single source of truth, mirrored in
 // TrustBadge.jsx). Honesty palette is load-bearing brand: the same honesty word
 // must render the same color everywhere or readers stop trusting any of them.
 //   on-chain      = emerald  (consensus-enforced, the strongest signal)
-//   hybrid        = sky      (script + oracle input)
+//   hybrid        = sky      (script + external resolver input)
 //   oracle        = amber    (signed attestation only)
-//   full-zk       = violet   (real proof, oracle-verified off-chain, not on-chain)
+//   full-zk       = violet   (real proof verified off-chain, not on-chain)
 //   metadata      = slate    (label only, no enforcement)
 // NOTE: full-zk previously used the brand teal #49EACB, which made an
-// oracle-verified proof read as MORE prominent than on-chain consensus. The
+// off-chain-verified proof read as MORE prominent than on-chain consensus. The
 // brand teal stays reserved for primary CTAs / consensus signals; violet keeps
-// full-zk honest as "verified by Covex's disclosed oracle, not by the chain".
+// full-zk honest as "verified off-chain by any external verifier, not by the chain".
 // All 19 verified ZK circuits are full-zk: a real Groth16 proof verified
-// OFF-CHAIN by the disclosed oracle (fail-closed). No circuit's proof is bound
-// to a chain-checked hashlock, so there is no chain-enforced ZK variant.
+// OFF-CHAIN (by you, the counterparty, or any external verifier) gating a
+// 2-of-2 cosign + CSV timeout. Kaspa has no on-chain pairing verifier, so no
+// circuit's proof is checked on-chain and there is no chain-enforced ZK variant.
 
 import * as React from 'react';
 import { cva } from 'class-variance-authority';

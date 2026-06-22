@@ -18,7 +18,7 @@ const COMPACT_ROUTE = /^\/covenant\/[^/]+\/studio(\/|$)/;
  * anything; they only navigate via the goTo() handler from useBuildStep().
  *
  * Honesty note: this is a UI breadcrumb, not an enforcement claim. The actual
- * consensus-enforced vs oracle co-signed reality is surfaced elsewhere.
+ * consensus-enforced vs resolver co-signed reality is surfaced elsewhere.
  *
  * `compact` may be passed explicitly; if omitted, it auto-switches on the
  * Page Studio route. Mounted exactly once globally from App.jsx.

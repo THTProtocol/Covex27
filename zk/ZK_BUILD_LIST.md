@@ -13,7 +13,7 @@ is being removed (separate workstream / other agent).
 Two hard facts shape every circuit below:
 1. **Kaspa has no on-chain pairing verifier.** A Groth16 proof can never be checked by Kaspa
    consensus. So even a perfect circuit needs an *off-chain verifier* to attest the result on
-   chain. Today that verifier is the Covex oracle (being removed). Trustless replacement =
+   chain. Today that verifier is the external resolver (being removed). Trustless replacement =
    an external verifier/oracle-provider network attests the proof, OR the proof is only for a
    counterparty in an off-chain agreement. Building the circuit is necessary but NOT sufficient
    for trustlessness on Kaspa.

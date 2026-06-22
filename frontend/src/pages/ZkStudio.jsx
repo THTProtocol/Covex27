@@ -16,9 +16,9 @@ import {
 // snarkjs.groth16.verify runs against the served verification key. Fully trustless.
 //
 // HONESTY ABSOLUTE: this is OFF-CHAIN verification (here in your browser, or by any counterparty /
-// external verifier). Kaspa has NO on-chain pairing verifier, so a proof is never checked on-chain.
-// In production these same proofs gate a 2-of-2 covenant co-signature from the disclosed Covex oracle;
-// nothing here is "chain-enforced" and no copy claims it is.
+// external verifier - snarkjs against the audited vkey). Kaspa has NO on-chain pairing verifier, so a
+// proof is never checked on-chain. In production these same proofs gate a 2-of-2 covenant co-signature
+// plus a CSV timeout; nothing here is "chain-enforced" and no copy claims it is.
 
 // ── use-case groups for the full catalog ─────────────────────────────────────
 // Maps the catalog's raw `category` to a human use-case group + icon. The raw categories are:
@@ -312,7 +312,7 @@ function ZkStudioBody() {
           <ul className="space-y-1.5 text-[12.5px] text-amber-100/90 light:text-amber-900 leading-relaxed list-disc pl-5">
             <li>Proofs are verified <strong>off-chain</strong>: here in your browser now, or by a counterparty or any external verifier later. The verification key is public.</li>
             <li>Kaspa has <strong>no on-chain pairing verifier</strong>, so a proof is never checked on-chain. Nothing here is "chain-enforced" and no proof is trustless on its own.</li>
-            <li>In production these same proofs gate a 2-of-2 covenant co-signature from the disclosed Covex oracle (fail-closed). The oracle is the named trust boundary for payout; the only on-chain check is its Schnorr co-signature.</li>
+            <li>In production these same proofs gate a 2-of-2 covenant co-signature plus a CSV timeout (fail-closed). A valid proof is what unlocks the cosign; the only on-chain check is the resulting Schnorr co-signature, never the proof itself.</li>
             <li>The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC.</li>
             <li>Your private witness (birth year, balance, secret, blinding...) is computed and kept in your browser. Only the proof and its public signals are produced.</li>
           </ul>
@@ -343,8 +343,8 @@ function ZkStudioBody() {
           <p className="text-[13px] text-gray-400 light:text-slate-500 mb-5 max-w-3xl leading-relaxed">
             Every circuit's plain-English statement and what it proves. Circuits tagged
             <span className="text-violet-300 light:text-violet-700 font-semibold"> in-browser</span> have
-            a working prover above. The rest are resolved by the disclosed oracle (fail-closed), and the
-            verifiable games prove via the open-source CLI.
+            a working prover above. The rest gate on a deployer-bound resolver co-sign (fail-closed), and
+            the verifiable games prove via the open-source CLI.
           </p>
           <div className="space-y-3">
             {GROUPS.map((g) => {
@@ -367,8 +367,9 @@ function ZkStudioBody() {
           <p className="text-[11px] text-gray-500 light:text-slate-400 leading-relaxed max-w-3xl">
             Proofs are generated with snarkjs (Groth16 over BN254) against artifacts served from
             <code className="font-mono"> /zk/&lt;circuit&gt;/</code>. Verification runs the same snarkjs
-            in your browser against the served verification key. The same proofs verify identically at
-            the disclosed Covex oracle, which co-signs the covenant spend.
+            in your browser against the served verification key. The same proofs verify identically for
+            any external verifier (you or the counterparty); a valid proof gates the 2-of-2 covenant
+            cosign.
           </p>
         </div>
     </>

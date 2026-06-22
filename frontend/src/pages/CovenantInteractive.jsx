@@ -131,7 +131,7 @@ function GameStakeControl({
         </Button>
       )}
       <p className="text-center text-[11px] text-gray-400 light:text-slate-600 mt-3 leading-snug">
-        Outcome is decided by the disclosed Covex oracle (off-chain, server-authoritative), not Kaspa consensus.
+        The result is computed deterministically by replaying the signed move log (anyone can recompute); the counterparty or a deployer-bound external resolver co-signs the release, not Kaspa consensus.
         Custody and payout are on-chain. This is not trustless.
       </p>
       {!walletConnected && (
@@ -319,8 +319,8 @@ export default function CovenantInteractive() {
   // custom_ui_config so the public page matches what the creator previewed.
   const chessLook = useMemo(() => chessLookFromConfig(covenant?.custom_ui_config), [covenant]);
   // A single binary_oracle_select covenant is one LEG of a parimutuel market, not a bare
-  // on-chain primitive: its custody is script-locked but the OUTCOME is set by the secret
-  // the disclosed oracle reveals. It must read as a market, never "no oracle, no trust".
+  // on-chain primitive: its custody is script-locked but the OUTCOME is set by the secret a
+  // deployer-bound external resolver reveals. It must read as a market, never "no oracle, no trust".
   const isMarketLeg = /binary_oracle_select/.test(covenant?.covenant_type || '');
 
   // Claim & Activate: verify a supplied redeem script against the on-chain commitment, then the
@@ -356,9 +356,9 @@ export default function CovenantInteractive() {
       .catch(() => {});
   }, [id]);
 
-  // The disclosed oracle's x-only signing key (BIP340). Surfaced to designed pages as
-  // {{oracle_pubkey}} so an oracle-signer display shows the REAL disclosed key, never a
-  // placeholder. This is the named Covex oracle, not a trustless guarantee. The endpoint
+  // The disclosed resolver's x-only signing key (BIP340). Surfaced to designed pages as
+  // {{oracle_pubkey}} so a resolver-signer display shows the REAL disclosed key, never a
+  // placeholder. This is the deployer-bound resolver, not a trustless guarantee. The endpoint
   // returns `xonly_pubkey` as its canonical field; fall back gracefully for older shapes.
   const [oraclePubkey, setOraclePubkey] = useState('');
   useEffect(() => {
@@ -406,7 +406,7 @@ export default function CovenantInteractive() {
   // never set a destination.
   //
   // HONESTY: every field here is derived from data the backend actually returns for
-  // this covenant (the detail record, the on-chain action log, the disclosed oracle
+  // this covenant (the detail record, the on-chain action log, the disclosed resolver
   // key). Nothing is fabricated. Where the backend cannot supply a figure (e.g. a
   // generic, non-market covenant has no per-outcome pool split or event clock), the
   // field is OMITTED so the consuming block renders its honest empty state rather than
@@ -494,7 +494,7 @@ export default function CovenantInteractive() {
       kickoff,
       settle_at: settleAt,
       timelock,
-      // Disclosed oracle identity (BIP340 x-only key) + outcome commitments, when present.
+      // external resolver identity (BIP340 x-only key) + outcome commitments, when present.
       oracle_pubkey: oraclePubkey || '',
       commitment_a: covenant.h_a || '',
       commitment_b: covenant.h_b || '',
@@ -619,7 +619,7 @@ export default function CovenantInteractive() {
     const SAFE_COLOR = (c) => (/^#[0-9a-fA-F]{3,8}$|^rgba?\([\d.,\s%]+\)$/.test(String(c || '')) ? c : '#49EACB');
     const primary = SAFE_COLOR(cfg.primaryColor);
 
-    // HONESTY: a covenant whose OUTCOME is decided by the disclosed oracle (games are
+    // HONESTY: a covenant whose OUTCOME is decided by a deployer-bound external resolver (games are
     // server-authoritative + oracle-attested; oracle escrow/enforced; markets / binary_oracle_select)
     // must NOT read as if the result were verified on-chain. Custody and payout ARE script-locked
     // on-chain and verifiable on the explorer; only the outcome is oracle-attested, not on-chain.
@@ -634,10 +634,10 @@ export default function CovenantInteractive() {
     const isOracleResolved = reality !== '' && reality !== 'on-chain';
     // Custody/payout is always on-chain; only the trust BAR and the default copy differ.
     const honestDescDefault = isOracleResolved
-      ? 'Custody and every payout are script-locked on-chain on the Kaspa BlockDAG and verifiable on the explorer. The outcome is attested by the disclosed Covex oracle (server-authoritative for games), not verified on-chain.'
+      ? 'Custody and every payout are script-locked on-chain on the Kaspa BlockDAG and verifiable on the explorer. The outcome is attested by a deployer-bound external resolver (a server-authoritative engine for games), not verified on-chain.'
       : 'This covenant is immutable on the Kaspa BlockDAG. Custody, logic and payouts are on-chain and verifiable on the explorer.';
     const honestLogicDefault = isOracleResolved
-      ? 'All logic, fees, addresses and payouts are disclosed and on-chain. Custody and payout are verifiable on the explorer; the outcome is attested by the disclosed Covex oracle (server-authoritative for games), not verified on-chain.'
+      ? 'All logic, fees, addresses and payouts are disclosed and on-chain. Custody and payout are verifiable on the explorer; the outcome is attested by a deployer-bound external resolver (a server-authoritative engine for games), not verified on-chain.'
       : 'All logic and parameters are fully disclosed and on-chain. This is a creator-published covenant verifiable on the explorer.';
     const trustBarText = isOracleResolved
       ? 'TRANSPARENT • IMMUTABLE • NON-CUSTODIAL • CUSTODY &amp; PAYOUT ON KASPA • OUTCOME ORACLE-ATTESTED'
@@ -1159,7 +1159,7 @@ export default function CovenantInteractive() {
                     {isChess ? 'FULLY TRANSPARENT CHESS ARENA' : `VERIFIED COVENANT (${covenant.verified_tier} tier)`}
                   </p>
                   <p className="text-xs text-emerald-400/70">
-                    {isChess ? 'All receiving addresses, fees, timers, the disclosed oracle, and full game logic are public by default. No hidden settings.' : 'All receiving addresses, covenant logic, parameters, and on-chain facts are public by default.'}
+                    {isChess ? 'All receiving addresses, fees, timers, the disclosed resolver, and full game logic are public by default. No hidden settings.' : 'All receiving addresses, covenant logic, parameters, and on-chain facts are public by default.'}
                   </p>
                 </div>
               </div>
@@ -1169,7 +1169,7 @@ export default function CovenantInteractive() {
                 <div>
                   <p className="text-sm font-semibold text-sky-400">ON-CHAIN CUSTODY, ORACLE-RESOLVED</p>
                   <p className="text-xs text-sky-400/80">
-                    This is one leg of a parimutuel market. Custody and every payout are script-locked on-chain (P2SH, hashlock + winner key), but which outcome wins is decided by the secret the disclosed Covex oracle reveals. On-chain-enforced, not trustless: you trust the named oracle to reveal the secret for the true result.
+                    This is one leg of a parimutuel market. Custody and every payout are script-locked on-chain (P2SH, hashlock + winner key), but which outcome wins is decided by the secret a deployer-bound external resolver reveals (an external oracle provider bound by pubkey at deploy; Covex never attests real-world facts). On-chain-enforced, not trustless: you trust the deployer-named resolver to reveal the secret for the true result.
                   </p>
                 </div>
               </div>
@@ -1221,7 +1221,7 @@ export default function CovenantInteractive() {
             </h3>
             <p className="text-gray-300 leading-relaxed light:text-slate-700">
               {isChess 
-                ? 'This is a 10 minute winner takes all chess arena. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full pot minus 2 percent. The 2 percent fee is sent to the creator address to sustain the arena for future games. All stakes are sent directly to the covenant address on the Kaspa blockchain. Custody is on-chain (P2SH locked, your wallet signs every spend). The game runs on a server-authoritative engine and the outcome is co-signed by the disclosed Covex oracle (BIP340 Schnorr): payout is on-chain enforced but not trustless. There is no zero knowledge proof of individual moves. All stakes, addresses and the final result are transparent and recorded on chain.'
+                ? 'This is a 10 minute winner takes all chess arena. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full pot minus 2 percent. The 2 percent fee is sent to the creator address to sustain the arena for future games. All stakes are sent directly to the covenant address on the Kaspa blockchain. Custody is on-chain (P2SH locked, your wallet signs every spend). The game runs on a server-authoritative engine that replays the signed move log deterministically (anyone can recompute), and the counterparty or a deployer-bound external resolver co-signs the release (BIP340 Schnorr): payout is on-chain enforced but not trustless. There is no zero knowledge proof of individual moves. All stakes, addresses and the final result are transparent and recorded on chain.'
                 : (verified
                 ? (covenant.description || covenant.desc || 'Verified covenant. Full disclosure enabled.')
                 : 'Limited information available. Only tx_id, script_hash, and amount are disclosed.')}
@@ -1287,8 +1287,8 @@ export default function CovenantInteractive() {
                   <strong>Stake:</strong> Any equal amount (min/max per config). Second player matches or auto-refund in 5 min.<br/>
                   <strong>Timers:</strong> 10 min clock per player (active player only). Resign, timeout, or checkmate ends game.<br/>
                   <strong>Payout:</strong> Winner takes full pot minus 2% fee (fee to creator address to sustain future games).<br/>
-                  <strong>Verification:</strong> Server-authoritative engine (validates legal moves and terminal conditions); the final outcome is oracle co-signed (BIP340 Schnorr) by the disclosed Covex oracle, not trustless. No zero-knowledge proof of moves.<br/>
-                  <strong>Non-custodial:</strong> Custody on-chain, payout gated by the disclosed Covex oracle BIP340 co-signature (oracle-attested, not trustless).
+                  <strong>Verification:</strong> Server-authoritative engine (validates legal moves and terminal conditions, replaying the signed move log so anyone can recompute); the release is co-signed (BIP340 Schnorr) by the counterparty or a deployer-bound external resolver, not trustless. No zero-knowledge proof of moves.<br/>
+                  <strong>Non-custodial:</strong> Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the deployer-bound resolver's BIP340 co-signature (oracle-attested, not trustless).
                 </>
               ) : (
                 covenant.full_logic_summary || covenant.description || 'All parameters, fees, resolution method, circuits, oracles, and payout rules are fully disclosed on-chain and in the published view.'
@@ -1475,7 +1475,7 @@ export default function CovenantInteractive() {
                         onConnect={() => setWalletModalOpen(true)}
                         onStake={() => setShowChessArena(true)}
                       />
-                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive pro arena with real timers, moves, resign, oracle co-signed (not trustless).</div>
+                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive pro arena with real timers, moves, resign; result replayed deterministically, counterparty or deployer-bound resolver co-signs (not trustless).</div>
                     </div>
                   </div>
                 )}
@@ -1487,7 +1487,7 @@ export default function CovenantInteractive() {
                       <div className="text-kaspa-green text-sm tracking-[3px] font-bold light:text-emerald-700">WINNER TAKES POT, {GAME_REGISTRY[gameType].label.toUpperCase()} ARENA</div>
                       <div className="text-3xl font-semibold text-white mt-1 light:text-slate-900">{GAME_REGISTRY[gameType].label}</div>
                       <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto leading-relaxed light:text-slate-600">
-                        Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine, oracle co-signed result (not trustless), winner takes the pot minus the creator fee. Non-custodial: stakes go directly to the covenant on Kaspa.
+                        Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine replays the signed move log (anyone can recompute); the counterparty or a deployer-bound external resolver co-signs the release (not trustless), winner takes the pot minus the creator fee. Non-custodial: stakes go directly to the covenant on Kaspa.
                       </p>
                     </div>
                     <div className="flex flex-col items-center">
@@ -1500,7 +1500,7 @@ export default function CovenantInteractive() {
                         onConnect={() => setWalletModalOpen(true)}
                         onStake={() => setShowGameArena(true)}
                       />
-                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive arena with real moves, oracle co-signed resolution (not trustless).</div>
+                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive arena with real moves; result replayed deterministically, counterparty or deployer-bound resolver co-signs (not trustless).</div>
                     </div>
                   </div>
                 )}
@@ -1574,7 +1574,7 @@ export default function CovenantInteractive() {
                           <p className="text-xs text-gray-300 mb-3 leading-relaxed">
                             {localSignable
                               ? 'This is a script-enforced P2SH covenant. Spend it non-custodially with your own key. You provide the unlock condition (preimage / timelock / cosigners) on the next step. Covex never holds the funds.'
-                              : 'This is a script-enforced P2SH covenant whose spend path needs the original redeem script (and, for oracle kinds, the oracle co-signature). Use the recovery flow to rebuild and broadcast the spend yourself. Covex never holds the funds.'}
+                              : 'This is a script-enforced P2SH covenant whose spend path needs the original redeem script (and, for oracle kinds, the deployer-bound resolver co-signature). Use the recovery flow to rebuild and broadcast the spend yourself. Covex never holds the funds.'}
                           </p>
                           {localSignable ? (
                             <Link
@@ -1615,7 +1615,7 @@ export default function CovenantInteractive() {
                         {claimOpen && (
                           <div className="px-4 pb-4 space-y-3">
                             <p className="text-xs text-gray-300 leading-relaxed">
-                              This covenant was created elsewhere, so its logic is opaque on-chain. If you have its <strong>redeem script</strong>, paste it below. Covex verifies it hashes to this exact on-chain commitment (so only someone who genuinely knows the script can do this), then it becomes fully redeemable and richly displayed for everyone. The hash check is trustless; enforcement reality afterwards depends on kind: merkle_membership, age_verification, escrow_2party, and range_proof verify on-chain end-to-end, while oracle_escrow and oracle_enforced remain oracle-attested by the disclosed Covex oracle (BIP340).
+                              This covenant was created elsewhere, so its logic is opaque on-chain. If you have its <strong>redeem script</strong>, paste it below. Covex verifies it hashes to this exact on-chain commitment (so only someone who genuinely knows the script can do this), then it becomes fully redeemable and richly displayed for everyone. The hash check is trustless; enforcement reality afterwards depends on kind: merkle_membership, age_verification, escrow_2party, and range_proof verify on-chain end-to-end, while oracle_escrow and oracle_enforced remain oracle-attested, gated by a deployer-bound resolver's BIP340 co-signature.
                             </p>
                             <textarea value={claimForm.redeem_script_hex} onChange={e => setClaimForm(f => ({ ...f, redeem_script_hex: e.target.value }))} placeholder="Redeem script (hex)" rows={3} className="w-full text-xs font-mono bg-black/50 border border-white/10 rounded-xl px-3 py-2 focus:border-blue-400/50 outline-none" spellCheck={false} />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1810,8 +1810,8 @@ export default function CovenantInteractive() {
                     Each player gets a 10 minute clock. Only the active player clock runs.<br/><br/>
                     Resign, timeout or checkmate ends the game.<br/><br/>
                     Winner receives the pot minus 2 percent. The 2 percent goes to the creator address to keep the arena running for the next games.<br/><br/>
-                    Custody on-chain, payout gated by the disclosed Covex oracle BIP340 co-signature (oracle-attested, not trustless).<br/><br/>
-                    The game runs on a server authoritative engine that enforces legal moves, and the final outcome is attested by the disclosed Covex oracle with a BIP340 Schnorr signature. There is no zero knowledge proof of individual moves.
+                    Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the deployer-bound resolver's BIP340 co-signature (oracle-attested, not trustless).<br/><br/>
+                    The game runs on a server authoritative engine that enforces legal moves and replays the signed move log deterministically (anyone can recompute); the counterparty or a deployer-bound external resolver co-signs the release with a BIP340 Schnorr signature. There is no zero knowledge proof of individual moves.
                   </div>
 
                   <Button

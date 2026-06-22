@@ -8,7 +8,7 @@ import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
 import { vkeyPathFor, IN_BROWSER_PROVERS } from '../lib/zk/circuits';
 
 /**
- * TransparencyModal - press any ZK / oracle / enforcement badge to see, in plain terms:
+ * TransparencyModal - press any ZK / resolver / enforcement badge to see, in plain terms:
  *   what it is · where verification actually happens · the source you can inspect · a live check.
  *
  * Honest by construction: every claim is grounded in a real endpoint or served artifact, and the
@@ -23,15 +23,15 @@ import { vkeyPathFor, IN_BROWSER_PROVERS } from '../lib/zk/circuits';
 
 const REALITY_UI = {
   'on-chain': { name: 'On-chain enforced', accent: '#34d399', Icon: ShieldCheck,
-    what: 'Kaspa consensus enforces the spend condition. The funds are locked to a P2SH script and only a redeem script that hashes to the on-chain commitment can move them. No oracle, no trust in Covex.' },
-  'full-zk': { name: 'Oracle-attested', accent: '#fbbf24', Icon: Radio,
-    what: 'A real Groth16 proof: you prove a statement is true without revealing the secret behind it. The proof is verified OFF-CHAIN by the disclosed Covex oracle (fail-closed), and a valid proof gates the oracle co-signature. Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; only the oracle\'s BIP340 co-signature is verified on-chain (Schnorr). The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC. The oracle is the trust boundary, not the chain itself.' },
-  hybrid: { name: 'Oracle-attested', accent: '#fbbf24', Icon: Radio,
-    what: 'A required Groth16 proof is verified OFF-CHAIN by the disclosed Covex oracle (fail-closed: a missing or invalid proof is rejected), and the oracle then co-signs the consensus-required input. Only the oracle co-signature is checked on-chain (Schnorr); the proof itself is never verified on-chain. The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC.' },
-  market: { name: 'On-chain custody, oracle-resolved', accent: '#60a5fa', Icon: Link2,
-    what: 'A parimutuel market. Custody and every payout leg are on-chain (each leg is a P2SH covenant gated by a hashlock and the winner\'s key), but which outcome wins is set by the single committed secret the disclosed Covex oracle reveals. On-chain-enforced, not trustless: you trust the named oracle to reveal the secret for the true result.' },
-  'oracle-attested': { name: 'Oracle-attested', accent: '#fbbf24', Icon: Radio,
-    what: 'A disclosed Covex oracle attests the outcome with a BIP340 Schnorr signature. Your covenant can verify that signature on-chain at spend time. You trust the named oracle for the input, not Covex with custody.' },
+    what: 'Kaspa consensus enforces the spend condition. The funds are locked to a P2SH script and only a redeem script that hashes to the on-chain commitment can move them. No resolver, no trust in Covex.' },
+  'full-zk': { name: 'Resolver-attested', accent: '#fbbf24', Icon: Radio,
+    what: 'A real Groth16 proof: you prove a statement is true without revealing the secret behind it. The proof is verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey), and a valid proof gates a 2-of-2 cosign plus a CSV timeout. Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; only the BIP340 co-signature is verified on-chain (Schnorr). The trusted setup is a single-contributor dev ceremony, not a production multi-party MPC. Covex never attests the outcome - the deployer-bound resolver or counterparty co-signs.' },
+  hybrid: { name: 'Resolver-attested', accent: '#fbbf24', Icon: Radio,
+    what: 'A required Groth16 proof is verified OFF-CHAIN by you, the counterparty, or any external verifier (fail-closed: a missing or invalid proof is rejected), and the deployer-bound resolver then co-signs the consensus-required input. Only the co-signature is checked on-chain (Schnorr); the proof itself is never verified on-chain (Kaspa has no on-chain pairing verifier). The trusted setup is a single-contributor dev ceremony, not a production multi-party MPC.' },
+  market: { name: 'On-chain custody, resolver-decided', accent: '#60a5fa', Icon: Link2,
+    what: 'A parimutuel market. Custody and every payout leg are on-chain (each leg is a P2SH covenant gated by a hashlock and the winner\'s key), but which outcome wins is set by the single committed secret the deployer-bound resolver reveals (an external oracle provider the deployer binds by pubkey at deploy; Covex never attests real-world facts). On-chain-enforced, not trustless: you trust the named resolver to reveal the secret for the true result.' },
+  'oracle-attested': { name: 'Resolver-attested', accent: '#fbbf24', Icon: Radio,
+    what: 'The deployer-bound resolver attests the outcome with a BIP340 Schnorr signature (an external resolver the deployer chooses by pubkey at deploy; Covex never attests real-world facts). Your covenant can verify that signature on-chain at spend time. You trust the named resolver for the input, not Covex with custody.' },
   decorative: { name: 'Metadata only', accent: '#9ca3af', Icon: ShieldQuestion,
     what: 'A metadata marker. The chain records this covenant but does not enforce the stated logic. Not for value at stake.' },
 };
@@ -41,13 +41,14 @@ const REALITY_UI = {
 const isMarketLeg = (covenant) => /binary_oracle_select/.test(covenant?.covenant_type || '');
 
 function realityFromCovenant(covenant) {
-  // Markets get their own honest framing: on-chain custody, oracle-resolved outcome.
+  // Markets get their own honest framing: on-chain custody, resolver-decided outcome.
   if (covenant?.covenant_type === 'prediction-market' || isMarketLeg(covenant)) return 'market';
   const cfg = covenant?.custom_ui_config;
   const circuit = (typeof cfg === 'object' && cfg?.circuit) || null;
   const r = covenant?.enforcement_reality;
-  // All verified ZK circuits are full-zk (a real Groth16 proof verified OFF-CHAIN by the
-  // disclosed oracle, fail-closed). There is no chain-enforced ZK reality. Mirrors
+  // All verified ZK circuits are full-zk (a real Groth16 proof verified OFF-CHAIN by any
+  // external verifier, gating a 2-of-2 cosign + CSV timeout). Kaspa has no on-chain
+  // pairing verifier, so there is no chain-enforced ZK reality. Mirrors
   // TrustBadge.trustInfo so the badge and modal never disagree.
   if (r && REALITY_UI[r]) return r;
   // honest fallback matching TrustBadge.trustInfo
@@ -111,7 +112,7 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
         ]);
         setOracle({ loading: false, pubkey: p, liveness: l, error: null });
       } catch (e) {
-        if (e.name !== 'AbortError') setOracle({ loading: false, pubkey: null, liveness: null, error: 'Could not reach the oracle endpoint.' });
+        if (e.name !== 'AbortError') setOracle({ loading: false, pubkey: null, liveness: null, error: 'Could not reach the resolver endpoint.' });
       }
     })();
     return () => ac.abort();
@@ -164,12 +165,12 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
                 {inBrowser
                   ? 'The proof is generated in your browser (snarkjs, over the served circuit) so your secret never leaves your device, '
                   : 'A Groth16 proof is generated against the served circuit, '}
-                then verified fail-closed by the Covex oracle before any signature is issued. An invalid or missing proof is rejected.
+                then verified off-chain by you, the counterparty, or any external verifier (snarkjs against the audited vkey) before any co-signature is issued. Kaspa has no on-chain pairing verifier, so a valid proof gates a 2-of-2 cosign plus a CSV timeout. An invalid or missing proof is rejected.
               </p>
             )}
-            {reality === 'hybrid' && <p>The Groth16 proof is verified fail-closed by the oracle (a missing or invalid proof is rejected), and the disclosed oracle then co-signs the consensus-required input so the covenant can release.</p>}
-            {reality === 'market' && <p>Each funded leg is a P2SH covenant: at spend time Kaspa nodes enforce that only the matching hashlock preimage plus the winner&apos;s signature can move it. The disclosed Covex oracle decides the outcome by revealing one committed secret (single-secret policy) - the chain enforces custody and payout, the oracle is the trust boundary for which side wins.</p>}
-            {reality === 'oracle-attested' && <p>The Covex oracle signs <span className="font-mono text-[11px] text-gray-200 light:text-slate-700">covex-oracle:{'{id}'}:{'{outcome}'}:{'{ts}'}</span> with a BIP340 key. Your covenant verifies that signature on-chain (OpCheckSig) at spend, so you only have to trust the disclosed oracle for the input.</p>}
+            {reality === 'hybrid' && <p>The Groth16 proof is verified off-chain by you, the counterparty, or any external verifier (a missing or invalid proof is rejected), and the deployer-bound resolver then co-signs the consensus-required input so the covenant can release.</p>}
+            {reality === 'market' && <p>Each funded leg is a P2SH covenant: at spend time Kaspa nodes enforce that only the matching hashlock preimage plus the winner&apos;s signature can move it. The deployer-bound resolver decides the outcome by revealing one committed secret (single-secret policy) - the chain enforces custody and payout, the resolver is the trust boundary for which side wins. Covex never attests real-world facts.</p>}
+            {reality === 'oracle-attested' && <p>The deployer-bound resolver signs the outcome with a BIP340 key (an external resolver the deployer binds by pubkey at deploy). Your covenant verifies that signature on-chain (OpCheckSig) at spend, so you only have to trust the named resolver for the input.</p>}
             {reality === 'decorative' && <p>Nothing enforces this on-chain. It is a recorded marker only. Treat the stated logic as a label, not a guarantee.</p>}
           </Section>
 
@@ -187,7 +188,7 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
               )}
               {involvesOracle && oracle.pubkey?.xonly_pubkey && (
                 <div>
-                  <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-500 mb-1">Oracle public key ({oracle.pubkey.scheme || 'bip340-schnorr-secp256k1'})</div>
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-500 mb-1">Resolver public key ({oracle.pubkey.scheme || 'bip340-schnorr-secp256k1'})</div>
                   <CopyChip text={oracle.pubkey.xonly_pubkey} />
                   {oracle.pubkey.message_format && <div className="text-[11px] text-gray-500 light:text-slate-500 mt-1.5">Signs: <span className="font-mono text-gray-300 light:text-slate-600">{oracle.pubkey.message_format}</span></div>}
                 </div>
@@ -207,10 +208,10 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
             </Section>
           )}
 
-          {/* Live oracle status */}
+          {/* Live resolver status */}
           {involvesOracle && (
-            <Section icon={Activity} title="Live oracle status" accent={ui.accent}>
-              {oracle.loading && <p className="text-gray-500 light:text-slate-500">Checking the oracle…</p>}
+            <Section icon={Activity} title="Live resolver status" accent={ui.accent}>
+              {oracle.loading && <p className="text-gray-500 light:text-slate-500">Checking the resolver…</p>}
               {oracle.error && <p className="text-amber-300">{oracle.error}</p>}
               {oracle.liveness && (
                 <div className="flex flex-wrap items-center gap-2">
@@ -252,8 +253,8 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
           {/* Honest limits */}
           <Section icon={AlertTriangle} title="What this does not prove" accent="#9ca3af">
             <ul className="list-disc pl-4 space-y-1 text-[12px] text-gray-400 light:text-slate-500">
-              {hasZk && <li>The browser cannot re-run the Groth16 verifier; proof verification is performed by the oracle (fail-closed) and, for on-chain primitives, by Kaspa at spend.</li>}
-              {involvesOracle && <li>Liveness shows the oracle is reachable now, not that a future outcome will be honest. You are trusting the disclosed key for the input.</li>}
+              {hasZk && <li>Proof verification happens off-chain: anyone (you, the counterparty, any external verifier) can re-run snarkjs against the audited vkey. Kaspa has no on-chain pairing verifier, so a valid proof gates a 2-of-2 cosign plus a CSV timeout.</li>}
+              {involvesOracle && <li>Liveness shows the resolver is reachable now, not that a future outcome will be honest. You are trusting the deployer-bound resolver key for the input.</li>}
               {reality === 'on-chain' && <li>The structural check confirms the lock pattern; the full redeem-script-hashes-to-commitment check is enforced by any Kaspa node at spend.</li>}
               {reality === 'decorative' && <li>This covenant is not enforced by consensus. Do not rely on it for value.</li>}
               <li>The enforcement label is computed by Covex from the on-chain script; the chain itself is the final authority.</li>

@@ -45,24 +45,24 @@ const KIND_BRANCHES = {
     { value: 'refund', label: 'Funder refund (after timeout)' },
   ],
   binary_oracle_select: [
-    { value: 'revealA', label: 'Claim as winner A (after the oracle reveals the secret)' },
-    { value: 'revealB', label: 'Claim as winner B (after the oracle reveals the secret)' },
+    { value: 'revealA', label: 'Claim as winner A (after the resolver reveals the secret)' },
+    { value: 'revealB', label: 'Claim as winner B (after the resolver reveals the secret)' },
     { value: 'refund', label: 'Refund (after CSV delay)' },
   ],
   oracle_escrow: [
-    { value: 'revealA', label: 'Payout to player A (needs oracle co-sign)' },
-    { value: 'revealB', label: 'Payout to player B (needs oracle co-sign)' },
+    { value: 'revealA', label: 'Payout to player A (needs resolver co-sign)' },
+    { value: 'revealB', label: 'Payout to player B (needs resolver co-sign)' },
   ],
   oracle_enforced: [
-    { value: 'claim', label: 'Winner payout (needs oracle co-sign)' },
+    { value: 'claim', label: 'Winner payout (needs resolver co-sign)' },
   ],
   oracle_enforced_refundable: [
-    { value: 'claim', label: 'Winner payout (needs oracle co-sign)' },
+    { value: 'claim', label: 'Winner payout (needs resolver co-sign)' },
     { value: 'refund', label: 'Refund (after lock_daa, offline-claimable)' },
   ],
   oracle_escrow_refundable: [
-    { value: 'revealA', label: 'Payout to player A (needs oracle co-sign)' },
-    { value: 'revealB', label: 'Payout to player B (needs oracle co-sign)' },
+    { value: 'revealA', label: 'Payout to player A (needs resolver co-sign)' },
+    { value: 'revealB', label: 'Payout to player B (needs resolver co-sign)' },
     { value: 'refund', label: 'Refund (after lock_daa, offline-claimable)' },
   ],
 };
@@ -300,13 +300,13 @@ function ClaimFlow({ kit, utxos }) {
         <div className={`rounded-xl border p-3 text-[12px] leading-relaxed ${claim.offline ? 'border-kaspa-green/25 bg-kaspa-green/[0.05] text-gray-200 light:text-slate-700' : 'border-amber-500/30 bg-amber-500/[0.06] text-amber-200/95'}`}>
           <div className="flex items-center gap-1.5 font-semibold mb-1">
             {claim.offline ? <ShieldCheck size={13} className="text-kaspa-green" /> : <AlertTriangle size={13} />}
-            {claim.offline ? 'Offline-claimable - no Covex needed' : 'Needs the Covex oracle co-signature'}
+            {claim.offline ? 'Offline-claimable - no Covex needed' : 'Needs the resolver co-signature'}
           </div>
           <p>{matrix?.liveness}</p>
           <p className="mt-1 text-[11px] opacity-90">This path is satisfied by: <span className="font-semibold">{claim.role}</span>.</p>
           {!claim.offline && (
             <p className="mt-1.5 text-[11px]">
-              This in-browser flow cannot produce the oracle half-signature. While Covex is online, claim from the covenant page (which obtains the oracle co-sign). If you need to act fully offline, only the refund branch (where one exists) is self-claimable.
+              This in-browser flow cannot produce the resolver half-signature. While the deployer-bound resolver is online, claim from the covenant page (which obtains the resolver co-sign). If you need to act fully offline, only the refund branch (where one exists) is self-claimable.
             </p>
           )}
         </div>
@@ -397,7 +397,7 @@ function ClaimFlow({ kit, utxos }) {
           onClick={() => run('broadcast')}
           disabled={busy || oracleNeeded || !canBroadcastInBrowser}
           className="btn-shimmer w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm bg-kaspa-green text-black disabled:opacity-40 hover:shadow-[0_0_18px_rgba(73,234,203,0.3)] transition-all"
-          title={oracleNeeded ? 'This branch needs the Covex oracle co-signature' : (!canBroadcastInBrowser ? 'No browser-reachable public node for this network - use Sign & export instead' : 'Build, sign locally, and broadcast')}
+          title={oracleNeeded ? 'This branch needs the resolver co-signature' : (!canBroadcastInBrowser ? 'No browser-reachable public node for this network - use Sign & export instead' : 'Build, sign locally, and broadcast')}
         >
           {busy ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />} Sign &amp; broadcast
         </button>
@@ -405,7 +405,7 @@ function ClaimFlow({ kit, utxos }) {
           onClick={() => run('export')}
           disabled={busy || (oracleNeeded)}
           className="w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm border border-kaspa-green/30 bg-kaspa-green/[0.06] text-kaspa-green disabled:opacity-40 hover:bg-kaspa-green/[0.12] transition-all"
-          title={oracleNeeded ? 'This branch needs the Covex oracle co-signature' : 'Sign locally and export the signed tx JSON'}
+          title={oracleNeeded ? 'This branch needs the resolver co-signature' : 'Sign locally and export the signed tx JSON'}
         >
           {busy ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />} Sign &amp; export
         </button>
@@ -683,7 +683,7 @@ export default function Recover() {
               <CopyRow label="P2SH address (where the funds are locked)" value={kit.address} />
               <CopyRow label="Redeem script (hex)" value={kit.redeem_script_hex} />
               {kit.script_hash && <CopyRow label="On-chain script hash" value={kit.script_hash} />}
-              {kit.oracle_pubkey && <CopyRow label="Disclosed oracle x-only pubkey" value={kit.oracle_pubkey} />}
+              {kit.oracle_pubkey && <CopyRow label="Bound resolver x-only pubkey" value={kit.oracle_pubkey} />}
               {!kit.redeem_script_hex && (
                 <div className="rounded-lg border border-amber-500/25 bg-amber-500/[0.06] p-2.5 text-[11px] text-amber-300">
                   This kit has no redeem script (the covenant was created elsewhere and not claimed on Covex). You need the original redeem script from whoever built it to spend the funds.

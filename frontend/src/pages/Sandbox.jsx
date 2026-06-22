@@ -29,30 +29,31 @@ import { BUILD_STEPS } from '../lib/build-steps.js';
 // Honest enforcement realities. Kaspa has no on-chain pairing verifier, so a raw Groth16 proof is
 // never checked on-chain; every full-zk / hybrid circuit therefore renders as oracle-attested
 // (off-chain verify + on-chain Schnorr co-signature). All 19 verified ZK circuits are Groth16
-// verified OFF-CHAIN by the disclosed Covex oracle; the only on-chain check is the oracle's
-// Schnorr co-signature. on-chain means Kaspa P2SH consensus only. accent drives the Card
-// identity bar; badgeVariant drives the Badge.
-// We never render a green "ZK on-chain" badge for an oracle-cosigned-only circuit.
+// verified OFF-CHAIN by anyone (you, the counterparty, or any external verifier); a valid proof
+// gates a 2-of-2 cosign + CSV timeout, and the only on-chain check is the Schnorr co-signature.
+// on-chain means Kaspa P2SH consensus only. accent drives the Card identity bar; badgeVariant
+// drives the Badge. We never render a green "ZK on-chain" badge for a cosign-gated circuit.
 const REALITY = {
   'on-chain': {
     label: 'On-chain enforced', accent: '#34d399', badgeVariant: 'on-chain', Icon: ShieldCheck,
     note: 'Consensus-enforced by the Kaspa P2SH commitment. The chain itself guarantees the rules.',
   },
   // Every verified ZK circuit maps here: a real Groth16 proof verified fail-closed OFF-CHAIN by
-  // the disclosed Covex oracle. Kaspa has no on-chain pairing verifier, so the proof is never
-  // checked on-chain; the only on-chain check is the oracle's Schnorr co-signature. full-zk and
-  // hybrid both render honestly as oracle-attested, never as a green ZK on-chain badge.
+  // anyone (you, the counterparty, or any external verifier). Kaspa has no on-chain pairing
+  // verifier, so the proof is never checked on-chain; a valid proof gates a 2-of-2 cosign + CSV
+  // timeout, and the only on-chain check is the Schnorr co-signature. full-zk and hybrid both
+  // render honestly as oracle-attested, never as a green ZK on-chain badge.
   'full-zk': {
     label: 'Oracle-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
-    note: 'A real Groth16 proof is verified fail-closed OFF-CHAIN by the disclosed Covex oracle, which gates the consensus-required co-signature. Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; only the oracle Schnorr co-signature is.',
+    note: 'A real Groth16 proof is verified fail-closed OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and only the Schnorr co-signature is checked on-chain.',
   },
   hybrid: {
     label: 'Oracle-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
-    note: 'A ZK property proof verified off-chain by the disclosed Covex oracle, which co-signs the outcome. Trust is in the named oracle; the only on-chain check is its Schnorr co-signature.',
+    note: 'A ZK property proof verified off-chain by you, the counterparty, or any external verifier; a valid proof gates the 2-of-2 cosign that releases the outcome. The only on-chain check is the Schnorr co-signature.',
   },
   'oracle-attested': {
     label: 'Oracle-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
-    note: 'Resolved by a signed oracle attestation of an off-chain outcome. Trust is in the named oracle, with the payout settled on-chain.',
+    note: 'Resolved by a signed attestation from a deployer-bound external resolver (bound by pubkey at deploy) of an off-chain outcome. Covex never attests outcomes; trust is in that resolver, with the payout settled on-chain.',
   },
   decorative: {
     label: 'Metadata', accent: '#9ca3af', badgeVariant: 'metadata', Icon: Lock,
@@ -66,7 +67,7 @@ const REALITY = {
 const JARGON = {
   daa: "DAA = Kaspa's block-height clock, ~10 blocks/sec. Timelocks unlock at a target DAA score.",
   p2sh: 'P2SH = pay-to-script-hash. Funds lock to the hash of the redeem script; spending must reveal a script that matches and satisfies it.',
-  oracle: 'Oracle = the disclosed Covex signer that verifies an off-chain outcome (or ZK proof) and co-signs the spend. Trust is in this named signer.',
+  oracle: 'Oracle = a deployer-bound external resolver (bound by pubkey at deploy) that attests an off-chain outcome and co-signs the spend. Covex never attests outcomes; trust is in that named resolver. For ZK circuits the proof itself is verified off-chain by anyone.',
   redeem: 'Redeem script = the covenant logic the chain checks at spend time. The P2SH address commits to its hash.',
 };
 
@@ -147,8 +148,8 @@ const CREATE_TABS = [
 ];
 
 // The curated 6-card Templates set. Hand-picked across honest realities so a newcomer sees one
-// of each kind they can actually start from: an oracle market, two real-Groth16 ZK circuits
-// verified fail-closed by the disclosed Covex oracle, a parimutuel game, age-gating, and a
+// of each kind they can actually start from: an oracle market, two real-Groth16 ZK circuits whose
+// proofs are verified fail-closed OFF-CHAIN by anyone, a parimutuel game, age-gating, and a
 // verifiable pot split. All six are present in ZK_CIRCUIT_TYPES and land in Phase 2 on click.
 const TEMPLATE_IDS = [
   'prediction_market', 'merkle_membership', 'escrow_2party',
@@ -551,8 +552,8 @@ export default function Sandbox() {
     <p>
       Covex compiles your covenant DSL into a Kaspa <Term k="redeem">redeem script</Term>. Funds lock to its{' '}
       <Term k="p2sh">P2SH</Term> commitment. Some redeem paths are consensus-enforced by Kaspa alone;{' '}
-      <Term k="oracle">oracle</Term> paths require the disclosed Covex oracle to co-sign, which is the
-      off-chain reality for ZK and parimutuel circuits.
+      <Term k="oracle">oracle</Term> paths require a deployer-bound external resolver to co-sign, which is the
+      off-chain reality for ZK and parimutuel circuits. For ZK circuits the proof itself is verified off-chain by anyone.
     </p>
   );
   const learnDisclosure = (

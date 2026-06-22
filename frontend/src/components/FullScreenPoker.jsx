@@ -771,7 +771,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
             </div>
             {mySeat != null && !payoutResult && (
               <p className="text-[11px] text-gray-300 light:text-slate-600 max-w-xs text-center leading-snug">
-                Two steps: (1) the disclosed oracle co-signs who won, (2) you claim the on-chain payout. Covex never holds the pot.
+                Two steps: (1) the result is computed by replaying the signed move log and the counterparty or a deployer-bound resolver co-signs the release, (2) you claim the on-chain payout. Covex never holds the pot.
               </p>
             )}
             {!oracleSubmitted && mySeat != null && (
@@ -798,7 +798,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
       </div>
 
       <div className="h-auto min-h-[2rem] border-t border-white/10 light:border-slate-300/70 text-[9px] sm:text-[10px] text-gray-500 light:text-slate-600 flex items-center justify-center font-mono shrink-0 px-3 py-1.5 text-center">
-        COMMIT-REVEAL DEAL · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · PAYOUT ENFORCED ON-CHAIN BY THE REDEEM SCRIPT
+        COMMIT-REVEAL DEAL · DETERMINISTIC MOVE-LOG REPLAY · CO-SIGNED RELEASE · PAYOUT ENFORCED ON-CHAIN BY THE REDEEM SCRIPT
       </div>
     </div>
   );

@@ -71,7 +71,7 @@ function RealityChip({ reality }) {
   return (
     <span
       className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider whitespace-nowrap ${meta.cls}`}
-      title={`Enforcement reality: ${meta.label}. Verified by the disclosed Covex oracle where applicable.`}
+      title={`Enforcement reality: ${meta.label}. Verified by an external resolver where applicable.`}
     >
       {meta.label}
     </span>

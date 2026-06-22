@@ -56,7 +56,7 @@ output and the `core` crate's unit tests exercise the identical code path.
 ## Trust model (honest)
 
 Kaspa has **no on-chain pairing or STARK verifier**, so the chain cannot check the receipt itself.
-The receipt is verified **off-chain** by the counterparty or by the Covex oracle, and that
+The receipt is verified **off-chain** by the counterparty or by the external resolver, and that
 verification is what gates the co-signature on a 2-of-2 covenant.
 
 - A prover produces a receipt with `prove`. Anyone runs `verify` to trust the result without

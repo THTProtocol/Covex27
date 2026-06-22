@@ -19,7 +19,7 @@ multi-core machine (WSL); verification is cheap and runs anywhere.
 
 Kaspa has NO on-chain pairing/STARK verifier, so the chain cannot check the receipt. The proof is
 verified OFF-chain; the covenant release is gated by a co-signature. The receipt is the off-chain
-artifact the counterparty or the Covex oracle verifies before co-signing. This mirrors the games
+artifact the counterparty or the external resolver verifies before co-signing. This mirrors the games
 prover and the rest of Covex: the oracle is the trusted verifier, and it fails closed (a receipt
 that does not verify against the image id is rejected).
 

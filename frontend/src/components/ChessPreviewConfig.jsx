@@ -6,9 +6,10 @@ import { BOARD_THEMES, PIECE_SETS, resolveBoardTheme, resolvePieceSet, DEFAULT_B
 // It is fully driven by props (the parent CovexTerminal owns the state), so the logic preview
 // and the UI/website preview update live as the creator changes the timer, fee, or stake.
 //
-// HONESTY: chess is oracle-attested, server-authoritative. The disclosed Covex oracle replays
-// the move log with a full FIDE rules engine and signs the outcome (BIP340); that co-signature
-// settles the payout on-chain (Schnorr). This is NOT an on-chain ZK proof and NOT trustless.
+// HONESTY: chess is server-authoritative. The result is computed deterministically by replaying
+// the signed move log with a full FIDE rules engine (anyone can recompute); the counterparty or
+// a deployer-bound external resolver co-signs the release (BIP340), and that co-signature settles
+// the payout on-chain (Schnorr). This is NOT an on-chain ZK proof and NOT trustless.
 // Never imply otherwise in any rendered copy here. No em dashes anywhere.
 
 const START_BOARD = [
@@ -244,10 +245,10 @@ export default function ChessPreviewConfig({
           </span>
         </div>
         <p className="text-sm text-gray-300 light:text-slate-700 leading-relaxed">
-          Both players stake <span className="font-mono text-kaspa-green tabular-nums">{stake} KAS</span>. FIDE rules are enforced by the disclosed Covex oracle (server-authoritative result). Per-turn clock: <span className="text-white light:text-slate-900 font-medium">{baseMinutes}m + {incrementSeconds}s increment</span>, only the player-to-move clock ticks; reaching zero is a loss. The winner takes the pot minus the <span className="font-mono text-kaspa-green">{feePercent}%</span> fee; a draw refunds both sides.
+          Both players stake <span className="font-mono text-kaspa-green tabular-nums">{stake} KAS</span>. FIDE rules run on a server-authoritative engine and the result is computed deterministically by replaying the signed move log (anyone can recompute). Per-turn clock: <span className="text-white light:text-slate-900 font-medium">{baseMinutes}m + {incrementSeconds}s increment</span>, only the player-to-move clock ticks; reaching zero is a loss. The winner takes the pot minus the <span className="font-mono text-kaspa-green">{feePercent}%</span> fee; a draw refunds both sides.
         </p>
         <div className="rounded-xl border border-amber-400/20 bg-amber-400/[0.04] p-3 text-[11px] text-amber-200/90 light:text-amber-700 leading-relaxed">
-          Enforcement reality: the outcome is the oracle's signed attestation (BIP340), and the payout settles on-chain when the covenant verifies that co-signature (Schnorr). This is not an on-chain ZK proof and not trustless: the disclosed Covex oracle is the trust boundary.
+          Enforcement reality: the result is computed deterministically by replaying the signed move log, and the counterparty or a deployer-bound external resolver co-signs the release (BIP340); the payout settles on-chain when the covenant verifies that co-signature (Schnorr). This is not an on-chain ZK proof and not trustless: that co-signer is the trust boundary. The refund / CSV-timeout branch stays self-claimable.
         </div>
 
         {/* Live payout split */}

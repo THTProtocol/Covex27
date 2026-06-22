@@ -23,9 +23,10 @@
 //
 // Honesty note: this redeemer only helps for kinds whose redeem script the chain (or a
 // revealed public secret + the named key's OpCheckSig) genuinely enforces end to end.
-// The oracle_* kinds still need the server-produced oracle half-signature to claim
-// (the refund branch of the *_refundable kinds is fully self-claimable). The caller is
-// responsible for knowing which branch they can actually satisfy offline.
+// The oracle_* kinds still need the deployer-bound resolver's half-signature to claim
+// (an external resolver the deployer binds by pubkey at deploy; the refund branch of the
+// *_refundable kinds is fully self-claimable). The caller is responsible for knowing
+// which branch they can actually satisfy offline.
 
 // ===========================================================================
 // (A) PURE CORE - no imports, plain Uint8Array. Byte-parity with the Rust.
@@ -600,35 +601,35 @@ export function assertSignerForBranch(redeemHex, kind, branch, signerXonlyHex) {
 /**
  * Honest per-kind offline-claimability matrix (single source of truth shared by the recovery
  * UI and the recovery-kit export). "Offline-claimable" means a holder can satisfy the branch
- * end-to-end with ONLY a revealed-on-chain secret and/or the named key's signature - no Covex
- * oracle co-signature required. Mirrors the module-header honesty note and the memory matrix.
+ * end-to-end with ONLY a revealed-on-chain secret and/or the named key's signature - no
+ * resolver co-signature required. Mirrors the module-header honesty note and the memory matrix.
  *
  * Each entry: { offlineClaimable, branches: { <branch>: { offline: bool, role, note } }, liveness }
- *   - branches[].offline: is THAT branch claimable with no Covex involvement?
+ *   - branches[].offline: is THAT branch claimable with no resolver involvement?
  *   - branches[].role:    which named key/secret the holder must provide
- *   - liveness:           a plain-language note about what (if anything) still needs the oracle
+ *   - liveness:           a plain-language note about what (if anything) still needs the resolver
  */
 export const KIND_CLAIM_MATRIX = Object.freeze({
-  singlesig: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key' } }, liveness: 'Fully script-enforced. Claim any time with your key. No oracle.' },
-  timelock: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key (after locktime)' } }, liveness: 'Fully script-enforced. Claim with your key once the locktime / DAA threshold passes. No oracle.' },
-  rcsv: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key (after relative delay)' } }, liveness: 'Fully script-enforced (BIP68 relative locktime). Claim with your key after the relative delay. No oracle.' },
-  hashlock: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key + the revealed preimage' } }, liveness: 'Fully script-enforced. Reveal the preimage and sign with your key. No oracle.' },
+  singlesig: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key' } }, liveness: 'Fully script-enforced. Claim any time with your key. No resolver.' },
+  timelock: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key (after locktime)' } }, liveness: 'Fully script-enforced. Claim with your key once the locktime / DAA threshold passes. No resolver.' },
+  rcsv: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key (after relative delay)' } }, liveness: 'Fully script-enforced (BIP68 relative locktime). Claim with your key after the relative delay. No resolver.' },
+  hashlock: { offlineClaimable: true, branches: { claim: { offline: true, role: 'your key + the revealed preimage' } }, liveness: 'Fully script-enforced. Reveal the preimage and sign with your key. No resolver.' },
   htlc: {
     offlineClaimable: true,
     branches: {
       claim: { offline: true, role: 'receiver key + the revealed preimage' },
       refund: { offline: true, role: 'sender key (after timeout)' },
     },
-    liveness: 'Fully script-enforced. Claim by revealing the preimage, or refund after the timeout. No oracle.',
+    liveness: 'Fully script-enforced. Claim by revealing the preimage, or refund after the timeout. No resolver.',
   },
-  multisig: { offlineClaimable: true, branches: { claim: { offline: true, role: 'the threshold of committed keys' } }, liveness: 'Fully script-enforced. Collect the required signatures and spend. No oracle.' },
+  multisig: { offlineClaimable: true, branches: { claim: { offline: true, role: 'the threshold of committed keys' } }, liveness: 'Fully script-enforced. Collect the required signatures and spend. No resolver.' },
   channel: {
     offlineClaimable: true,
     branches: {
       close: { offline: true, role: 'both participant keys (cooperative close)' },
       refund: { offline: true, role: 'funder (player1) key (after timeout)' },
     },
-    liveness: 'Fully script-enforced. Close cooperatively with both keys, or the funder refunds after the timeout. No oracle.',
+    liveness: 'Fully script-enforced. Close cooperatively with both keys, or the funder refunds after the timeout. No resolver.',
   },
   deadman: {
     offlineClaimable: true,
@@ -636,7 +637,7 @@ export const KIND_CLAIM_MATRIX = Object.freeze({
       claim: { offline: true, role: 'owner key' },
       refund: { offline: true, role: 'heir key (after the dead-man delay)' },
     },
-    liveness: 'Fully script-enforced. Owner spends any time; the heir takes over after the delay. No oracle.',
+    liveness: 'Fully script-enforced. Owner spends any time; the heir takes over after the delay. No resolver.',
   },
   binary_oracle_select: {
     offlineClaimable: true,
@@ -646,40 +647,40 @@ export const KIND_CLAIM_MATRIX = Object.freeze({
       refund: { offline: true, role: 'refund key (after the CSV delay)' },
     },
     // The leg becomes self-claimable the moment the secret is public; before that, only the
-    // oracle knows it. Honest: the secret-reveal is the oracle liveness dependency.
-    liveness: 'Offline-claimable ONCE the outcome secret is revealed on-chain (the disclosed Covex oracle reveals it for the true result). Before reveal, only the oracle can produce the secret. The refund branch is always offline-claimable after the CSV delay.',
+    // resolver knows it. Honest: the secret-reveal is the resolver liveness dependency.
+    liveness: 'Offline-claimable ONCE the outcome secret is revealed on-chain (the deployer-bound resolver reveals it for the true result). Before reveal, only the resolver can produce the secret. The refund branch is always offline-claimable after the CSV delay.',
   },
   oracle_escrow: {
     offlineClaimable: false,
     branches: {
-      revealA: { offline: false, role: 'winning-player key + the Covex oracle co-signature' },
-      revealB: { offline: false, role: 'winning-player key + the Covex oracle co-signature' },
+      revealA: { offline: false, role: 'winning-player key + an external resolver co-signature' },
+      revealB: { offline: false, role: 'winning-player key + an external resolver co-signature' },
     },
-    liveness: 'NOT offline-claimable: the winning payout requires the disclosed Covex oracle co-signature. There is no refund branch on this kind, so it depends on oracle liveness. Prefer the *_refundable variant for a self-claimable fallback.',
+    liveness: 'NOT offline-claimable: the winning payout requires the deployer-bound resolver co-signature. There is no refund branch on this kind, so it depends on resolver liveness. Prefer the *_refundable variant for a self-claimable fallback.',
   },
   oracle_enforced: {
     offlineClaimable: false,
     branches: {
-      claim: { offline: false, role: 'winner key + the Covex oracle co-signature' },
+      claim: { offline: false, role: 'winner key + an external resolver co-signature' },
     },
-    liveness: 'NOT offline-claimable: the winning payout is a 2-of-2 that requires the disclosed Covex oracle co-signature. No refund branch, so it depends on oracle liveness.',
+    liveness: 'NOT offline-claimable: the winning payout is a 2-of-2 that requires the deployer-bound resolver co-signature. No refund branch, so it depends on resolver liveness.',
   },
   oracle_enforced_refundable: {
     offlineClaimable: false,
     branches: {
-      claim: { offline: false, role: 'winner key + the Covex oracle co-signature' },
+      claim: { offline: false, role: 'winner key + an external resolver co-signature' },
       refund: { offline: true, role: 'funder/refund key (after lock_daa)' },
     },
-    liveness: 'The WIN path needs the disclosed Covex oracle co-signature (not offline-claimable). The REFUND branch is fully offline-claimable with your refund key after lock_daa.',
+    liveness: 'The WIN path needs the deployer-bound resolver co-signature (not offline-claimable). The REFUND branch is fully offline-claimable with your refund key after lock_daa.',
   },
   oracle_escrow_refundable: {
     offlineClaimable: false,
     branches: {
-      revealA: { offline: false, role: 'winning-player key + the Covex oracle co-signature' },
-      revealB: { offline: false, role: 'winning-player key + the Covex oracle co-signature' },
+      revealA: { offline: false, role: 'winning-player key + an external resolver co-signature' },
+      revealB: { offline: false, role: 'winning-player key + an external resolver co-signature' },
       refund: { offline: true, role: 'funder/refund key (after lock_daa)' },
     },
-    liveness: 'The WIN path needs the disclosed Covex oracle co-signature (not offline-claimable). The REFUND branch is fully offline-claimable with your refund key after lock_daa.',
+    liveness: 'The WIN path needs the deployer-bound resolver co-signature (not offline-claimable). The REFUND branch is fully offline-claimable with your refund key after lock_daa.',
   },
 });
 

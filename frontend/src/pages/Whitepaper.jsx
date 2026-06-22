@@ -7,8 +7,9 @@ import { vkeyPathFor, VERIFIED_FULL_ZK } from '@/lib/zk/circuits';
 // Computed at module load from the canonical set in lib/zk/circuits.js so this
 // page cannot drift from the registry. The derived count is the load-bearing
 // honesty fact in sections 4 and 5: every ZK circuit in the registry is
-// Groth16-verified OFF-CHAIN by the disclosed oracle. There is no chain-enforced
-// ZK tier - the only on-chain check is the oracle's Schnorr co-signature.
+// Groth16-verified OFF-CHAIN by you, the counterparty, or any external verifier.
+// There is no chain-enforced ZK tier - the only on-chain check is the resolver's
+// Schnorr co-signature gating a 2-of-2 cosign plus a CSV timeout.
 const ZK_TOTAL = VERIFIED_FULL_ZK.size;
 // Small number-to-word helper so the prose reads naturally without hard-coding
 // the count. Falls back to digits past the table, which is fine for any future
@@ -28,15 +29,15 @@ const SECTIONS = [
   {
     id: 'abstract', n: 'Abstract',
     body: [
-      "Kaspa's Toccata hard fork turns a 10 BPS proof-of-work BlockDAG into a covenant-capable Layer 1: native, stateful, multi-transaction programs over UTXOs. Kaspa has no on-chain pairing verifier, so zero-knowledge proofs are verified off-chain by a disclosed oracle and the oracle's Schnorr co-signature is what the chain checks at unlock. The missing layer is human: a place to see every covenant, interact with any of them safely, and create them without writing raw script. Covex is that layer.",
-      "This paper describes the problem, the design, the trust model, and the honest mainnet guarantee today: on-chain Schnorr verification of the disclosed oracle co-signature, with ZK proofs verified off-chain by that oracle.",
+      "Kaspa's Toccata hard fork turns a 10 BPS proof-of-work BlockDAG into a covenant-capable Layer 1: native, stateful, multi-transaction programs over UTXOs. Kaspa has no on-chain pairing verifier, so zero-knowledge proofs are verified off-chain by you, the counterparty, or any external verifier, and a deployer-bound resolver's Schnorr co-signature is what the chain checks at unlock. The missing layer is human: a place to see every covenant, interact with any of them safely, and create them without writing raw script. Covex is that layer.",
+      "This paper describes the problem, the design, the trust model, and the honest mainnet guarantee today: on-chain Schnorr verification of a deployer-bound resolver's co-signature, with ZK proofs verified off-chain by you, the counterparty, or any external verifier.",
     ],
   },
   {
     id: 'background', n: '1 · Background: covenants on Kaspa',
     body: [
       "Kaspa is a proof-of-work BlockDAG using the GHOSTDAG / DAGKNIGHT ordering protocol. Since the Crescendo hard fork (mainnet, ~May 2025) it produces 10 blocks per second while preserving Nakamoto-style security, with a roadmap toward 100 BPS. Crescendo also shipped KIP-10 transaction-introspection opcodes, the first step toward covenants.",
-      "The Toccata hard fork completes the covenant story. It is scheduled to activate on Kaspa mainnet on 30 June 2026, and bundles four improvement proposals: KIP-17 (extended script-engine opcodes, the covenant backbone), KIP-20 (covenant IDs for stable identity and lineage), KIP-16 (a proposed zero-knowledge verification opcode set), and KIP-21 (partitioned sequencing commitments). Covex does not rely on any on-chain proof-verification precompile: the achievable mainnet guarantee is on-chain Schnorr verification of the disclosed oracle co-signature, with any ZK proof verified off-chain by that oracle.",
+      "The Toccata hard fork completes the covenant story. It is scheduled to activate on Kaspa mainnet on 30 June 2026, and bundles four improvement proposals: KIP-17 (extended script-engine opcodes, the covenant backbone), KIP-20 (covenant IDs for stable identity and lineage), KIP-16 (a proposed zero-knowledge verification opcode set), and KIP-21 (partitioned sequencing commitments). Covex does not rely on any on-chain proof-verification precompile: the achievable mainnet guarantee is on-chain Schnorr verification of a deployer-bound resolver's co-signature, with any ZK proof verified off-chain by you, the counterparty, or any external verifier.",
       "SilverScript, a CashScript-inspired language and compiler, compiles covenants to Kaspa script. Covex builds directly on this stack and is mainnet-ready for the 30 June 2026 Toccata launch, with real funds.",
     ],
   },
@@ -61,16 +62,16 @@ const SECTIONS = [
     id: 'trust', n: '4 · Trust model',
     body: [
       "Covex is explicit about what is trustless and what is not.",
-      "Custody is non-custodial: the platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet. For oracle-resolved covenants the disclosed Covex oracle co-signs the winning branch, so the payout is on-chain enforced but not trustless. Where the outcome is a real-world fact, a covenant can instead bind on-chain to an external resolver the creator chooses (the Oracle Escrow kind), so Covex provides infrastructure, not the truth. For the deterministic primitives the payout is trustless.",
+      "Custody is non-custodial: the platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet. For oracle-resolved covenants an external resolver the deployer binds by pubkey at deploy co-signs the winning branch, so the payout is on-chain enforced but not trustless. Where the outcome is a real-world fact, the covenant binds on-chain to that resolver the creator chooses (the Oracle Escrow kind), so Covex provides infrastructure, not the truth, and never attests real-world facts. For the deterministic primitives the payout is trustless.",
       "Discovery and display are verifiable against the chain: every listed covenant is a real on-chain object you can independently check on the block explorer, and nothing is fabricated. The honesty gate on mainnet enforces this. The enforcement label itself is computed by Covex, so we reserve the word trustless for custody.",
-      `Resolution is oracle-attested. There are ${ZK_TOTAL_WORD} ZK circuits in the Covex registry, and all ${ZK_TOTAL_WORD} of their Groth16 proofs are verified OFF-CHAIN by the disclosed Covex oracle (fail-closed): the oracle attests the proof, and the chain enforces only the oracle's signature. Engine-resolved game outcomes are likewise co-signed by the oracle without a proof, since the result is a deterministic replay anyone can recompute; real-world covenants instead bind to an external resolver the creator names (the bundled prediction-market product still settles via a Covex-derived secret gated to the creator's wallet, a trust-minimized step toward full external binding). Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; for all ${ZK_TOTAL_WORD} circuits only the oracle's BIP340 co-signature is what the chain checks at unlock, and each covenant page states this via a trust badge. The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC. This is the trusted component today, and it is disclosed, not hidden.`,
+      `Resolution is oracle-attested. There are ${ZK_TOTAL_WORD} ZK circuits in the Covex registry, and all ${ZK_TOTAL_WORD} of their Groth16 proofs are verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey, fail-closed): a valid proof gates a 2-of-2 cosign plus a CSV timeout, and the chain enforces only that co-signature. Engine-resolved game outcomes are computed deterministically by replaying the signed move log (anyone can recompute the result) and the release is co-signed by the counterparty or a deployer-bound external resolver, without a proof; real-world covenants bind to an external resolver the creator names by pubkey at deploy, since Covex never attests real-world facts. Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; for all ${ZK_TOTAL_WORD} circuits only the resolver's BIP340 co-signature is what the chain checks at unlock, and each covenant page states this via a trust badge. The trusted setup is a single-contributor dev ceremony, not a production multi-party MPC. This is the trust assumption today, and it is disclosed, not hidden, and the resolver is bound by pubkey at deploy, not Covex.`,
       "Visibility: the ranking formula is public and deterministic; paid placement is labeled, never disguised as organic.",
     ],
   },
   {
     id: 'roadmap', n: '5 · Roadmap to trustlessness',
     body: [
-      `Today, all ${ZK_TOTAL_WORD} compiled ZK circuits in the registry (including merkle_membership, age_verification, escrow_2party, range_proof, timelock, pot-split, VRF and the rest) are verified off-chain by the disclosed Covex oracle, and only its Schnorr co-signature is checked on-chain at unlock. No circuit's ZK proof is enforced end-to-end on Kaspa: there is no circuit-output to hashlock binding in the covenant builder, so the chain never checks a proof. If a future KIP-16 ships an on-chain proof-verification opcode, those ${ZK_TOTAL_WORD} would migrate to on-chain Groth16 verification as their proving keys and a real multi-party ceremony ship. Until then, and at the 30 June 2026 mainnet launch, the entire ZK set is oracle-verified off-chain.`,
+      `Today, all ${ZK_TOTAL_WORD} compiled ZK circuits in the registry (including merkle_membership, age_verification, escrow_2party, range_proof, timelock, pot-split, VRF and the rest) are verified off-chain by you, the counterparty, or any external verifier, and only a deployer-bound resolver's Schnorr co-signature is checked on-chain at unlock. No circuit's ZK proof is enforced end-to-end on Kaspa: there is no circuit-output to hashlock binding in the covenant builder, so the chain never checks a proof. If a future KIP-16 ships an on-chain proof-verification opcode, those ${ZK_TOTAL_WORD} would migrate to on-chain Groth16 verification as their proving keys and a real multi-party ceremony ship. Until then, and at the 30 June 2026 mainnet launch, the entire ZK set is verified off-chain.`,
       "As that migration completes, the oracle's role shrinks from trusted signer to liveness helper, and eventually to optional. The honest badge system makes each step visible to users in real time.",
       "Beyond resolution: multi-oracle threshold signing for whatever remains attested, a real MPC ceremony or STARK paths to replace the development powers-of-tau, KCC-20 token indexing, a pay-per-call API revenue layer, and a PostgreSQL migration when covenant volume demands it.",
     ],
@@ -156,7 +157,7 @@ function VerifyYourselfPanel() {
               {oraclePk.state === 'error' && (
                 <p className="text-[11px] text-amber-300 light:text-amber-700 break-words">Could not fetch /api/oracle/pubkey ({oraclePk.value}). The oracle endpoint is not reachable from this build.</p>
               )}
-              <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1.5">Source: GET /api/oracle/pubkey. This is the disclosed Covex oracle, not a trustless verifier.</p>
+              <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1.5">Source: GET /api/oracle/pubkey. This is the deployer-bound resolver pubkey, not a trustless verifier.</p>
             </div>
 
             <div>
@@ -171,7 +172,7 @@ function VerifyYourselfPanel() {
               {vkey.state === 'missing' && (
                 <p className="text-[11px] text-amber-300 light:text-amber-700">vkey static path not exposed in this build.</p>
               )}
-              <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1.5">HEAD probe at load. age_verification's Groth16 proof is verified off-chain by the disclosed oracle (fail-closed); the only on-chain check is the oracle's Schnorr co-signature.</p>
+              <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1.5">HEAD probe at load. age_verification's Groth16 proof is verified off-chain by you, the counterparty, or any external verifier (snarkjs against this vkey, fail-closed); the only on-chain check is a deployer-bound resolver's Schnorr co-signature.</p>
             </div>
 
             <div>

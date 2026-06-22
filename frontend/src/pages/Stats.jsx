@@ -28,7 +28,7 @@ const NETWORK_COLOR = (slug) => (NETWORKS.find((n) => n.value === slug)?.color) 
 // emits exactly these strings (search: record_event / record_event_once):
 //   covenant_discovered  - crawler indexed a new covenant on Kaspa
 //   tier_upgraded        - payment_verifier confirmed an on-chain tier payment
-//   resolution_signed    - the disclosed Covex oracle signed an outcome
+//   resolution_signed    - a deployer-bound external resolver signed an outcome
 //   covenant_reorged     - the discovery block left the selected chain
 //   game_finished        - a poker match decided a winner off-chain
 // tier_upgraded sources its color from tierPalette so the Stats event chart

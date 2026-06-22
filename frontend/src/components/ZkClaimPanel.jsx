@@ -30,14 +30,16 @@ export function buildOraclePayload({ covenantId, circuitType, proof, publicSigna
  *   1. generate a real Groth16 proof IN THEIR BROWSER, bound to THIS covenant_id (H4), so the
  *      secret witness never leaves the device - only { proof, publicSignals } are produced;
  *   2. inspect the public signals before submitting;
- *   3. POST { circuit_type, proof, public_inputs, covenant_id } to /api/oracle/verify-and-sign;
- *   4. on success, see the oracle co-signature, with an HONEST explanation that the disclosed
- *      Covex oracle verified the proof OFF-CHAIN (snarkjs + the served vkey) fail-closed and
- *      co-signed, so the visitor can now spend the gated covenant branch.
+ *   3. POST { circuit_type, proof, public_inputs, covenant_id } to the cosign endpoint;
+ *   4. on success, see the cosigner's co-signature, with an HONEST explanation that the proof
+ *      was verified OFF-CHAIN (by you, the counterparty, or any external verifier - snarkjs
+ *      against the audited vkey) and that a valid proof gates a 2-of-2 cosign + CSV timeout,
+ *      so the visitor can now spend the gated covenant branch.
  *
- * HONESTY ABSOLUTE: the copy never says trustless or on-chain ZK. The oracle is the disclosed
- * trust boundary; a valid proof is verified off-chain and gates the consensus-required co-sig.
- * On an invalid or tampered proof the oracle refuses (success:false) and the panel shows the
+ * HONESTY ABSOLUTE: the copy never says trustless or on-chain ZK. Kaspa has NO on-chain pairing
+ * verifier, so the proof is never checked on-chain; it is verifiable off-chain by anyone via
+ * snarkjs against the public vkey, and payout gates on a 2-of-2 cosign + CSV timeout. On an
+ * invalid or tampered proof the cosign endpoint refuses (success:false) and the panel shows the
  * failure plainly. The panel renders ONLY for circuits in VERIFIED_FULL_ZK.
  */
 export default function ZkClaimPanel({ covenant }) {
@@ -62,8 +64,9 @@ export default function ZkClaimPanel({ covenant }) {
   const meta = PROVERS[circuitId];
   const circuitType = circuitTypeFor(circuitId);
   // HONESTY: no deployed circuit's ZK proof is bound to a chain-checked hashlock. Every
-  // in-browser-provable circuit is full-zk: a real Groth16 proof verified OFF-CHAIN by the
-  // disclosed Covex oracle (fail-closed); the only on-chain check is the oracle's co-signature.
+  // in-browser-provable circuit is full-zk: a real Groth16 proof verified OFF-CHAIN (by you,
+  // the counterparty, or any external verifier - snarkjs against the audited vkey). Kaspa has
+  // no on-chain pairing verifier; a valid proof gates a 2-of-2 cosign + CSV timeout.
   const realityKey = 'full-zk';
   const realityHeadline = REALITY_HEADLINE[realityKey];
   const realityBody = REALITY_BODY[realityKey];
@@ -88,8 +91,9 @@ export default function ZkClaimPanel({ covenant }) {
     }
   };
 
-  // Step 2: submit the real proof to the disclosed oracle. It verifies off-chain (fail-closed)
-  // and co-signs ONLY a genuinely valid proof. A tampered/invalid proof returns success:false.
+  // Step 2: submit the real proof for the 2-of-2 cosign. The proof is verified off-chain
+  // (fail-closed) and the release is co-signed ONLY for a genuinely valid proof. A
+  // tampered/invalid proof returns success:false.
   const handleSubmit = async () => {
     if (!proofObj || !publicSignals) return;
     setStatus('submitting'); setErrMsg(''); setOracleResult(null);
@@ -108,7 +112,7 @@ export default function ZkClaimPanel({ covenant }) {
       setOracleResult(data);
       setStatus('done');
     } catch (e) {
-      setErrMsg(`Oracle request failed: ${e?.message || e}`);
+      setErrMsg(`Cosign request failed: ${e?.message || e}`);
       setStatus('error');
     }
   };
@@ -123,11 +127,12 @@ export default function ZkClaimPanel({ covenant }) {
       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
         <ShieldCheck size={16} className="text-emerald-300" />
         <span className="text-xs font-extrabold uppercase tracking-[0.14em] text-emerald-300">
-          Oracle-verified ZK claim · {meta.label}
+          Off-chain ZK proof claim · {meta.label}
         </span>
       </div>
 
-      {/* Per-circuit enforcement reality: every ZK circuit is oracle-verified off-chain. */}
+      {/* Per-circuit enforcement reality: the proof is verified off-chain by anyone, and a valid
+          proof gates a 2-of-2 cosign + CSV timeout. */}
       <div className="mb-3 rounded-xl border p-3 border-amber-500/30 bg-amber-500/[0.05]">
         <div className="flex items-center gap-1.5 mb-1">
           <Lock size={13} className="text-amber-300" />
@@ -136,8 +141,9 @@ export default function ZkClaimPanel({ covenant }) {
           </span>
         </div>
         <p className="text-[12.5px] leading-relaxed text-amber-100/90">
-          This circuit is oracle-verified. The disclosed Covex oracle verifies your proof off-chain
-          and co-signs the payout transaction. Payout enforcement requires the oracle's signature.
+          Your proof is verified off-chain (by you, the counterparty, or any external verifier -
+          snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier, so a valid
+          proof gates a 2-of-2 cosign + CSV timeout rather than being checked on-chain.
         </p>
         <p className="mt-1.5 text-[11.5px] text-gray-400 leading-relaxed">
           {realityBody}
@@ -150,8 +156,8 @@ export default function ZkClaimPanel({ covenant }) {
       <p className="text-[12.5px] text-gray-400 leading-relaxed mb-4">
         Anyone can run this here. The circuit's prover runs in your browser on its example statement,
         binds the proof to this exact covenant (so it cannot be replayed onto another), and submits
-        only the proof and its public signals (never the witness). The disclosed Covex oracle then
-        verifies the proof off-chain, fail-closed, and co-signs only if it is genuinely valid.
+        only the proof and its public signals (never the witness). The proof is then verified
+        off-chain, fail-closed, and the release is co-signed only if it is genuinely valid.
       </p>
 
       {/* Step 1: prove in-browser */}
@@ -165,7 +171,7 @@ export default function ZkClaimPanel({ covenant }) {
           {proving ? 'Proving in your browser...' : (proofObj ? 'Re-generate proof' : 'Generate proof in browser')}
         </button>
 
-        {/* Step 2: submit to the oracle (only after a proof exists) */}
+        {/* Step 2: submit the proof for the 2-of-2 cosign (only after a proof exists) */}
         {proofObj && (
           <button
             onClick={handleSubmit}
@@ -173,7 +179,7 @@ export default function ZkClaimPanel({ covenant }) {
             className="inline-flex items-center gap-2 rounded-xl bg-[#3B82F6]/15 border border-[#3B82F6]/40 px-4 py-2.5 text-sm font-semibold text-blue-200 hover:bg-[#3B82F6]/25 transition-colors disabled:opacity-50"
           >
             {submitting ? <Loader size={15} className="animate-spin" /> : <Lock size={15} />}
-            {submitting ? 'Oracle verifying...' : 'Submit to oracle for co-signature'}
+            {submitting ? 'Verifying proof...' : 'Submit proof for 2-of-2 cosign'}
           </button>
         )}
 
@@ -218,17 +224,17 @@ export default function ZkClaimPanel({ covenant }) {
         </div>
       )}
 
-      {/* Oracle refused (e.g. tampered / invalid proof): shown honestly, no co-signature. */}
+      {/* Cosign refused (e.g. tampered / invalid proof): shown honestly, no co-signature. */}
       {refused && (
         <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-3.5">
           <div className="flex items-center gap-2 mb-1">
             <XCircle size={15} className="text-amber-300" />
-            <span className="text-xs font-bold text-amber-200">Oracle refused to co-sign</span>
+            <span className="text-xs font-bold text-amber-200">Cosign refused</span>
           </div>
           <p className="text-[12.5px] text-amber-200/90 leading-relaxed">
-            The disclosed oracle verified the proof off-chain and it did not check out, so no
-            signature was issued. This is the fail-closed path: an invalid or tampered proof never
-            gets a co-signature.
+            The proof was verified off-chain and it did not check out, so no co-signature was
+            issued. This is the fail-closed path: an invalid or tampered proof never gets a
+            co-signature.
           </p>
           {oracleResult?.error && (
             <p className="mt-1.5 font-mono text-[11px] text-amber-300/80 break-all">{oracleResult.error}</p>
@@ -236,20 +242,21 @@ export default function ZkClaimPanel({ covenant }) {
         </div>
       )}
 
-      {/* Oracle co-signed a genuinely valid proof. */}
+      {/* A genuinely valid proof was verified off-chain and the release was co-signed. */}
       {success && (
         <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/[0.06] p-3.5">
           <div className="flex items-center gap-2 mb-2">
             <CheckCircle2 size={15} className="text-emerald-300" />
-            <span className="text-xs font-bold text-emerald-200">Proof verified and co-signed by the oracle</span>
+            <span className="text-xs font-bold text-emerald-200">Proof verified off-chain and co-signed</span>
           </div>
           <p className="text-[12.5px] text-gray-300 leading-relaxed mb-3">
-            The disclosed Covex oracle verified this Groth16 proof off-chain (snarkjs plus the served
-            verification key), fail-closed, and issued a BIP340 Schnorr co-signature. This
-            co-signature is combined with the claimant's own wallet signature and the covenant's
-            other script conditions to spend its ZK-gated branch; it is not a transfer of funds by
-            itself. Payout for this circuit is gated by the oracle co-signature, so the oracle is the
-            trust boundary for enforcement; the proof is not chain-enforced.
+            This Groth16 proof was verified off-chain (snarkjs plus the served verification key -
+            you, the counterparty, or any external verifier can re-run it), fail-closed, and a
+            BIP340 Schnorr co-signature was issued. This co-signature is combined with the
+            claimant's own wallet signature and the covenant's other script conditions to spend its
+            ZK-gated branch; it is not a transfer of funds by itself. Payout gates on a 2-of-2
+            cosign plus a CSV timeout, not on an on-chain proof check; Kaspa has no on-chain pairing
+            verifier, so the proof is not chain-enforced.
           </p>
           {oracleResult?.outcome != null && (
             <div className="mb-2">
@@ -259,7 +266,7 @@ export default function ZkClaimPanel({ covenant }) {
           )}
           {oracleResult?.signature && (
             <div className="mb-2">
-              <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-gray-500 mb-0.5">Oracle signature</div>
+              <div className="text-[10px] font-extrabold uppercase tracking-[0.14em] text-gray-500 mb-0.5">Cosigner signature</div>
               <div className="font-mono text-[11px] text-emerald-300 break-all">{oracleResult.signature}</div>
             </div>
           )}
@@ -283,7 +290,8 @@ export default function ZkClaimPanel({ covenant }) {
         <p className="text-[11px] text-gray-500 leading-relaxed">
           Circuit type submitted: <span className="font-mono text-gray-400">{circuitType}</span>. The
           trusted setup is a single-contributor dev ceremony (pot10), not a production MPC. Verification
-          happens off-chain at the oracle; Kaspa has no on-chain pairing verifier.
+          happens off-chain (anyone can re-run it against the public vkey); Kaspa has no on-chain
+          pairing verifier.
         </p>
       </div>
     </div>

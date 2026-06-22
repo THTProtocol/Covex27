@@ -6,9 +6,10 @@
 // variants so it reads correctly under the ThemeProvider's `light` class on <html>.
 //
 // Honesty is load-bearing here. The enforcement-reality vocabulary is exact:
-// on-chain (chain enforces, no Covex key in path), oracle-attested (disclosed
-// Covex oracle co-signature required), full-zk (real Groth16 verified off-chain by
-// that oracle, NOT on-chain ZK), metadata (display only). No overclaims.
+// on-chain (chain enforces, no Covex key in path), oracle-attested (a deployer-bound
+// external resolver co-signature required), full-zk (real Groth16 verified off-chain by
+// you/the counterparty/any external verifier, NOT on-chain ZK), metadata (display only).
+// No overclaims. Covex never attests real-world facts.
 //
 // The route (/about) and nav are wired by the orchestrator, not here.
 
@@ -35,7 +36,7 @@ const REALITY = {
   'oracle-attested': {
     label: 'oracle-attested',
     variant: 'oracle',
-    note: 'The disclosed Covex oracle co-signs a server-verified result. Not trustless.',
+    note: 'A deployer-bound external resolver co-signs a verified result. Not trustless. Covex never attests real-world facts.',
   },
   'full-zk': {
     label: 'full-zk',
@@ -83,7 +84,7 @@ const PILLARS = [
   {
     icon: ShieldCheck,
     title: 'Trust',
-    body: 'On-chain custody for every covenant. Engine-resolved games and ZK circuits are co-signed by the disclosed Covex oracle (results Covex can recompute); real-world covenants like markets bind to an external resolver the creator chooses, not Covex. The enforcement-reality badge says which on each page.',
+    body: 'On-chain custody for every covenant. Engine-resolved games settle by replaying the signed move log (anyone can recompute) and the counterparty or a deployer-bound external resolver co-signs the release; ZK circuits are verified off-chain by you, the counterparty, or any external verifier; real-world covenants like markets bind to an external resolver the creator chooses, not Covex. The enforcement-reality badge says which on each page.',
     tag: 'Always on',
   },
 ];
@@ -94,7 +95,7 @@ const EXAMPLES = [
     icon: Gamepad2,
     name: 'Games arena',
     kind: 'oracle-attested',
-    body: 'Two players stake into a covenant and play in a premium client. The result is computed by the server from the public move log, not asserted by a client. The winner spends the pot on-chain; the oracle co-signature is in the path.',
+    body: 'Two players stake into a covenant and play in a premium client. The result is computed deterministically by replaying the signed move log, not asserted by a client, and anyone can recompute it. The winner spends the pot on-chain; the counterparty or a deployer-bound external resolver co-signs the release.',
   },
   {
     icon: TrendingUp,
@@ -286,8 +287,8 @@ export default function AboutPage() {
         <Section title="What people build" kicker="Examples, honestly labeled">
           <p className="text-gray-400 light:text-slate-600 text-sm leading-relaxed max-w-3xl mb-8">
             Each badge says who actually enforces the outcome. on-chain means the chain enforces it
-            and no Covex key is in the path. oracle-attested means the disclosed Covex oracle
-            co-signs a server-verified result. We never inflate these.
+            and no Covex key is in the path. oracle-attested means a deployer-bound external resolver
+            co-signs a verified result; Covex never attests real-world facts. We never inflate these.
           </p>
           <motion.div
             initial="hidden"

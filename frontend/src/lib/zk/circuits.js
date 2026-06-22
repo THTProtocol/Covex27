@@ -34,8 +34,9 @@ export function vkeyPathFor(circuitId) {
 
 // Circuits whose Groth16 proof is verified END-TO-END (real accept + tamper-reject): they ship a
 // served proving key (.zkey) AND a working in-browser prover. HONESTY: this verification is OFF-CHAIN
-// by the disclosed Covex oracle (fail-closed) - Kaspa has NO on-chain pairing verifier, so a proof is
-// never checked on-chain, and only the oracle's BIP340 co-signature is verified on-chain (Schnorr).
+// (by you, the counterparty, or any external verifier - snarkjs against the audited vkey). Kaspa has
+// NO on-chain pairing verifier, so a proof is never checked on-chain; a valid proof gates a 2-of-2
+// cosign + CSV timeout, and only a BIP340 Schnorr co-signature is verified on-chain.
 // The trusted setup is a single-contributor Covex dev ceremony, NOT a production multi-party MPC.
 // This set therefore drives the genuine "in-browser prover" capability + off-chain-verified note; it
 // is NEVER rendered as a 'full-zk' / trustless / on-chain-ZK badge (every ZK reality renders as
@@ -82,8 +83,9 @@ export const STRICT_GROTH16 = new Set([
 ]);
 
 // Convenience: a circuit id has a genuine in-browser Groth16 prove path the public panel can run,
-// whose proof is verified OFF-CHAIN by the disclosed oracle (fail-closed). NOT an on-chain-ZK claim:
-// the only on-chain check is the oracle's Schnorr co-signature. Name kept for code stability.
+// whose proof is verified OFF-CHAIN (by you, the counterparty, or any external verifier, fail-closed).
+// NOT an on-chain-ZK claim: a valid proof gates a 2-of-2 cosign + CSV timeout (Kaspa has no on-chain
+// pairing verifier; the only on-chain check is a Schnorr co-signature). Name kept for code stability.
 export function isVerifiedFullZk(circuitId) {
   return !!circuitId && VERIFIED_FULL_ZK.has(circuitId) && IN_BROWSER_PROVERS.has(circuitId);
 }
@@ -93,8 +95,9 @@ export function isVerifiedFullZk(circuitId) {
 // would require the redeem script's blake2b256 hashlock to correspond to the circuit's public
 // output, but the circuits use MiMC7/range/timelock math (Kaspa's hashlock is blake2b256, and
 // escrow_2party has no hash at all), and covenant_builder.rs contains no circuit-output ->
-// hashlock binding. Every VERIFIED_FULL_ZK circuit is Groth16-verified OFF-CHAIN by the
-// disclosed Covex oracle (fail-closed); the only on-chain check is the oracle's BIP340 Schnorr
-// co-signature. Do NOT reintroduce a chain-enforced set until covenant_builder.rs actually binds
-// a circuit's public output to a consensus-checked hashlock and a tampered proof is provably
-// rejected on-chain. Until then the honest ZK tier is full-zk (oracle-verified off-chain).
+// hashlock binding. Every VERIFIED_FULL_ZK circuit is Groth16-verified OFF-CHAIN (by you, the
+// counterparty, or any external verifier, fail-closed); a valid proof gates a 2-of-2 cosign +
+// CSV timeout, and the only on-chain check is a BIP340 Schnorr co-signature. Do NOT reintroduce a
+// chain-enforced set until covenant_builder.rs actually binds a circuit's public output to a
+// consensus-checked hashlock and a tampered proof is provably rejected on-chain. Until then the
+// honest ZK tier is full-zk (verified off-chain).

@@ -479,7 +479,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
 
         {result && myColor && !payoutResult && (
           <p className="text-[11px] text-gray-300 light:text-slate-600 max-w-xs text-center leading-snug">
-            Two steps: (1) the disclosed oracle co-signs who won, (2) you claim the on-chain payout. Covex never holds the pot.
+            Two steps: (1) the result is computed by replaying the signed move log and the counterparty or a deployer-bound resolver co-signs the release, (2) you claim the on-chain payout. Covex never holds the pot.
           </p>
         )}
         <div className="flex flex-col gap-2 w-64">
@@ -509,7 +509,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
         )}
       </div>
 
-      <div className="h-auto min-h-[2rem] border-t border-white/10 light:border-slate-300/70 text-[11px] text-gray-300 light:text-slate-600 flex items-center justify-center text-center font-mono px-3 py-1.5 shrink-0">COMMIT-REVEAL FAIRNESS · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · {potReturnPercent}% POT RETURN</div>
+      <div className="h-auto min-h-[2rem] border-t border-white/10 light:border-slate-300/70 text-[11px] text-gray-300 light:text-slate-600 flex items-center justify-center text-center font-mono px-3 py-1.5 shrink-0">COMMIT-REVEAL FAIRNESS · DETERMINISTIC MOVE-LOG REPLAY · CO-SIGNED RELEASE · {potReturnPercent}% POT RETURN</div>
 
       {/* Self-contained premium styles for this arena (rps-* scoped, visual only). */}
       <style>{`

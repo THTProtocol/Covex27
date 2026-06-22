@@ -19,7 +19,7 @@ Kaspa has **no on-chain pairing or STARK verifier**, so the chain cannot check t
 The receipt is verified **off-chain**:
 
 - The two players lock their stakes in a 2-of-2 covenant. After a game ends, the winner produces a
-  receipt with `prove`. The counterparty (or the Covex oracle acting as an external verifier) runs
+  receipt with `prove`. The counterparty (or the external resolver acting as an external verifier) runs
   `verify`. If it verifies, they co-sign the 2-of-2 release to the winner.
 - A losing player cannot forge a receipt that says they won: the games are deterministic, and the
   STARK seal binds the committed result, so a tampered or re-labeled receipt is rejected by

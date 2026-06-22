@@ -11,13 +11,15 @@ import { AlertTriangle } from 'lucide-react';
  * found that chess and markets never rendered those limits discoverably - this fixes that.
  *
  * The honesty rules (Covex constitution):
- *   - oracle-attested : you trust the disclosed oracle for the outcome; funds are not
- *                       script-gated to its signature.
- *   - game            : server-authoritative engine + oracle-attested result; NOT ZK-proven.
+ *   - oracle-attested : you trust a deployer-bound external resolver for the outcome; funds
+ *                       are not script-gated to its signature. Covex never attests outcomes.
+ *   - game            : deterministic move-log replay + a counterparty / deployer-bound
+ *                       resolver co-sign; NOT ZK-proven.
  *   - on-chain        : a structural P2SH check here; the full redeem-script-hashes-to-
  *                       commitment rule is enforced by any Kaspa node at spend.
- *   - full-zk/hybrid  : the browser cannot re-run the Groth16 verifier; the oracle verifies
- *                       fail-closed (and the chain at spend for on-chain primitives).
+ *   - full-zk/hybrid  : the proof is verified OFF-CHAIN by you, the counterparty, or any
+ *                       external verifier (snarkjs against the audited vkey), fail-closed; a
+ *                       valid proof gates a 2-of-2 cosign (Kaspa has no on-chain pairing verifier).
  *   - decorative      : not consensus-enforced at all; a metadata marker only.
  *
  * `kind` lets a caller name the covenant kind explicitly so games ('game') and markets
@@ -26,8 +28,9 @@ import { AlertTriangle } from 'lucide-react';
  */
 
 // A single binary_oracle_select covenant is one LEG of a parimutuel market: its custody
-// is script-locked but the OUTCOME comes from the secret the disclosed oracle reveals, so
-// it must keep the market caveats (oracle trust boundary), never drop them as bare on-chain.
+// is script-locked but the OUTCOME comes from the secret a deployer-bound external resolver
+// reveals, so it must keep the market caveats (resolver trust boundary), never drop them as
+// bare on-chain.
 const isMarketLeg = (covenant) => /binary_oracle_select/.test(covenant?.covenant_type || '');
 
 function realityFromCovenant(covenant) {
@@ -48,20 +51,21 @@ function limitsFor({ reality, kind }) {
   const lines = [];
 
   if (kind === 'game') {
-    // Games are server-authoritative + oracle-attested. They are NOT ZK-proven end-to-end.
-    lines.push('The game engine is server-authoritative: the moves and the final result are decided by the Covex server, not by Kaspa consensus.');
-    lines.push('The result is oracle-attested, NOT zero-knowledge-proven on-chain. You are trusting the disclosed oracle to attest the winner honestly; the chain does not independently verify the play.');
-    lines.push('A reachable oracle now does not prove a future game will be judged honestly. The disclosed oracle key is the trust boundary for the outcome.');
+    // Games resolve by deterministic move-log replay + a counterparty / deployer-bound
+    // resolver co-sign. They are NOT ZK-proven end-to-end.
+    lines.push('The result is computed deterministically by replaying the signed move log (anyone can recompute it), not by Kaspa consensus deciding the play.');
+    lines.push('Release is NOT zero-knowledge-proven on-chain: it gates on a co-signature from the counterparty or a deployer-bound external resolver. The chain does not independently verify the game.');
+    lines.push('A reachable resolver now does not prove a future game will be co-signed honestly. The counterparty / deployer-bound resolver is the trust boundary for the outcome; refund and CSV-timeout branches stay self-claimable.');
   } else if (kind === 'market') {
     // Parimutuel bundle: branches ARE enforced on-chain (hashlock + key sig), but the
-    // OUTCOME assignment comes from which single secret the oracle reveals.
-    lines.push('Custody and payouts are on-chain (each leg is a P2SH covenant gated by a hashlock and the winner\'s key), but WHICH outcome wins is decided by which committed secret the disclosed oracle reveals - the chain does not judge the real-world event.');
+    // OUTCOME assignment comes from which single secret a deployer-bound external resolver reveals.
+    lines.push('Custody and payouts are on-chain (each leg is a P2SH covenant gated by a hashlock and the winner\'s key), but WHICH outcome wins is decided by which committed secret a deployer-bound external resolver reveals - the chain does not judge the real-world event, and Covex never attests real-world facts.');
     lines.push('A correct prediction is not guaranteed to profit: the house fee and the loser rebate mean you can be right about the outcome and still lose KAS. See the economics warning above.');
-    lines.push('Covex is trusted to reveal the secret for the true result. Once revealed, every funded leg settles through any Kaspa node with no further trust in Covex.');
+    lines.push('You are trusting the deployer-bound resolver (bound by pubkey at deploy) to reveal the secret for the true result. Once revealed, every funded leg settles through any Kaspa node with no further trust in the resolver.');
   } else {
     // Primitive / oracle / zk covenant - reality-driven copy.
-    if (hasZk) lines.push('The browser cannot re-run the Groth16 verifier. Proof verification is performed by the disclosed oracle (fail-closed) and, for on-chain primitives, by Kaspa at spend.');
-    if (involvesOracle) lines.push('A reachable oracle now does not prove a future outcome will be honest. You are trusting the disclosed oracle key for the input; funds are not script-gated to its signature.');
+    if (hasZk) lines.push('The proof is verified OFF-CHAIN (by you, the counterparty, or any external verifier - snarkjs against the audited vkey, fail-closed); Kaspa has no on-chain pairing verifier, so a valid proof gates a 2-of-2 cosign rather than being checked on-chain.');
+    if (involvesOracle) lines.push('A reachable resolver now does not prove a future outcome will be honest. You are trusting a deployer-bound external resolver for the input; funds are not script-gated to its signature, and Covex never attests outcomes.');
     if (reality === 'on-chain') lines.push('The check shown on this page is structural (the P2SH lock pattern). The full redeem-script-hashes-to-commitment rule is enforced by any Kaspa node at spend, not by this page.');
     if (reality === 'decorative') lines.push('This covenant is NOT enforced by Kaspa consensus. It is a metadata marker only - do not rely on it for value at stake.');
   }

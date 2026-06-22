@@ -44,7 +44,7 @@ export KASPA_WRPC_URL=ws://127.0.0.1:17217
 ```
 
 ## Covenant Integration (NEW — the whole point of Covex)
-See `covenant-integration/README.md` for the **5-minute guide** to dropping any ZK circuit + Covex oracle signature into a real Kaspa SilverScript covenant.
+See `covenant-integration/README.md` for the **5-minute guide** to dropping any ZK circuit + external resolver signature into a real Kaspa SilverScript covenant.
 
 Includes:
 - Standardized oracle response (now includes `circuit_type` + `covenant_hint`)

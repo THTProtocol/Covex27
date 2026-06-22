@@ -69,7 +69,7 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
   const revealedSecret = covenant.revealed_secret || covenant.preimage || covenant.outcome_secret || null;
   const branchRoles = covenant.branch_roles
     || (matrix ? Object.fromEntries(Object.entries(matrix.branches).map(([b, v]) => [b, v.role])) : null);
-  // The disclosed oracle pubkey is only meaningful for oracle kinds; keep it out otherwise.
+  // The bound resolver pubkey is only meaningful for oracle kinds; keep it out otherwise.
   const oraclePubkey = isOracleKind
     ? (covenant.oracle_pubkey || covenant.oracle_xonly_pubkey || covenant.xonly_pubkey || null)
     : null;
@@ -94,8 +94,8 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
       // The revealed outcome secret / preimage, ONLY when already public (e.g. a resolved
       // market leg). Null until revealed. Never a private key.
       revealed_secret: revealedSecret,
-      // The disclosed Covex oracle x-only pubkey for oracle kinds (public; needed to verify the
-      // oracle co-signature). Null for non-oracle kinds.
+      // The deployer-bound resolver x-only pubkey for oracle kinds (public; needed to verify the
+      // resolver co-signature). Null for non-oracle kinds.
       oracle_pubkey: oraclePubkey,
     },
   };

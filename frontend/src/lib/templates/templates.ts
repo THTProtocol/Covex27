@@ -311,7 +311,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'binary-prediction-market',
     name: 'Binary Prediction Market',
-    description: 'Yes/No event resolved by the Covex oracle at a deadline. Stake on an outcome; oracle attests the result.',
+    description: 'Yes/No event resolved at a deadline by an external resolver the deployer binds by pubkey at deploy. Stake on an outcome; the deployer-bound resolver attests the result. Covex never attests real-world facts.',
     category: 'Prediction & Markets',
     icon: '🔮',
     difficulty: 'Beginner',
@@ -379,9 +379,9 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
 
   // === CORE COVENANT PRIMITIVES (each deep-links to its real circuit in the Sandbox) ===
   // Honest by construction: every entry maps to a circuit that already exists, and its
-  // reality chip is derived from the resolution mode (zk -> oracle-verified off-chain,
-  // oracle -> oracle-attested). No "on-chain enforced" / "trustless" claims: the Sandbox
-  // destination verifies these proofs off-chain via the disclosed Covex oracle.
+  // reality chip is derived from the resolution mode (zk -> verified off-chain,
+  // oracle -> oracle-attested). No "on-chain enforced" / "trustless" claims: these proofs
+  // are verified off-chain by you, the counterparty, or any external verifier.
   {
     id: 'hashlock-htlc',
     name: 'HTLC (Hashlock + Timeout Refund)',

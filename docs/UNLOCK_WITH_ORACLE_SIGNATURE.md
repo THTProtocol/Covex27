@@ -6,7 +6,7 @@ This document explains the current (as of Phase 5) way to use a signature from `
 
 As of the end of Phase 5:
 
-- The Covex Oracle can verify a real ZK proof (e.g. Merkle Membership) and return a signed outcome.
+- The external resolver can verify a real ZK proof (e.g. Merkle Membership) and return a signed outcome.
 - The signature is currently a **SHA256 key-possession proof** (same style as the terminal config ownership proof), **not** a proper Schnorr signature that can be directly used in `OpCheckSig`.
 - Because of silverc v0.1.0 limitations, the emitted covenant does **not** contain full `VerifyPayout` logic. It mainly enforces outcome range + fee parameters.
 - Actual fund movement still happens via normal Kaspa transaction construction using the oracle signature as part of the witness data.

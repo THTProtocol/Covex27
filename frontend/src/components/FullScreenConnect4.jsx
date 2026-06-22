@@ -454,7 +454,7 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
       )}
 
       <div className="h-auto min-h-[2rem] border-t border-white/10 light:border-slate-300/70 text-[9px] sm:text-[10px] text-gray-500 light:text-slate-600 flex items-center justify-center font-mono shrink-0 px-3 py-1.5 text-center">
-        GRAVITY · 4-IN-A-ROW · OUTCOME CO-SIGNED BY THE DISCLOSED COVEX ORACLE · {potReturnPercent}% POT RETURN
+        GRAVITY · 4-IN-A-ROW · DETERMINISTIC MOVE-LOG REPLAY · CO-SIGNED RELEASE · {potReturnPercent}% POT RETURN
       </div>
     </div>
   );

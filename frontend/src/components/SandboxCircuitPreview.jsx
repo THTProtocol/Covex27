@@ -19,7 +19,8 @@ import { IN_BROWSER_PROVERS } from '../lib/zk/circuits';
 // Exploring and simulating costs nothing; only deploying a live covenant needs a tier.
 
 // Plain-English resolution flow per enforcement reality. Nothing here overstates what the
-// chain does: on-chain/full-zk are consensus/proof enforced; hybrid + oracle name the oracle.
+// chain does: on-chain is consensus-enforced; full-zk/hybrid proofs are verified off-chain by
+// anyone and gate a 2-of-2 cosign; oracle-attested names a deployer-bound external resolver.
 const RESOLUTION_FLOW = {
   'on-chain': {
     label: 'Consensus-enforced',
@@ -31,31 +32,31 @@ const RESOLUTION_FLOW = {
     note: 'The chain itself is the referee. This is the most consensus-enforced reality on Covex.',
   },
   'full-zk': {
-    label: 'Oracle-attested (ZK proof verified off-chain)',
+    label: 'ZK proof verified off-chain',
     steps: [
       'The claimant generates a real Groth16 zero-knowledge proof for the statement.',
-      'The disclosed Covex oracle verifies that proof OFF-CHAIN (Kaspa has no on-chain pairing verifier), fail-closed.',
-      'Only a proof the oracle verifies lets it co-sign; an invalid or missing proof is rejected, and only the oracle co-signature is checked on-chain (Schnorr).',
+      'The proof is verified OFF-CHAIN (by you, the counterparty, or any external verifier - snarkjs against the audited vkey); Kaspa has no on-chain pairing verifier, fail-closed.',
+      'Only a valid proof gates the 2-of-2 cosign; an invalid or missing proof is rejected, and only the Schnorr co-signature is checked on-chain.',
     ],
-    note: 'The proof is real cryptography, but the disclosed Covex oracle is the off-chain verifier whose result gates the spend. It is the trust boundary, not the chain itself. The trusted setup is a single-contributor dev ceremony, not a production MPC.',
+    note: 'The proof is real cryptography that anyone can re-verify off-chain. Kaspa has no on-chain pairing verifier, so a valid proof gates a 2-of-2 cosign + CSV timeout rather than being checked by the chain. The trusted setup is a single-contributor dev ceremony, not a production MPC.',
   },
   'hybrid': {
-    label: 'Oracle-attested (ZK proof verified off-chain)',
+    label: 'ZK proof verified off-chain',
     steps: [
       'A zero-knowledge property proof is generated for part of the logic.',
-      'The disclosed oracle verifies that proof off-chain (fail-closed) and attests the rest with a real signature.',
-      'The payout releases when the proof verifies and the oracle co-signs; only the co-signature is checked on-chain.',
+      'The proof is verified off-chain (by you, the counterparty, or any external verifier, fail-closed), and a deployer-bound resolver attests the rest with a real signature.',
+      'The payout releases when the proof verifies and the cosign is collected; only the co-signature is checked on-chain.',
     ],
-    note: 'No part of the proof is verified on-chain (Kaspa has no on-chain pairing verifier); the disclosed oracle verifies it off-chain and its Schnorr co-signature is what the chain checks.',
+    note: 'No part of the proof is verified on-chain (Kaspa has no on-chain pairing verifier); it is verifiable off-chain by anyone, and a valid proof gates a 2-of-2 cosign whose Schnorr co-signature is what the chain checks.',
   },
   'oracle-attested': {
-    label: 'Oracle-attested',
+    label: 'Resolver-attested',
     steps: [
       'The off-chain outcome happens (a game result, a market event, a data feed).',
-      'The Covex oracle signs that outcome with a real BIP340 signature.',
-      'The signed attestation releases the on-chain payout to the winner.',
+      'An external resolver the deployer binds by pubkey at deploy signs that outcome with a real BIP340 signature.',
+      'The signed attestation releases the on-chain payout to the winner. Covex never attests real-world facts.',
     ],
-    note: 'Trust sits with the named oracle; the payout settlement itself is on-chain.',
+    note: 'Trust sits with the deployer-bound resolver; the payout settlement itself is on-chain.',
   },
 };
 
@@ -200,7 +201,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
                 <span>
                   This is the same prove + verify engine as the Build{' '}
                   <Link to="/sandbox?mode=prove" className="text-violet-300 light:text-violet-700 hover:underline font-semibold">Prove (ZK)</Link>{' '}
-                  view, which also lists every provable circuit. The proof is verified off-chain (here, or by the disclosed Covex oracle, fail-closed); Kaspa has no on-chain pairing verifier.
+                  view, which also lists every provable circuit. The proof is verified off-chain (here, by the counterparty, or any external verifier - snarkjs against the audited vkey, fail-closed); Kaspa has no on-chain pairing verifier.
                 </span>
               </p>
             </div>

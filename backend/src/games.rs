@@ -251,10 +251,14 @@ fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<serde_json::Value> {
         // pot_payout_tx once the winner payout (or refund) has broadcast (submit-settle).
         "pot_tx": row.get::<_, Option<String>>(16)?,
         "pot_payout_tx": row.get::<_, Option<String>>(17)?,
+        // Which settlement path the locked pot uses, so the client can pick the right claim flow:
+        // "hashlock" = de-oracle referee-reveal (winner spends with their OWN key, no Covex key in
+        // the redeem); "oracle_escrow" = legacy Covex co-sign. NULL until a pot is locked.
+        "settle_mode": row.get::<_, Option<String>>(18)?,
     }))
 }
 
-const GAME_SELECT: &str = "SELECT covenant_id, game_type, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at, p1_time_ms, p2_time_ms, turn_started_at, end_reason, unixepoch(), pot_tx, pot_payout_tx FROM skill_games";
+const GAME_SELECT: &str = "SELECT covenant_id, game_type, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at, p1_time_ms, p2_time_ms, turn_started_at, end_reason, unixepoch(), pot_tx, pot_payout_tx, settle_mode FROM skill_games";
 
 fn fetch_game(db: &crate::db::Db, covenant_id: &str) -> Option<serde_json::Value> {
     let conn = db.lock().unwrap();

@@ -1318,6 +1318,23 @@ pub fn platform_stats(db: &Db, network: Option<&str>) -> anyhow::Result<serde_js
     }))
 }
 
+/// SQL behind `get_generated_ui_for`, shared verbatim with its regression test so
+/// the query under test can never silently drift from the one that ships.
+///
+/// `ORDER BY (ui_html != '') DESC, ui_generated_at DESC` is the keystone: it prefers
+/// the newest row that actually carries a published UI over any newer config-only row
+/// with an EMPTY ui_html. Several writers append config-only rows (empty ui_html) that
+/// coexist with the real published UI for the same covenant:
+///   - save_ui_trust_config -> tier 'TRUSTED'
+///   - save_covenant_metadata_handler -> tier 'METADATA' (also flips `featured`)
+/// Without the non-empty preference, such a row is the NEWEST and a plain
+/// `ORDER BY ui_generated_at DESC` returns its empty ui_html, BLANKING a creator's
+/// published website on the detail page (observed live: featuring a covenant erased its
+/// custom UI). The explicit `AND NOT (tier = 'TRUSTED' AND ui_html = '')` is kept so a
+/// trust-only covenant (no published UI) still reads as "no custom UI" exactly as before,
+/// rather than surfacing the trust config as a ui_config.
+const GENERATED_UI_FOR_SQL: &str = "SELECT ui_html, ui_config, tier FROM generated_uis WHERE covenant_id = ?1 AND NOT (tier = 'TRUSTED' AND ui_html = '') ORDER BY (ui_html != '') DESC, ui_generated_at DESC LIMIT 1";
+
 /// Custom UI lookup for a single covenant (html, config, source_tier) without
 /// loading the full map. `source_tier` is the `tier` column of the row that
 /// supplied the html: "TERMINAL" marks a genuine creator-published UI (saved via
@@ -1328,12 +1345,7 @@ pub fn get_generated_ui_for(
     covenant_id: &str,
 ) -> anyhow::Result<Option<(String, String, String)>> {
     let conn = db.lock().unwrap();
-    // Exclude the TRUSTED trust-config rows (written by save_ui_trust_config with an EMPTY
-    // ui_html): they are config-only and read separately by get_ui_trust_config. Without
-    // this, a newer trust row wins the ORDER BY and BLANKS the published page for visitors.
-    let mut stmt = conn.prepare(
-        "SELECT ui_html, ui_config, tier FROM generated_uis WHERE covenant_id = ?1 AND NOT (tier = 'TRUSTED' AND ui_html = '') ORDER BY ui_generated_at DESC LIMIT 1",
-    )?;
+    let mut stmt = conn.prepare(GENERATED_UI_FOR_SQL)?;
     let mut rows = stmt.query_map(params![covenant_id], |row| {
         Ok((
             row.get::<_, String>(0)?,
@@ -2755,5 +2767,120 @@ mod perf_sort_tests {
             )
             .unwrap();
         assert_eq!(idx_exists, 1, "idx_covenants_rank must exist");
+    }
+}
+
+#[cfg(test)]
+mod generated_ui_masking_tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    // The `featured` save path (save_covenant_metadata_handler) appends a tier 'METADATA'
+    // row with an EMPTY ui_html and a fresh ui_generated_at. The detail endpoint reads the
+    // display UI via GENERATED_UI_FOR_SQL. This proves that a NEWER empty config-only row
+    // never masks an OLDER real published website. Regression for the live TN12 bug where
+    // featuring covenant 13feadc6 blanked its custom_ui_html.
+
+    fn seed_conn() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        // Mirror the shipping generated_uis schema (db.rs open_db) so the test exercises
+        // the real ORDER BY / WHERE against the real column shapes.
+        conn.execute_batch(
+            "CREATE TABLE generated_uis (
+                id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                covenant_id     TEXT NOT NULL,
+                owner_address   TEXT NOT NULL,
+                tier            TEXT NOT NULL,
+                ui_html         TEXT NOT NULL DEFAULT '',
+                ui_config       TEXT NOT NULL DEFAULT '{}',
+                slug            TEXT NOT NULL UNIQUE,
+                is_published    INTEGER NOT NULL DEFAULT 1,
+                featured        INTEGER NOT NULL DEFAULT 0,
+                ui_generated_at INTEGER NOT NULL DEFAULT 0,
+                created_at      INTEGER NOT NULL DEFAULT 0
+            );",
+        )
+        .unwrap();
+        conn
+    }
+
+    fn insert_row(conn: &Connection, cid: &str, tier: &str, html: &str, cfg: &str, slug: &str, gen_at: i64) {
+        conn.execute(
+            "INSERT INTO generated_uis (covenant_id, owner_address, tier, ui_html, ui_config, slug, ui_generated_at)
+             VALUES (?1, 'kaspatest:owner', ?2, ?3, ?4, ?5, ?6)",
+            params![cid, tier, html, cfg, slug, gen_at],
+        )
+        .unwrap();
+    }
+
+    /// Run the exact shipping query and return (ui_html, ui_config, tier) or None.
+    fn read_ui(conn: &Connection, cid: &str) -> Option<(String, String, String)> {
+        let mut stmt = conn.prepare(GENERATED_UI_FOR_SQL).unwrap();
+        let mut rows = stmt
+            .query_map(params![cid], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
+            })
+            .unwrap();
+        rows.next().transpose().unwrap()
+    }
+
+    #[test]
+    fn newer_empty_metadata_row_does_not_mask_published_website() {
+        let conn = seed_conn();
+        let cid = "13feadc6:0";
+        // Creator publishes a website (tier TERMINAL) at t=100.
+        insert_row(&conn, cid, "TERMINAL", "<html>event site</html>", "{\"x\":1}", "site-13feadc6", 100);
+        // Then features the covenant: an EMPTY tier-METADATA row lands NEWER, at t=200.
+        insert_row(&conn, cid, "METADATA", "", "{\"name\":\"WC final\"}", "meta-13feadc6", 200);
+
+        let (html, _cfg, tier) = read_ui(&conn, cid).expect("a row must be returned");
+        assert_eq!(html, "<html>event site</html>", "the published website must survive featuring");
+        assert_eq!(tier, "TERMINAL", "source tier must stay TERMINAL so the iframe renders as a creator UI");
+    }
+
+    #[test]
+    fn newer_empty_trusted_row_still_excluded_and_website_wins() {
+        let conn = seed_conn();
+        let cid = "abc123:0";
+        insert_row(&conn, cid, "TERMINAL", "<html>site</html>", "{}", "site-abc", 100);
+        insert_row(&conn, cid, "METADATA", "", "{}", "meta-abc", 200);
+        // Even an EVEN-newer empty TRUSTED config row must not win.
+        insert_row(&conn, cid, "TRUSTED", "", "{\"verified_source_url\":\"u\"}", "trust-abc", 300);
+
+        let (html, _cfg, tier) = read_ui(&conn, cid).expect("a row must be returned");
+        assert_eq!(html, "<html>site</html>");
+        assert_eq!(tier, "TERMINAL");
+    }
+
+    #[test]
+    fn newest_non_empty_ui_still_wins_among_real_uis() {
+        // When two real published UIs exist, the NEWER one wins (the non-empty preference
+        // is a tie-break only against empty rows; it must not freeze the displayed UI).
+        let conn = seed_conn();
+        let cid = "def456:0";
+        insert_row(&conn, cid, "TERMINAL", "<html>old</html>", "{}", "site-def-old", 100);
+        insert_row(&conn, cid, "TERMINAL", "<html>new</html>", "{}", "site-def-new", 300);
+        insert_row(&conn, cid, "METADATA", "", "{}", "meta-def", 200);
+
+        let (html, _cfg, _tier) = read_ui(&conn, cid).expect("a row must be returned");
+        assert_eq!(html, "<html>new</html>", "a newer republished UI must replace the older one");
+    }
+
+    #[test]
+    fn metadata_only_covenant_unchanged_no_website() {
+        // No website ever published: only the METADATA row exists. Behavior is unchanged
+        // from before the fix (the empty row is returned -> handler treats it as "no custom
+        // UI"), so featuring a UI-less covenant is still fine.
+        let conn = seed_conn();
+        let cid = "ghi789:0";
+        insert_row(&conn, cid, "METADATA", "", "{\"name\":\"n\"}", "meta-ghi", 100);
+
+        let (html, _cfg, tier) = read_ui(&conn, cid).expect("the metadata row is returned");
+        assert_eq!(html, "", "no published html exists");
+        assert_eq!(tier, "METADATA");
     }
 }

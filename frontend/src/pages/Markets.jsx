@@ -298,7 +298,18 @@ function MarketDetail({ id }) {
   const { address, signMessage } = useWallet();
   const [book, setBook] = useState(null);
   const [market, setMarket] = useState(null);
-  const [side, setSide] = useState(0);
+  // Preselect the outcome the visitor came to back: the event site deep-links the
+  // market with ?side=0 (outcome A) or ?side=1 (outcome B). Read it once on mount
+  // from the URL so "Back Argentina" lands with Argentina preselected. Anything
+  // that is not exactly 0 or 1 falls back to 0.
+  const [side, setSide] = useState(() => {
+    try {
+      const raw = new URLSearchParams(window.location.search).get('side');
+      return raw === '1' ? 1 : 0;
+    } catch {
+      return 0;
+    }
+  });
   const [stake, setStake] = useState('1');
   const [addr, setAddr] = useState('');
   const [busy, setBusy] = useState('');

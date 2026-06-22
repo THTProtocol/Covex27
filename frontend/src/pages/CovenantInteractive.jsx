@@ -1988,6 +1988,20 @@ export default function CovenantInteractive() {
           </div>
         </motion.div>
       </div>
+
+      {/* Transparency Notice / custody disclaimer. Lives INSIDE the collapsible
+          covenant-details-panel so that a full-width creator-UI covenant (hasCustomSurface)
+          shows ONLY the creator site + Read more affordance when Details is collapsed (the
+          default); this Covex text wall no longer blocks half the page below the site. For a
+          non-custom covenant the panel is always open, so it renders exactly as before. */}
+      <div className="glass-panel p-6 mt-8 text-xs text-gray-200 leading-relaxed max-w-3xl mx-auto light:bg-white light:border light:border-slate-200 light:text-slate-600">
+        <p className="text-gray-300 font-semibold mb-2 light:text-slate-900">Transparency Notice</p>
+        <p>
+          This covenant is immutable on the Kaspa BlockDAG. Covex does not create, modify, or control
+          it. We only index publicly available data. All interactions occur
+          non-custodially through your own wallet. You bear full responsibility for verifying all transaction details before signing.
+        </p>
+      </div>
       </div>{/* /covenant-details-panel (collapsible chrome wrapper) */}
 
       {/* Sticky right-rail (desktop) / slide-up bottom sheet (mobile) for the
@@ -2158,16 +2172,6 @@ export default function CovenantInteractive() {
           </div>
         </div>
       )}
-
-      {/* Disclaimer */}
-      <div className="glass-panel p-6 mt-8 text-xs text-gray-200 leading-relaxed max-w-3xl mx-auto light:bg-white light:border light:border-slate-200 light:text-slate-600">
-        <p className="text-gray-300 font-semibold mb-2 light:text-slate-900">Transparency Notice</p>
-        <p>
-          This covenant is immutable on the Kaspa BlockDAG. Covex does not create, modify, or control
-          it. We only index publicly available data. All interactions occur
-          non-custodially through your own wallet. You bear full responsibility for verifying all transaction details before signing.
-        </p>
-      </div>
 
       {/* Template full preview modal (Fix tab) - shows exactly what publishing produces,
           mirroring Page Studio. Never a false-success toast for a CTA with no UI. */}

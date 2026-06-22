@@ -46,6 +46,7 @@ import ShareEmbedModal from '../components/ShareEmbedModal';
 import CopyButton from '../components/CopyButton';
 import RecoveryKitModal from '../components/RecoveryKitModal';
 import StickyActionRail from '../components/StickyActionRail';
+import WalletButton from '../components/WalletButton';
 import { LifeBuoy } from 'lucide-react';
 import DevWalletModal from '../components/DevWalletModal';
 import OnChainLockSection from '../components/OnChainLockSection';
@@ -935,6 +936,13 @@ export default function CovenantInteractive() {
             <span className="flex-1 min-w-0 truncate text-sm font-semibold text-white light:text-slate-900" title={covenant.name || covenant.covenant_type}>
               {covenant.name || covenant.covenant_type || TRUNC(covenant.tx_id)}
             </span>
+            {/* Wallet control in the full-width view: the custom site is the interaction
+                surface, so a visitor still needs to connect / see their wallet from here.
+                WalletButton is self-contained (own portal drawer) and already responsive
+                (icon-only below sm), so it keeps the bar slim. */}
+            <div className="shrink-0">
+              <WalletButton />
+            </div>
             <button
               type="button"
               onClick={() => setShareOpen(true)}
@@ -1106,9 +1114,6 @@ export default function CovenantInteractive() {
               </Button>
             </div>
           </div>
-
-          <ShareEmbedModal open={shareOpen} onClose={() => setShareOpen(false)} id={id} network={covenant?.network} name={covenant?.name} reality={covenant?.enforcement_reality} />
-          <RecoveryKitModal open={recoveryOpen} onClose={() => setRecoveryOpen(false)} covenant={covenant} />
 
           {/* Page-level branding: the creator's chosen background preset (from the Puck
               page root) tints the whole covenant page, so the design carries beyond the
@@ -1990,8 +1995,14 @@ export default function CovenantInteractive() {
           does not crowd the publish flow. The rail routes through the same
           routeCovenantIntent path the inline CTAs already use, so signing /
           stake / spend logic stays in one place. Share opens the same modal as
-          the hero pill and the buried header button. */}
-      {!(isCreator && activeTab === 'fix') && (
+          the hero pill and the buried header button.
+
+          Also suppressed when hasCustomSurface: the full-width creator site is the
+          interaction surface (it carries its own CTAs) and the native interact lives
+          inside the Details panel, so a floating "Sign and execute" rail would just
+          overlap the site with a label that is meaningless for a display / market
+          covenant. The slim top bar carries Share + wallet for that path instead. */}
+      {!hasCustomSurface && !(isCreator && activeTab === 'fix') && (
         <StickyActionRail
           covenant={covenant}
           onStake={() => routeCovenantIntent('interact', null)}
@@ -2186,6 +2197,14 @@ export default function CovenantInteractive() {
       )}
 
       {/* Toasts render app-wide top-right via ToastProvider (ToastContext singleton). */}
+
+      {/* Share + Recovery modals live at the TOP LEVEL of the page, never inside the
+          collapsible covenant-details-panel. On a creator-UI covenant that panel is
+          `hidden` until the visitor opens Details, so a modal nested inside it could be
+          toggled open but never paint. Both are fixed-overlay portals (z-[100], self-gate
+          on `open`), so they render above the full-bleed creator surface from here. */}
+      <ShareEmbedModal open={shareOpen} onClose={() => setShareOpen(false)} id={id} network={covenant?.network} name={covenant?.name} reality={covenant?.enforcement_reality} />
+      <RecoveryKitModal open={recoveryOpen} onClose={() => setRecoveryOpen(false)} covenant={covenant} />
 
       <DevWalletModal isOpen={walletModalOpen} onClose={() => setWalletModalOpen(false)} />
     </div>

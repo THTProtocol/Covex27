@@ -12,12 +12,15 @@ async function main() {
     const current = BigInt(process.argv[2] || "2000000");
     const reference = BigInt(process.argv[3] || "1000000");
     const lockDuration = BigInt(process.argv[4] || "500000");
+    const covenantId = BigInt(process.argv[5] || "12345");
 
+    // `valid` is a COMPUTED output of the circuit (current >= reference + lock_duration),
+    // not a prover input. covenantId is the H4 replay binding (public input).
     const input = {
         current_daa: current.toString(),
         reference_daa: reference.toString(),
         lock_duration: lockDuration.toString(),
-        valid: "1",
+        covenantId: covenantId.toString(),
     };
     const wtns = path.join(__dirname, ".wtns.tmp");
     await snarkjs.wtns.calculate(input, WASM, wtns);

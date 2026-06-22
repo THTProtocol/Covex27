@@ -9,3 +9,9 @@
 # trusted-setup ceremony files (downloaded on the server)
 *.ptau
 *_vkey.json
+# local build tooling (downloaded circom binary + Windows-safe snarkjs API helpers)
+bin/
+_setup_local.cjs
+_verify_local.cjs
+_zkcount.cjs
+_zkdiag.cjs

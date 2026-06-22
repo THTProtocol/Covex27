@@ -11,9 +11,10 @@ const OUT = path.join(__dirname, "collateral_ltv_proof.json");
 async function main() {
     const collateral = process.argv[2] || "200000";
     const debt = process.argv[3] || "100000";
-    const maxLtv = process.argv[4] || "7500";
-    const currentLtv = process.argv[5] || "5000";
-    const input = { collateral, debt, maxLtv, currentLtv, valid: "1" };
+    const maxLtvBps = process.argv[4] || "7500";
+    // covenantId = sha256(deploy_tx_id) mod BN254 in production; a fixed demo value here.
+    const covenantId = process.argv[5] || "12975856296764178385096300579349863837782422391258567265242335968196494733975";
+    const input = { collateral, debt, maxLtvBps, covenantId };
     const wtns = path.join(__dirname, ".wtns.ltv.tmp");
     await snarkjs.wtns.calculate(input, WASM, wtns);
     const { proof, publicSignals } = await snarkjs.groth16.prove(ZKEY, wtns);

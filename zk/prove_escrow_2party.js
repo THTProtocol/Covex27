@@ -13,7 +13,8 @@ async function main() {
     const timeoutDaa = process.argv[3] || "100";
     const currentDaa = process.argv[4] || "1000150";
     const outcome = process.argv[5] || "0"; // 0 = refund after timeout
-    const input = { deposit_daa: depositDaa, timeout_daa: timeoutDaa, current_daa: currentDaa, outcome };
+    const covenantId = process.argv[6] || "12345"; // H4 cross-covenant replay binding (public)
+    const input = { deposit_daa: depositDaa, timeout_daa: timeoutDaa, current_daa: currentDaa, outcome, covenantId };
     const wtns = path.join(__dirname, ".wtns.escrow.tmp");
     await snarkjs.wtns.calculate(input, WASM, wtns);
     const { proof, publicSignals } = await snarkjs.groth16.prove(ZKEY, wtns);

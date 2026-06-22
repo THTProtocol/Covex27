@@ -52,7 +52,7 @@ signed attestation from an EXTERNAL oracle provider - never Covex. Design = a ge
 provider registry so any current/future Kaspa oracle works:
 - **Kaskad COB oracle** - LIVE today: TEE-attested consolidated-order-book fair price, sub-second.
 - **Kaspa L1 miner-vote oracle** - announced, "coming soon" (attestation embedded in PoW consensus).
-- **koracle / others** - plug in when they ship.
+- **Other Kaspa oracle providers** - bind by pubkey when they ship.
 
 Covenant config carries `{provider_id, provider_pubkey, feed_id, format}`; the spend path verifies
 the provider's BIP340 signature over the attested value (a normal OP_CHECKSIG the chain CAN do).

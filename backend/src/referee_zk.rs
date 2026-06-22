@@ -62,9 +62,23 @@ const PROVER_BIN_ENV: &str = "COVEX_GAMES_PROVER_BIN";
 /// "true" to require a real proof on every hashlock settle (fail-closed).
 const REQUIRE_ENV: &str = "COVEX_GAMES_ZK_REQUIRE";
 
-/// True iff a verified zkVM receipt is MANDATORY for a hashlock settle.
+/// True iff a verified zkVM receipt is MANDATORY for a hashlock settle, by the env
+/// flag alone (network-agnostic). Used by `zk_required_for_network` and tests.
 pub fn zk_required() -> bool {
     std::env::var(REQUIRE_ENV).as_deref() == Ok("true")
+}
+
+/// True iff a verified zkVM receipt is MANDATORY for a hashlock settle on `network`.
+///
+/// MAINNET IS ALWAYS-REQUIRED, regardless of the env flag: real money must never
+/// settle on the server-authoritative engine replay alone. On mainnet the second
+/// (cryptographic) money gate is FORCED on, so a hashlock pot can only release a
+/// referee secret when a real RISC0 receipt verifies and binds this match. On a
+/// testnet the env flag `COVEX_GAMES_ZK_REQUIRE` decides (default off keeps the
+/// proven server-gated development flow working). `network` is matched with the
+/// same `starts_with("mainnet")` convention used across the codebase.
+pub fn zk_required_for_network(network: &str) -> bool {
+    network.starts_with("mainnet") || zk_required()
 }
 
 /// True iff a verifier binary is configured (the cryptographic gate can run).
@@ -156,21 +170,28 @@ fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
     Ok(out)
 }
 
-/// Run the ZK gate for a hashlock settle.
+/// Run the ZK gate for a hashlock settle, NETWORK-AWARE. This is the money-path
+/// entry point: on mainnet a verified receipt is FORCED mandatory (see
+/// `zk_required_for_network`) so real money never settles on the server replay
+/// alone; on a testnet the env flag decides.
 ///
 /// `receipt`: the decoded receipt bytes (None if the caller supplied no proof).
+/// `network`: the pot's network label (mainnet forces require on).
 /// `expected_outcome`: the server-derived winning side (0 = player1, 1 = player2)
 ///   from `game_pot_outcome` (already fail-closed by the caller).
 /// `moves`: the server's recorded move log (binds the receipt's journal to this match).
 ///
-/// Decision table:
+/// Decision table (`required` = `zk_required_for_network(network)`):
 ///   * receipt present + binary present -> verify; on success Verified, else Refused.
 ///   * receipt present + NO binary       -> Refused (cannot verify a supplied proof;
 ///                                           never accept an UNVERIFIED proof as if real).
-///   * receipt absent  + zk_required     -> Refused (a real proof is mandatory).
-///   * receipt absent  + not required    -> SkippedAllowed (server gate stands alone).
-pub fn run_gate(
+///   * receipt absent  + required        -> Refused (a real proof is mandatory; on
+///                                           mainnet this is unconditional).
+///   * receipt absent  + not required    -> SkippedAllowed (server gate stands alone,
+///                                           testnet only).
+pub fn run_gate_for_network(
     receipt: Option<&[u8]>,
+    network: &str,
     expected_outcome: u32,
     moves: &[String],
 ) -> ZkGate {
@@ -192,13 +213,18 @@ pub fn run_gate(
             }
         }
         None => {
-            if zk_required() {
-                ZkGate::Refused(
+            if zk_required_for_network(network) {
+                let why = if network.starts_with("mainnet") {
+                    "mainnet always requires a verified zkVM game proof to settle a hashlock pot \
+                     (real money must not settle on the server engine replay alone)"
+                } else {
                     "this server requires a verified zkVM game proof to settle a hashlock pot \
-                     (COVEX_GAMES_ZK_REQUIRE=true) but no receipt was supplied. Generate one with \
-                     covex-games-prover and POST it as receipt_b64."
-                        .into(),
-                )
+                     (COVEX_GAMES_ZK_REQUIRE=true)"
+                };
+                ZkGate::Refused(format!(
+                    "{why} but no receipt was supplied. Generate one with covex-games-prover and \
+                     POST it as receipt_b64."
+                ))
             } else {
                 ZkGate::SkippedAllowed(
                     "no zkVM game proof supplied; settling on the server-authoritative engine \
@@ -209,6 +235,17 @@ pub fn run_gate(
             }
         }
     }
+}
+
+/// Network-agnostic gate (env flag only). Kept for callers/tests that do not carry a
+/// network label; delegates to `run_gate_for_network` with a non-mainnet network so the
+/// env flag alone decides. The live money path uses `run_gate_for_network`.
+pub fn run_gate(
+    receipt: Option<&[u8]>,
+    expected_outcome: u32,
+    moves: &[String],
+) -> ZkGate {
+    run_gate_for_network(receipt, "testnet", expected_outcome, moves)
 }
 
 /// Shell out to the prover binary to CRYPTOGRAPHICALLY verify the receipt, then bind
@@ -410,6 +447,43 @@ mod tests {
         match decision {
             ZkGate::Refused(_) => {}
             _ => panic!("absent receipt + zk_required must be Refused"),
+        }
+    }
+
+    /// MAINNET forces a verified receipt mandatory regardless of the env flag. With the flag
+    /// OFF and no receipt, `zk_required_for_network("mainnet*")` is true and the mainnet gate
+    /// REFUSES (real money never settles on the server replay alone), while a testnet with the
+    /// flag off SkippedAllowed. Independent of PROVER_BIN (no receipt is supplied, so the
+    /// verifier never runs). The refusal explains it is the mainnet rule.
+    #[test]
+    fn mainnet_forces_proof_required_regardless_of_env() {
+        std::env::remove_var(REQUIRE_ENV);
+        std::env::remove_var(PROVER_BIN_ENV);
+        let moves = vec!["e2e4".to_string(), "resign".to_string()];
+
+        // Flag-agnostic predicate: mainnet is always required, testnet is not (flag off).
+        assert!(zk_required_for_network("mainnet"), "mainnet must force require");
+        assert!(
+            zk_required_for_network("mainnet-11"),
+            "any mainnet* label must force require"
+        );
+        assert!(
+            !zk_required_for_network("testnet-12"),
+            "testnet with the flag off must not require"
+        );
+
+        // mainnet + no receipt => Refused, with a mainnet-specific message.
+        match run_gate_for_network(None, "mainnet", 0, &moves) {
+            ZkGate::Refused(msg) => assert!(
+                msg.contains("mainnet"),
+                "mainnet refusal must name the mainnet rule, got: {msg}"
+            ),
+            _ => panic!("mainnet + absent receipt must be Refused even with the env flag off"),
+        }
+        // testnet + no receipt (flag off) => SkippedAllowed (server gate stands alone).
+        match run_gate_for_network(None, "testnet-12", 0, &moves) {
+            ZkGate::SkippedAllowed(_) => {}
+            _ => panic!("testnet + absent receipt + flag off must be SkippedAllowed"),
         }
     }
 }

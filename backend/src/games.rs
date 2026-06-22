@@ -756,14 +756,16 @@ fn load_hashlock_pot(
 /// Auth: a seated player (seat token), same as settle-pot. MONEY GATE (two gates, both must pass):
 ///   1. SERVER GATE: the winning side is re-derived from the server-authoritative engine replay
 ///      (game_pot_outcome, FAIL CLOSED), so a poisoned `winner` field can never redirect the pot.
-///   2. ZK GATE (referee_zk::run_gate): when a RISC0 game receipt is supplied as `receipt_b64`
-///      (or `receipt_hex`), it is CRYPTOGRAPHICALLY verified by the covex-games-prover binary
-///      (real STARK proof against the prover-pinned guest image id) and its committed journal is
-///      bound to THIS match (winner + moves_digest must match the server record). A verified
-///      receipt is MANDATORY when COVEX_GAMES_ZK_REQUIRE=true; otherwise it is optional
-///      defense-in-depth (a supplied receipt is still verified; absence falls back to the server
-///      gate alone, disclosed honestly in the response). A supplied proof that cannot be verified
-///      (no binary, bad proof, or wrong-game journal) is REFUSED, never accepted unverified.
+///   2. ZK GATE (referee_zk::run_gate_for_network): when a RISC0 game receipt is supplied as
+///      `receipt_b64` (or `receipt_hex`), it is CRYPTOGRAPHICALLY verified by the covex-games-prover
+///      binary (real STARK proof against the prover-pinned guest image id) and its committed journal
+///      is bound to THIS match (winner + moves_digest must match the server record). A verified
+///      receipt is MANDATORY on MAINNET (forced, regardless of env) and whenever
+///      COVEX_GAMES_ZK_REQUIRE=true; on a testnet without that flag it is optional defense-in-depth
+///      (a supplied receipt is still verified; absence falls back to the server gate alone, disclosed
+///      honestly in the response). A supplied proof that cannot be verified (no binary, bad proof, or
+///      wrong-game journal) is REFUSED, never accepted unverified. On mainnet a missing receipt, an
+///      unconfigured prover binary, or an unverifiable receipt all FAIL CLOSED (no secret revealed).
 ///
 /// The referee then re-derives the winning outcome's secret (deterministic from REFEREE_KEY + the
 /// match domain) and this handler returns it PLUS the UNSIGNED reveal-branch spend the winner must
@@ -814,13 +816,19 @@ async fn settle_pot_hashlock(
     // proof that is missing/unverifiable is REFUSED. The two gates are defense-in-depth: the ZK
     // proof attests the move log is a legal terminal game the claimant won; the server gate attests
     // the move log is the genuine record. (See referee_zk for the honest enforcement statement.)
+    //
+    // MAINNET: `run_gate_for_network` FORCES a verified receipt mandatory when `net` is mainnet,
+    // regardless of COVEX_GAMES_ZK_REQUIRE. Real money never settles on the server replay alone:
+    // no receipt, no prover binary, or an unverifiable receipt all FAIL CLOSED here (the referee
+    // secret below is never reached, so nothing is revealed). Testnet keeps the server-gated
+    // fallback (env flag decides).
     let receipt = match crate::referee_zk::decode_receipt_param(&req) {
         Ok(r) => r,
         Err(e) => return Json(json!({ "success": false, "error": format!("invalid receipt param: {e}") })),
     };
     let moves: Vec<String> = serde_json::from_str(game["moves"].as_str().unwrap_or("[]"))
         .unwrap_or_default();
-    let zk_note: String = match crate::referee_zk::run_gate(receipt.as_deref(), outcome, &moves) {
+    let zk_note: String = match crate::referee_zk::run_gate_for_network(receipt.as_deref(), &net, outcome, &moves) {
         crate::referee_zk::ZkGate::Verified(note) => note,
         crate::referee_zk::ZkGate::SkippedAllowed(note) => note,
         crate::referee_zk::ZkGate::Refused(msg) => {
@@ -2027,6 +2035,21 @@ mod tests {
         .expect("seed hashlock pot row");
     }
 
+    /// Record the pot UTXO's network in `p2sh_covenants` (keyed by pot_tx), which is
+    /// where `load_hashlock_pot` reads the network from. Used to drive the settle
+    /// handler onto the MAINNET branch (where a verified ZK receipt is forced
+    /// mandatory) without standing up a chain. Other columns are filler that the
+    /// settle path never reads.
+    fn seed_pot_network(db: &Db, pot_tx: &str, network: &str) {
+        let conn = db.lock().unwrap();
+        conn.execute(
+            "INSERT INTO p2sh_covenants (tx_id, network, p2sh_address, redeem_script_hex, redeem_kind, amount_sompi, outpoint_index, owner_addr, created_at) \
+             VALUES (?1, ?2, 'p2sh:test', '00', 'binary_oracle_select', 100000000, 0, ?3, unixepoch())",
+            params![pot_tx, network, P1_ADDR],
+        )
+        .expect("seed p2sh_covenants network row");
+    }
+
     /// REFEREE determinism + binding (mirrors referee.rs unit tests at the games
     /// boundary): the per-outcome secret and hashlock are deterministic, the
     /// hashlock is blake2b256(secret), and different matches/outcomes are
@@ -2265,6 +2288,62 @@ mod tests {
         assert!(
             resp.get("preimage_hex").is_none(),
             "no referee secret may leak when the ZK gate refuses"
+        );
+    }
+
+    /// MAINNET hardening (task 1): on a MAINNET pot, a hashlock settle with NO receipt is
+    /// REFUSED even though the env flag COVEX_GAMES_ZK_REQUIRE is off, because mainnet forces
+    /// a verified zkVM proof mandatory. The refusal is clear (names the ZK gate) and NO referee
+    /// secret leaks (preimage_hex absent). The match is a finished, server-timed timeout to
+    /// player1 so game_pot_outcome Verifies(0) and the ONLY remaining gate is the (forced) ZK
+    /// gate. The pot's network is recorded as mainnet in p2sh_covenants so load_hashlock_pot
+    /// returns net="mainnet". REFEREE_KEY is set to a throwaway 64-hex value so referee
+    /// derivation would NOT fail-closed on mainnet for an unrelated reason (we are proving the
+    /// ZK gate refuses, not the referee-key gate).
+    #[tokio::test]
+    async fn settle_pot_hashlock_mainnet_refuses_without_zk_receipt() {
+        // Env flag OFF (the whole point: mainnet must require a proof regardless).
+        std::env::remove_var("COVEX_GAMES_ZK_REQUIRE");
+        std::env::remove_var("COVEX_GAMES_PROVER_BIN");
+
+        let db = fresh_db();
+        seed_hashlock_pot(
+            &db,
+            "cov-hl-mn",
+            "pot-hl-mn",
+            "finished",
+            Some("timeout"),
+            Some("player1"),
+        );
+        // Drive load_hashlock_pot onto the MAINNET branch.
+        seed_pot_network(&db, "pot-hl-mn", "mainnet");
+
+        let resp = settle_pot_hashlock(
+            Extension(db),
+            Path("cov-hl-mn".into()),
+            // No receipt_b64/receipt_hex: the proof is absent.
+            Json(json!({ "token": "tok-p1" })),
+        )
+        .await
+        .0;
+
+        assert_eq!(
+            resp["success"],
+            json!(false),
+            "mainnet settle with no receipt must be refused even with COVEX_GAMES_ZK_REQUIRE off"
+        );
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("ZK winner-proof gate"),
+            "the refusal must come from the ZK gate, got: {err}"
+        );
+        assert!(
+            err.contains("mainnet"),
+            "the error must explain mainnet forces a proof, got: {err}"
+        );
+        assert!(
+            resp.get("preimage_hex").is_none(),
+            "no referee secret may leak when mainnet refuses a proofless settle"
         );
     }
 }

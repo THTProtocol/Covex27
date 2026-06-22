@@ -344,6 +344,14 @@ async fn lock_pot(
         .map(|s| if s == "oracle_escrow" { "oracle_escrow" } else { "hashlock" })
         .unwrap_or("hashlock")
         .to_string();
+    // MAINNET FREEZE (belt-and-braces, independent of the Toccata node gate): the legacy
+    // oracle_escrow path puts the Covex oracle key IN the redeem, so it must never lock real
+    // money. lock_pot routes through prepare_deploy_handler, which does NOT carry the
+    // p2sh_deploy_handler oracle freeze, so we freeze the legacy game lock here: on mainnet only
+    // the de-oracle hashlock path (no Covex key in the redeem) may lock a new game pot.
+    if net.starts_with("mainnet") && settle_mode != "hashlock" {
+        return Json(json!({ "success": false, "error": "on mainnet a game pot must use the de-oracle hashlock settlement (no Covex key in the redeem); the legacy oracle_escrow co-sign path is frozen on mainnet" }));
+    }
     let p1x = match xonly_hex_from_address(&p1) {
         Ok(x) => x,
         Err(e) => return Json(json!({ "success": false, "error": e })),

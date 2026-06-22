@@ -51,11 +51,11 @@ const REALITIES = [
   { name: 'On-chain enforced', icon: ShieldCheck, cls: 'text-emerald-300 light:text-emerald-700 border-emerald-500/40 bg-emerald-500/10',
     trust: 'Zero trust', desc: 'Funds are locked in the exact 35-byte P2SH commitment. Kaspa consensus runs the redeem script and releases the money only if its conditions are met. No third party can move it. The chain is the referee.' },
   { name: 'Zero-knowledge', icon: Cpu, cls: 'text-violet-300 light:text-violet-700 border-violet-500/40 bg-violet-500/10',
-    trust: 'Proof, verified off-chain', desc: `A real Groth16 zero-knowledge proof is verified fail-closed off-chain by you, the counterparty, or any external verifier (snarkjs against the audited vkey) before release; a valid proof gates a 2-of-2 cosign plus a CSV timeout. Live today for all ${ZK_TOTAL} circuits with served keys and a working in-browser prover (the canonical list lives in lib/zk/circuits.js as VERIFIED_FULL_ZK). Kaspa has no on-chain pairing verifier, so the Groth16 check is always off-chain: all ${ZK_TOTAL} are verified off-chain, and the only on-chain check is a deployer-bound resolver's BIP340 Schnorr co-signature that the proof result gates.` },
+    trust: 'Proof, verified off-chain', desc: `A real Groth16 zero-knowledge proof is verified fail-closed off-chain by you, the counterparty, or any external verifier (snarkjs against the audited vkey) before release. Four self-contained circuits (merkle_membership, age_verification, escrow_2party, range_proof) reduce to pure on-chain primitives and are trustless end-to-end; for the rest a valid proof gates an external resolver's 2-of-2 cosign plus a CSV timeout, where trust sits with the disclosed resolver you chose or run, not Covex. Live today for all ${ZK_TOTAL} circuits with served keys and a working in-browser prover (the canonical list lives in lib/zk/circuits.js as VERIFIED_FULL_ZK). Kaspa has no on-chain pairing verifier, so the Groth16 check is always off-chain: all ${ZK_TOTAL} are verified off-chain, and beyond the four self-contained circuits the only on-chain check is a deployer-bound resolver's BIP340 Schnorr co-signature that the proof result gates.` },
   { name: 'Hybrid', icon: Layers, cls: 'text-sky-300 light:text-sky-700 border-sky-500/40 bg-sky-500/10',
-    trust: 'Proof + named oracle', desc: 'The Groth16 proof is mandatory and verified fail-closed; the named oracle only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
+    trust: 'Proof + named resolver', desc: 'The Groth16 proof is mandatory and verified fail-closed off-chain; a named external resolver only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
   { name: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 light:text-amber-700 border-amber-500/40 bg-amber-500/10',
-    trust: 'Named resolver', desc: 'An off-chain outcome is signed by a named resolver, bound by pubkey at deploy, whose co-signature the chain requires via the redeem script. For an engine-resolved game result, the outcome is computed deterministically by replaying the signed move log (anyone can recompute it) and the counterparty or a deployer-bound external resolver co-signs the release. For a real-world fact (a market event, a price, a data feed) the covenant binds to an external resolver the creator chooses; Covex never attests outside events. Either way the settlement itself is on-chain.' },
+    trust: 'Named resolver', desc: 'An off-chain outcome is attested by a named external resolver you choose or run (never a Covex key), bound by pubkey at deploy, whose co-signature the chain requires via the redeem script. For a real-world fact (a market event, a price, a data feed) the covenant binds to that resolver, or a real-money market binds to its published hashlock the chain enforces; Covex never attests outside events. For a game result on testnet today, Covex re-derives the winner from the publicly-replayable signed move log (anyone can recompute it) and co-signs the payout, and the chain still requires the winning player to add their own signature; the chain-enforced, no-Covex-key path is rolling out. Either way the settlement itself is on-chain, and trust sits with the disclosed resolver, not Covex.' },
 ];
 
 // Inline pill palette for PRIMITIVES (matches REALITIES above). Keyed by p.reality.
@@ -86,10 +86,10 @@ const PRIMITIVES = [
     what: 'Owner can always spend or refresh; an heir can claim only after the owner goes silent past a deadline.' },
   { name: 'Time-Decaying Multisig', reality: 'on-chain', script: 'OP_IF <ms_now>\nOP_ELSE <lock_daa> OP_CHECKLOCKTIMEVERIFY <ms_after> OP_ENDIF',
     what: 'A high quorum spends now; a lower quorum unlocks after a deadline. Treasury recovery / inheritance.' },
-  { name: 'Oracle-Enforced 2-of-2', reality: 'oracle-attested', script: '2-of-2 multisig of [ oracle_xonly , winner ]',
-    what: 'The chain requires the oracle’s signature AND the winner’s. The oracle only signs a verified outcome, and its co-sign is consensus-required.' },
-  { name: 'Oracle Escrow (game pot)', reality: 'oracle-attested', script: '<oracle> OP_CHECKSIGVERIFY\nOP_IF <playerA> OP_CHECKSIG OP_ELSE <playerB> OP_CHECKSIG OP_ENDIF',
-    what: 'The chain pays the pot only to the resolver-declared winner: the counterparty or a deployer-bound external resolver co-signs, the winning player signs their branch.' },
+  { name: 'Resolver-Enforced 2-of-2', reality: 'oracle-attested', script: '2-of-2 multisig of [ resolver_xonly , winner ]',
+    what: 'The chain requires the external resolver’s signature AND the winner’s. The resolver (your choice, bound by pubkey at deploy, never a Covex key) only co-signs a verified outcome, and that co-sign is consensus-required.' },
+  { name: 'Oracle Escrow (game pot)', reality: 'oracle-attested', script: '<resolver> OP_CHECKSIGVERIFY\nOP_IF <playerA> OP_CHECKSIG OP_ELSE <playerB> OP_CHECKSIG OP_ENDIF',
+    what: 'The chain pays the pot only to the resolver-declared winner, who also signs their own branch. On testnet today Covex re-derives the winner from the publicly-replayable move log and co-signs; the chain-enforced, no-Covex-key path is rolling out.' },
 ];
 
 // The 7 KIP-10 introspection opcodes live on Kaspa mainnet since Crescendo (May 2025).
@@ -237,7 +237,8 @@ export default function Readme() {
         <p className="text-sm text-gray-300 leading-relaxed max-w-3xl mb-6">
           These are the actual redeem scripts Covex builds and verifies against Kaspa’s <span className="text-white">TxScriptEngine</span>{' '}
           before any value is locked. Nine are pure on-chain (the chain alone enforces them); two are oracle-attested (the
-          script still requires a external resolver's co-signature over the declared outcome).
+          script still requires an external resolver's co-signature over the declared outcome, where that resolver is your
+          choice, not Covex).
         </p>
         <div className="grid md:grid-cols-2 gap-4">
           {PRIMITIVES.map((p) => (
@@ -302,33 +303,40 @@ export default function Readme() {
         </div>
       </Section>
 
-      {/* 6. THE ORACLE */}
-      <Section kicker="The oracle" title="A real signature, not a rubber stamp">
+      {/* 6. THE RESOLVER */}
+      <Section kicker="The resolver" title="A real signature, not a rubber stamp">
         <div className="grid lg:grid-cols-2 gap-6 items-center">
           <Card>
             <Radio className="text-kaspa-green mb-3" size={22} />
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
-              When an engine-resolved game outcome is off-chain, it is computed deterministically by replaying the signed move
-              log (a result anyone can recompute) and the counterparty or a deployer-bound external resolver co-signs the release
-              with a real <strong className="text-white">secp256k1 BIP340 Schnorr signature</strong>, never a forgeable keyed hash.
-              For a real-world fact like a settled market, the covenant binds to an external resolver the creator chooses by pubkey
-              at deploy, which signs the same way; Covex never attests outside events. Every signer's x-only public key is published
-              openly, so anyone can verify the attestation.
+              Off-chain attestation, where a covenant needs it, comes from an external resolver you connect or create, bound by
+              pubkey at deploy, never a Covex key. For a real-world fact like a settled market, the covenant binds to that resolver
+              or a real-money market binds to its published hashlock that the chain enforces (blake2b of the revealed secret) plus a
+              timelock refund; Covex never attests outside events. Where a resolver co-signs, it uses a real{' '}
+              <strong className="text-white">secp256k1 BIP340 Schnorr signature</strong>, never a forgeable keyed hash, and every
+              signer's x-only public key is published openly so anyone can verify the attestation.
             </p>
-            <Script>{`message  = covex-oracle:{covenant_id}:{outcome}:{timestamp}
-signature = schnorr_sign( sha256(message), oracle_key )
+            <p className="text-sm text-gray-300 leading-relaxed mb-3">
+              Game pots are the one transitional exception: on testnet today Covex re-derives the winner from the
+              publicly-replayable signed move log (a result anyone can recompute) and co-signs the release, while the chain still
+              requires the winning player to add their own signature. Covex does not decide the winner. The chain-enforced,
+              no-Covex-key path (the same external-resolver hashlock the markets use) is rolling out.
+            </p>
+            <Script>{`testnet game co-sign (transitional, being retired):
+message  = covex-oracle:{covenant_id}:{outcome}:{timestamp}
+signature = schnorr_sign( sha256(message), covex_key )
 pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
           </Card>
           <div>
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
-              Crucially, the resolver is held to the same standard as everything else: it will <span className="text-white">refuse to sign</span> an
-              outcome whose ZK proof does not verify, and for games it is bound to the deterministic replay of the signed move log, so it cannot mint
-              a signature for an arbitrary requested outcome.
+              Crucially, a resolver is held to the same standard as everything else: it will <span className="text-white">refuse to sign</span> an
+              outcome whose ZK proof does not verify, and for the testnet game co-sign Covex is bound to the deterministic replay of the
+              signed move log, so it cannot mint a signature for an arbitrary requested outcome.
             </p>
             <p className="text-sm text-gray-300 leading-relaxed">
               On-chain, the resolver’s signature is one half of a 2-of-2 multisig the script requires. That makes its co-sign{' '}
-              <span className="text-kaspa-green">consensus-required</span>. The deployer-bound resolver is a named, accountable party bound by pubkey at deploy,
-              and the payout still settles on Kaspa.
+              <span className="text-kaspa-green">consensus-required</span>. The resolver is a named, accountable party you chose or run, bound by pubkey at deploy,
+              not Covex, and the payout still settles on Kaspa. Trust sits with that disclosed resolver, not with us.
             </p>
           </div>
         </div>
@@ -371,7 +379,9 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
           <p className="text-sm text-gray-300 leading-relaxed">
             On mainnet every transaction is signed by your own wallet extension. The server builds the unsigned funding and
             spend transactions and verifies the result, but never holds a key. Hardcoded dev keys are hard-blocked on mainnet.
-            The oracle key is required at startup; without it, the backend refuses to run mainnet at all.
+            Covex operates no oracle for real-money settlement: oracle-co-signed covenant kinds are frozen on mainnet, real-money
+            markets bind instead to an external resolver's published hashlock the chain enforces, and the legacy Covex co-sign
+            survives only on testnet game pots while the chain-enforced rebind rolls out.
           </p>
         </Card>
       </Section>
@@ -385,7 +395,7 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
             [FileCode2, 'Start from a template', 'An official catalog across primitives, ZK proofs, oracle markets, DeFi, identity and games. Each opens preconfigured in the sandbox.'],
             [Coins, 'Deploy non-custodially', 'Lock real funds into an enforced P2SH primitive; redeem them by satisfying the script with your own key. Covex never holds the money.'],
             [Hash, 'Prove with ZK', 'Generate a real Groth16 proof for membership, range or age claims; you, the counterparty, or any external verifier checks it fail-closed off-chain, then a deployer-bound resolver co-signs the 2-of-2 the chain requires to release the funds.'],
-            [Sparkles, 'Play the arenas', 'Stake head-to-head games; a server-authoritative engine replays the signed move log (anyone can recompute) and the counterparty or a deployer-bound external resolver co-signs the pot to the winner on-chain.'],
+            [Sparkles, 'Play the arenas', 'Stake head-to-head games; on testnet today Covex re-derives the winner from the publicly-replayable signed move log (anyone can recompute) and co-signs the pot, while the chain still requires the winning player to add their own signature. The chain-enforced, no-Covex-key path is rolling out.'],
           ].map(([Icon, t, d]) => (
             <Card key={t}>
               <Icon className="text-kaspa-green mb-3" size={22} />

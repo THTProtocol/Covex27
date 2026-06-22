@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { Card } from '@/components/ui/Card';
 
 /**
- * Multi-Oracle Federation Configurator
- * Allows users to configure multiple oracles + threshold for decentralized resolution.
+ * Multi-Resolver Federation Configurator
+ * Lets users bind multiple EXTERNAL resolvers + a threshold for decentralized resolution.
+ * Covex operates no oracle for real money; every key here belongs to an external resolver
+ * you connect or run, never to Covex.
  */
 export default function MultiOracleConfigurator({ value, onChange }) {
   const [oracles, setOracles] = useState(value?.multiOracle?.providers || [
-    { name: "Covex Primary", publicKey: "", weight: 1 },
-    { name: "Community Oracle 1", publicKey: "", weight: 1 },
-    { name: "Community Oracle 2", publicKey: "", weight: 1 },
+    { name: "External Resolver 1", publicKey: "", weight: 1 },
+    { name: "External Resolver 2", publicKey: "", weight: 1 },
+    { name: "External Resolver 3", publicKey: "", weight: 1 },
   ]);
   const [threshold, setThreshold] = useState(value?.multiOracle?.threshold || 2);
   const [collectedSignatures, setCollectedSignatures] = useState([]); // for demo: user pastes signatures here
@@ -24,7 +26,7 @@ export default function MultiOracleConfigurator({ value, onChange }) {
   };
 
   const addOracle = () => {
-    const newList = [...oracles, { name: `Oracle ${oracles.length + 1}`, publicKey: "", weight: 1 }];
+    const newList = [...oracles, { name: `External Resolver ${oracles.length + 1}`, publicKey: "", weight: 1 }];
     setOracles(newList);
     update(newList, threshold);
   };
@@ -61,10 +63,10 @@ export default function MultiOracleConfigurator({ value, onChange }) {
     <Card className="p-6 space-y-6" accent="#49EACB">
       <div>
         <h3 className="text-lg font-bold text-white light:text-slate-900 flex items-center gap-2">
-          Multi-Oracle Federation
+          Multi-Resolver Federation
         </h3>
         <p className="text-xs text-gray-400 light:text-slate-500 mt-1">
-          Require cryptographic signatures from multiple independent oracles. Dramatically reduces single-oracle trust risk.
+          Require cryptographic signatures from multiple independent EXTERNAL resolvers you connect or run. No Covex key is used; trust is split across the resolvers you choose, reducing single-resolver risk.
         </p>
       </div>
 
@@ -75,7 +77,7 @@ export default function MultiOracleConfigurator({ value, onChange }) {
               value={oracle.name}
               onChange={(e) => updateOracle(index, 'name', e.target.value)}
               className="cyber-input flex-1 px-3 py-2 text-sm"
-              placeholder="Oracle Name"
+              placeholder="External Resolver Name"
             />
             <input
               value={oracle.publicKey}
@@ -105,7 +107,7 @@ export default function MultiOracleConfigurator({ value, onChange }) {
           onClick={addOracle}
           className="px-4 py-2 text-sm bg-white/5 hover:bg-white/10 light:bg-slate-100 light:hover:bg-slate-200 light:text-slate-900 rounded-xl border border-white/10 light:border-slate-200"
         >
-          + Add Oracle
+          + Add Resolver
         </button>
 
         <div className="flex items-center gap-2 ml-auto">
@@ -136,12 +138,12 @@ export default function MultiOracleConfigurator({ value, onChange }) {
           }}
         />
         <div className="text-[10px] text-gray-500 light:text-slate-500 mt-1">
-          Each oracle must sign the exact message produced by the main oracle after ZK verification.
+          Each external resolver signs the exact covenant-bound message after it runs the off-chain check. Covex never produces this signature.
         </div>
       </div>
 
       <div className="text-[11px] text-emerald-400/70 pt-2 border-t border-white/10 light:border-slate-200">
-        Real cryptographic verification is now enforced in the backend using the same SHA256 scheme as single-oracle.
+        Each resolver signature is verified cryptographically (the same SHA256 scheme as a single resolver). Trust sits with the external resolvers you bound, not with Covex.
       </div>
     </Card>
   );

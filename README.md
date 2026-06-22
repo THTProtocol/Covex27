@@ -25,7 +25,7 @@
 
 ---
 
-> **Status.** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet on **30 June 2026**, when Covex launches with real funds. The covenant indexer is armed behind the honesty gate today and the mainnet node is being synced ahead of launch. **The mainnet explorer is honestly empty until the first real covenant lands. No placeholder data, ever. A zero is the correct, expected reading.** Kaspa has no on-chain pairing verifier, so zero-knowledge proofs are verified off-chain by an external resolver, and the only thing the chain checks at unlock is that oracle's Schnorr co-signature (plus whatever the script itself enforces).
+> **Status.** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet on **30 June 2026**, when Covex launches with real funds. The covenant indexer is armed behind the honesty gate today and the mainnet node is being synced ahead of launch. **The mainnet explorer is honestly empty until the first real covenant lands. No placeholder data, ever. A zero is the correct, expected reading.** Kaspa has no on-chain pairing verifier, so zero-knowledge proofs are verified off-chain by an external resolver you choose or run (never by Covex), and the only thing the chain checks at unlock is that resolver's Schnorr co-signature (plus whatever the script itself enforces).
 
 ---
 
@@ -75,8 +75,8 @@ Covex labels every covenant by **who actually enforces its outcome**. This vocab
 | Label | What it means | Trust assumption |
 |-------|---------------|------------------|
 | **on-chain** | The Kaspa script itself enforces the spend condition. The user's own wallet redeems. No Covex key is in the payout path. | Trustless for custody and enforcement. If Covex vanished, the funds still settle from the published script and the user's wallet. |
-| **oracle-attested** | The an external resolver's Schnorr co-signature is consensus-required to release the funds, alongside the user's signature. The chain enforces both signatures, but the oracle key sits in the payout path. | Trust the external resolver to co-sign only a server-verified result. Not trustless. Never call it "on-chain", "trustless", "guaranteed", or "verified on-chain". |
-| **full-zk** | A real Groth16 proof is generated (client-side where supported) and verified fail-closed by an external resolver **off-chain** before that oracle co-signs the 2-of-2 the chain requires. | Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain. Only the oracle's Schnorr co-signature is. This is oracle-attested cryptography, not on-chain ZK. |
+| **oracle-attested** | An external resolver's Schnorr co-signature is consensus-required to release the funds, alongside the user's signature. The chain enforces both signatures, but the resolver key sits in the payout path. | No Covex trust; trust sits with the disclosed external resolver you chose or run, to co-sign only a verified result. Not trustless. Never call it "on-chain", "trustless", "guaranteed", or "verified on-chain". |
+| **full-zk** | A real Groth16 proof is generated (client-side where supported) and verified fail-closed by an external resolver you choose or run **off-chain** before that resolver co-signs the 2-of-2 the chain requires. | Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain. Only the external resolver's Schnorr co-signature is. The four self-contained circuits (merkle_membership, age_verification, escrow_2party, range_proof) reduce to pure on-chain primitives; every other circuit is off-chain-verified by the resolver, not trustless. |
 | **metadata** | Discovery and display only. The covenant is a real on-chain object, but Covex is describing it, not enforcing it. | Trust nothing beyond "this is a real UTXO on the chain". |
 
 ### Which covenant types are genuinely on-chain vs oracle-attested
@@ -92,13 +92,13 @@ Covex labels every covenant by **who actually enforces its outcome**. This vocab
 
 Each of these is engine-tested against the real `kaspa-txscript` interpreter before any value is locked. These pass the acid test: *if hightable.pro vanished tomorrow, every user could still recover or settle their funds using only their own wallet and the published script.*
 
-All nineteen ZK circuits in the Covex registry verify a **real Groth16 proof** off-chain, fail-closed, by an external resolver. None are chain-enforced: Kaspa has no on-chain pairing verifier, and there is no proof-to-hashlock binding (the circuits use MiMC7/range/timelock math, Kaspa's hashlock is blake2b256, `escrow_2party` has no hash at all, and `backend/src/covenant_builder.rs` contains no circuit-output to hashlock binding). The only on-chain check is that oracle's Schnorr co-signature. Every one of the nineteen is ready to migrate onto an on-chain verifier if and when a future KIP-16 ships one. The canonical set lives in `frontend/src/lib/zk/circuits.js` (`VERIFIED_FULL_ZK`); there is no chain-enforced ZK set, the tier was retired because no such binding exists.
+All nineteen ZK circuits in the Covex registry verify a **real Groth16 proof** off-chain, fail-closed, by an external resolver you choose or run (never by Covex). The four self-contained circuits (merkle_membership, age_verification, escrow_2party, range_proof) reduce to pure on-chain primitives and so are genuinely trustless end-to-end; every other circuit's proof is verified off-chain by the resolver, where trust sits with that disclosed resolver, not Covex and not the chain. Beyond those four, none are chain-enforced: Kaspa has no on-chain pairing verifier, and there is no proof-to-hashlock binding (the circuits use MiMC7/range/timelock math, Kaspa's hashlock is blake2b256, `escrow_2party` has no hash at all, and `backend/src/covenant_builder.rs` contains no circuit-output to hashlock binding). For those, the only on-chain check is the resolver's Schnorr co-signature. Every one is ready to migrate onto an on-chain verifier if and when a future KIP-16 ships one. The canonical set lives in `frontend/src/lib/zk/circuits.js` (`VERIFIED_FULL_ZK`); there is no chain-enforced ZK set, the tier was retired because no such binding exists.
 
-**Oracle-attested (the external resolver key is consensus-required in the payout path until the trustless rebuild lands):**
+**Oracle-attested (a resolver co-signature is consensus-required in the payout path until the chain-enforced rebuild lands):**
 
-- **Two-party oracle escrow**: the redeem script requires an external resolver's Schnorr co-signature alongside the winner's. The oracle co-signs only a server-verified result. Labeled oracle-attested, never on-chain. The trustless rebuild is a 2-of-2 off-chain state channel between the two parties, with no Covex key.
-- **Prediction markets**: built as on-chain `binary_oracle_select` bundles where the funds genuinely sit on-chain, but the real-world fact ("did outcome A happen?") must be attested by an oracle. Something off-chain has to report the result, so the honest target is k-of-n independent oracle signers with an on-chain multisig release. Labeled oracle-attested for resolution.
-- **On-chain game arenas** (chess and others): two players stake into a covenant and play in a premium client. The result is **computed by the server, not asserted by a client**. Deterministic games settle by replaying the public move log; quitting or letting the clock run out is a server-timed loss. The oracle co-signs only that verified result. The winner's unlock spends the pot on-chain, and the platform never custodies the stake, but the oracle co-signature is in the path, so this is oracle-attested.
+- **Two-party oracle escrow**: the redeem script requires an external resolver's Schnorr co-signature alongside the winner's. The resolver co-signs only a verified result. Labeled oracle-attested, never on-chain. The rebuild is a 2-of-2 off-chain state channel between the two parties, with no Covex key.
+- **Prediction markets**: built as on-chain `binary_oracle_select` bundles where the funds genuinely sit on-chain, but the real-world fact ("did outcome A happen?") is never attested by Covex. You connect or create an external resolver (provider-agnostic, self-hostable); a real-money market binds to that resolver's published hashlock, and the chain enforces blake2b(revealed_secret) plus a timelock refund. The honest target for richer markets is k-of-n independent resolver signers. Labeled oracle-attested for resolution.
+- **Game arenas** (chess and others): two players stake into a covenant and play in a premium client. On testnet today, a game pot settles when Covex re-derives the winner from the publicly-replayable signed move log and co-signs the payout (`oracle_escrow`); Covex does not decide the winner, it recomputes a result anyone can recompute, and the chain still requires the winning player's own signature. Quitting or letting the clock run out is a timed loss derived from that same log. The chain-enforced, no-Covex-key path (the same external-resolver hashlock our markets use) is rolling out; until then this is oracle-attested.
 
 The roadmap to trustlessness is earned per covenant type by **removing Covex from the money path**, not by adding more cryptography: deterministic primitives are trustless today; deterministic two-player games reach trustless via state channels; poker and blackjack reach trust-minimized via a public randomness beacon; prediction markets stay oracle-attested by nature and target k-of-n signers.
 
@@ -118,11 +118,11 @@ The full step-by-step guide, with worked examples (chess and games arena, predic
 
 ## 4. The ZK and oracle model, honestly
 
-- **No on-chain ZK on Kaspa.** Kaspa has no pairing precompile, so Covex does **not** rely on any on-chain proof-checking opcode. All nineteen circuits in the registry verify a real Groth16 proof **off-chain** by the external resolver, fail closed on a bad proof, and then the oracle co-signs the 2-of-2 the chain requires. None are chain-enforced: there is no proof-to-hashlock binding (`covenant_builder.rs` binds no circuit output to a consensus-checked hashlock), so the chain never verifies a proof. On-chain enforcement is always the Schnorr co-signature, never the proof itself.
-- **In-browser proving where supported.** The verified circuits generate their proof client-side (snarkjs over served artifacts; `age_verification` computes its MiMC commitment in dependency-free pure JS, with the birth year never leaving the browser). The backend then verifies fail-closed before the oracle co-signs.
+- **No on-chain ZK on Kaspa.** Kaspa has no pairing precompile, so Covex does **not** rely on any on-chain proof-checking opcode. Covex ships the prover and verifier tooling (the circuits and the ZK Studio); the proof itself is verified **off-chain** by an external resolver you choose or run, fail closed on a bad proof, and then that resolver co-signs the 2-of-2 the chain requires. The four self-contained circuits (merkle_membership, age_verification, escrow_2party, range_proof) reduce to pure on-chain primitives and are trustless end-to-end. The rest are not chain-enforced: there is no proof-to-hashlock binding (`covenant_builder.rs` binds no circuit output to a consensus-checked hashlock), so the chain never verifies a proof, and trust sits with the disclosed resolver, not Covex.
+- **In-browser proving where supported.** The verified circuits generate their proof client-side (snarkjs over served artifacts; `age_verification` computes its MiMC commitment in dependency-free pure JS, with the birth year never leaving the browser). An external resolver then verifies it fail-closed off-chain before co-signing.
 - **Honest labeling of unproven circuits.** Every other catalog circuit is compiled but stays honestly **oracle-attested** until its proving key ships and a proof actually verifies. The platform never labels a circuit full-zk on the strength of a key that does not yet exist.
 - **The trusted setup is disclosed.** It is a single-contributor developer ceremony, not a production multi-party MPC ceremony. This is stated, not hidden.
-- **The oracle fails closed.** There is no compiled-in oracle key. `COVEX_ORACLE_KEY` is required in every environment. A mainnet indexer refuses to start without it, and on any network the oracle refuses to sign when it is unset. The verifier runs the proof check under a timeout and a concurrency cap, and a hung or malicious proof cannot pin a worker.
+- **The resolver fails closed.** A resolver refuses to sign when a proof does not verify, and a verifier runs the proof check under a timeout and a concurrency cap, so a hung or malicious proof cannot pin a worker. Covex operates no oracle for real-money settlement: oracle-co-signed covenant kinds are frozen on mainnet, and the legacy Covex co-sign survives only on testnet game pots (see section 2) while the chain-enforced rebind rolls out.
 
 ---
 
@@ -137,18 +137,18 @@ The full step-by-step guide, with worked examples (chess and games arena, predic
 
 ## 6. Architecture and stack
 
-Covex is a Rust indexing and oracle backend, a React explorer and studio frontend, and the Kaspa mainnet node it reads.
+Covex is a Rust indexing and verification backend, a React explorer and studio frontend, and the Kaspa mainnet node it reads. Off-chain attestation, where a covenant needs it, comes from an external resolver you connect or run, never from a Covex key.
 
 - **Frontend:** React 19 + Vite, Tailwind v4 (light mode via the `light:` variant), React Router 7, route-level code splitting, `@measured/puck` page builder, `react-chessboard` + `chess.js`, in-browser `snarkjs`, framer-motion.
 - **Backend:** Rust, Axum, `kaspa-wrpc-client` (Borsh wRPC), SQLite WAL, Tokio background tasks, `secp256k1` Schnorr signing. Three independent background workers per network give defense in depth: a *crawler* that walks the selected-parent chain recognizing covenant envelopes and reconciles reorgs every cycle (fail-safe, never deletes), a *live indexer* polling seed addresses for fresh UTXOs, and a *payment guardian* watching the treasury to confirm tier payments. Finality is derived honestly at read time (final / confirming / pending) from the live virtual tip.
-- **ZK / Oracle:** circom + circomlib circuits, `snarkjs` verification via a Node child process under a timeout and concurrency cap, a pluggable oracle registry (full-zk Groth16 / hybrid / oracle-attested per circuit), fail-closed signing.
+- **ZK / resolvers:** circom + circomlib circuits, `snarkjs` verification via a Node child process under a timeout and concurrency cap, a pluggable resolver registry (full-zk Groth16 / hybrid / oracle-attested per circuit) that an external resolver runs off-chain, fail-closed signing. Covex provides the tooling; the attesting key is the resolver's, not Covex's.
 - **Infra:** Hetzner + systemd + nginx; the mainnet node provisioned on the data volume and synced ahead of launch; nightly verified database backups with a weekly restore drill; triple-synced deploys (GitHub = server = hightable.pro). Graceful shutdown drains in-flight HTTP and WebSocket connections on restart.
 
 ### How it all works (Kaspa mainnet, Toccata active)
 
-These diagrams assume Kaspa mainnet with the Toccata covenant hard fork live (the launch state). The throughline: Covex never holds your keys or your funds. It indexes the chain, attests outcomes, and helps you build and sign, while Kaspa consensus enforces every payout.
+These diagrams assume Kaspa mainnet with the Toccata covenant hard fork live (the launch state). The throughline: Covex never holds your keys or your funds. It indexes the chain and helps you build and sign, an external resolver you choose attests any off-chain outcome, and Kaspa consensus enforces every payout.
 
-**System map.** Your keys stay in your browser. Covex reads the chain and attests; consensus enforces.
+**System map.** Your keys stay in your browser. Covex reads the chain; an external resolver attests off-chain; consensus enforces.
 
 ```mermaid
 flowchart LR
@@ -157,12 +157,12 @@ flowchart LR
     EXP["Covex Explorer + Studio"]
     RDM["Claim + Recover redeemer"]
   end
-  subgraph CX["Covex backend (Rust, Axum) - read + attest only, no custody"]
+  subgraph CX["Covex backend (Rust, Axum) - read + tooling only, no custody"]
     CRW["Crawler + indexer, reorg-safe"]
-    ZKV["ZK verifier, fail-closed"]
-    ORC["Oracle co-signer, fail-closed"]
+    ZKV["ZK verifier tooling, fail-closed"]
     API["Read API"]
   end
+  RES["External resolver you choose or run - fail-closed, not Covex"]
   MAIN["Kaspa mainnet - covenant P2SH UTXOs"]
   PUB["Public Kaspa nodes - kaspa.stream, wRPC"]
 
@@ -170,9 +170,8 @@ flowchart LR
   EXP -->|reads| API
   API --> CRW
   CRW -->|wRPC, indexes covenants| MAIN
-  EXP -->|proof or outcome| ZKV
-  ZKV -->|valid| ORC
-  ORC -->|partial co-signature, never a key| WAL
+  EXP -->|proof or outcome| RES
+  RES -->|verifies off-chain, reveals secret or partial co-signature, never a Covex key| WAL
   RDM -->|build, sign, broadcast| PUB
   PUB --> MAIN
 ```
@@ -201,13 +200,13 @@ flowchart TD
   Q --> OA["oracle-attested"]
   Q --> FZ["full-zk"]
   Q --> MD["metadata"]
-  ON --> ONx["Kaspa consensus enforces the script. Trustless. singlesig, hashlock, CLTV, CSV, multisig, HTLC, and a revealed-secret binary oracle select"]
-  OA --> OAx["The chain enforces a 2-of-2; the external resolver co-signs only a verified outcome. Custody is on-chain, the outcome is attested, not trustless. Oracle escrow, markets, game pots"]
-  FZ --> FZx["A Groth16 proof is verified OFF-CHAIN by the oracle, because Kaspa has no pairing verifier, which then co-signs. Oracle-verified, not on-chain-verified"]
+  ON --> ONx["Kaspa consensus enforces the script. Trustless. singlesig, hashlock, CLTV, CSV, multisig, HTLC"]
+  OA --> OAx["The chain enforces a hashlock or 2-of-2; an external resolver you choose reveals the secret or co-signs only a verified outcome. Custody is on-chain, the outcome is attested by that resolver, not Covex, not trustless. Oracle escrow, markets, testnet game pots"]
+  FZ --> FZx["A Groth16 proof is verified OFF-CHAIN by an external resolver you choose, because Kaspa has no pairing verifier, which then co-signs. Resolver-verified, not on-chain-verified. The four self-contained circuits reduce to on-chain primitives"]
   MD --> MDx["A descriptive label only; the chain does not enforce it"]
 ```
 
-**Claiming what you won, even if Covex is down.** Script-enforced and revealed-secret covenants are fully self-claimable with just your key and public data. Oracle-resolved covenants depend on the oracle's liveness, with an on-chain timeout refund as the backstop.
+**Claiming what you won, even if Covex is down.** Script-enforced and revealed-secret covenants are fully self-claimable with just your key and public data. Resolver-attested covenants depend on the external resolver's liveness, with an on-chain timeout refund as the backstop.
 
 ```mermaid
 flowchart TD
@@ -221,13 +220,13 @@ flowchart TD
   S4 --> S5["Broadcast through a PUBLIC Kaspa node, kaspa.stream or any wRPC"]
   S5 --> DONE["Funds release to you on mainnet. Covex never touched your keys."]
 
-  O1 --> O2{"Is the oracle reachable?"}
-  O2 -->|yes| O3["Oracle co-signs the verified outcome, you sign your half, you broadcast"]
+  O1 --> O2{"Is the external resolver reachable?"}
+  O2 -->|yes| O3["Resolver co-signs the verified outcome, you sign your half, you broadcast"]
   O2 -->|no, or Covex is down| O4["Wait out the on-chain timeout, then the funder reclaims via the refund branch"]
   O3 --> DONE
 ```
 
-**ZK and oracle co-sign, step by step.** Verification is off-chain and fail-closed; the chain enforces the 2-of-2. The oracle contributes a partial signature, never a key.
+**ZK and resolver co-sign, step by step.** Verification is off-chain and fail-closed; the chain enforces the 2-of-2. The external resolver contributes a partial signature, never a Covex key.
 
 ```mermaid
 sequenceDiagram

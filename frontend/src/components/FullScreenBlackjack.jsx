@@ -377,7 +377,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
         <div className="flex items-center gap-2 shrink-0">
           <div
             className="hidden md:block text-[10px] text-gray-400 light:text-slate-600 font-mono"
-            title="The result is computed deterministically by replaying the signed move log (anyone can recompute); the counterparty or a deployer-bound external resolver co-signs the release, and the chain requires that signature via the redeem script."
+            title="On testnet, the pot settles when Covex re-derives the winner from the publicly replayable signed move log (anyone can recompute) and co-signs the release; the chain still requires the winning player's own signature via the redeem script. The chain-enforced, no-Covex-key path is rolling out."
           >
             CO-SIGNED RELEASE
           </div>
@@ -573,7 +573,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
           <div className="flex flex-col items-center gap-4">
             {myColor && !payoutResult && (
               <p className="text-[11px] text-gray-300 light:text-slate-600 max-w-xs text-center leading-snug">
-                Two steps: (1) the result is computed by replaying the signed move log and the counterparty or a deployer-bound resolver co-signs the release, (2) you claim the on-chain payout. Covex never holds the pot.
+                Two steps (testnet): (1) Covex re-derives the winner from the publicly replayable signed move log and co-signs the release, (2) you claim the on-chain payout with your own signature. Covex never holds the pot. The chain-enforced, no-Covex-key path is rolling out.
               </p>
             )}
             {!oracleSubmitted && (

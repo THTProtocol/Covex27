@@ -41,7 +41,7 @@ const REALITY = {
   'full-zk': {
     label: 'full-zk',
     variant: 'full-zk',
-    note: 'A real Groth16 proof, verified off-chain by the oracle. Not on-chain ZK.',
+    note: 'A real Groth16 proof, verified off-chain by an external resolver you choose or run (not Covex). Not on-chain ZK. The four self-contained circuits reduce to pure on-chain primitives.',
   },
   metadata: {
     label: 'metadata',
@@ -95,7 +95,7 @@ const EXAMPLES = [
     icon: Gamepad2,
     name: 'Games arena',
     kind: 'oracle-attested',
-    body: 'Two players stake into a covenant and play in a premium client. The result is computed deterministically by replaying the signed move log, not asserted by a client, and anyone can recompute it. The winner spends the pot on-chain; the counterparty or a deployer-bound external resolver co-signs the release.',
+    body: 'Two players stake into a covenant and play in a premium client. On testnet today, a pot settles when Covex re-derives the winner from the publicly-replayable signed move log and co-signs the payout; Covex does not decide the winner, and the chain still requires the winning player to add their own signature. The chain-enforced, no-Covex-key path is rolling out.',
   },
   {
     icon: TrendingUp,
@@ -141,7 +141,7 @@ const TRUST_ROWS = [
   { icon: KeyRound, title: 'Keys never leave the browser', body: 'Wallet generation happens client-side; the private key is never transmitted to the server. On mainnet a key is never displayed or transmitted.' },
   { icon: Eye, title: 'Covex holds no funds', body: 'It reads UTXOs and verifies payments on-chain. Every value-moving action is signed by your own wallet. It cannot move your funds.' },
   { icon: Network, title: 'Destination derived on-chain', body: 'A creator-placed button derives its destination and script hash server-side from the indexed covenant record, never from the button payload. A creator cannot redirect your funds.' },
-  { icon: Cpu, title: 'The oracle fails closed', body: 'There is no compiled-in oracle key. A bad proof or a missing key means the oracle refuses to sign. full-zk circuits verify a real Groth16 proof off-chain; that is honest cryptography, not on-chain ZK.' },
+  { icon: Cpu, title: 'The resolver fails closed', body: 'Attestation comes from an external resolver you choose or run, never a Covex key. A bad proof or a missing key means it refuses to sign. full-zk circuits verify a real Groth16 proof off-chain; that is honest cryptography, not on-chain ZK. Covex operates no oracle for real-money settlement.' },
 ];
 
 export default function AboutPage() {

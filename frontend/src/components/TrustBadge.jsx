@@ -83,7 +83,7 @@ export function trustInfo(covenant, opts) {
     return {
       kind: 'hybrid',
       label: 'Hybrid',
-      desc: 'An on-chain script gates release but checks an oracle-supplied input.',
+      desc: 'An on-chain script gates release but checks an input supplied by the deployer-bound external resolver (never Covex). No Covex trust, and not trustless: trust sits with that resolver.',
     };
   }
   // All 19 verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN

@@ -273,6 +273,12 @@ export default function CovenantInteractive() {
 
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [fullscreenUI, setFullscreenUI] = useState(false);
+  // When a creator has published a custom UI, that website becomes the full-width
+  // primary view and every Covex chrome element (title block, lifecycle rail, tier
+  // badges, script/technical disclosure, native interact panel) is tucked behind a
+  // collapsed "Details" toggle. detailsOpen drives that section; it starts closed so
+  // the creator page leads, and nothing is ever deleted - only relocated.
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [chessStake, setChessStake] = useState(50);
   const [showChessArena, setShowChessArena] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -885,14 +891,111 @@ export default function CovenantInteractive() {
     ? 'puck'
     : (hasCreatorUI ? 'iframe' : null);
 
+  // When a creator has published their own UI, that website is the page: it renders
+  // full-width as the primary surface and all of Covex's own chrome is relocated behind
+  // a collapsed "Details" toggle. Covenants WITHOUT a creator UI keep the original
+  // layout unchanged (the Covex metadata IS the content there). Games keep their arena.
+  const hasCustomSurface = !!creatorSurface && !gameType;
+
+  // The full-bleed creator surface (Puck blocks or the sandboxed iframe). Rendered both
+  // as the primary view when hasCustomSurface, and inline (legacy spot) otherwise, from
+  // a single definition so the two paths never drift. The iframe keeps its exact
+  // security model: sandbox="allow-scripts", only earned by custom_ui_source==='creator'.
+  const fullBleedCreatorSurface = creatorSurface === 'puck' ? (
+    <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} metadata={{ live: liveData }} />
+  ) : creatorSurface === 'iframe' ? (
+    <iframe
+      srcDoc={covenant.custom_ui_html}
+      title="Creator-published covenant interface"
+      className="w-full border-0 bg-[#06080B] block"
+      style={{ minHeight: 'calc(100vh - 132px)' }}
+      sandbox="allow-scripts"
+    />
+  ) : null;
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 xl:pr-[312px] pt-10 sm:pt-12 pb-[180px] xl:pb-12">
-      <Link
-        to="/"
-        className="inline-flex items-center gap-2 text-gray-300 hover:text-white transition-colors mb-4 font-mono text-sm uppercase tracking-wider"
+    <div className={hasCustomSurface
+      ? 'w-full pb-[180px] xl:pb-12'
+      : 'max-w-7xl mx-auto px-4 sm:px-6 xl:pr-[312px] pt-10 sm:pt-12 pb-[180px] xl:pb-12'}>
+
+      {/* ── Creator-UI page: the published website is the full-width primary view. A slim
+          top bar carries the only Covex affordances (back, one-line title, Share, and the
+          Details toggle); everything else is relocated, collapsed, below. ── */}
+      {hasCustomSurface && (
+        <>
+          <div className="sticky top-0 z-30 flex items-center gap-3 px-4 sm:px-6 py-2.5 border-b border-white/[0.06] bg-[#05050A]/85 backdrop-blur-md light:bg-white/85 light:border-slate-200">
+            <Link
+              to="/"
+              aria-label="Return to the registry"
+              className="shrink-0 inline-flex items-center gap-1.5 text-gray-300 hover:text-white transition-colors font-mono text-xs uppercase tracking-wider light:text-slate-500 light:hover:text-slate-900"
+            >
+              <ArrowLeft size={15} /> <span className="hidden sm:inline">Registry</span>
+            </Link>
+            <span className="h-4 w-px bg-white/10 light:bg-slate-200 shrink-0" aria-hidden="true" />
+            <span className="flex-1 min-w-0 truncate text-sm font-semibold text-white light:text-slate-900" title={covenant.name || covenant.covenant_type}>
+              {covenant.name || covenant.covenant_type || TRUNC(covenant.tx_id)}
+            </span>
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              aria-label="Share this covenant"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-kaspa-green/30 bg-kaspa-green/[0.08] text-kaspa-green text-xs font-semibold hover:bg-kaspa-green/[0.14] hover:border-kaspa-green/50 transition-colors light:bg-emerald-500/[0.10] light:border-emerald-500/40 light:text-emerald-700 light:hover:bg-emerald-500/[0.18]"
+            >
+              <Share2 size={13} aria-hidden="true" />
+              <span className="hidden sm:inline">Share</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDetailsOpen((v) => !v)}
+              aria-expanded={detailsOpen}
+              aria-controls="covenant-details-panel"
+              className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/15 bg-white/[0.04] text-gray-200 text-xs font-semibold hover:bg-white/[0.08] hover:text-white transition-colors light:bg-slate-100 light:border-slate-300 light:text-slate-700 light:hover:bg-slate-200"
+            >
+              <Layers size={13} aria-hidden="true" />
+              <span>{detailsOpen ? 'Hide details' : 'Details'}</span>
+            </button>
+          </div>
+
+          {/* The creator's published website, full-bleed and full-height: this is the page. */}
+          <div className="w-full">
+            {fullBleedCreatorSurface}
+          </div>
+
+          {/* Read-more affordance directly under the website, so a visitor who scrolls past
+              the custom UI still finds the Covex facts without hunting in the top bar. */}
+          {!detailsOpen && (
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 mt-6">
+              <button
+                type="button"
+                onClick={() => setDetailsOpen(true)}
+                aria-controls="covenant-details-panel"
+                aria-expanded={false}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-white/[0.08] bg-white/[0.02] text-sm font-semibold text-gray-300 hover:text-white hover:bg-white/[0.04] transition-colors light:border-slate-200 light:bg-slate-50 light:text-slate-600 light:hover:text-slate-900"
+              >
+                <Layers size={15} aria-hidden="true" />
+                Read more: covenant details, on-chain facts and how to interact
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── Details / Covex chrome. Always rendered for non-custom covenants (it IS the
+          content). For creator-UI covenants it lives inside the collapsible panel,
+          collapsed by default, and is wrapped in the original page padding. ── */}
+      <div
+        id={hasCustomSurface ? 'covenant-details-panel' : undefined}
+        hidden={hasCustomSurface && !detailsOpen}
+        className={hasCustomSurface ? 'max-w-7xl mx-auto px-4 sm:px-6 xl:pr-[312px] pt-8' : ''}
       >
-        <ArrowLeft size={16} /> Return to Registry
-      </Link>
+      {!hasCustomSurface && (
+        <Link
+          to="/"
+          className="inline-flex items-center gap-2 text-gray-300 hover:text-white transition-colors mb-4 font-mono text-sm uppercase tracking-wider"
+        >
+          <ArrowLeft size={16} /> Return to Registry
+        </Link>
+      )}
 
       {/* Enforcement reality leads the page so the honesty label is the first paint,
           before the title block. One full-width TrustBadge, sized md with description.
@@ -918,8 +1021,9 @@ export default function CovenantInteractive() {
           Live on-chain figures flow in via metadata.live and blocks resolve {{tokens}}
           at render. No creator input ever sets a fund destination. Images are always
           the creator's own choice (https URLs); with none set, the blocks fall back to
-          the branded gradient look. */}
-      {creatorSurface === 'puck' && (
+          the branded gradient look. Suppressed when the page already leads with the
+          full-bleed creator surface above (hasCustomSurface), so it never doubles up. */}
+      {!hasCustomSurface && creatorSurface === 'puck' && (
         <div className="mb-10 rounded-3xl overflow-hidden border border-white/[0.06]">
           <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} metadata={{ live: liveData }} />
         </div>
@@ -1879,6 +1983,7 @@ export default function CovenantInteractive() {
           </div>
         </motion.div>
       </div>
+      </div>{/* /covenant-details-panel (collapsible chrome wrapper) */}
 
       {/* Sticky right-rail (desktop) / slide-up bottom sheet (mobile) for the
           covenant's primary action set. Hidden during the creator's Fix tab so it
@@ -1898,8 +2003,10 @@ export default function CovenantInteractive() {
       {/* Custom UI Rendering: creator published transparent view (via Fix page).
           Reserved for genuine creator UIs - auto-generated blobs are never framed
           here. Routed through the single creatorSurface switch so a covenant with
-          Puck data never doubles up with this legacy iframe. */}
-      {creatorSurface === 'iframe' && (
+          Puck data never doubles up with this legacy iframe. Suppressed when the page
+          already leads with the full-bleed creator surface (hasCustomSurface): that
+          path is the primary view, so this secondary preview would double-render it. */}
+      {creatorSurface === 'iframe' && !hasCustomSurface && (
         <div className="mt-8 w-full">
           <div className="flex items-center gap-3 mb-4">
             <div className="p-2 rounded-lg bg-kaspa-green/10 border border-kaspa-green/30">

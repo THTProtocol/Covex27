@@ -414,7 +414,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
                 PAYS 3:2
               </div>
               <div className="mt-1.5 font-mono tracking-[3px] text-white/35" style={{ fontSize: 8 }}>
-                DEALER MUST DRAW TO 16 AND STAND ON ALL 17S
+                OPEN DUEL · NO DEALER · CLOSEST TO 21 WINS
               </div>
             </div>
 

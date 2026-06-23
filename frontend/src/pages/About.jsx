@@ -188,7 +188,7 @@ export default function AboutPage() {
             className="mt-6 text-lg sm:text-xl text-gray-300 light:text-slate-600 leading-relaxed max-w-3xl mx-auto"
           >
             Covex is the covenant explorer and studio for Kaspa mainnet. Index every covenant,
-            interact with any of them safely, and design the beautiful interactive websites that
+            interact with any of them from your own wallet, and design the beautiful interactive websites that
             other people use to act on them. On-chain custody, honestly labeled resolution, and
             your wallet in the path of every value-moving action.
           </motion.p>

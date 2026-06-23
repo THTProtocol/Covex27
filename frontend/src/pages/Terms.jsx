@@ -104,15 +104,30 @@ export default function Terms() {
           </p>
         </section>
 
-        {/* 5. Eligibility */}
+        {/* 5. Eligibility and acceptable use */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white light:text-slate-900">5. Eligibility</h2>
+          <h2 className="text-base font-semibold text-white light:text-slate-900">5. Eligibility and Acceptable Use</h2>
           <p>By using the Platform you represent that you:</p>
           <ul className="list-disc list-inside space-y-2 pl-2 text-gray-200 light:text-slate-700">
             <li>Are at least the age of majority in your jurisdiction.</li>
             <li>Are not located in, or a resident of, any jurisdiction where use of the Platform is prohibited, and are not subject to applicable sanctions.</li>
             <li>Will use the Platform only for lawful purposes and in compliance with all applicable laws and regulations.</li>
           </ul>
+          <p>You also agree not to use the Platform to deploy, fund, promote, or interact with any covenant, or to take any other action, that:</p>
+          <ul className="list-disc list-inside space-y-2 pl-2 text-gray-200 light:text-slate-700">
+            <li>Violates any law or regulation applicable to you, including those governing gambling, gaming, lotteries, prediction or event markets, securities, commodities or derivatives, money transmission, consumer protection, or taxation.</li>
+            <li>Launders money, finances terrorism, evades sanctions, or furthers fraud, theft, or any other unlawful or deceptive scheme.</li>
+            <li>Benefits any person subject to applicable sanctions, or any person located in a comprehensively sanctioned jurisdiction.</li>
+            <li>Attacks, exploits, overloads, or interferes with the Platform, any covenant, any wallet, or the Kaspa network.</li>
+            <li>Publishes, through the interface generator, content that is unlawful, infringing, malicious, or designed to deceive or defraud others.</li>
+          </ul>
+          <p>
+            The availability of any covenant type or template through the Platform is neutral tooling, not
+            an endorsement, recommendation, or representation that any particular use is lawful for you.
+            Covex has no obligation to monitor covenants or generated interfaces, but may, at its
+            discretion, decline to index or display, or stop indexing or displaying, any covenant or
+            interface.
+          </p>
         </section>
 
         {/* 6. Payments */}
@@ -195,15 +210,25 @@ export default function Terms() {
           </p>
         </section>
 
-        {/* 11. Third-party services and dependencies */}
+        {/* 11. Third-party services, dependencies, and user covenants */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white light:text-slate-900">11. Third-Party Services and Dependencies</h2>
+          <h2 className="text-base font-semibold text-white light:text-slate-900">11. Third-Party Services, Dependencies, and User Covenants</h2>
           <p>
             The Platform depends on third parties Covex does not control, including the Kaspa network and
             its consensus, public Kaspa nodes, block explorers, and browser wallet extensions. Their
             availability, correctness, and security are outside our control, and we are not responsible
             for their acts, omissions, downtime, or changes. Links to external sites and explorers are
             provided for convenience and are not endorsements.
+          </p>
+          <p>
+            Covenants are third-party smart-contract scripts authored and deployed to Kaspa by users, not
+            by Covex. Covex does not author, own, operate, control, audit, guarantee, or endorse any
+            covenant, including covenants you deploy through Covex or choose to interact with via Covex. A
+            covenant's behavior is determined solely by its on-chain script and Kaspa consensus, and any
+            interface generated for it is a display layer that does not change that logic. You are solely
+            responsible for reviewing a covenant, verifying its math and enforcement reality, and deciding
+            whether to fund or interact with it, and the same applies to covenants, interfaces, or content
+            published by other users.
           </p>
         </section>
 

@@ -1,0 +1,75 @@
+#!/bin/bash
+#
+# Off-site replication of the Covex backups (LAUNCH_HARDENING_PLAN Stage 5 residual #2).
+#
+# backup-covex.sh writes crash-consistent snapshots to the DATA VOLUME
+# (/mnt/HC_Volume_105579109/covex-backups). That survives the live DB disk dying, but
+# NOT the loss of the whole Hetzner box/volume (hardware loss, account action, accidental
+# deletion, ransomware) - in that case the live DB and every backup go together. This
+# script copies those backups OFF-SITE so a single-host loss is survivable.
+#
+# This is a .example: set OFFSITE_TARGET (the only required blank) and wire the timer at
+# the bottom. Do NOT commit a real target or credential to the repo.
+#
+# SECURITY: each backup's config tarball contains the systemd drop-ins, INCLUDING
+# COVEX_ORACLE_KEY and the dev-wallet keys. Treat the off-site target as secret-bearing:
+# use a PRIVATE host/bucket, prefer an encrypted target, lock down its credentials, and
+# never sync to anything world-readable.
+#
+# Operator usage:
+#   1. cp deploy/backup-offsite.sh.example deploy/backup-offsite.sh
+#   2. Set OFFSITE_TARGET below (rsync-over-SSH host / Hetzner Storage Box; or use the
+#      rclone block for object storage).
+#   3. Test once:  ./deploy/backup-offsite.sh
+#   4. Wire the systemd timer (commented at the bottom) to run a few minutes AFTER the
+#      nightly covex-backup.timer (03:24 UTC).
+
+set -euo pipefail
+
+BACKUP_ROOT="${BACKUP_ROOT:-/mnt/HC_Volume_105579109/covex-backups}"
+
+# REQUIRED: the off-site destination. Example (rsync-over-SSH to a second host /
+# Hetzner Storage Box):
+#   OFFSITE_TARGET="backup-user@your-storagebox.example:covex-backups/"
+# For object storage, leave this empty and use the rclone block below instead.
+OFFSITE_TARGET="${OFFSITE_TARGET:-}"
+SSH_KEY="${OFFSITE_SSH_KEY:-$HOME/.ssh/id_ed25519}"
+LOG_TAG="covex-offsite"
+
+log()  { echo "[$LOG_TAG] $*"; }
+fail() { echo "[$LOG_TAG] ERROR: $*" >&2; exit 1; }
+
+[ -d "$BACKUP_ROOT" ] || fail "backup root not found: $BACKUP_ROOT (run backup-covex.sh first)"
+[ -n "$OFFSITE_TARGET" ] || fail "OFFSITE_TARGET is unset - edit this script (or export it) first. See header."
+
+log "replicating $BACKUP_ROOT -> $OFFSITE_TARGET"
+
+# rsync over SSH: -a preserves times/perms, --delete mirrors local retention so the
+# off-site copy matches, --partial survives interruptions, -z compresses in transit.
+rsync -az --delete --partial \
+  -e "ssh -i \"$SSH_KEY\" -o StrictHostKeyChecking=accept-new -o BatchMode=yes" \
+  "$BACKUP_ROOT/" "$OFFSITE_TARGET" \
+  || fail "rsync to off-site target failed"
+
+log "off-site replication complete: $(du -sh "$BACKUP_ROOT" | cut -f1) mirrored"
+
+# ---------------------------------------------------------------------------
+# OBJECT-STORAGE ALTERNATIVE (rclone) - use instead of the rsync block above:
+#   rclone sync "$BACKUP_ROOT" "myremote:covex-backups" --transfers 4 --checksum \
+#     || fail "rclone sync failed"
+#   Configure `rclone config` for Hetzner Storage Box / S3 / Backblaze B2 first, and
+#   prefer a bucket with object-lock/versioning so a compromised host cannot wipe history.
+#
+# SYSTEMD TIMER (run ~20 min after the nightly backup) - install on the server:
+#   /etc/systemd/system/covex-offsite.service
+#     [Unit]    Description=Covex off-site backup replication
+#     [Service] Type=oneshot
+#               Environment=OFFSITE_TARGET=backup-user@host:covex-backups/
+#               ExecStart=/mnt/HC_Volume_105579109/Covex27/deploy/backup-offsite.sh
+#   /etc/systemd/system/covex-offsite.timer
+#     [Unit]    Description=Nightly Covex off-site replication
+#     [Timer]   OnCalendar=*-*-* 03:45:00 UTC
+#               Persistent=true
+#     [Install] WantedBy=timers.target
+#   systemctl daemon-reload && systemctl enable --now covex-offsite.timer
+# ---------------------------------------------------------------------------

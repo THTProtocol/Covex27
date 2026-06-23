@@ -41,7 +41,7 @@ const TIERS = [
     desc: 'Almost everything is here: build and deploy ANY covenant - games, markets, escrows, ZK proofs, vesting, custom logic - and give it a custom website. No cap, ever.',
     features: [
       'Build any covenant type (all builders free)',
-      'Lock or bet any amount, no maximum',
+      'Lock any amount, no maximum',
       'Build a custom website in Covenant Studio',
       'Base UI website template set',
       'Non-custodial deploy and offline claim',
@@ -337,7 +337,7 @@ const Pricing = () => {
   const EXPLAIN = [
     { icon: Eye, title: 'Almost everything is free', body: 'Build and deploy any covenant - games, prediction markets, escrows, ZK proofs, vesting, custom logic - give it a custom website in the Studio, and claim non-custodially. No account, no cap.' },
     { icon: Star, title: 'Paid tiers add visibility', body: 'Builder unlocks the full premium website template library. PRO adds featured placement on the Explorer. MAX adds top placement and a TVL-weighted ranking boost.' },
-    { icon: ShieldCheck, title: 'No maximum, ever', body: 'Any covenant on any tier, including free, can lock or bet any amount. Tiers only change how visible your covenant is, never how much you can lock or bet.' },
+    { icon: ShieldCheck, title: 'No maximum, ever', body: 'Any covenant on any tier, including free, can lock any amount. Tiers only change how visible your covenant is, never how much you can lock.' },
     { icon: Crown, title: 'How payment works', body: 'A one-time KAS payment to the treasury. The tier unlocks for the wallet address you pay from, so pay from the wallet you will deploy with.' },
   ];
 

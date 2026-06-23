@@ -998,7 +998,7 @@ export default function Explorer() {
                 <span className="text-amber-400">Arena</span> - Open Matches
               </h2>
               <span className="text-xs text-amber-400/60 font-mono">
-                Skill games with someone waiting to match. Covex-created only.
+                Games with someone waiting to match. Created on Covex.
               </span>
             </div>
             {/* Create-a-game entry point: a game is a covenant you deploy. Routes into the

@@ -106,7 +106,7 @@ export default function Privacy() {
           <ul className="list-disc list-inside space-y-2 pl-2 text-gray-200 light:text-slate-700">
             <li>Covenant display configurations: the labels, descriptions, and presentation settings attached to a covenant you choose to surface.</li>
             <li>Generated user interfaces: the custom interactive UIs produced for covenants (the generated HTML and its configuration), stored with the on-chain owner address that published them.</li>
-            <li>Public game state: the moves and status of peer-to-peer skill games surfaced through the Platform, which are inherently public to the participants.</li>
+            <li>Public game state: the moves and status of peer-to-peer games surfaced through the Platform, which are inherently public to the participants.</li>
           </ul>
           <p>
             This data is operational, non-personal, and tied to public on-chain identifiers rather than to

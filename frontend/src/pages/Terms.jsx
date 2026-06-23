@@ -73,22 +73,34 @@ export default function Terms() {
           </ul>
         </section>
 
-        {/* 4. Skill-based interactions / games */}
+        {/* 4. Games, markets, and interactive covenants */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white light:text-slate-900">4. Skill-Based Interactions and Games</h2>
+          <h2 className="text-base font-semibold text-white light:text-slate-900">4. Games, Markets, and Interactive Covenants</h2>
           <p>
-            Any games surfaced through the Platform (e.g. chess, connect-four, tic-tac-toe) are
-            <strong className="text-white light:text-slate-900"> games of skill played peer-to-peer between participants</strong>. Covex is not a
-            participant, is not the "house", does not take a position, does not set odds, and does not
-            operate a game of chance. Any stake is locked in an on-chain covenant between the players;
-            Covex does not custody the stake and the chain (or the consensus-required co-signature of
-            the counterparty or a deployer-bound external resolver, where applicable) determines the recipient.
+            Some covenants are interactive: for example, games or markets that two or more
+            participants stake into. Any such covenant is created and deployed by a user, not by
+            Covex. <strong className="text-white light:text-slate-900">Covex is software. It is not a participant, the "house", a counterparty, an
+            operator, a bookmaker, or a market-maker; it takes no position, sets no odds, holds no
+            stake, and runs no game or market.</strong> Covex does not classify or represent any covenant
+            as a game of skill or a game of chance; what a covenant does is defined solely by its
+            on-chain script.
           </p>
           <p>
-            You are solely responsible for determining whether participating in any covenant, market, or
-            game is lawful in your jurisdiction, and for complying with all applicable laws. You may not
-            use the Platform where doing so is prohibited. Covex provides no legal advice and is not
-            associated with gambling, prediction markets, securities, or any unlawful activity.
+            Any stake is locked in an on-chain covenant between the participants. Covex never
+            custodies the stake. Funds are released by Kaspa consensus to the recipient the script
+            determines. Where a covenant's outcome depends on an attested result, the
+            consensus-required co-signature comes from an external resolver that the covenant's
+            deployer binds by public key, <strong className="text-white light:text-slate-900">never a Covex key</strong>. Covex operates no oracle
+            for real-value settlement.
+          </p>
+          <p>
+            You are solely responsible for determining whether deploying, funding, or interacting
+            with any covenant, market, or game is lawful in your jurisdiction, and for complying with
+            all applicable laws. You may not use the Platform where doing so is prohibited.
+            <strong className="text-white light:text-slate-900"> Covex does not offer, operate, host, promote, endorse, or facilitate gambling,
+            betting, wagering, lotteries, prediction or event markets, or any game of chance</strong>; the
+            availability of any covenant template through the Platform is not a representation that
+            using it is lawful for you. Covex provides no legal advice.
           </p>
         </section>
 

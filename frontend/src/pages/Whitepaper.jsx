@@ -29,7 +29,7 @@ const SECTIONS = [
   {
     id: 'abstract', n: 'Abstract',
     body: [
-      "Kaspa's Toccata hard fork turns a 10 BPS proof-of-work BlockDAG into a covenant-capable Layer 1: native, stateful, multi-transaction programs over UTXOs. Kaspa has no on-chain pairing verifier, so zero-knowledge proofs are verified off-chain by you, the counterparty, or any external verifier, and a deployer-bound resolver's Schnorr co-signature is what the chain checks at unlock. The missing layer is human: a place to see every covenant, interact with any of them safely, and create them without writing raw script. Covex is that layer.",
+      "Kaspa's Toccata hard fork turns a 10 BPS proof-of-work BlockDAG into a covenant-capable Layer 1: native, stateful, multi-transaction programs over UTXOs. Kaspa has no on-chain pairing verifier, so zero-knowledge proofs are verified off-chain by you, the counterparty, or any external verifier, and a deployer-bound resolver's Schnorr co-signature is what the chain checks at unlock. The missing layer is human: a place to see every covenant, interact with any of them from your own wallet, and create them without writing raw script. Covex is that layer.",
       "This paper describes the problem, the design, the trust model, and the honest mainnet guarantee today: on-chain Schnorr verification of a deployer-bound resolver's co-signature, with ZK proofs verified off-chain by you, the counterparty, or any external verifier.",
     ],
   },

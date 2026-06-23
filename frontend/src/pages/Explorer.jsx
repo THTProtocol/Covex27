@@ -174,7 +174,7 @@ const CATEGORY_QUERY = {
   'Membership Claims': 'claim|membership', 'Prediction Pools': 'predict|bet|market',
   'Predictive Markets': 'predict|market',
   'Games & Matches': 'chess|poker|connect|tic|rps|reversi|blackjack|game',
-  'Skill': 'skill|chess|poker|game', 'Verifiable Skill': 'skill|chess|game',
+  'Contests': 'skill|chess|poker|game', 'Verifiable Games': 'skill|chess|game',
   'Escrow & Custody': 'escrow|custody', 'Structured Settlement': 'structured|vesting|settlement',
   'Governance & DAO': 'governance|dao|voting', 'Tournaments': 'tournament|bracket',
   'Flash Covenants': 'flash', 'Multi-sig': 'multisig|multi-sig|multi sig',
@@ -204,7 +204,7 @@ const ALL_CATEGORIES = [
   // Core types
   'Predictive Markets', 'Flash Covenants', 'Tournaments', 'Games & Matches',
   'Community Pools', 'ZK Oracle Tools', 'Escrow & Custody', 'Structured Settlement',
-  'Governance & DAO', 'Skill', 'Verifiable Skill', 'DeFi', 'Oracle', 'ZK Proofs', 'General',
+  'Governance & DAO', 'Contests', 'Verifiable Games', 'DeFi', 'Oracle', 'ZK Proofs', 'General',
   // Specific games & mechanics (for granular filtering)
   'Chess', 'Poker', 'Blackjack', 'Dice & VRF', 'RPS & Games', 'Connect4', 'Reversi', 'Tic-Tac-Toe',
   // Advanced / specialized

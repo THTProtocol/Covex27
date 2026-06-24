@@ -155,7 +155,9 @@ cargo run --release
 
 This will index mainnet covenants locally using the PC's kaspad node.
 
-## Operator's PC Mainnet Node
+## Operator's PC Mainnet Node (fallback only)
+
+NOTE: the primary mainnet node is already live ON the Hetzner box (`covex-kaspad-mainnet.service`, `/usr/local/bin/kaspad-2.0.0`, at tip). This operator's-PC path is a documented fallback, not the current deployment.
 
 Run `/home/kasparov/Covex27/deploy/start-mainnet-kaspad.sh` on the operator's PC. It requires 400GB+ free disk space and starts a mainnet kaspad with UTXO index on ports:
 - P2P: 16111
@@ -198,7 +200,7 @@ ssh root@hightable.pro "sqlite3 /mnt/HC_Volume_105579109/Covex27/covex.db 'SELEC
 
 ## Honest Remaining Items
 
-- **Actual mainnet kaspad not yet on Hetzner** - the node is on operator's PC. A Hetzner mainnet node requires a server upgrade (see `hetzner-infrastructure.md` in references).
+- **Mainnet kaspad IS live on the Hetzner box** (verified 2026-06-20, re-confirmed 2026-06-25). The covenant-aware node runs as `covex-kaspad-mainnet.service` from `/usr/local/bin/kaspad-2.0.0`, is connected to real mainnet via the kaspanet.org DNS seeders, and is at tip (`/api/status` -> `node_sync.mainnet.behind_daa: 0`). It auto-activates the Toccata covenant fork at the fork DAA; until then mainnet covenant indexing stays gated behind `COVEX_MAINNET_COVENANTS_ENABLED`. The old "node is on operator's PC / requires a Hetzner server upgrade" note is superseded. The operator's-PC option below remains a documented fallback only. See `docs/RUNBOOK.md` and `LAUNCH_CHECKLIST.md` for the canonical node facts.
 - **Operator must set real COVENANT_TREASURY_ADDRESS** before any mainnet covenant can verify tier payments.
 - **No real mainnet covenants exist yet** - the mainnet API returns 0 rows, which is correct.
 - **All code paths are in place and tested** with the security guards active. The system is ready for mainnet launch day.

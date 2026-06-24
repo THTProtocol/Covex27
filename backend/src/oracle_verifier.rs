@@ -83,6 +83,14 @@ pub(crate) enum VerifierSpec {
     /// Pure oracle attestation / hybrid property proof (off-chain engine + requested_outcome).
     /// This is the path for the overwhelming majority of the expanded stack.
     Attested,
+    /// HONEST "not claimable yet": the circom source, the verify script and the served vkey
+    /// exist, but there is NO served `_final.zkey`, so an in-browser prover can never generate a
+    /// Groth16 proof for it. Such a circuit must NOT be presented as Groth16-claimable (that
+    /// would advertise a ZK claim that always fails closed) and must NOT be attested-with-a-
+    /// caller-chosen-outcome (that would sign an unverified outcome). circuit_requires_crypto_proof
+    /// returns false for this kind, and verify_proof_for_circuit fails closed with a clear reason.
+    /// Promote to Strict/Hybrid only once a trusted setup ships the served proving key.
+    SourceOnlyNoZkey { reason: &'static str },
 }
 
 /// Returns the static registry map: circuit_type -> verifier spec.
@@ -581,29 +589,39 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
     // (chess_ai_move removed with chess zk circuit)
     // SECURITY (C1): poker_equity has NO real circuit (rubber-stamp delegator). Attested.
     m.insert("poker_equity", VerifierSpec::Attested);
+    // HONESTY (registration): collateral_ltv / loan_health / financial_formula have a circom
+    // source, a fail-closed verify script and a served vkey, but ship NO served _final.zkey on
+    // prod, so an in-browser prover can never produce a Groth16 proof and the claim would ALWAYS
+    // fail closed. Registered Hybrid they were advertised as Groth16-claimable yet were
+    // unprovable (dishonest). Downgraded to SourceOnlyNoZkey so they are NOT presented as
+    // claimable; promote back to Hybrid/Strict only once a trusted setup ships the served zkey.
+    // (Their verify scripts already index the validity public signal correctly, so no soundness
+    // change here, only an honest "not claimable yet" registration.)
     m.insert(
         "collateral_ltv",
-        VerifierSpec::HybridGroth16 {
-            script: "verify_collateral_ltv.js",
-            prefix: "covex_ltv",
+        VerifierSpec::SourceOnlyNoZkey {
+            reason: "no served proving key (collateral_ltv_final.zkey); circuit source + vkey exist but no proof can be generated yet",
         },
     );
     m.insert(
         "loan_health",
-        VerifierSpec::HybridGroth16 {
-            script: "verify_loan_health.js",
-            prefix: "covex_loan",
+        VerifierSpec::SourceOnlyNoZkey {
+            reason: "no served proving key (loan_health_final.zkey); circuit source + vkey exist but no proof can be generated yet",
         },
     );
-    // SECURITY (C1): multi_sig_gating has NO real circuit (rubber-stamp delegator). Attested.
+    // multi_sig_gating + anon_credential: origin/master now ships zk/multi_sig_gating.circom and
+    // zk/anon_credential.circom plus served wasm + vkey (the old "NO real circuit / rubber-stamp
+    // delegator" note is stale). There is still NO served _final.zkey for either, so they remain
+    // NOT-yet-claimable. They were registered Attested (oracle refuses to sign their outcome, so
+    // never a forgery path); we keep them Attested rather than promoting to Hybrid, because a
+    // Hybrid with no zkey would falsely advertise them as Groth16-claimable. Never present an
+    // Attested circuit as ZK-verified.
     m.insert("multi_sig_gating", VerifierSpec::Attested);
-    // SECURITY (C1): anon_credential has NO real circuit (rubber-stamp delegator). Attested.
     m.insert("anon_credential", VerifierSpec::Attested);
     m.insert(
         "financial_formula",
-        VerifierSpec::HybridGroth16 {
-            script: "verify_financial_formula.js",
-            prefix: "covex_ff",
+        VerifierSpec::SourceOnlyNoZkey {
+            reason: "no served proving key (financial_formula_final.zkey); circuit source + vkey exist but no proof can be generated yet",
         },
     );
     // SECURITY (C1): verifiable_poker_solver has NO real circuit (rubber-stamp delegator). Attested.
@@ -1116,6 +1134,16 @@ pub(crate) async fn verify_proof_for_circuit(
             // (enforced in the oracle handler). This is an intentional, registered path.
             Ok(true)
         }
+        Some(VerifierSpec::SourceOnlyNoZkey { reason }) => {
+            // FAIL CLOSED. The circuit has source + a verify script + a served vkey, but no
+            // served proving key, so no honest user can produce a proof. Refuse rather than
+            // attest (this is NOT a caller-chosen-outcome path): the claim is not available
+            // until a trusted setup ships the served _final.zkey.
+            Err(format!(
+                "circuit '{}' is not claimable yet: {}",
+                circuit_type, reason
+            ))
+        }
         None => {
             // Fail closed: an UNKNOWN circuit_type has no registered verifier, so we
             // must NOT silently attest it. Returning Err makes the caller
@@ -1156,12 +1184,19 @@ pub(crate) fn determine_outcome_for_circuit(
     let reg = get_registry();
     let spec = reg.get(circuit_type);
 
-    let is_groth = matches!(
+    // Circuits whose outcome is derived from a COMPUTED validity public signal. This covers the
+    // crypto-proof circuits (Strict/Hybrid) and the SourceOnlyNoZkey DeFi circuits: the latter
+    // never reach here in production (verify_proof_for_circuit fails closed before signing), but
+    // we keep the same fail-closed signal-reading so a valid==0 proof can never yield outcome 0
+    // if they are ever promoted back or reached defensively.
+    let reads_validity_signal = matches!(
         spec,
-        Some(VerifierSpec::StrictGroth16 { .. }) | Some(VerifierSpec::HybridGroth16 { .. })
+        Some(VerifierSpec::StrictGroth16 { .. })
+            | Some(VerifierSpec::HybridGroth16 { .. })
+            | Some(VerifierSpec::SourceOnlyNoZkey { .. })
     );
 
-    if !is_groth {
+    if !reads_validity_signal {
         return 0;
     }
 
@@ -1355,6 +1390,51 @@ mod tests {
             Some(VerifierSpec::Attested)
         ));
         // chess_engine assert removed (circuit deleted)
+    }
+
+    /// HONESTY: the Tier-1 DeFi circuits with no served _final.zkey must NOT be presented as
+    /// Groth16-claimable. They are SourceOnlyNoZkey (circuit_requires_crypto_proof == false, so
+    /// the oracle never signs their outcome), and verify_proof_for_circuit must FAIL CLOSED for
+    /// them (not attest a caller-chosen outcome). multi_sig_gating + anon_credential stay
+    /// Attested (their circom now exists, but no served zkey, so still not claimable).
+    #[tokio::test]
+    async fn defi_circuits_without_served_zkey_are_not_claimable() {
+        let r = get_registry();
+        for id in &["collateral_ltv", "loan_health", "financial_formula"] {
+            assert!(
+                matches!(r.get(*id), Some(VerifierSpec::SourceOnlyNoZkey { .. })),
+                "{} must be SourceOnlyNoZkey (no served proving key), not Groth16-claimable",
+                id
+            );
+            assert!(
+                !circuit_requires_crypto_proof(id),
+                "{} must NOT be presented as a crypto-proof (claimable) circuit",
+                id
+            );
+            // verify_proof_for_circuit fails closed even with a planted proof body.
+            let proof = serde_json::json!({ "pi_a": ["1", "2", "3"] });
+            let res = verify_proof_for_circuit(id, proof, vec!["1".to_string()], Some(0)).await;
+            assert!(
+                res.is_err(),
+                "{} must fail closed (not claimable yet), got: {:?}",
+                id,
+                res
+            );
+        }
+        // multi_sig_gating + anon_credential: circom exists now, but no served zkey -> stay
+        // Attested (oracle refuses to sign their outcome) and NOT crypto-proof claimable.
+        for id in &["multi_sig_gating", "anon_credential"] {
+            assert!(
+                matches!(r.get(*id), Some(VerifierSpec::Attested)),
+                "{} must remain Attested (circom exists but no served zkey)",
+                id
+            );
+            assert!(
+                !circuit_requires_crypto_proof(id),
+                "{} must NOT be presented as a crypto-proof (claimable) circuit",
+                id
+            );
+        }
     }
 
     #[test]

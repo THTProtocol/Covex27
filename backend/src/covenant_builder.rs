@@ -935,6 +935,25 @@ pub fn zk_precompile_deploy_allowed(network: &str) -> BResult<()> {
     Ok(())
 }
 
+/// Fail-closed mainnet gate for the BUNDLED parimutuel market service (create / resolve /
+/// match). These endpoints derive the winning secrets from the COVEX oracle key
+/// (secret = blake2b256(oracle_key || market_id || tag)) and re-derive the same at resolution,
+/// so the Covex key is still in the payout path: a Covex-key-settled market must never be
+/// fundable for value on mainnet. The match path also funds from a testnet dev escrow, which
+/// would fail incidentally on mainnet, but we refuse explicitly and early so the user sees a
+/// clear reason rather than an incidental error. Testnets stay fully open for development.
+/// Mirrors the GATE 2 oracle-kind mainnet freeze in p2sh_deploy_handler. Returns `Ok(())` when
+/// the bundled market service may proceed for `network`, else a caller-surfaceable error.
+pub fn bundled_market_mainnet_allowed(network: &str) -> BResult<()> {
+    if network == "mainnet" || network == "mainnet-1" {
+        return Err(
+            "Prediction markets are testnet-only: the bundled market resolver is not yet external; mainnet markets are disabled until the external-resolver rebuild lands."
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
 /// Redeem script for an N-of-M multisig, built by kaspa-txscript:
 /// `OP_required <pk1> .. <pkM> OP_M OpCheckMultiSig`. To spend, the satisfier must
 /// push exactly `required` signatures in the same relative order as their pubkeys.
@@ -6140,6 +6159,11 @@ pub async fn create_market_handler(
     Json(req): Json<CreateMarketRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
+    // Fail-closed mainnet gate: the bundled market resolver settles with the Covex oracle key,
+    // so it must never be fundable for value on mainnet (see bundled_market_mainnet_allowed).
+    if let Err(e) = bundled_market_mainnet_allowed(&req.network) {
+        return err(e);
+    }
     if req.question.trim().is_empty()
         || req.outcome_a.trim().is_empty()
         || req.outcome_b.trim().is_empty()
@@ -6275,6 +6299,11 @@ pub async fn resolve_market_handler(
         Some(m) => m,
         None => return err("market not found".into()),
     };
+    // Fail-closed mainnet gate: revealing a Covex-key-derived secret is part of the payout
+    // path, so it must never settle a market for value on mainnet (see bundled_market_mainnet_allowed).
+    if let Err(e) = bundled_market_mainnet_allowed(&m.network) {
+        return err(e);
+    }
     if req.outcome != 0 && req.outcome != 1 {
         return err("outcome must be 0 (A) or 1 (B)".into());
     }
@@ -6531,6 +6560,11 @@ pub async fn match_market_handler(
         Some(m) => m,
         None => return err("market not found".into()),
     };
+    // Fail-closed mainnet gate: matching funds bundles whose winning secrets come from the
+    // Covex oracle key, so it must never run for value on mainnet (see bundled_market_mainnet_allowed).
+    if let Err(e) = bundled_market_mainnet_allowed(&m.network) {
+        return err(e);
+    }
     if m.revealed_outcome.is_some() {
         return err("market already resolved".into());
     }
@@ -10653,6 +10687,34 @@ mod tests {
             "AWAITING SEAL: deploy redeem + winner/refund witnesses are well-formed; the live \
              accept/forged-reject/CSV-reject settlement needs a real RISC0->Groth16 game seal \
              (Docker stark2snark) routed via covex-games-onchain::game_settle_spend_from_receipt."
+        );
+    }
+
+    /// The bundled parimutuel market service settles with the Covex oracle key, so create /
+    /// resolve / match must be refused on mainnet (fail-closed) and allowed on testnets. All
+    /// three handlers call bundled_market_mainnet_allowed first, so testing that gate proves the
+    /// refusal for every entry point. The error must name the testnet-only / external-resolver
+    /// reason so the surfaced message is clear.
+    #[test]
+    fn bundled_market_mainnet_gate_rejects_mainnet_allows_testnet() {
+        // Mainnet (both aliases) must be rejected with the clear external-resolver reason.
+        for net in ["mainnet", "mainnet-1"] {
+            let r = bundled_market_mainnet_allowed(net);
+            assert!(r.is_err(), "{net} bundled market must be refused");
+            let msg = r.unwrap_err();
+            assert!(
+                msg.contains("testnet-only") && msg.contains("external-resolver"),
+                "rejection must name the testnet-only / external-resolver reason, got: {msg}"
+            );
+        }
+        // Testnets stay fully open for development.
+        assert!(
+            bundled_market_mainnet_allowed("testnet-10").is_ok(),
+            "testnet-10 bundled market must be allowed"
+        );
+        assert!(
+            bundled_market_mainnet_allowed("testnet-12").is_ok(),
+            "testnet-12 bundled market must be allowed"
         );
     }
 }

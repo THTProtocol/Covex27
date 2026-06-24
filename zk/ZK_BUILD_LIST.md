@@ -58,28 +58,52 @@ Chores (not circuit-building):
 
 ---
 
-## TIER 1 - STUB CIRCUITS, MUST BE REWRITTEN (HIGH PRIORITY - they currently prove a tautology)
+## TIER 1 - SOURCE REWRITTEN + SOUND, NO SERVED PROVING KEY YET (not-yet-claimable)
 
-These have a `.circom` + `.r1cs`, but `valid` (or the conclusion) is a **public INPUT** that the
-prover supplies, and the body does `valid === 1` while the real comparator output dangles
-unused. **The proof proves nothing.** Rewrite each so the computation drives `output valid`
-(e.g. `valid <== cmp.out;`), constrain the division/inequality properly, then build + ship.
+UPDATE 2026-06-25: the old "they currently prove a tautology" claim is STALE. The Tier-1
+`.circom` sources on `master` have been rewritten so `valid` is a **constrained `signal output`**
+driven by the real comparator (e.g. `valid <== withinLtv.out;`, `valid <== healthy.out;`,
+`valid <== met.out;`), with per-input `Num2Bits(64/32)` range checks that also reject negative /
+field-wrap (p-k) forgeries before the comparator. **The proofs now prove the real relation, not a
+tautology.** The remaining gap is artifacts, not soundness: each ships a served `_vkey.json` +
+`.wasm` (verify scripts index the validity signal correctly), but there is **NO served
+`_final.zkey`**, so an in-browser prover cannot produce a proof yet and the claim is unprovable
+end-to-end. Until a trusted setup ships the served zkey, the backend registers these so they are
+NOT presented as claimable (see `oracle_verifier.rs`):
 
-| Circuit | Statement it MUST prove | Public signals (target) | Notes |
-|---|---|---|---|
-| `collateral_ltv` | debt*1e4 / collateral < maxLtv | currentLtv, **valid(out)**, covenantId | LessThan output is dangling; constrain LTV |
-| `loan_health` | collateral*liqThreshold / debt > 1 | healthFactor, **valid(out)**, covenantId | same dangling-comparator bug |
-| `collateral_liquidation` | debt >= threshold (liquidatable) | debt, threshold, **valid(out)** | |
-| `financial_formula` | computed == f(principal,rate,periods) | computed, **valid(out)** | constrain the formula, not `valid===1` |
-| `black_scholes_approx` | price within bound of BS(spot,strike,...) | spot, strike, price, bound, **valid(out)** | spot/price are EXTERNAL -> oracle provider feeds them |
-| `auction_clearing` | clearPrice == 2nd-price rule(bids,reserve) | clearPrice, **valid(out)** | |
-| `multi_sig_gating` | gateOpen == (sigCount >= threshold) | gateOpen, **valid(out)** | |
-| `anon_credential` | attrValue >= minAttr under committed cred | credNullifier, **valid(out)** | constrain attr + nullifier derivation |
-| `ml_inference_stub` | claimedOutput == model(privateInput) | claimedOutput, **valid(out)** | only meaningful for a tiny fixed model |
-| `election_feed` | winner == argmax(tallyA,tallyB) >= threshold | winner, **valid(out)** | tallies are EXTERNAL -> oracle provider |
+- `collateral_ltv`, `loan_health`, `financial_formula` -> registered `SourceOnlyNoZkey`
+  (`circuit_requires_crypto_proof == false`; `verify_proof_for_circuit` fails closed; the oracle
+  never signs their outcome). NOT Groth16-claimable, NOT attested-with-a-caller-chosen-outcome.
+- `multi_sig_gating`, `anon_credential` -> source + served vkey/wasm now exist (the old "NO real
+  circuit / rubber-stamp delegator" note is stale), but no served zkey either; left `Attested`
+  (oracle refuses to sign their outcome, so never a forgery path) rather than promoted to
+  Hybrid/Strict, because a Hybrid with no zkey would falsely advertise them as claimable.
 
-After rewrite, ALSO add the `covenantId` public input (cross-covenant replay binding) to any of
-these meant to release a covenant, matching the Tier 0 pattern.
+| Circuit | Statement it now PROVES (constrained) | Source | Served vkey/wasm | Served zkey | Backend registration |
+|---|---|---|---|---|---|
+| `collateral_ltv` | debt*1e4 <= collateral*maxLtv (`valid <== withinLtv.out`) | rewritten, sound | yes | NO | `SourceOnlyNoZkey` |
+| `loan_health` | collateral*liqThreshold >= debt (`valid <== healthy.out`) | rewritten, sound | yes | NO | `SourceOnlyNoZkey` |
+| `financial_formula` | computed == f(principal,rate,periods) (`valid <== eq.out`) | rewritten, sound | yes | NO | `SourceOnlyNoZkey` |
+| `collateral_liquidation` | debt >= threshold (`valid <== liquidatable.out`) | rewritten, sound | yes | NO | Attested (source-only) |
+| `auction_clearing` | clearPrice obeys 2nd-price + reserve (`valid <== ...`) | rewritten, sound | yes | NO | HybridGroth16 (downgrade candidate, see below) |
+| `multi_sig_gating` | gateOpen == (sigCount >= threshold) (`valid <== met.out`) | rewritten, sound | yes | NO | `Attested` (source exists, not claimable) |
+| `anon_credential` | attrValue >= minAttr under committed cred (`valid <== meetsMin.out`) | rewritten, sound | yes | NO | `Attested` (source exists, not claimable) |
+| `black_scholes_approx` | price within bound of BS(...) | rewritten | yes | NO | Attested; spot/price are EXTERNAL -> oracle provider |
+| `ml_inference_stub` | claimedOutput == model(privateInput) | stub | yes | NO | Attested; only meaningful for a tiny fixed model |
+| `election_feed` | winner == argmax(tallies) >= threshold | n/a | yes | NO | HybridGroth16 (downgrade candidate; tallies are EXTERNAL -> oracle provider) |
+
+DOWNGRADE CANDIDATES (same honesty gap, not changed in the 2026-06-25 pass): `auction_clearing`
+and `election_feed` are still registered `HybridGroth16` despite shipping no served `_final.zkey`,
+so they are presented as Groth16-claimable yet are unprovable. A Hybrid with no zkey fails closed
+on a bodyless proof (no forgery path), but the claimable label is dishonest; they should follow
+`collateral_ltv` to `SourceOnlyNoZkey` (or get a served zkey). `election_feed` additionally
+depends on an EXTERNAL tally, so it belongs with the oracle-provider set regardless.
+
+Remaining work for the rewritten + sound ones is the trusted setup + served `_final.zkey`
+(owner/ceremony-gated), then add the `covenantId` public input (cross-covenant replay binding,
+matching the Tier 0 pattern) and promote the registration to Strict/Hybrid. Do NOT register any
+of these as claimable until a real proof node-verifies accept + tamper-reject against the SERVED
+zkey+wasm (a sound `.circom` does not imply sound served artifacts).
 
 ---
 
@@ -125,7 +149,9 @@ oracle-provider connector, not a circuit:
 
 ## Suggested build order on your PC
 
-1. **Tier 1 rewrites** (10 circuits) - they currently lie; highest honesty value, small circuits.
+1. **Tier 1 trusted setup + served zkey** - the rewrites are DONE and sound; the remaining work
+   is shipping a served `_final.zkey` for each (owner/ceremony-gated), then binding `covenantId`
+   and promoting the backend registration to Strict/Hybrid. Until then they stay not-claimable.
 2. **Tier 0 chores** - regenerate 14 stale samples + recover 3 missing sources.
 3. **Tier 2 authoring** - `tictactoe_v1`, `connect4_v1` (small), reconcile `nullifier_v1`,
    `privacy_mixer_v1` (gated on legal).

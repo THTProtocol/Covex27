@@ -19,7 +19,7 @@ is **on `master`** — the work was developed on `security/audit-remediation`
 | H1 | High | `X-Forwarded-For` rate-limit bypass | ✅ Closed | `main.rs` keys limiter on `X-Real-IP`; `deploy/nginx-covex.conf` sets it with replace semantics |
 | H2 | High | Mixer withdraw unauth/replayable | ⚠️ Partial | `mixer.rs`/`db.rs` atomic nullifier claim + reuse/deposit gates; per-note ZK bind still needs the circuit (no payout wired) |
 | H3 | High | Unauthenticated game money routes | ✅ Closed | `games.rs` all five lock/settle/refund routes require a valid seat token; refund restricted to funder |
-| H4 | High | `covenant_id` not bound into proofs (cross-covenant replay) | ⚠️ Partial | `oracle.rs` binding implemented; enforced under `COVEX_REQUIRE_COVENANT_BINDING=true`, warn-and-sign by default (needs circuits to emit `covenantId`) |
+| H4 | High | `covenant_id` not bound into proofs (cross-covenant replay) | ✅ Closed (fail-closed default) | `oracle.rs` + `covenant_builder.rs` `enforce_onchain_covenant_binding`: now fail-CLOSED by GLOBAL default. A Strict/Hybrid proof that omits `sha256(covenant_id) mod BN254` is REFUSED unless the circuit is on the explicit no-binding allowlist (`circuit_allows_no_covenant_binding`: only the game / mixer / DeFi-market hybrids whose served vkey cannot carry it). The blanket `COVEX_ALLOW_NO_BINDING=true` escape hatch CANNOT relax a binding-emitting circuit (`&& !circuit_emits_covenant_binding(...)`); `COVEX_REQUIRE_COVENANT_BINDING=true` forces strict everywhere |
 | M1 | Medium | No-auth `/covenant-metadata` + reachable panic | ✅ Closed | `main.rs` ownership signature required for `featured`; slice panic guarded |
 | M2 | Medium | `settle-pot` trusts stored winner | ✅ Closed | `games.rs` re-derives winner via `game_pot_outcome`, pays verified side |
 | M3 | Medium | `kaspa_msg` address-type confusion | ✅ Closed | `kaspa_msg.rs` asserts `Version::PubKey` |
@@ -30,7 +30,8 @@ is **on `master`** — the work was developed on `security/audit-remediation`
 | L3 | Low | `sshpass` + `StrictHostKeyChecking=no` deploy | ✅ Closed | `DEPLOY_TO_HIGHTABLE.sh` key-based SSH |
 
 ## Open follow-ups
-- **H4 / M5 (partial):** full closure needs circuit/DB-schema changes. Once non-game circuits emit a `covenantId` public signal, set `COVEX_REQUIRE_COVENANT_BINDING=true` to fail closed on cross-covenant replay.
+- **H4 (closed, fail-closed default):** cross-covenant replay is now refused by GLOBAL default; a proof must commit `sha256(covenant_id) mod BN254` or the circuit must be on the explicit no-binding allowlist. Binding-emitting circuits cannot be relaxed by `COVEX_ALLOW_NO_BINDING`. Remaining work is only to widen the set of non-game circuits that emit the binding (so fewer rely on the allowlist), then optionally set `COVEX_REQUIRE_COVENANT_BINDING=true` to force strict everywhere.
+- **M5 (partial):** removing the plaintext-at-create secret storage still needs a DB-schema change the matcher depends on.
 - **H2 (partial):** wire a real ZK nullifier + denomination membership proof before any on-chain mixer payout.
 
 ## Deploy prerequisites (read before shipping to production)

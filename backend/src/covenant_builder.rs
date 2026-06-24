@@ -1685,19 +1685,20 @@ fn parse_zk_game_settle_keys(redeem: &[u8]) -> Option<([u8; 32], [u8; 32])> {
         }
         i += 1;
     }
-    // Refund: the LAST `0x20 <32> OpCheckSig` in the script (the ELSE branch's CheckSig).
-    let mut refund: Option<[u8; 32]> = None;
-    let mut j = 0usize;
-    while j + 34 <= redeem.len() {
-        if redeem[j] == 0x20 && redeem[j + 33] == OpCheckSig {
-            let mut r = [0u8; 32];
-            r.copy_from_slice(&redeem[j + 1..j + 33]);
-            refund = Some(r); // keep overwriting -> ends on the last (refund) CheckSig key.
-            j += 34;
-            continue;
-        }
-        j += 1;
-    }
+    // Refund: anchored at the TAIL. The script ends with `<0x20 refund32> OpCheckSig OpEndIf`
+    // (the ELSE branch's CheckSig). That tail is deterministic, so reading it directly avoids any
+    // false `0x20...0xac` match inside the baked VK bytes that a forward scan could hit.
+    let refund: Option<[u8; 32]> = if redeem.len() >= 35
+        && redeem[redeem.len() - 1] == OpEndIf
+        && redeem[redeem.len() - 2] == OpCheckSig
+        && redeem[redeem.len() - 35] == 0x20
+    {
+        let mut r = [0u8; 32];
+        r.copy_from_slice(&redeem[redeem.len() - 34..redeem.len() - 2]);
+        Some(r)
+    } else {
+        None
+    };
     match (winner, refund) {
         (Some(w), Some(r)) => Some((w, r)),
         _ => None,
@@ -10212,16 +10213,14 @@ mod tests {
         assert_eq!(a1, a2, "p2sh address must be deterministic");
         assert_eq!(kind.kind_str(), "zk_game_settle:720", "kind string carries the CSV min_sequence");
         assert_eq!(kind.catalog_id(), "p2sh_zk_game_settle");
-        // No Covex oracle key anywhere in the redeem: the only x-only keys present are winner + refund.
-        let covex_oracle = crate::oracle::oracle_xonly_pubkey_bytes();
-        assert!(
-            !r1.windows(32).any(|w| w == covex_oracle),
-            "ZkGameSettle redeem must embed NO Covex oracle key (trustless: consensus verifies the proof)"
-        );
-        // The winner + refund keys ARE present (baked).
-        assert!(r1.windows(32).any(|w| w == winner), "baked winner key must be present");
-        assert!(r1.windows(32).any(|w| w == refund), "baked refund key must be present");
-        // The structural parser recovers them in the right roles.
+        // The two CHECKSIG-bound keys are exactly the winner + refund I supplied - no co-sign key is
+        // baked (the trustless property: consensus verifies the proof, not a Covex signature). The VK
+        // here is 0xAB*200 (contains no 0x20/0xac), so parse_redeem_pubkeys finds no false key inside
+        // it; the robust per-branch recovery uses the anchored parse_zk_game_settle_keys below. We do
+        // NOT derive the live oracle key (it is env-gated fail-closed), only assert what IS baked.
+        let checksig_keys = parse_redeem_pubkeys(&r1, true);
+        assert_eq!(checksig_keys, vec![winner, refund], "only the winner + refund keys are checksig-bound");
+        // The structural (anchored) parser recovers them in the right roles even for a real VK.
         let (pw, pr) = parse_zk_game_settle_keys(&r1).expect("parse winner/refund keys");
         assert_eq!(pw, winner, "parser must recover the winner key");
         assert_eq!(pr, refund, "parser must recover the refund key");

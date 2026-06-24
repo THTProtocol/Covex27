@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Coins, Lock, Trophy, ExternalLink, Loader2, ShieldCheck, AlertTriangle, Wallet, RotateCcw } from 'lucide-react';
+import { Coins, Lock, Trophy, ExternalLink, Loader2, ShieldCheck, AlertTriangle, Wallet, RotateCcw, Cpu } from 'lucide-react';
 import { useWallet } from './WalletContext';
-import { lockPot, settlePot, settlePotHashlock, refundPotHashlock, potState } from '../lib/gamePot';
+import { lockPot, settlePot, settlePotHashlock, settlePotZkOnchain, refundPotHashlock, potState, zkOnchainGamesEnabled } from '../lib/gamePot';
 import { explorerTxUrl } from '../lib/explorer';
 
 /**
@@ -11,7 +11,17 @@ import { explorerTxUrl } from '../lib/explorer';
  * on-chain pot state (game.pot_tx / game.pot_payout_tx / game.settle_mode, server fields) and shows
  * exactly one honest action for the viewer.
  *
- * Two settlement paths, picked from game.settle_mode (new pots default to "hashlock" server-side):
+ * Settlement paths, picked from game.settle_mode (new pots default to "hashlock" server-side):
+ *
+ *   ZK_GAME_SETTLE (KIP-16 on-chain ZK, GATED / rolling out): the winner PROVES the win and the
+ *   CHAIN verifies it. The settlement covenant runs OpZkPrecompile (opcode 0xa6) on a
+ *   RISC0->Groth16 proof whose journal binds { covenant_id, winner_pubkey }; consensus (not Covex,
+ *   not a referee) verifies the proof, so the loser cannot forge a winning proof and no Covex key
+ *   is in any path. This is NOT the live default: it needs both the build flag
+ *   (zkOnchainGamesEnabled, VITE_ZK_ONCHAIN_GAMES) AND game.settle_mode === 'zk_game_settle', and
+ *   it awaits the real game seal + a TN12 end-to-end. Framed honestly as "on-chain ZK (rolling
+ *   out)". When the per-pot mode is set but the build flag is off, the panel says it is rolling out
+ *   rather than offering a claim.
  *
  *   HASHLOCK (de-oracle, the default for new pots): the pot is a binary_oracle_select covenant with
  *   NO Covex key and NO referee key in the redeem - only the two player keys, two referee
@@ -33,6 +43,7 @@ import { explorerTxUrl } from '../lib/explorer';
 // One-click claim status -> human label. The winner never sees crypto jargon.
 const CLAIM_STEPS = {
   proving: 'Checking your game proof...',
+  building: 'Building the spend witness...',
   revealing: 'Releasing the winning secret...',
   signing: 'Signing with your wallet...',
   broadcast: 'Broadcasting the payout...',
@@ -49,7 +60,11 @@ export default function GamePotPanel({ covenantId, gameType = 'chess', game, sea
 
   const st = useMemo(() => potState(game, address), [game, address]);
   const potKas = st.potKas || game?.pot_amount_kas || 0;
-  const hashlock = st.mode !== 'oracle_escrow';
+  const zk = st.mode === 'zk_game_settle';        // this pot settles on-chain via KIP-16 ZK
+  const zkLive = zk && zkOnchainGamesEnabled();    // ...and this build has the path enabled (rolling out)
+  // "hashlock" covers everything that is NOT the legacy oracle co-sign and NOT the zk path, i.e. the
+  // de-oracle winner-spends-with-own-key default. Kept as the catch-all so existing copy is unchanged.
+  const hashlock = st.mode !== 'oracle_escrow' && !zk;
 
   const run = useCallback(async (fn) => {
     setBusy(true); setError(''); setResult(null); setStep('');
@@ -70,7 +85,16 @@ export default function GamePotPanel({ covenantId, gameType = 'chess', game, sea
   const needsKey = !privKeyHex && (st.phase === 'lockable' || st.phase === 'claimable' || st.phase === 'refundable');
 
   // Honest trust note, matched to the actual settlement path of THIS pot.
-  const trustNote = hashlock ? (
+  const trustNote = zk ? (
+    <p className="text-[11px] leading-snug text-gray-400 light:text-slate-500 mt-2">
+      On-chain ZK pot (rolling out). The winner proves the win and the Kaspa chain verifies the proof
+      itself (KIP-16 OpZkPrecompile): no referee, no Covex key, and the loser cannot forge a winning
+      proof. The proof is generated off-device and the chain re-checks it on the spend, so nothing is
+      trusted on faith. This path is not the live default yet: it is gated and awaiting the real game
+      seal and a testnet end-to-end. If the result cannot be resolved, the funder reclaims via the
+      timelock refund branch.
+    </p>
+  ) : hashlock ? (
     <p className="text-[11px] leading-snug text-gray-400 light:text-slate-500 mt-2">
       On-chain pot. The winner releases it with their OWN key: Covex holds no key in the redeem and
       signs nothing. The loser cannot claim (the inscribed covenant only pays the winner, and the
@@ -128,11 +152,13 @@ export default function GamePotPanel({ covenantId, gameType = 'chess', game, sea
       <>
         <div className="text-[12px] text-gray-300 light:text-slate-700">
           Both seats are filled. Lock the <span className="font-bold">{potKas} KAS</span> stake into a real on-chain covenant.{' '}
-          {hashlock
-            ? 'At the end the winner releases the whole pot with their own key. Covex holds no key and signs nothing.'
-            : 'At the end the counterparty or a deployer-bound resolver co-signs the payout to the winner the engine verifies.'}
+          {zk
+            ? 'At the end the winner proves the win and the Kaspa chain verifies the proof itself (KIP-16). This on-chain ZK path is rolling out.'
+            : hashlock
+              ? 'At the end the winner releases the whole pot with their own key. Covex holds no key and signs nothing.'
+              : 'At the end the counterparty or a deployer-bound resolver co-signs the payout to the winner the engine verifies.'}
         </div>
-        {hashlock ? (
+        {zk || hashlock ? (
           <div className="mt-2 flex items-start gap-1.5 text-[11px] text-gray-400 light:text-slate-500">
             <ShieldCheck size={12} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
             <span>If the result cannot be resolved, you (the funder) can reclaim the stake via the timelock refund once the pot ages.</span>
@@ -159,30 +185,64 @@ export default function GamePotPanel({ covenantId, gameType = 'chess', game, sea
       <div className="flex items-start gap-2 text-[12px] text-gray-300 light:text-slate-700">
         <ShieldCheck size={14} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
         <span>
-          {hashlock
-            ? 'Pot locked on-chain. Winner takes all: when the result is decided, the winner releases the pot to themselves with their own key.'
-            : 'Pot locked on-chain. Winner takes all: when the engine decides the result, the winner claims it (the counterparty or a deployer-bound resolver co-signs the payout).'}
+          {zk
+            ? 'Pot locked on-chain. Winner takes all: when the result is decided, the winner proves the win and the chain verifies the proof (KIP-16 on-chain ZK, rolling out).'
+            : hashlock
+              ? 'Pot locked on-chain. Winner takes all: when the result is decided, the winner releases the pot to themselves with their own key.'
+              : 'Pot locked on-chain. Winner takes all: when the engine decides the result, the winner claims it (the counterparty or a deployer-bound resolver co-signs the payout).'}
         </span>
       </div>,
     );
   }
 
   if (st.phase === 'claimable') {
-    // ONE-CLICK winner claim. Hashlock pots use the de-oracle path (winner releases with their own
+    // A zk_game_settle pot whose on-chain ZK path is NOT enabled in this build: do not offer a
+    // claim button (the route + seal are not live). Be honest that it is rolling out instead of
+    // overclaiming or breaking. The funder's timelock refund still covers a stranded stake.
+    if (zk && !zkLive) {
+      return wrap(
+        <>
+          <div className="flex items-start gap-2 text-[12px] text-emerald-200 light:text-emerald-800 font-semibold">
+            <Trophy size={14} className="mt-0.5 shrink-0" /> <span>You won the {potKas} KAS pot.</span>
+          </div>
+          <div className="mt-2 flex items-start gap-1.5 text-[11px] text-amber-200 light:text-amber-800">
+            <Cpu size={12} className="mt-0.5 shrink-0" />
+            <span>
+              This pot settles on-chain via ZK (KIP-16), where the winner proves the win and the chain
+              verifies it. That path is rolling out and not enabled in this build yet, so the claim is
+              not available here.
+            </span>
+          </div>
+          {trustNote}
+        </>,
+      );
+    }
+    // ONE-CLICK winner claim. ZK pots (enabled) prove on-chain (the chain verifies the proof, no
+    // referee, no Covex key); hashlock pots use the de-oracle path (winner releases with their own
     // key; no Covex signature); legacy oracle_escrow pots keep the co-signed settle.
-    const claim = hashlock
-      ? () => settlePotHashlock({ covenantId, token: seatToken, privKeyHex, onStatus: setStep })
-      : () => settlePot({ covenantId, token: seatToken, privKeyHex });
+    const claim = zkLive
+      ? () => settlePotZkOnchain({ covenantId, token: seatToken, privKeyHex, onStatus: setStep })
+      : hashlock
+        ? () => settlePotHashlock({ covenantId, token: seatToken, privKeyHex, onStatus: setStep })
+        : () => settlePot({ covenantId, token: seatToken, privKeyHex });
+    const claimIcon = busy ? <Loader2 size={15} className="animate-spin" /> : (zkLive ? <Cpu size={15} /> : <Trophy size={15} />);
+    const claimLabel = busy ? (CLAIM_STEPS[step] || 'Claiming...') : (zkLive ? `Prove and claim ${potKas} KAS` : `Claim ${potKas} KAS`);
     return wrap(
       <>
         <div className="flex items-start gap-2 text-[12px] text-emerald-200 light:text-emerald-800 font-semibold">
           <Trophy size={14} className="mt-0.5 shrink-0" /> <span>You won. Claim the {potKas} KAS pot.</span>
         </div>
+        {zkLive && (
+          <div className="mt-2 flex items-start gap-1.5 text-[11px] text-gray-400 light:text-slate-500">
+            <Cpu size={12} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
+            <span>On-chain ZK (rolling out): you prove the win and the chain verifies the proof before paying you. The proof is generated off-device; you only sign the spend.</span>
+          </div>
+        )}
         <button type="button" disabled={busy}
           onClick={() => run(claim)}
           className="mt-3 w-full inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-xl bg-kaspa-green light:bg-[#0d9488] text-black light:text-white font-extrabold text-sm hover:brightness-110 disabled:opacity-50 transition">
-          {busy ? <Loader2 size={15} className="animate-spin" /> : <Trophy size={15} />}
-          {busy ? (CLAIM_STEPS[step] || 'Claiming...') : `Claim ${potKas} KAS`}
+          {claimIcon}
+          {claimLabel}
         </button>
         {trustNote}
       </>,
@@ -193,7 +253,11 @@ export default function GamePotPanel({ covenantId, gameType = 'chess', game, sea
     return wrap(
       <div className="text-[12px] text-gray-300 light:text-slate-700">
         The match is over. The winner can release the {potKas} KAS pot to their own wallet
-        {hashlock ? ' with their own key. Covex holds no key in this pot.' : '.'}
+        {zk
+          ? ' by proving the win on-chain (KIP-16); the chain verifies the proof. Covex holds no key in this pot.'
+          : hashlock
+            ? ' with their own key. Covex holds no key in this pot.'
+            : '.'}
       </div>,
     );
   }

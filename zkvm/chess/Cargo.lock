@@ -558,6 +558,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "covex-games-onchain"
+version = "0.1.0"
+dependencies = [
+ "ark-bn254",
+ "ark-ff",
+ "ark-groth16",
+ "ark-serialize",
+ "bytemuck",
+ "covex-games",
+ "hex",
+ "risc0-groth16",
+ "risc0-zkvm",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "covex-games-prover"
 version = "0.1.0"
 dependencies = [
@@ -1122,9 +1139,12 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "covex-games",
+ "covex-games-onchain",
+ "hex",
  "methods",
  "risc0-zkvm",
  "serde",
+ "serde_json",
  "sha2",
 ]
 

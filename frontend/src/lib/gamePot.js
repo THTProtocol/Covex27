@@ -191,12 +191,146 @@ export async function refundPotHashlock({ covenantId, token, privKeyHex, onStatu
   return sub;
 }
 
+// ---------------------------------------------------------------------------
+// ON-CHAIN ZK settlement (KIP-16 OpZkPrecompile, tag 0x20) - GATED, NOT the default.
+//
+// In this mode the winner PROVES the win and the CHAIN verifies it. The settlement
+// covenant runs OpZkPrecompile (opcode 0xa6) on a RISC0->Groth16 proof whose journal
+// binds { covenant_id, winner_pubkey, ... }; consensus (not Covex, not a referee)
+// verifies the Groth16 proof, so a loser cannot forge a winning proof and no Covex key
+// is in any path. See docs/ZK_ONCHAIN_PLAN.md + docs/zk_precompile_abi.md.
+//
+// HONESTY: this is NOT live yet. It is gated behind a build flag AND a per-pot
+// settle_mode, awaiting the real game seal (Stage 2 Groth16 receipt) + a TN12 e2e
+// (Stage 4). Treat it as "on-chain ZK verified (rolling out)", never as the shipped
+// default. The hashlock path above stays the default.
+//
+// The proof itself is produced OFF-DEVICE (a RISC0->Groth16 wrap needs x86_64 + Docker,
+// not the browser and not the 7GB server). The browser only fetches the finished proof
+// + journal, assembles the winner-branch spend witness, signs the sighash in-wallet, and
+// submits. Nothing about the proof is trusted on faith: the chain re-verifies it.
+
+/**
+ * Is the on-chain ZK games path enabled in THIS build? Default off. Flip with the Vite env
+ * `VITE_ZK_ONCHAIN_GAMES=1` (build-time). Even when on, a given pot only uses it when its
+ * server-side `settle_mode === 'zk_game_settle'`. Both gates must hold; this keeps the live
+ * default (referee hashlock) untouched.
+ */
+export function zkOnchainGamesEnabled() {
+  try {
+    const v = import.meta?.env?.VITE_ZK_ONCHAIN_GAMES;
+    return v === '1' || v === 'true' || v === true;
+  } catch {
+    return false;
+  }
+}
+
+/** True when THIS pot settles on-chain via ZK (server field). Independent of the build flag. */
+export function isZkGameSettle(game) {
+  return !!game && game.settle_mode === 'zk_game_settle';
+}
+
+/**
+ * STUB pending the backend settle endpoint (Stage 4 plumbing, owned by the backend agent).
+ *
+ * Fetch the game's finished RISC0->Groth16 proof + binding journal from the server. The proof
+ * is generated off-device; this call only RETRIEVES it. Documented response shape (code against
+ * this until the real route lands):
+ *
+ *   { proof_hex, public_inputs: [Fr0..Fr4] (5 x 32-byte LE hex), winner_pubkey (x-only hex),
+ *     covenant_id, vk_hex?, sighash?, session_id? }
+ *
+ * NOTE: the endpoint name is not finalised. We POST to `/games/:id/settle-zk` (the natural
+ * sibling of settle-pot-hashlock). If the backend names it differently this one call changes; the
+ * shape is what Stages 2-4 froze. Until the route exists the server returns success:false and the
+ * claim surfaces an honest "rolling out" message rather than breaking the build or signing blind.
+ *
+ * @returns {Promise<object>} the settlement bundle, or throws with an honest message.
+ */
+export async function fetchZkSettlement({ covenantId, token }) {
+  // TODO(backend Stage 4): replace `settle-zk` with the real route name + confirm the field
+  // names once backend/src/games.rs adds the on-chain ZK settle handler. Shape is frozen by
+  // docs/zk_precompile_abi.md (tag 0x20: VK, proof, n_inputs, 5x 32-byte LE Fr public inputs).
+  const prep = await postJson(api(covenantId, 'settle-zk'), { token });
+  if (!prep || !prep.success) {
+    throw new Error(
+      prep?.error ||
+        'On-chain ZK settlement is not available for this pot yet. This path is rolling out and not enabled here.',
+    );
+  }
+  if (!prep.proof_hex || !Array.isArray(prep.public_inputs) || !prep.winner_pubkey) {
+    throw new Error('The settle-zk response is missing the proof, public inputs, or winner pubkey.');
+  }
+  return prep;
+}
+
+/**
+ * ONE-CLICK WINNER CLAIM for an ON-CHAIN ZK pot (KIP-16). The WINNER proves the win and the
+ * CHAIN verifies it: no referee reveal, no Covex co-signature. Status callback narrates:
+ *
+ *   1. (proving)   obtain the off-device RISC0->Groth16 proof + journal bound to THIS covenant_id
+ *                  (the browser does not produce it; fetchZkSettlement retrieves the finished proof).
+ *   2. (building)  assemble the winner-branch spend witness (VK + proof + public inputs feed the
+ *                  covenant's OpZkPrecompile; the server returns the unsigned sighash + session_id).
+ *   3. (signing)   the WINNER signs that sighash (BIP340) with their in-browser key.
+ *   4. (broadcast) submit [signature, proof, public inputs]; the node runs OpZkPrecompile (0xa6),
+ *                  verifies the Groth16 proof on-chain, then the winner-branch OpCheckSig pays out.
+ *   5. (paid)      done.
+ *
+ * A loser cannot reach a payout: an illegal/unfinished game yields no valid proof, the journal
+ * binds the winner identity + covenant_id, and consensus rejects a forged or wrong-pot proof.
+ *
+ * GATED: both `zkOnchainGamesEnabled()` (build flag) and `isZkGameSettle(game)` (per-pot) must
+ * hold before the UI offers this; this function additionally fails closed if the flag is off.
+ *
+ * @returns {Promise<object>} the broadcast result ({ spend_tx_id | tx_id, ... }) plus { onchain_zk:true }.
+ */
+export async function settlePotZkOnchain({ covenantId, token, privKeyHex, onStatus }) {
+  if (!zkOnchainGamesEnabled()) {
+    throw new Error('On-chain ZK settlement is not enabled in this build (rolling out).');
+  }
+  if (!privKeyHex) throw new Error('Claiming the pot needs an in-browser key wallet (import or dev-connect a key).');
+  const step = (s) => { try { onStatus?.(s); } catch { /* status is best-effort */ } };
+
+  // 1. Fetch the off-device proof + binding journal (and the unsigned spend material).
+  step('proving');
+  const bundle = await fetchZkSettlement({ covenantId, token });
+
+  // 2. Build the winner-branch witness. The server returns the unsigned sighash + session_id for
+  //    the winner-branch spend; the proof/public inputs are carried through to the satisfier so the
+  //    covenant's OpZkPrecompile can re-verify them on-chain.
+  step('building');
+  assertSigner(bundle, privKeyHex);
+  if (!bundle.sighash || !bundle.session_id) {
+    throw new Error('The settle-zk response did not include the unsigned spend sighash to sign.');
+  }
+
+  // 3. The winner signs the spend sighash in-browser; the key never leaves the device.
+  step('signing');
+  const signature_hex = signSighash(bundle.sighash, privKeyHex);
+
+  // 4. Submit [signature, proof, public inputs] for the winner-branch satisfier. The node verifies
+  //    the Groth16 proof via OpZkPrecompile (0xa6) before the winner's OpCheckSig releases the pot.
+  step('broadcast');
+  const sub = await submitSigned({
+    session_id: bundle.session_id,
+    signature_hex,
+    zk_proof_hex: bundle.proof_hex,
+    zk_public_inputs: bundle.public_inputs,
+  });
+  if (!sub.success) throw new Error(sub.error || 'Could not broadcast the on-chain ZK payout.');
+  step('paid');
+  return { ...sub, onchain_zk: true, winner_pubkey: bundle.winner_pubkey };
+}
+
 // Derive the on-chain pot state for the UI from a live game object (server fields) plus the
 // viewer's address. Pure; no network. Drives GamePotPanel's state machine.
 //   phase: 'unavailable' | 'lockable' | 'locked' | 'claimable' | 'settling-other' | 'frozen'
 //          | 'refundable' | 'paid'
-//   mode:  'hashlock' (de-oracle, winner spends with their OWN key) | 'oracle_escrow' (legacy
-//          Covex co-sign). Reads game.settle_mode; new pots default to hashlock server-side.
+//   mode:  'zk_game_settle' (KIP-16, winner proves on-chain; GATED, rolling out)
+//          | 'hashlock' (de-oracle, winner spends with their OWN key; the live default)
+//          | 'oracle_escrow' (legacy Covex co-sign).
+//          Reads game.settle_mode; new pots default to hashlock server-side.
 export function potState(game, viewerAddress) {
   if (!game) return { phase: 'unavailable' };
   const p1 = game.player1 || '';
@@ -207,8 +341,11 @@ export function potState(game, viewerAddress) {
   const paid = !!game.pot_payout_tx;
   const finished = game.status === 'finished';
   // Settlement path of the LOCKED pot. Only meaningful once locked. A hashlock pot has a CSV
-  // refund branch (the funder can reclaim a stranded stake); a legacy oracle_escrow pot does not.
-  const mode = game.settle_mode === 'oracle_escrow' ? 'oracle_escrow' : 'hashlock';
+  // refund branch (the funder can reclaim a stranded stake); a legacy oracle_escrow pot does not;
+  // a zk_game_settle pot is the GATED on-chain ZK path (winner proves on-chain, rolling out).
+  const mode = game.settle_mode === 'oracle_escrow'
+    ? 'oracle_escrow'
+    : (game.settle_mode === 'zk_game_settle' ? 'zk_game_settle' : 'hashlock');
   const winnerSide = (game.winner || '').toLowerCase();
   const winnerAddr = winnerSide === 'white' || winnerSide === 'player1' || game.winner === p1
     ? p1
@@ -221,10 +358,12 @@ export function potState(game, viewerAddress) {
     if (finished && isWinner) return { ...base, phase: 'claimable', winnerAddr, potTx: game.pot_tx };
     if (finished && winnerAddr) return { ...base, phase: 'settling-other', winnerAddr, potTx: game.pot_tx };
     // Finished but NO verified winner (a draw, or the result could not be resolved). A hashlock
-    // pot lets the FUNDER reclaim via the CSV refund branch once it ages; show that to the funder.
-    // A legacy oracle_escrow pot has no refund branch, so the stake is stuck (surfaced honestly).
+    // OR a zk_game_settle pot lets the FUNDER reclaim via the CSV refund branch once it ages; show
+    // that to the funder. A legacy oracle_escrow pot has no refund branch, so the stake is stuck
+    // (surfaced honestly).
     if (finished) {
-      if (mode === 'hashlock' && isFunder) return { ...base, phase: 'refundable', potTx: game.pot_tx };
+      const hasRefundBranch = mode === 'hashlock' || mode === 'zk_game_settle';
+      if (hasRefundBranch && isFunder) return { ...base, phase: 'refundable', potTx: game.pot_tx };
       return { ...base, phase: 'frozen', potTx: game.pot_tx };
     }
     return { ...base, phase: 'locked', potTx: game.pot_tx };

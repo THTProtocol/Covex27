@@ -9837,6 +9837,183 @@ mod tests {
         );
     }
 
+    /// STAGE 3 DECISIVE on-chain proof (ignored by default; run on the Hetzner TN12 box with
+    /// `COVEX_DEV_WALLET_1_KEY_TN12` + `KASPA_WRPC_URL` set):
+    ///   `cargo test --release --bin covex27-backend zk_onchain_tn12 -- --ignored --nocapture`
+    /// Funds a P2SH whose redeem is exactly the verify-only KIP-16 Groth16 core built from the
+    /// node's KNOWN-GOOD test vector, then spends it. The node ACCEPTS the spend iff the on-chain
+    /// OpZkPrecompile verified the proof. Then it does the same with a FORGED proof (one flipped
+    /// byte) and asserts the node REJECTS it. This proves the opcode end to end in a Covex-built
+    /// P2SH, independent of a real game seal (Stage 4 swaps the vector for a real game's Groth16).
+    #[tokio::test]
+    #[ignore]
+    async fn zk_onchain_tn12_known_good_accept_and_forged_reject() {
+        let key_hex = match std::env::var("COVEX_DEV_WALLET_1_KEY_TN12") {
+            Ok(v) if !v.trim().is_empty() => v.trim().trim_start_matches("0x").to_string(),
+            _ => {
+                eprintln!("SKIP: COVEX_DEV_WALLET_1_KEY_TN12 not set");
+                return;
+            }
+        };
+        let network = "testnet-12";
+        let sk: [u8; 32] = hex::decode(&key_hex).unwrap().try_into().expect("32-byte key");
+        let dev_kp = secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &sk).unwrap();
+        let dev_addr = crate::dev_wallets::DEV_WALLET_1_ADDRESS_TN12;
+
+        // The node's known-good Groth16 (tag 0x20) vector (docs/zk_precompile_abi.md).
+        let vk = hex::decode("e2f26dbea299f5223b646cb1fb33eadb059d9407559d7441dfd902e3a79a4d2dabb73dc17fbc13021e2471e0c08bd67d8401f52b73d6d07483794cad4778180e0c06f33bbc4c79a9cadef253a68084d382f17788f885c9afd176f7cb2f036789edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e1933033e7fea1f40604eaacf699d4be9aacc577054a0db22d9129a1728ff85a01a1c3af829b62bf4914c0bcf2c81a4bd577190eff5f194ee9bac95faefd53cb0030600000000000000e43bdc655d0f9d730535554d9caa611ddd152c081a06a932a8e1d5dc259aac123f42a188f683d869873ccc4c119442e57b056e03e2fa92f2028c97bc20b9078747c30f85444697fdf436e348711c011115963f855197243e4b39e6cbe236ca8ba7f2042e11f9255afbb6c6e2c3accb88e401f2aac21c097c92b3fbdb99f98a9b0dcd6c075ada6ed0ddfece1d4a2d005f61a7d5df0b75c18a5b2374d64e495fab93d4c4b1200394d5253cce2f25a59b862ee8e4cd43686603faa09d5d0d3c1c8f").unwrap();
+        let mut proof = hex::decode("570253c0c483a1b16460118e63c155f3684e784ae7d97e8fc3f544128b37fe15075eab5ac31150c8a44253d8525971241bbd7227fcefbae2db4ae71675c56a2e0eb9235136b15ab72f16e707832f3d6ae5b0ba7cca53ae17cb52b3201919eb9d908c16297abd90aa7e00267bc21a9a78116e717d4d76edd44e21cca17e3d592d").unwrap();
+        let fr = |h: &str| -> [u8; 32] { hex::decode(h).unwrap().try_into().unwrap() };
+        let inputs = [
+            fr("a54dc85ac99f851c92d7c96d7318af4100000000000000000000000000000000"),
+            fr("dbe7c0194edfcc37eb4d422a998c1f5600000000000000000000000000000000"),
+            fr("a95ac0b37bfedcd8136e6c1143086bf500000000000000000000000000000000"),
+            fr("d223ffcb21c6ffcb7c8f60392ca49dde00000000000000000000000000000000"),
+            fr("c07a65145c3cb48b6101962ea607a4dd93c753bb26975cb47feb00d3666e4404"),
+        ];
+
+        // A generous fee: the OpZkPrecompile charges 140_000 script units, far above a plain spend.
+        let stake: u64 = 5_000_000; // 0.05 KAS into the P2SH
+        let spend_fee: u64 = 1_000_000; // 0.01 KAS, ample headroom for the ZK script units
+
+        let client = client_for_network(network).await.expect("rpc client");
+
+        // Helper: fund a redeem's P2SH from the dev wallet, returns (deploy_tx_id, p2sh_spk, redeem).
+        async fn fund_p2sh(
+            client: &KaspaRpcClient,
+            dev_kp: &secp256k1::Keypair,
+            dev_addr: &str,
+            redeem: &[u8],
+            stake: u64,
+        ) -> (kaspa_consensus_core::tx::TransactionId, ScriptPublicKey) {
+            let p2sh_spk = p2sh_script_pubkey(redeem);
+            let addr = Address::try_from(dev_addr).unwrap();
+            let utxos = client.get_utxos_by_addresses(vec![addr]).await.unwrap();
+            let (selected, fee) =
+                select_utxos_with_fee(&utxos, stake, 1, |u| u.utxo_entry.amount).unwrap();
+            let total: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
+            let dev_script = selected[0].utxo_entry.script_public_key.clone();
+            let change = total - stake - fee;
+            let mut outputs = vec![TransactionOutput { value: stake, script_public_key: p2sh_spk.clone() }];
+            if change >= 10_000 {
+                outputs.push(TransactionOutput { value: change, script_public_key: dev_script });
+            }
+            let tx_inputs: Vec<TransactionInput> = selected
+                .iter()
+                .map(|u| TransactionInput {
+                    previous_outpoint: TransactionOutpoint {
+                        transaction_id: u.outpoint.transaction_id,
+                        index: u.outpoint.index,
+                    },
+                    signature_script: vec![],
+                    sequence: 0,
+                    sig_op_count: 1,
+                })
+                .collect();
+            let mut payload = vec![0xaa, 0x20];
+            payload.extend_from_slice(&blake2b256(redeem));
+            payload.extend_from_slice(redeem);
+            let unsigned = Transaction::new_non_finalized(
+                0, tx_inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, payload,
+            );
+            let entries: Vec<UtxoEntry> = selected
+                .iter()
+                .map(|u| UtxoEntry {
+                    amount: u.utxo_entry.amount,
+                    script_public_key: u.utxo_entry.script_public_key.clone(),
+                    block_daa_score: u.utxo_entry.block_daa_score,
+                    is_coinbase: u.utxo_entry.is_coinbase,
+                })
+                .collect();
+            let signable = SignableTransaction::with_entries(unsigned, entries);
+            let mut signed = sign_with_multiple_v2(signable, &[*dev_kp]).fully_signed().unwrap();
+            signed.tx.finalize();
+            let txid = client.submit_transaction(RpcTransaction::from(&signed.tx), false).await.unwrap();
+            (txid, p2sh_spk)
+        }
+
+        // Wait until the P2SH UTXO at (deploy_txid, 0) is visible, then return its UtxoEntry data.
+        async fn await_utxo(
+            client: &KaspaRpcClient,
+            redeem: &[u8],
+            deploy_txid: &kaspa_consensus_core::tx::TransactionId,
+        ) -> (u64, u64, bool) {
+            let addr = p2sh_address(redeem, Prefix::Testnet).unwrap();
+            for _ in 0..60 {
+                let utxos = client.get_utxos_by_addresses(vec![addr.clone()]).await.unwrap();
+                if let Some(u) = utxos
+                    .iter()
+                    .find(|u| &u.outpoint.transaction_id == deploy_txid && u.outpoint.index == 0)
+                {
+                    return (u.utxo_entry.amount, u.utxo_entry.block_daa_score, u.utxo_entry.is_coinbase);
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+            panic!("P2SH UTXO never appeared for deploy {deploy_txid}");
+        }
+
+        // Build a spend (empty witness satisfier - the verify-core needs no signature) and submit.
+        async fn try_spend(
+            client: &KaspaRpcClient,
+            redeem: &[u8],
+            deploy_txid: kaspa_consensus_core::tx::TransactionId,
+            amount: u64,
+            daa: u64,
+            is_cb: bool,
+            dev_addr: &str,
+            fee: u64,
+        ) -> Result<kaspa_consensus_core::tx::TransactionId, String> {
+            let p2sh_spk = p2sh_script_pubkey(redeem);
+            let dest = script_pub_key_from_address(dev_addr).unwrap();
+            let inputs = vec![TransactionInput {
+                previous_outpoint: TransactionOutpoint { transaction_id: deploy_txid, index: 0 },
+                signature_script: vec![],
+                sequence: 0,
+                sig_op_count: 0, // verify-core has no OpCheckSig
+            }];
+            let outputs = vec![TransactionOutput { value: amount - fee, script_public_key: dest }];
+            let unsigned = Transaction::new_non_finalized(
+                0, inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, b"covex-zk-spend".to_vec(),
+            );
+            let entries = vec![UtxoEntry { amount, script_public_key: p2sh_spk, block_daa_score: daa, is_coinbase: is_cb }];
+            let mut signable = SignableTransaction::with_entries(unsigned, entries);
+            // P2SH satisfier is EMPTY: the redeem itself yields the truthy OpZkPrecompile result.
+            let sig_script = kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), vec![])
+                .map_err(|e| format!("sig script: {e}"))?;
+            signable.tx.inputs[0].signature_script = sig_script;
+            signable.tx.finalize();
+            client
+                .submit_transaction(RpcTransaction::from(&signable.tx), false)
+                .await
+                .map(|id| id)
+                .map_err(|e| format!("{e}"))
+        }
+
+        // ---- (a) KNOWN-GOOD proof: the node must ACCEPT the spend. ----
+        let good_redeem = redeem_zk_precompile_verify_core(&vk, &proof, &inputs).unwrap();
+        let (deploy_good, _) = fund_p2sh(&client, &dev_kp, dev_addr, &good_redeem, stake).await;
+        eprintln!("GOOD deploy_tx = {deploy_good}");
+        let (amt, daa, cb) = await_utxo(&client, &good_redeem, &deploy_good).await;
+        let spend_good = try_spend(&client, &good_redeem, deploy_good, amt, daa, cb, dev_addr, spend_fee).await;
+        eprintln!("GOOD spend result = {spend_good:?}");
+        let good_spend_id = spend_good.expect("known-good ZK proof spend MUST be accepted on-chain");
+        eprintln!("ACCEPT: known-good Groth16 verified on-chain, spend_tx = {good_spend_id}");
+
+        // ---- (b) FORGED proof (flip one byte): the node must REJECT the spend. ----
+        proof[0] ^= 0x01;
+        let bad_redeem = redeem_zk_precompile_verify_core(&vk, &proof, &inputs).unwrap();
+        let (deploy_bad, _) = fund_p2sh(&client, &dev_kp, dev_addr, &bad_redeem, stake).await;
+        eprintln!("FORGED deploy_tx = {deploy_bad}");
+        let (amt2, daa2, cb2) = await_utxo(&client, &bad_redeem, &deploy_bad).await;
+        let spend_bad = try_spend(&client, &bad_redeem, deploy_bad, amt2, daa2, cb2, dev_addr, spend_fee).await;
+        eprintln!("FORGED spend result = {spend_bad:?}");
+        assert!(
+            spend_bad.is_err(),
+            "a FORGED Groth16 proof MUST be rejected by consensus, but the spend was accepted: {spend_bad:?}"
+        );
+        eprintln!("REJECT: forged Groth16 proof rejected on-chain: {}", spend_bad.unwrap_err());
+    }
+
     #[test]
     fn zk_precompile_deploy_gate_is_fail_closed_and_mainnet_blocked() {
         // Mainnet always rejected regardless of the env flag.

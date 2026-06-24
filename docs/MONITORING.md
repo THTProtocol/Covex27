@@ -121,19 +121,33 @@ monitoring; the rest of this doc describes how they map to the fields above.
      recovery pages once), and writes a heartbeat line every run so a dead
      timer is itself observable.
    - Prod-vs-master DRIFT (WARN tier): fetches `https://hightable.pro/healthz`
-     `git_commit` (the commit the live binary was built from) and compares it to
-     the EXPECTED deployed SHA, so the recurring "prod silently behind
-     origin/master" trap pages instead of going unnoticed. Expected SHA
-     precedence: `$DEPLOYED_SHA` env, else `/var/lib/covex-monitor/deployed-sha.txt`
-     (either of which a deploy can write), else `origin/master` HEAD from the
-     server repo. The live `git_commit` is a SHORT sha and is matched by prefix
-     against the (possibly full) expected sha. STATE-DEDUPED like the stall check
-     (a persistent drift pages once, a resync pages once), and a heartbeat
-     `drift ...` line is written every run. It is WARN tier, not page: drift means
-     "a deploy did not take" (or master moved unshipped), not an outage. If the
-     live `healthz` is unreachable or no expected SHA can be resolved, it logs
+     `git_commit` and compares it to the EXPECTED deployed SHA, so the recurring
+     "master pushed but the server was never deployed" trap pages instead of going
+     unnoticed. Expected SHA precedence: `$DEPLOYED_SHA` env, else
+     `/var/lib/covex-monitor/deployed-sha.txt` (either of which a deploy can write),
+     else `origin/master` HEAD from the server repo. The live `git_commit` is a
+     SHORT sha and is matched by prefix against the (possibly full) expected sha.
+     STATE-DEDUPED like the stall check (a persistent drift pages once, a resync
+     pages once), and a heartbeat `drift ...` line is written every run. It is WARN
+     tier, not page: drift means "a deploy did not take", not an outage. If the live
+     `healthz` is unreachable or no expected SHA can be resolved, it logs
      `UNKNOWN:<reason>` rather than a false drift. Overridable env:
      `HEALTHZ_URL`, `DEPLOYED_SHA`, `COVEX_REPO_DIR`.
+     - HONEST LIMIT: `git_commit` is derived by `get_git_commit()` in
+       `backend/src/main.rs`, which prefers the `GIT_COMMIT` env (NOT set in the
+       current systemd unit) and otherwise FALLS BACK to `git rev-parse HEAD` on
+       the server's repo working tree. Because both `hard_deploy.sh` and
+       `fe_deploy.sh` `git reset --hard origin/master` BEFORE building, the repo
+       HEAD (and therefore `git_commit`) tracks the LAST commit a deploy script
+       synced to the server, not necessarily the commit the running binary was
+       compiled from. So this check reliably catches "origin/master moved but no
+       deploy script ran on the box" (the common drift), but it does NOT by itself
+       prove the running BINARY was rebuilt (a backend commit whose build/test gate
+       failed leaves a stale binary live while the repo HEAD still advanced). For a
+       binary-level guarantee, set `DEPLOYED_SHA` (or write
+       `/var/lib/covex-monitor/deployed-sha.txt`) only AFTER a successful
+       `systemctl restart`, or bake `GIT_COMMIT` into the systemd unit at restart
+       time so `git_commit` reflects the binary rather than the working tree.
    It posts to `WEBHOOK_URL` when set; logs to `/tmp/covex-monitor.log`.
 
 2. `deploy/kaspad-watchdog.sh` (systemd `covex-kaspad-watchdog.timer`).

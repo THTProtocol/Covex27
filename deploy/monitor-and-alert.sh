@@ -86,10 +86,16 @@ print('|'.join(rows) if rows else 'NO_NETWORKS')
     fi
 fi
 
-# 6. Prod-vs-master DRIFT check (WARN tier). The live deployed binary reports the
-# commit it was built from as git_commit on /healthz (nginx -> backend /health).
-# This compares that to the EXPECTED deployed SHA so the recurring "prod silently
-# behind origin/master" trap pages instead of going unnoticed. See docs/MONITORING.md.
+# 6. Prod-vs-master DRIFT check (WARN tier). The live backend reports git_commit on
+# /healthz (nginx -> backend /health). NOTE: get_git_commit() in main.rs prefers the
+# GIT_COMMIT env (not set in the current systemd unit) and otherwise falls back to
+# `git rev-parse HEAD` on the server repo, which the deploy scripts reset to
+# origin/master BEFORE building. So git_commit tracks the last commit a deploy synced
+# to the box, not necessarily the running binary. This reliably catches "master moved
+# but no deploy ran on the server"; it does NOT by itself prove the binary was rebuilt
+# (set DEPLOYED_SHA after a successful restart for a binary-level guarantee).
+# This compares git_commit to the EXPECTED deployed SHA so that drift trap pages
+# instead of going unnoticed. See docs/MONITORING.md.
 #
 # Expected SHA precedence:
 #   1. $DEPLOYED_SHA env (a deploy can export the SHA it shipped), else

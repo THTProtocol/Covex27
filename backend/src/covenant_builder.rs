@@ -9857,7 +9857,7 @@ mod tests {
         };
         let network = "testnet-12";
         let sk: [u8; 32] = hex::decode(&key_hex).unwrap().try_into().expect("32-byte key");
-        let dev_kp = secp256k1::Keypair::from_seckey_slice(secp256k1::SECP256K1, &sk).unwrap();
+        // Sanity: the key derives the expected dev address (P2PK), else the funding inputs won't sign.
         let dev_addr = crate::dev_wallets::DEV_WALLET_1_ADDRESS_TN12;
 
         // The node's known-good Groth16 (tag 0x20) vector (docs/zk_precompile_abi.md).
@@ -9881,7 +9881,7 @@ mod tests {
         // Helper: fund a redeem's P2SH from the dev wallet, returns (deploy_tx_id, p2sh_spk, redeem).
         async fn fund_p2sh(
             client: &KaspaRpcClient,
-            dev_kp: &secp256k1::Keypair,
+            dev_sk: &[u8; 32],
             dev_addr: &str,
             redeem: &[u8],
             stake: u64,
@@ -9926,7 +9926,7 @@ mod tests {
                 })
                 .collect();
             let signable = SignableTransaction::with_entries(unsigned, entries);
-            let mut signed = sign_with_multiple_v2(signable, &[*dev_kp]).fully_signed().unwrap();
+            let mut signed = sign_with_multiple_v2(signable, &[*dev_sk]).fully_signed().unwrap();
             signed.tx.finalize();
             let txid = client.submit_transaction(RpcTransaction::from(&signed.tx), false).await.unwrap();
             (txid, p2sh_spk)
@@ -9991,7 +9991,7 @@ mod tests {
 
         // ---- (a) KNOWN-GOOD proof: the node must ACCEPT the spend. ----
         let good_redeem = redeem_zk_precompile_verify_core(&vk, &proof, &inputs).unwrap();
-        let (deploy_good, _) = fund_p2sh(&client, &dev_kp, dev_addr, &good_redeem, stake).await;
+        let (deploy_good, _) = fund_p2sh(&client, &sk, dev_addr, &good_redeem, stake).await;
         eprintln!("GOOD deploy_tx = {deploy_good}");
         let (amt, daa, cb) = await_utxo(&client, &good_redeem, &deploy_good).await;
         let spend_good = try_spend(&client, &good_redeem, deploy_good, amt, daa, cb, dev_addr, spend_fee).await;
@@ -10002,7 +10002,7 @@ mod tests {
         // ---- (b) FORGED proof (flip one byte): the node must REJECT the spend. ----
         proof[0] ^= 0x01;
         let bad_redeem = redeem_zk_precompile_verify_core(&vk, &proof, &inputs).unwrap();
-        let (deploy_bad, _) = fund_p2sh(&client, &dev_kp, dev_addr, &bad_redeem, stake).await;
+        let (deploy_bad, _) = fund_p2sh(&client, &sk, dev_addr, &bad_redeem, stake).await;
         eprintln!("FORGED deploy_tx = {deploy_bad}");
         let (amt2, daa2, cb2) = await_utxo(&client, &bad_redeem, &deploy_bad).await;
         let spend_bad = try_spend(&client, &bad_redeem, deploy_bad, amt2, daa2, cb2, dev_addr, spend_fee).await;

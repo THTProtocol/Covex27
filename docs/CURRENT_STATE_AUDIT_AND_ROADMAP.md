@@ -32,7 +32,7 @@
 - **Explorer + Discovery**: Tabs (explore/arena), real CovenantCard + arena cards with tier visuals, GamePreview badges, search, filters, "JOIN BY STAKING". Arena shows only game-detected real covenants + honest "No active matches".
 - **Categories + Types**: Expanded (Games, Predictive, ZK Oracle, DeFi, Escrow, Governance, Community Pools, Flash, Structured, MembershipClaim, etc.). label() complete after enum fix.
 - **Payments + Premium**: Real on all 3 nets (dev disabled mainnet), tier checks, auth tokens for paid deploys, post-pay polling unlocks advanced tools.
-- **Ops + Sync**: DEPLOY_TO_HIGHTABLE.sh with triple hash verify + heredoc robustness. /status enriched + consumed in footer. get_git_commit fallback. Clean recent deploys.
+- **Ops + Sync**: canonical gated deploy scripts `deploy/hard_deploy.sh` (backend, build+test gated) + `deploy/fe_deploy.sh` (frontend), run server-side. /status enriched + consumed in footer. get_git_commit fallback. Prod-vs-master drift check in `deploy/monitor-and-alert.sh`. Clean recent deploys.
 - **Design Hygiene**: Light mode high-contrast, DAG iframes sandboxed, no em-dashes, no obvious stray texts from prior requests. Footer now transparent live ops info.
 - **Docs/HERMES**: Strong emphasis on "no placeholders / everything real".
 
@@ -124,7 +124,7 @@
 - User says "continue" → pick next 1-2 items from top of current phase.
 - Implement, test locally (vite build, cargo check if possible), commit with clear message.
 - Push.
-- Run `PASSWORD=... ./DEPLOY_TO_HIGHTABLE.sh` (full triple verify expected).
+- Deploy: backend via `ssh root@hightable.pro 'bash /tmp/hard_deploy.sh'` (canonical copy `deploy/hard_deploy.sh`), frontend via `bash /tmp/fe_deploy.sh` (canonical copy `deploy/fe_deploy.sh`). Confirm the live `git_commit` matches origin/master HEAD (the `deploy/monitor-and-alert.sh` drift check also catches this).
 - Update this doc with progress + new findings.
 - Always re-scan for em-dashes/inconsistencies after changes.
 - Goal: everything real, synchronized, clean, advanced tools fully usable and discoverable.

@@ -27,7 +27,7 @@ is **on `master`** — the work was developed on `security/audit-remediation`
 | M5 | Medium | Oracle-secret sprawl | ⚠️ Partial | `covenant_builder.rs` resolve re-derives + commitment-checks; removing plaintext-at-create needs a schema change the matcher depends on |
 | L1 | Low | Weak auth-token entropy | ✅ Closed | `db.rs` token = 256-bit CSPRNG |
 | L2 | Low | Private key bytes in signer logs | ✅ Closed | `signer.rs` key fragment removed from `[SIGNER-DIAG]` |
-| L3 | Low | `sshpass` + `StrictHostKeyChecking=no` deploy | ✅ Closed | `DEPLOY_TO_HIGHTABLE.sh` key-based SSH |
+| L3 | Low | `sshpass` + `StrictHostKeyChecking=no` deploy | ✅ Closed | canonical `deploy/hard_deploy.sh` + `deploy/fe_deploy.sh` run server-side over key-based SSH (no password, no host-key bypass) |
 
 ## Open follow-ups
 - **H4 (closed, fail-closed default):** cross-covenant replay is now refused by GLOBAL default; a proof must commit `sha256(covenant_id) mod BN254` or the circuit must be on the explicit no-binding allowlist. Binding-emitting circuits cannot be relaxed by `COVEX_ALLOW_NO_BINDING`. Remaining work is only to widen the set of non-game circuits that emit the binding (so fewer rely on the allowlist), then optionally set `COVEX_REQUIRE_COVENANT_BINDING=true` to force strict everywhere.

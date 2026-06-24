@@ -86,4 +86,60 @@ print('|'.join(rows) if rows else 'NO_NETWORKS')
     fi
 fi
 
+# 6. Prod-vs-master DRIFT check (WARN tier). The live deployed binary reports the
+# commit it was built from as git_commit on /healthz (nginx -> backend /health).
+# This compares that to the EXPECTED deployed SHA so the recurring "prod silently
+# behind origin/master" trap pages instead of going unnoticed. See docs/MONITORING.md.
+#
+# Expected SHA precedence:
+#   1. $DEPLOYED_SHA env (a deploy can export the SHA it shipped), else
+#   2. /var/lib/covex-monitor/deployed-sha.txt (a deploy can write the SHA it shipped), else
+#   3. origin/master HEAD from the server repo (the commit a deploy WOULD ship).
+# State-deduped like the indexer check: a persistent drift pages once, a resync pages once.
+# WARN tier (not page): drift is "deploy did not take", not an outage. If WEBHOOK_URL is
+# unset this only logs, same as every other check.
+HEALTHZ_URL="${HEALTHZ_URL:-https://hightable.pro/healthz}"
+DRIFT_STATE_FILE="/var/lib/covex-monitor/drift-state.txt"
+mkdir -p "$(dirname "$DRIFT_STATE_FILE")" 2>/dev/null || true
+REPO_DIR="${COVEX_REPO_DIR:-/mnt/HC_Volume_105579109/Covex27}"
+
+LIVE_SHA=$(curl -sf --max-time 12 "$HEALTHZ_URL" 2>/dev/null \
+    | python3 -c "import sys,json
+try: print(json.load(sys.stdin).get('git_commit',''))
+except Exception: print('')" 2>/dev/null || echo "")
+
+EXPECTED_SHA="${DEPLOYED_SHA:-}"
+if [ -z "$EXPECTED_SHA" ] && [ -f /var/lib/covex-monitor/deployed-sha.txt ]; then
+    EXPECTED_SHA=$(cat /var/lib/covex-monitor/deployed-sha.txt 2>/dev/null || echo "")
+fi
+if [ -z "$EXPECTED_SHA" ] && [ -d "$REPO_DIR/.git" ]; then
+    EXPECTED_SHA=$(git -C "$REPO_DIR" rev-parse origin/master 2>/dev/null || echo "")
+fi
+
+if [ -z "$LIVE_SHA" ]; then
+    DRIFT="UNKNOWN:healthz_unreachable_or_no_git_commit"
+elif [ -z "$EXPECTED_SHA" ]; then
+    DRIFT="UNKNOWN:no_expected_sha"
+else
+    # git_commit is a short SHA; expected may be full. Match by prefix either way.
+    case "$EXPECTED_SHA" in
+        "$LIVE_SHA"*) DRIFT="ok:$LIVE_SHA" ;;
+        *) case "$LIVE_SHA" in
+               "$EXPECTED_SHA"*) DRIFT="ok:$LIVE_SHA" ;;
+               *) DRIFT="DRIFT:live=$LIVE_SHA,expected=${EXPECTED_SHA:0:8}" ;;
+           esac ;;
+    esac
+fi
+
+echo "$(date): drift $DRIFT" >> "$LOG_FILE"
+PREV_DRIFT=""; [ -f "$DRIFT_STATE_FILE" ] && PREV_DRIFT=$(cat "$DRIFT_STATE_FILE" 2>/dev/null || echo "")
+if [ "$DRIFT" != "$PREV_DRIFT" ]; then
+    printf '%s' "$DRIFT" > "$DRIFT_STATE_FILE" 2>/dev/null || true
+    case "$DRIFT" in
+        DRIFT:*)   alert "[WARN] prod behind master: $DRIFT (deploy did not take, or master moved unshipped)" ;;
+        UNKNOWN:*) alert "[WARN] drift check inconclusive: $DRIFT" ;;
+        *)         alert "prod-vs-master drift cleared: $DRIFT" ;;
+    esac
+fi
+
 echo "$(date): All checks passed" >> "$LOG_FILE"

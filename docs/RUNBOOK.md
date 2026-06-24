@@ -25,10 +25,13 @@ oracle key rotation) are still valid and not duplicated here.
   `/usr/local/bin/kaspad-2.0.0` and auto-activates Toccata at fork DAA
   474,165,565 (no binary swap at the fork).
 
-The two deploy scripts referenced below live ON THE SERVER (`/tmp/hard_deploy.sh`,
-`/tmp/fe_deploy.sh`); they are not committed to the repo. The steps below describe
-exactly what they do so the procedure can be re-derived or re-created if a script
-is missing.
+The two deploy scripts referenced below RUN on the server as `/tmp/hard_deploy.sh`
+and `/tmp/fe_deploy.sh`. The `/tmp` copies are the live ones, but canonical,
+version-controlled copies now live in the repo at `deploy/hard_deploy.sh` and
+`deploy/fe_deploy.sh` so they can never be lost: if the box is rebuilt, copy them
+back to `/tmp` (or run them straight from `deploy/`). Keep the `/tmp` copy and the
+`deploy/` copy in sync when you change either. The steps below also describe
+exactly what they do so the procedure can be re-derived if needed.
 
 ## Backend deploy (gated build + test + graceful restart)
 
@@ -131,28 +134,48 @@ then reload.
 
 ## Rollback
 
-There is no separate "rollback binary" mechanism, and none is needed: the gated
-deploy already guarantees the prior backend binary stays live whenever a build or
-test gate fails. To roll back a commit that DID deploy successfully:
+The primary rollback path is the gated deploy itself: it already guarantees the
+prior backend binary stays live whenever a build or test gate fails. To roll back
+a commit that DID deploy successfully:
 
 1. Revert in git, on the default branch (do not force-push history):
    ```bash
    git revert <bad_commit>
    git push origin master
    ```
-2. Redeploy the now-reverted master with the same scripts:
+2. Redeploy the now-reverted master with the same scripts (the version-controlled
+   copies are `deploy/hard_deploy.sh` and `deploy/fe_deploy.sh`; the live server
+   copies are `/tmp/hard_deploy.sh` and `/tmp/fe_deploy.sh`):
    - backend: `ssh root@hightable.pro 'bash /tmp/hard_deploy.sh'`
    - frontend: `ssh root@hightable.pro 'bash /tmp/fe_deploy.sh'`
 3. Verify the live `git_commit` (backend) / served bundle (frontend) reflects the
    revert.
 
+### instant rollback from the binary archive (no rebuild)
+
+`deploy/hard_deploy.sh` now archives the currently-deployed binary BEFORE each
+build, so a known-good binary can be restored without waiting for a `cargo build`.
+It copies `/opt/covex-target/release/covex27-backend` to
+`/opt/covex-target/release/archive/covex27-backend.<UTC-timestamp>` at the start
+of every run and keeps the most recent 5. To roll back instantly:
+
+```bash
+ssh root@hightable.pro
+ls -1t /opt/covex-target/release/archive/covex27-backend.*   # pick the known-good one
+cp -p /opt/covex-target/release/archive/covex27-backend.<TS> /opt/covex-target/release/covex27-backend
+systemctl restart covex-backend
+curl -s https://hightable.pro/healthz | jq '{git_commit}'    # confirm
+```
+Note: the archived binary reports the `git_commit` it was built from, so after an
+instant rollback the live `git_commit` will be the OLD commit while `origin/master`
+still points at the bad one. Follow up with the `git revert` path above so the repo
+and the live binary reconverge (and the drift monitor stops warning).
+
 Notes:
-- The backend binary is rebuilt from source on every deploy; there is no kept
-  archive of the previous `covex27-backend` binary. The safety net is the gate
-  (a failed build leaves the running binary in place) plus `git revert`. Keeping a
-  timestamped copy of `/opt/covex-target/release/covex27-backend` before each
-  deploy would give an instant binary rollback; that is a SUGGESTION, not current
-  practice.
+- The archive is the fast path; `git revert` + redeploy is the durable path. The
+  archive copy is non-fatal in `hard_deploy.sh` (a failed copy never blocks a
+  deploy), and the gate (a failed build leaves the running binary in place) is the
+  always-on safety net.
 - For a DB-level rollback (corruption, not code), use the backup/restore
   procedure in [OPERATIONS_RUNBOOK.md](./OPERATIONS_RUNBOOK.md).
 

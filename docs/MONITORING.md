@@ -96,6 +96,8 @@ Warn:
 - Disk usage high (the data volume historically fills; the node datadir grows
   continuously). `>85%` is the existing threshold.
 - `git_commit` not matching the commit you just deployed (deploy did not take).
+  Now wired: `monitor-and-alert.sh` runs this prod-vs-master drift check every
+  interval (see "Alerting wiring that EXISTS today" below).
 
 Pre-launch / cutover specific:
 - Before flipping the mainnet gate: alert if `node_sync.mainnet.connected` is
@@ -118,6 +120,20 @@ monitoring; the rest of this doc describes how they map to the fields above.
      `stall_reason` / `connected`, STATE-DEDUPED (a persistent stall pages once,
      recovery pages once), and writes a heartbeat line every run so a dead
      timer is itself observable.
+   - Prod-vs-master DRIFT (WARN tier): fetches `https://hightable.pro/healthz`
+     `git_commit` (the commit the live binary was built from) and compares it to
+     the EXPECTED deployed SHA, so the recurring "prod silently behind
+     origin/master" trap pages instead of going unnoticed. Expected SHA
+     precedence: `$DEPLOYED_SHA` env, else `/var/lib/covex-monitor/deployed-sha.txt`
+     (either of which a deploy can write), else `origin/master` HEAD from the
+     server repo. The live `git_commit` is a SHORT sha and is matched by prefix
+     against the (possibly full) expected sha. STATE-DEDUPED like the stall check
+     (a persistent drift pages once, a resync pages once), and a heartbeat
+     `drift ...` line is written every run. It is WARN tier, not page: drift means
+     "a deploy did not take" (or master moved unshipped), not an outage. If the
+     live `healthz` is unreachable or no expected SHA can be resolved, it logs
+     `UNKNOWN:<reason>` rather than a false drift. Overridable env:
+     `HEALTHZ_URL`, `DEPLOYED_SHA`, `COVEX_REPO_DIR`.
    It posts to `WEBHOOK_URL` when set; logs to `/tmp/covex-monitor.log`.
 
 2. `deploy/kaspad-watchdog.sh` (systemd `covex-kaspad-watchdog.timer`).

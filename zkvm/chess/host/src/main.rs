@@ -15,6 +15,7 @@
 // guest: replay() returns Err for any illegal/unfinished/forged game, which panics the guest and
 // yields no receipt. A receipt therefore proves the game was legal and the winner is genuine.
 
+use std::path::Path;
 use std::time::Instant;
 
 use covex_games::{
@@ -22,7 +23,7 @@ use covex_games::{
 };
 use methods::{GAMES_GUEST_ELF, GAMES_GUEST_ID};
 use risc0_zkvm::serde::Deserializer;
-use risc0_zkvm::{default_prover, ExecutorEnv, Receipt};
+use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts, Receipt};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
@@ -45,6 +46,16 @@ fn decode_result_and_journal(journal_bytes: &[u8]) -> (GameResult, SettlementJou
 /// Opaque 32-byte player id helper.
 fn pid(b: u8) -> [u8; 32] {
     [b; 32]
+}
+
+/// Parse a 64-char hex string into a `[u8; 32]` (for real-looking covenant ids + x-only pubkeys in
+/// the Stage 2 on-chain sample). Panics on malformed input (host-side test fixture only).
+fn hex_to_32(s: &str) -> [u8; 32] {
+    let v = hex::decode(s).expect("valid hex");
+    assert_eq!(v.len(), 32, "expected 32 bytes of hex");
+    let mut a = [0u8; 32];
+    a.copy_from_slice(&v);
+    a
 }
 
 /// Card id from `(rank, suit)`: `id = suit*13 + rank`. rank: 0..=8 -> 2..10, 9=J,10=Q,11=K,12=A.
@@ -434,9 +445,279 @@ fn prove_must_fail(label: &str, input: &GameInput) {
     }
 }
 
+/// STAGE 2: prove ONE decisive game with `ProverOpts::groth16()` -> a real RISC0->Groth16 receipt
+/// (the on-chain-verifiable form the Kaspa KIP-16 `OpZkPrecompile` tag 0x20 verifies), then:
+///  - verify the receipt against `GAMES_GUEST_ID` (accept),
+///  - flip a journal byte and confirm verify() REJECTS the tampered receipt,
+///  - convert it to the on-chain witness (compressed VK + proof + 5 LE Fr inputs) via
+///    `covex_games_onchain::from_receipt`,
+///  - confirm a corrupted seal makes the on-chain proof bytes fail to deserialize,
+///  - write the artifacts to `samples_dir` for Stage 3 (covenant) + Stage 4 (TN12 spend).
+///
+/// This is gated behind the env var so the default 18-game STARK suite is unaffected: the Groth16
+/// path needs the x86_64 + Docker stark2snark stage (the headline operational risk), so we run it
+/// deliberately, once, against a real covenant_id + winner_pubkey.
+///
+/// NOTE: this uses `prover.prove_with_opts(env, ELF, &ProverOpts::groth16())`. The local prover
+/// produces a composite STARK, lifts/joins it to a succinct receipt, then shells out to the RISC0
+/// groth16 Docker image (`stark_to_snark`) to wrap it into the BN254 Groth16 seal. A 32-byte
+/// `[u8;32]` is serialized by RISC0 as 32 u32 WORDS (byte zero-extended), not packed - that only
+/// affects the JOURNAL bytes; the Fr public inputs are derived from the CLAIM DIGEST, handled in
+/// `covex_games_onchain`.
+fn prove_groth16_sample(label: &str, input: &GameInput, expected_winner: u8, samples_dir: &Path) {
+    println!("\n################ STAGE 2: RISC0->Groth16 (on-chain) - {label} ################");
+    println!("  game_type   : {:?}", input.game_type);
+    println!("  covenant_id : {}", hex::encode(input.covenant_id));
+    println!("  winner pubkey (players[{expected_winner}]) : {}",
+        hex::encode(match expected_winner {
+            WINNER_P1 => input.players[0],
+            WINNER_P2 => input.players[1],
+            _ => [0u8; 32],
+        }));
+
+    let env = ExecutorEnv::builder()
+        .write(input)
+        .expect("serialize GameInput")
+        .build()
+        .expect("build executor env");
+
+    let prover = default_prover();
+    let opts = ProverOpts::groth16();
+
+    let t0 = Instant::now();
+    let prove_info = prover
+        .prove_with_opts(env, GAMES_GUEST_ELF, &opts)
+        .expect("prove_with_opts(groth16) must produce a Groth16 receipt (needs x86_64 + Docker)");
+    let elapsed = t0.elapsed().as_secs_f64();
+    let receipt = prove_info.receipt;
+    println!("  PROVED (groth16) in {elapsed:.1}s");
+
+    // 1) The receipt must verify against the frozen image id (accept).
+    receipt
+        .verify(GAMES_GUEST_ID)
+        .expect("groth16 receipt must verify against GAMES_GUEST_ID");
+    println!("  VERIFY ok: receipt verifies against GAMES_GUEST_ID");
+
+    // The committed winner/journal must match what we expect (the binding is genuine).
+    let (result, settlement) = decode_result_and_journal(&receipt.journal.bytes);
+    assert_eq!(result.winner, expected_winner, "groth16 sample: wrong winner");
+    let expected_pubkey = match expected_winner {
+        WINNER_P1 => input.players[0],
+        WINNER_P2 => input.players[1],
+        WINNER_DRAW => [0u8; 32],
+        other => panic!("invalid expected_winner {other}"),
+    };
+    assert_eq!(settlement.winner_pubkey, expected_pubkey, "groth16 sample: payee binding broken");
+    assert_eq!(settlement.covenant_id, input.covenant_id, "groth16 sample: pot binding broken");
+
+    // 2) TAMPER GATE: flip a journal byte; the Groth16 receipt must FAIL to verify (the seal binds
+    //    the journal through the claim digest). This is the soundness gate, on the Groth16 receipt.
+    {
+        let mut tampered = receipt.clone();
+        tampered.journal.bytes[0] ^= 0xFF;
+        match tampered.verify(GAMES_GUEST_ID) {
+            Ok(_) => panic!("SECURITY FAILURE: tampered groth16 receipt verified!"),
+            Err(e) => println!("  TAMPER ok: a flipped-journal receipt is REJECTED. error: {e}"),
+        }
+    }
+
+    // 3) Convert to the on-chain witness (compressed VK + proof + 5 LE Fr inputs).
+    let onchain = covex_games_onchain::from_receipt(&receipt)
+        .expect("receipt must convert to the on-chain Groth16 witness");
+    assert_eq!(
+        onchain.public_inputs_le.len(),
+        covex_games_onchain::N_PUBLIC_INPUTS,
+        "must emit exactly 5 Fr public inputs"
+    );
+    println!(
+        "  ON-CHAIN: vk={}B proof={}B n_inputs={} journal={}B",
+        onchain.vk_compressed.len(),
+        onchain.proof_compressed.len(),
+        onchain.public_inputs_le.len(),
+        onchain.journal.len()
+    );
+
+    // 4) SEAL-TAMPER GATE: a corrupted seal must NOT produce a valid on-chain proof. We flip a byte
+    //    of the seal and confirm either the proof bytes fail to parse OR the produced point differs
+    //    (i.e. tampering is detectable before it ever reaches the chain). The chain itself is the
+    //    final rejecter (Stage 4); this is the host-side smoke test that our converter is honest.
+    {
+        let groth16_inner = match &receipt.inner {
+            risc0_zkvm::InnerReceipt::Groth16(g) => g.clone(),
+            _ => panic!("expected a Groth16 inner receipt"),
+        };
+        let honest_proof = onchain.proof_compressed.clone();
+        let mut bad = receipt.clone();
+        if let risc0_zkvm::InnerReceipt::Groth16(ref mut g) = bad.inner {
+            // Flip a byte inside the 'c' G1 element region (last 64 bytes of the 256-byte seal).
+            let n = g.seal.len();
+            g.seal[n - 1] ^= 0x01;
+        }
+        match covex_games_onchain::from_receipt(&bad) {
+            Err(e) => println!("  SEAL-TAMPER ok: corrupted seal rejected by converter: {e}"),
+            Ok(bad_oc) => {
+                assert_ne!(
+                    bad_oc.proof_compressed, honest_proof,
+                    "SECURITY: a corrupted seal produced the SAME on-chain proof bytes"
+                );
+                println!("  SEAL-TAMPER ok: corrupted seal yields DIFFERENT proof bytes (chain rejects, Stage 4)");
+            }
+        }
+        let _ = groth16_inner;
+    }
+
+    // 5) Write the artifacts for Stage 3 (covenant) + Stage 4 (TN12 spend).
+    std::fs::create_dir_all(samples_dir).expect("create samples dir");
+    let write = |name: &str, data: &str| {
+        let p = samples_dir.join(name);
+        std::fs::write(&p, data).unwrap_or_else(|e| panic!("write {name}: {e}"));
+        println!("  wrote {}", p.display());
+    };
+    write("proof.hex", &hex::encode(&onchain.proof_compressed));
+    write("vk.hex", &hex::encode(&onchain.vk_compressed));
+    write("journal.hex", &hex::encode(&onchain.journal));
+    write("image_id.hex", &covex_games_onchain::image_id_hex());
+    let inputs_hex: Vec<String> = onchain
+        .public_inputs_le
+        .iter()
+        .map(|i| hex::encode(i))
+        .collect();
+    write("public_inputs.hex", &inputs_hex.join("\n"));
+
+    // A single self-describing JSON manifest (what Stage 3/4 actually loads).
+    let manifest = serde_json::json!({
+        "schema": "covex-onchain-groth16/v1",
+        "abi": "docs/zk_precompile_abi.md tag 0x20 (OpZkPrecompile 0xa6)",
+        "label": label,
+        "game_type": format!("{:?}", input.game_type),
+        "moves": input.moves,
+        "covenant_id": hex::encode(input.covenant_id),
+        "winner_code": settlement.winner_code,
+        "winner_pubkey": hex::encode(settlement.winner_pubkey),
+        "stake_sompi": settlement.stake_sompi,
+        "moves_digest": hex::encode(settlement.moves_digest),
+        "image_id": covex_games_onchain::image_id_hex(),
+        "image_id_words": GAMES_GUEST_ID,
+        "vk_compressed_hex": hex::encode(&onchain.vk_compressed),
+        "proof_compressed_hex": hex::encode(&onchain.proof_compressed),
+        "journal_hex": hex::encode(&onchain.journal),
+        "n_public_inputs": onchain.public_inputs_le.len(),
+        "public_inputs_le_hex": inputs_hex,
+        "public_inputs_meta": [
+            "a0 = control_root low half (split_digest)",
+            "a1 = control_root high half",
+            "c0 = claim_digest low half (binds image_id + journal)",
+            "c1 = claim_digest high half",
+            "id_bn254_fr = bn254 control id (Fr)"
+        ],
+        "prove_time_secs": elapsed,
+        "prover": "RISC0 prove_with_opts(ProverOpts::groth16())",
+        "risc0_zkvm": "3.0",
+        "note": "Fr public inputs are 32-byte LITTLE-ENDIAN. Push order on-chain (bottom->top): inputs[n-1]..inputs[0], n, proof, VK, then tag 0x20."
+    });
+    write("manifest.json", &serde_json::to_string_pretty(&manifest).unwrap());
+
+    println!("  STAGE 2 SAMPLE COMPLETE -> {}", samples_dir.display());
+}
+
 fn main() {
     println!("Covex zkVM games prover - host");
     println!("image id (GAMES_GUEST_ID) = {:?}", GAMES_GUEST_ID);
+
+    // STAGE 2 GROTH16 PATH (gated): COVEX_PROVE_GROTH16=1 proves ONE decisive game as a real
+    // RISC0->Groth16 receipt + writes the on-chain artifacts, then RETURNS (does not run the STARK
+    // suite). Needs x86_64 + Docker for the stark2snark wrap. A real covenant_id + winner_pubkey are
+    // supplied so the sample is the genuine on-chain settlement material.
+    // STAGE 2 SUCCINCT SMOKE (gated): COVEX_PROVE_SUCCINCT=1 proves the SUCCINCT receipt - the exact
+    // native pipeline (composite STARK -> lift/join -> succinct) that feeds the Docker stark2snark
+    // wrap. It needs NO Docker, so it proves the whole prove path is sound and measures its cost,
+    // isolating the Docker dependency to the final wrap only.
+    if std::env::var("COVEX_PROVE_SUCCINCT").map(|v| v == "1").unwrap_or(false) {
+        let chess = untimed(
+            GameType::Chess,
+            &["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7"],
+        );
+        let env = ExecutorEnv::builder()
+            .write(&chess)
+            .expect("serialize")
+            .build()
+            .expect("env");
+        let prover = default_prover();
+        println!("\n#### STAGE 2 SUCCINCT SMOKE (no Docker): proving succinct receipt ####");
+        let t0 = Instant::now();
+        let info = prover
+            .prove_with_opts(env, GAMES_GUEST_ELF, &ProverOpts::succinct())
+            .expect("succinct prove");
+        let dt = t0.elapsed().as_secs_f64();
+        info.receipt
+            .verify(GAMES_GUEST_ID)
+            .expect("succinct receipt verifies");
+        let is_succinct = matches!(info.receipt.inner, risc0_zkvm::InnerReceipt::Succinct(_));
+        println!(
+            "  SUCCINCT ok in {dt:.1}s (inner is Succinct: {is_succinct}). Only the Docker wrap remains for Groth16."
+        );
+        return;
+    }
+
+    // STAGE 2 CONSTANTS (no proof, no Docker): COVEX_EMIT_CONSTANTS=1 writes the wrap-independent
+    // frozen artifacts (image id + compressed VK + the claim-independent control public inputs
+    // a0/a1/id) so the samples dir carries the real pinned constants even before the seal exists.
+    if std::env::var("COVEX_EMIT_CONSTANTS").map(|v| v == "1").unwrap_or(false) {
+        let samples_dir = Path::new(
+            &std::env::var("COVEX_SAMPLES_DIR").unwrap_or_else(|_| "../onchain/samples".to_string()),
+        )
+        .to_path_buf();
+        std::fs::create_dir_all(&samples_dir).expect("create samples dir");
+        let vk = covex_games_onchain::verifying_key_compressed().expect("vk");
+        // The control inputs (a0,a1,id) are claim-independent constants; use an all-zero claim to
+        // surface them (c0,c1 for the zero claim are placeholders, replaced by the real proof run).
+        let inputs = covex_games_onchain::public_inputs_le(&[0u8; 32]);
+        let w = |name: &str, data: &str| {
+            std::fs::write(samples_dir.join(name), data).unwrap();
+            println!("  wrote {}", samples_dir.join(name).display());
+        };
+        w("vk.hex", &hex::encode(&vk));
+        w("image_id.hex", &covex_games_onchain::image_id_hex());
+        w("control_inputs.hex", &format!(
+            "a0={}\na1={}\nid_bn254_fr={}\n",
+            hex::encode(inputs[0]),
+            hex::encode(inputs[1]),
+            hex::encode(inputs[4]),
+        ));
+        println!("STAGE 2 constants emitted (VK + image id + control inputs). Run the gated Groth16 proof for the full sample.");
+        return;
+    }
+
+    if std::env::var("COVEX_PROVE_GROTH16").map(|v| v == "1").unwrap_or(false) {
+        // A decisive chess game (Scholar's mate, white wins) with a REAL-looking covenant_id and a
+        // REAL 32-byte winner pubkey (players[0] = white). Stage 4 will replace covenant_id with the
+        // actual deploy-tx id; the proving path and the byte layout are identical.
+        let mut chess = untimed(
+            GameType::Chess,
+            &["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7"],
+        );
+        // A real covenant id (32 bytes) and real player pubkeys (32-byte x-only schnorr keys).
+        chess.covenant_id =
+            hex_to_32("4a6f1c9e2b7d8a350f1e6c4b9a2d7e8f0c3b5a6d9e1f2c4b7a8d3e6f1c9b2a5d");
+        chess.players = [
+            hex_to_32("8f2e4d6c1a9b3e5f7c0d2a4b6e8f1c3d5a7b9e0f2c4d6a8b1e3f5c7d9a0b2e4f"),
+            hex_to_32("1b3d5f7a9c0e2b4d6f8a1c3e5b7d9f0a2c4e6b8d0f1a3c5e7b9d0f2a4c6e8b0d"),
+        ];
+        chess.stake_sompi = 100_000_000; // 1 KAS pot (2x50_000_000 stakes), for the record
+        let samples_dir = Path::new(
+            &std::env::var("COVEX_SAMPLES_DIR").unwrap_or_else(|_| "../onchain/samples".to_string()),
+        )
+        .to_path_buf();
+        prove_groth16_sample(
+            "CHESS - Scholar's mate (white wins), on-chain Groth16",
+            &chess,
+            WINNER_P1,
+            &samples_dir,
+        );
+        println!("\nSTAGE 2 done. (Set COVEX_PROVE_GROTH16=0 / unset to run the STARK suite.)");
+        return;
+    }
+
     println!(
         "RISC0_DEV_MODE = {:?}",
         std::env::var("RISC0_DEV_MODE").unwrap_or_else(|_| "(unset)".into())

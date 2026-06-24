@@ -1,0 +1,45 @@
+# covex-games-onchain: the bridge from a RISC0->Groth16 game receipt to the on-chain
+# OpZkPrecompile (tag 0x20) witness the Kaspa KIP-16 verifier consumes.
+#
+# This crate is host-side (NOT a guest): it has no risc0-build step. It takes a real
+# risc0_zkvm::Receipt (Groth16 variant) plus the frozen GAMES_GUEST_ID and produces the
+# exact bytes the settlement covenant + spend witness need:
+#   - the verifying key  (ark-serialize COMPRESSED VerifyingKey<Bn254>)
+#   - the proof          (ark-serialize COMPRESSED Proof<Bn254>, from the RISC0 seal)
+#   - the 5 ordered Fr public inputs (32-byte LITTLE-ENDIAN each)
+# matching docs/zk_precompile_abi.md tag 0x20 exactly.
+[package]
+name = "covex-games-onchain"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# The prover/verifier runtime: Receipt, Groth16Receipt, Groth16ReceiptVerifierParameters,
+# the receipt claim digest. Default features are fine (we only read receipt structure here).
+risc0-zkvm = "3.0"
+# The RISC0 Groth16 seal/VK helpers (Seal::decode, verifying_key, g1/g2_from_bytes are crate-
+# private, so we reconstruct the ark proof from the seal directly via ark-bn254 here).
+risc0-groth16 = "3.0"
+# The shared game types (SettlementJournal) so callers can map a journal to its on-chain form.
+covex-games = { path = "../games" }
+# BN254 curve + ark-serialize for the COMPRESSED VK/proof bytes the on-chain verifier deserializes.
+ark-bn254 = "0.5"
+ark-groth16 = { version = "0.5", default-features = false }
+ark-serialize = "0.5"
+ark-ff = "0.5"
+hex = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+# Curve generators for the seal-decoder round-trip test (build a known proof from generator points).
+ark-ec = "0.5"
+# Only in tests: cross-check the frozen GAMES_GUEST_ID literal against the freshly-generated guest
+# image id (catches drift if the guest source changes without re-freezing the constant). This pulls
+# in the risc0-build guest compile, so it is a DEV dep, kept out of the normal build path.
+methods = { path = "../chess/methods" }
+
+# Standalone workspace so this crate self-roots when the chess `host` pulls it in as a PATH
+# dependency from a different workspace (it is intentionally NOT a member of the chess workspace,
+# which lives in a sibling directory and so cannot list `../onchain` as a member).
+[workspace]

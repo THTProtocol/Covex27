@@ -91,6 +91,13 @@ struct JsonGameInput {
     /// OPTIONAL custom starting position (e.g. checkers 65-byte descriptor). Empty = default opening.
     #[serde(default)]
     setup: Vec<u8>,
+
+    /// OPTIONAL public commitments (witness-binding hashes), interpreted per game. Each is a 64-char
+    /// hex string (32 bytes) or a short label that is sha256-hashed. Empty/omitted for games that do
+    /// not use them. Battleship needs two (`sha256(board_p1||salt_p1)`, `sha256(board_p2||salt_p2)`);
+    /// backgammon needs one (`sha256(seed)`). See `covex_games::GameInput::commitments`.
+    #[serde(default)]
+    commitments: Vec<String>,
 }
 
 /// Parse a game-type string (case-insensitive, accepting a couple of common spellings).
@@ -176,6 +183,14 @@ fn build_game_input(j: JsonGameInput) -> Result<GameInput> {
         None => [0u8; 32],
     };
 
+    // Public commitments (battleship: 2, backgammon: 1): each a 64-char hex 32-byte value or a short
+    // label that is sha256-hashed into a 32-byte id (the same id32 convention as players/covenant_id).
+    let commitments: Vec<[u8; 32]> = j
+        .commitments
+        .iter()
+        .map(|s| id32_from_str(s))
+        .collect::<Result<Vec<_>>>()?;
+
     Ok(GameInput {
         game_type,
         moves: j.moves,
@@ -188,6 +203,7 @@ fn build_game_input(j: JsonGameInput) -> Result<GameInput> {
         deck: j.deck,
         deck_commitment,
         setup: j.setup,
+        commitments,
     })
 }
 

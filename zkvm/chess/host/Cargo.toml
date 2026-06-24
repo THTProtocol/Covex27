@@ -21,3 +21,9 @@ sha2 = "0.10"
 # Cast the word-aligned journal bytes to [u32] so we can decode the two sequential journal frames
 # (GameResult then SettlementJournal). risc0-zkvm re-exports bytemuck; we pin the same major.
 bytemuck = "1"
+# Stage 2: turn a RISC0->Groth16 receipt into the on-chain KIP-16 (tag 0x20) witness bytes
+# (compressed VK + proof + 5 little-endian Fr public inputs) and freeze the sample artifacts.
+covex-games-onchain = { path = "../../onchain" }
+# Write the sample proof/journal/inputs out as hex + JSON for Stage 3/4 to consume.
+hex = "0.4"
+serde_json = "1"

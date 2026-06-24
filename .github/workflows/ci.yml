@@ -151,3 +151,12 @@ jobs:
             exit 1
           fi
           echo "OK: $f ($(wc -c < "$f") bytes)"
+
+      # GATE (honesty anti-drift): the standalone cold-recovery tool once hand-duplicated the
+      # claimability matrix and drifted into "Covex oracle" copy that contradicts the trustless
+      # reframe. The build now INJECTS the matrix from the canonical KIND_CLAIM_MATRIX
+      # (src/lib/redeemer/covenantRedeemer.js). This asserts the BUILT tool's matrix kinds +
+      # offline flags equal that source of truth AND that it carries zero "Covex oracle"
+      # mentions, so the fund-path surface can never silently drift again.
+      - name: Cold-recovery matrix matches KIND_CLAIM_MATRIX
+        run: npm run check:cold-tool

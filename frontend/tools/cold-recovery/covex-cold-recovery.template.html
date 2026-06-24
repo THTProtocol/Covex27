@@ -19,10 +19,17 @@
   HONEST ENFORCEMENT REALITY (read this)
   This tool only helps for spend paths the Kaspa chain (or a revealed public secret plus
   the named key's OpCheckSig) genuinely enforces end to end. The non-refundable WIN path
-  of the oracle_* kinds still needs the Covex oracle's half-signature and is therefore
-  NOT offline-claimable here. The *_refundable kinds' refund branch IS offline-claimable
-  by the refund key after the on-chain lock elapses. See README.md for the full per-kind
-  matrix. This page never claims "trustless" where the chain does not enforce it.
+  of the oracle_* kinds still needs the deployer-bound external resolver's co-signature
+  (an external resolver the deployer chooses; never Covex) and is therefore NOT offline-
+  claimable here. The *_refundable kinds' refund branch IS offline-claimable by the refund
+  key after the on-chain lock elapses. See README.md for the full per-kind matrix. This
+  page never claims "trustless" where the chain does not enforce it.
+
+  THE PER-KIND CLAIMABILITY MATRIX IS INJECTED AT BUILD TIME FROM THE CANONICAL SOURCE
+  (frontend/src/lib/redeemer/covenantRedeemer.js KIND_CLAIM_MATRIX). build-cold-tool.mjs
+  derives the __CLAIMABILITY_MATRIX_JSON__ slot below from that single source of truth, so
+  this tool's claimability copy can never silently drift from the in-app redeemer. A CI gate
+  asserts the built tool's matrix kinds + offline flags equal KIND_CLAIM_MATRIX.
 
   THE PURE CORE BELOW IS BYTE-IDENTICAL TO frontend/src/lib/redeemer/covenantRedeemer.js
   buildSatisfier / push65 / pushData / parseRedeemPubkeys / sigOpCount were copied
@@ -160,11 +167,11 @@
     </div>
 
     <details style="margin-top:10px">
-      <summary>Advanced: oracle / multi-key signatures, locks, preimage</summary>
+      <summary>Advanced: resolver / multi-key signatures, locks, preimage</summary>
       <label for="preimage">Preimage (hex) - hashlock / htlc-claim / binary_oracle_select reveal</label>
       <input id="preimage" spellcheck="false" placeholder="optional; or taken from kit.preimage_hex" />
-      <label for="oracleSig">Oracle signature (64-byte hex) - oracle_* WIN path only</label>
-      <input id="oracleSig" spellcheck="false" placeholder="needs the Covex oracle; NOT offline-claimable without it" />
+      <label for="oracleSig">Resolver co-signature (64-byte hex) - oracle_* WIN path only</label>
+      <input id="oracleSig" spellcheck="false" placeholder="needs the deployer-bound external resolver; NOT offline-claimable without it" />
       <label for="refundKeySig">Extra refund/co-signer signature (64-byte hex)</label>
       <input id="refundKeySig" spellcheck="false" placeholder="optional" />
       <div class="row">
@@ -201,7 +208,7 @@
 
   <footer>
     Offline-capable. The bundled signing library and wasm are inlined into this file. Verify this file's SHA-256 against the value published in README.md before trusting it.
-    No em dashes, honest enforcement reality. This tool does not and cannot manufacture an oracle signature.
+    No em dashes, honest enforcement reality. This tool does not and cannot manufacture a resolver co-signature.
   </footer>
 </div>
 
@@ -736,24 +743,18 @@ async function broadcast(signedTx, networkId) {
 
 // The per-kind offline-claimability matrix. Honest: only the spend paths the chain (or a
 // revealed public secret + the named key's OpCheckSig) enforces end to end are offline.
-// The oracle_* WIN path needs the Covex oracle's signature and is NOT offline-claimable
-// here; only the *_refundable refund branch (after the on-chain lock) is.
-const CLAIMABILITY = {
-  singlesig: { offline: true, note: 'Script-enforced. The named key signs and the chain verifies. Fully offline-claimable.' },
-  timelock: { offline: true, note: 'Script-enforced CLTV. Spendable by the named key after lockTime. Set lockTime. Fully offline-claimable.' },
-  rcsv: { offline: true, note: 'Script-enforced relative timelock (CSV). Set sequence to the relative-locktime operand. Fully offline-claimable.' },
-  hashlock: { offline: true, note: 'Script-enforced. Reveal the preimage + sign. Fully offline-claimable if you hold the preimage.' },
-  htlc: { offline: true, note: 'Claim = receiver sig + preimage. Refund = sender sig after lockTime. Both branches are offline-claimable by the right key.' },
-  multisig: { offline: true, note: 'Script-enforced m-of-N. Offline-claimable once you have the required signatures. Set total = N.' },
-  channel: { offline: true, note: 'Cooperative close needs BOTH party signatures; refund needs the funder sig after lockTime. Offline-claimable with the needed sigs.' },
-  deadman: { offline: true, note: 'Owner (IF) or heir (ELSE, after CLTV) signs. Offline-claimable by the right key.' },
-  binary_oracle_select: { offline: true, note: 'Winner reveal = branch key sig + the revealed PUBLIC preimage; refund = refund key sig after lock. The reveal is a hashlock, NOT an oracle signature, so this is fully offline-claimable once the winning preimage is public.' },
-  oracle: { offline: false, note: 'WIN path is a 2-of-2 with the Covex oracle key. NOT offline-claimable: needs the oracle half-signature. Has no chain-enforced refund branch.' },
-  oracle_enforced: { offline: false, note: 'WIN path is a 2-of-2 with the Covex oracle key. NOT offline-claimable: needs the oracle half-signature. Has no chain-enforced refund branch.' },
-  oracle_escrow: { offline: false, note: 'Payout needs the Covex oracle signature. NOT offline-claimable. Has no chain-enforced refund branch.' },
-  oracle_enforced_refundable: { offline: 'refund-only', note: 'WIN path needs the Covex oracle signature (NOT offline). The REFUND branch (refund key, after lock_daa / lockTime) IS offline-claimable.' },
-  oracle_escrow_refundable: { offline: 'refund-only', note: 'WIN path needs the Covex oracle signature (NOT offline). The REFUND branch (refund key, after lock_daa / lockTime) IS offline-claimable.' },
-};
+// The oracle_* WIN path needs the deployer-bound external resolver's co-signature (an
+// external resolver the deployer chooses; never Covex) and is NOT offline-claimable here;
+// only the *_refundable refund branch (after the on-chain lock) is.
+//
+// SOURCE OF TRUTH: this object is INJECTED AT BUILD TIME by build-cold-tool.mjs, derived
+// VERBATIM from KIND_CLAIM_MATRIX in frontend/src/lib/redeemer/covenantRedeemer.js. Do NOT
+// hand-edit it: the per-kind `offline` flag and `note` (the canonical `liveness` string)
+// come from the in-app redeemer so this tool can never silently drift. A CI gate asserts
+// the built tool's kinds + offline flags equal KIND_CLAIM_MATRIX. Until the build runs,
+// the placeholder below parses to {} and the page shows a conservative "needs the redeem
+// script" message for every kind.
+const CLAIMABILITY = __CLAIMABILITY_MATRIX_JSON__;
 
 const $ = (id) => document.getElementById(id);
 let kit = null; // parsed recovery kit
@@ -782,7 +783,7 @@ function renderClaimability(k) {
   let pill;
   if (info.offline === true) pill = '<span class="pill ok">offline-claimable</span>';
   else if (info.offline === 'refund-only') pill = '<span class="pill warn">refund branch only (offline)</span>';
-  else pill = '<span class="pill danger">NOT offline-claimable (needs Covex oracle)</span>';
+  else pill = '<span class="pill danger">NOT offline-claimable (needs the deployer-bound external resolver)</span>';
   el.innerHTML = `<div style="margin-bottom:6px">${pill} <span class="mono">${k.kind}</span></div><div class="note">${info.note}</div>`;
 }
 
@@ -860,10 +861,10 @@ $('buildSign').addEventListener('click', async () => {
     const info = kindClaim(kit.kind);
     const refundBranch = branch === 'refund' || branch === 'refundA' || branch === 'refundB';
     if (info.offline === false) {
-      throw new Error(`${kit.kind} is not offline-claimable: its win path needs the Covex oracle signature. Paste the oracle signature in Advanced, or use the Covex site.`);
+      throw new Error(`${kit.kind} is not offline-claimable: its win path needs the deployer-bound external resolver's co-signature (an external resolver the deployer chose; never Covex). Paste that resolver co-signature in Advanced, or claim via the in-app recovery page.`);
     }
     if (info.offline === 'refund-only' && !refundBranch && !$('oracleSig').value.trim()) {
-      throw new Error(`${kit.kind} win path needs the Covex oracle signature. Choose the "refund" branch (offline) or paste the oracle signature in Advanced.`);
+      throw new Error(`${kit.kind} win path needs the deployer-bound external resolver's co-signature. Choose the "refund" branch (offline) or paste the resolver co-signature in Advanced.`);
     }
 
     const priv = privEl.value.trim();

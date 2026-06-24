@@ -244,6 +244,16 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   // Refresh the available-balance hint whenever the connected address or network changes.
   useEffect(() => { setAvailKas(null); if (address) fetchDeployerBalanceKas(); /* eslint-disable-next-line */ }, [address, net]);
 
+  // MAINNET DEAD-END GUARD: if the selected kind cannot deploy on mainnet (any non
+  // single-signer kind, including a ?kind=market deep link), snap the selection back to a
+  // mainnet-capable primitive so the form never sits on a tile whose deploy errors. Testnets
+  // keep every kind. Mirrors the per-tile `mainnetUnavailable` gate below.
+  useEffect(() => {
+    if (isMainnet && !MAINNET_CAPABLE_KINDS.includes(kind)) {
+      setKind('singlesig');
+    }
+  }, [isMainnet, kind]);
+
   // "Lock max balance": read the freshest balance, then set the stake to (balance - fee headroom)
   // so the user can one-tap lock everything. If the read fails or the balance is below the
   // headroom, leave the field unchanged (and surface why), never zeroing a manual entry.
@@ -275,6 +285,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   // creator-set economics.
   async function createMarket() {
     setError(null);
+    // MAINNET DEAD-END GUARD: a parimutuel market can be created as a DB anchor on mainnet but
+    // can never be funded (matching + payout run on a testnet-only dev-escrow), so refuse up
+    // front rather than create a market that silently never funds. Honest, fail-closed.
+    if (isMainnet) { setError('Prediction markets are testnet-only for now: matching and payout run on a testnet escrow, so a mainnet market would never fund. Switch to a testnet to create one. Non-custodial mainnet markets are coming.'); return; }
     const question = mq.trim();
     if (!question) { setError('Enter a question for the market.'); return; }
     if (!address) { setError('Connect a wallet first - it becomes the authorized resolver for this market (the settlement reveal is gated to your wallet signature).'); return; }
@@ -310,6 +324,14 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   async function deploy() {
     setError(null);
     if (kind === 'market') { await createMarket(); return; }
+    // MAINNET DEAD-END GUARD: the dev-wallet kinds (multisig/htlc/channel/deadman/timedecay/
+    // oracle_*/binary_oracle_select) deploy via use_dev_mode, which the backend rejects on
+    // mainnet. Refuse here too so a programmatic deploy can never hit that server error; the
+    // tiles are already disabled on mainnet, this is defense in depth. Single-signer kinds pass.
+    if (isMainnet && usesDevWallets) {
+      setError('This primitive is testnet-only for now: it deploys through the server-assisted dev-wallet path, which is disabled on mainnet. Use a single-key, hashlock, timelock, or relative-timelock covenant (those deploy non-custodially on mainnet), or switch to a testnet. Non-custodial mainnet deploys for the other primitives are coming.');
+      return;
+    }
     const stakeKas = parseFloat(stake);
     if (!(stakeKas > 0)) { setError('Enter a stake greater than 0.'); return; }
     if (!usesDevWallets && !canSign) { setError('Connect the key that holds the funds below - it signs the deploy in your browser (non-custodial).'); return; }
@@ -694,6 +716,12 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
             connect the key that holds the funds and it signs the funding transaction in your browser - the key is never sent.
             Mainnet covenants activate at the Toccata hard fork, so the deploy stays gated until then.
           </p>
+          <p className="mt-2 text-[12px] text-amber-200/80 leading-snug">
+            The other primitives (multisig, HTLC, channel, dead-man, time-decaying multisig, resolver-enforced/escrow) deploy through the
+            server-assisted dev-wallet path, which is disabled on mainnet, so their tiles are testnet-only for now. Prediction markets are
+            testnet-only too: a market can be created as a record, but matching and payout run on a testnet-only escrow, so a mainnet market
+            would never fund. Non-custodial mainnet deploys for these are coming.
+          </p>
         </div>
       )}
 
@@ -708,18 +736,30 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           // mainnet-capable; market is a hybrid creation flow.
           const isDevWalletKind = DEV_WALLET_KINDS.includes(k.id);
           const isMainnetCapable = MAINNET_CAPABLE_KINDS.includes(k.id);
+          // MAINNET DEAD-END GUARD: on mainnet, only the non-custodial single-signer kinds can
+          // actually deploy. The dev-wallet kinds (multisig/htlc/channel/deadman/timedecay/
+          // oracle_*/binary_oracle_select) route through use_dev_mode, which the backend rejects
+          // on mainnet ("dev mode is disabled on mainnet"); the parimutuel market can be created
+          // as a DB anchor but can never be funded (the matcher is testnet dev-escrow only). So
+          // rather than render an advertised tile that errors on deploy, disable it on mainnet
+          // with an honest note. Testnets keep every tile.
+          const mainnetUnavailable = isMainnet && !isMainnetCapable;
           return (
             <button
               key={k.id}
-              onClick={() => setKind(k.id)}
+              onClick={() => { if (!mainnetUnavailable) setKind(k.id); }}
               aria-pressed={active}
+              disabled={mainnetUnavailable}
+              title={mainnetUnavailable ? 'Available on testnet. Non-custodial mainnet deploy for this primitive is coming; on mainnet it would route through the server-assisted dev-wallet path, which is disabled there.' : undefined}
               className={`hover-lift group relative overflow-hidden text-left p-4 rounded-xl border transition-all ${
-                active
+                mainnetUnavailable
+                  ? 'border-white/[0.06] bg-white/[0.01] opacity-55 cursor-not-allowed light:border-slate-200 light:bg-slate-50'
+                  : active
                   ? 'border-kaspa-green/60 bg-kaspa-green/[0.07] ring-1 ring-kaspa-green/50 shadow-[0_0_22px_-6px_rgba(73,234,203,0.45)]'
                   : 'border-white/10 bg-white/[0.02] hover:border-white/25 hover:bg-white/[0.04] light:border-slate-200 light:bg-white light:hover:border-slate-300 light:hover:bg-slate-50'
               }`}
             >
-              {active && (
+              {active && !mainnetUnavailable && (
                 <span
                   aria-hidden="true"
                   className="absolute top-0 inset-x-0 h-[3px]"
@@ -729,12 +769,19 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
               <div className="flex items-start justify-between gap-2">
                 <span
                   className={`grid place-items-center h-9 w-9 rounded-lg border transition-colors shrink-0 ${
-                    active ? 'border-kaspa-green/40 bg-kaspa-green/10' : 'border-white/10 bg-white/[0.03] group-hover:border-white/20 light:border-slate-200 light:bg-slate-100 light:group-hover:border-slate-300'
+                    active && !mainnetUnavailable ? 'border-kaspa-green/40 bg-kaspa-green/10' : 'border-white/10 bg-white/[0.03] group-hover:border-white/20 light:border-slate-200 light:bg-slate-100 light:group-hover:border-slate-300'
                   }`}
                 >
-                  <Icon size={18} className={active ? 'text-kaspa-green' : 'text-gray-300 light:text-slate-700'} />
+                  <Icon size={18} className={active && !mainnetUnavailable ? 'text-kaspa-green' : 'text-gray-300 light:text-slate-700'} />
                 </span>
-                {isDevWalletKind ? (
+                {mainnetUnavailable ? (
+                  <span
+                    title="Available on testnet. Non-custodial mainnet deploy for this primitive is coming."
+                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-500/40 bg-slate-500/15 text-slate-300 text-[9px] font-bold uppercase tracking-wider light:border-slate-300 light:bg-slate-200 light:text-slate-600"
+                  >
+                    <span className="h-1 w-1 rounded-full bg-slate-400" aria-hidden="true" /> Testnet only
+                  </span>
+                ) : isDevWalletKind ? (
                   <span
                     title="Deploys via server-assisted dev wallets, not a non-custodial deploy. Honest demo of the primitive."
                     className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-300 text-[9px] font-bold uppercase tracking-wider"

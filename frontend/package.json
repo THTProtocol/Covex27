@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "check:sandbox": "node scripts/check-sandbox.mjs",
+    "check:cold-tool": "node scripts/check-cold-tool-matrix.mjs",
     "build:cold-tool": "node tools/cold-recovery/build-cold-tool.mjs",
     "prebuild": "node scripts/check-sandbox.mjs && node tools/cold-recovery/build-cold-tool.mjs",
     "build": "vite build",

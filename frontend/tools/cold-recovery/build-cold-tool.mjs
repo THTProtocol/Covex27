@@ -45,12 +45,41 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
+
+// Path to the in-app redeemer that owns the CANONICAL claimability matrix. The cold tool
+// must never hand-duplicate it (the old copy drifted into "Covex oracle" copy that
+// contradicts the trustless reframe), so we import KIND_CLAIM_MATRIX from here and derive
+// the tool's matrix at build time. A CI gate re-checks kinds + offline flags against it.
+const REDEEMER_SRC = resolve(__dirname, '..', '..', 'src', 'lib', 'redeemer', 'covenantRedeemer.js');
+
+// Derive the cold tool's per-kind { offline, note } shape from the canonical KIND_CLAIM_MATRIX.
+// honest mapping:
+//   - offlineClaimable true                         -> offline: true
+//   - not offlineClaimable, has an offline refund    -> offline: 'refund-only'
+//   - not offlineClaimable, no offline branch         -> offline: false
+// The `note` is the canonical `liveness` string verbatim (already worded "external resolver"
+// / "deployer-bound resolver"), so the tool's claimability copy is the redeemer's, not a copy.
+function deriveColdMatrix(KIND_CLAIM_MATRIX) {
+  const out = {};
+  for (const [kind, entry] of Object.entries(KIND_CLAIM_MATRIX)) {
+    const branches = entry.branches || {};
+    let offline;
+    if (entry.offlineClaimable) {
+      offline = true;
+    } else {
+      const refund = branches.refund || branches.refundA || branches.refundB;
+      offline = refund && refund.offline ? 'refund-only' : false;
+    }
+    out[kind] = { offline, note: String(entry.liveness || '') };
+  }
+  return out;
+}
 
 const TEMPLATE = join(__dirname, 'covex-cold-recovery.template.html');
 // The built artifact is emitted into the frontend's public/ tree so Vite copies it into
@@ -90,8 +119,23 @@ function pickWasmBin(dir) {
   throw new Error(`No kaspa_bg.wasm(.bin) found in ${dir}`);
 }
 
-function main() {
+async function main() {
   if (!existsSync(TEMPLATE)) throw new Error(`template missing: ${TEMPLATE}`);
+  if (!existsSync(REDEEMER_SRC)) throw new Error(`canonical redeemer missing: ${REDEEMER_SRC}`);
+
+  // Pull the CANONICAL claimability matrix from the in-app redeemer (pure core, no wasm at
+  // module top-level, so this import never loads the ~15MB kaspa-wasm). Fail loud if the
+  // export disappears or has the wrong shape, so a refactor cannot ship a tool with an empty
+  // or stale matrix.
+  const { KIND_CLAIM_MATRIX } = await import(pathToFileURL(REDEEMER_SRC).href);
+  if (!KIND_CLAIM_MATRIX || typeof KIND_CLAIM_MATRIX !== 'object' || Object.keys(KIND_CLAIM_MATRIX).length === 0) {
+    throw new Error('KIND_CLAIM_MATRIX import from covenantRedeemer.js was empty or missing; refusing to build a tool with no claimability matrix');
+  }
+  const coldMatrix = deriveColdMatrix(KIND_CLAIM_MATRIX);
+  // Pretty-print so the injected object is human-readable in the served HTML (it is the
+  // honesty surface) and JSON.parse-safe. JSON keys are quoted; that is valid JS object syntax.
+  const claimabilityJson = JSON.stringify(coldMatrix, null, 2);
+
   const kaspaDir = resolveKaspaDir();
   const gluePath = join(kaspaDir, 'kaspa.js');
   const wasmPath = pickWasmBin(kaspaDir);
@@ -135,8 +179,13 @@ function main() {
   // as a String.replace replacement pattern.
   const B64_SLOT = '<script id="kaspa-wasm-b64" type="text/plain">__KASPA_WASM_B64__</script>';
   const GLUE_SLOT = '<script type="module">__KASPA_WASM_GLUE_MODULE__</script>';
+  // The claimability matrix slot: `const CLAIMABILITY = __CLAIMABILITY_MATRIX_JSON__;`. We
+  // swap only the placeholder TOKEN (not the bare token in the doc comment) by matching the
+  // exact assignment, so the build is unambiguous and idempotent.
+  const CLAIM_SLOT = 'const CLAIMABILITY = __CLAIMABILITY_MATRIX_JSON__;';
   if (!html.includes(B64_SLOT)) throw new Error('template lost the wasm-b64 injection slot');
   if (!html.includes(GLUE_SLOT)) throw new Error('template lost the glue-module injection slot');
+  if (!html.includes(CLAIM_SLOT)) throw new Error('template lost the claimability-matrix injection slot');
 
   html = html.split(B64_SLOT).join(
     '<script id="kaspa-wasm-b64" type="text/plain">' + wasmB64 + '</script>',
@@ -144,13 +193,18 @@ function main() {
   html = html.split(GLUE_SLOT).join(
     '<script type="module">\n' + glueModule + '\n</script>',
   );
+  // split/join so any literal $ in the JSON is never treated as a String.replace pattern.
+  html = html.split(CLAIM_SLOT).join('const CLAIMABILITY = ' + claimabilityJson + ';');
 
   // Final guard: the two INJECTION SLOTS must be filled. We check the slot strings, not the
   // bare placeholder tokens - the template's doc comment legitimately names the tokens while
   // explaining the build, and those mentions must survive untouched.
-  if (html.includes(B64_SLOT) || html.includes(GLUE_SLOT)) {
+  if (html.includes(B64_SLOT) || html.includes(GLUE_SLOT) || html.includes(CLAIM_SLOT)) {
     throw new Error('build left an unfilled injection slot in the output; refusing to emit a broken tool');
   }
+  // Belt-and-braces: the placeholder token must be gone from the OUTPUT (it would break the
+  // page's JS parse), but it legitimately survives in the template's doc comment, so we only
+  // assert the executable slot was replaced (checked above via CLAIM_SLOT).
 
   mkdirSync(PUBLIC_DIR, { recursive: true });
   writeFileSync(OUT, html, 'utf8');
@@ -162,10 +216,14 @@ function main() {
   console.log('  glue:   ' + gluePath);
   console.log('  wasm:   ' + wasmPath + ' (' + (wasmBin.length / 1024 / 1024).toFixed(2) + ' MB)');
   console.log('  output: ' + OUT + ' (' + sizeKb + ' KB)');
+  console.log('  matrix: ' + Object.keys(coldMatrix).length + ' kinds injected from KIND_CLAIM_MATRIX');
   console.log('  SHA-256: ' + sha);
   console.log('');
   console.log('Pin that SHA-256 in README.md. Verify it before trusting the file:');
   console.log('  sha256sum covex-cold-recovery.html   (or: shasum -a 256 / certutil -hashfile)');
 }
 
-main();
+main().catch((e) => {
+  console.error('Cold-recovery build failed:', e && e.stack ? e.stack : e);
+  process.exit(1);
+});

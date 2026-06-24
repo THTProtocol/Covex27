@@ -500,6 +500,30 @@ fn params_for(kind: &RedeemKind) -> Vec<DecodedParam> {
             seq("min_sequence", *min_sequence),
             pk("refund", refund),
         ],
+        RedeemKind::ZkGameSettle {
+            vk,
+            public_inputs,
+            winner_pubkey,
+            min_sequence,
+            refund,
+        } => {
+            let mut out = vec![DecodedParam {
+                role: "vk".into(),
+                r#type: "bytes".into(),
+                value: hex::encode(vk),
+            }];
+            for (i, fr) in public_inputs.iter().enumerate() {
+                out.push(DecodedParam {
+                    role: format!("public_input_{i}"),
+                    r#type: "fr_le32".into(),
+                    value: hexv(fr),
+                });
+            }
+            out.push(pk("winner_pubkey", winner_pubkey));
+            out.push(seq("min_sequence", *min_sequence));
+            out.push(pk("refund", refund));
+            out
+        }
     }
 }
 
@@ -650,6 +674,18 @@ fn branches_for(kind: &RedeemKind) -> Vec<SpendBranch> {
                 "<refund_sig> OP_FALSE (input.sequence >= min_sequence)",
             ),
         ],
+        RedeemKind::ZkGameSettle { min_sequence, .. } => vec![
+            branch(
+                "winner",
+                "IF: the Groth16 game proof verifies on-chain (KIP-16 OpZkPrecompile, tag 0x20), then the winner signs",
+                "<winner_sig> <proof> OP_TRUE",
+            ),
+            branch(
+                "refund",
+                &format!("ELSE: funder refunds after the UTXO ages {min_sequence}"),
+                "<refund_sig> OP_FALSE (input.sequence >= min_sequence)",
+            ),
+        ],
     }
 }
 
@@ -688,6 +724,7 @@ fn label_for(kind: &RedeemKind) -> String {
         RedeemKind::BinaryOracleSelect { .. } => "Binary outcome selector (market leg)".into(),
         RedeemKind::OracleEnforcedRefundable { .. } => "Oracle-enforced payout, refundable".into(),
         RedeemKind::OracleEscrowRefundable { .. } => "Oracle-enforced escrow, refundable".into(),
+        RedeemKind::ZkGameSettle { .. } => "On-chain ZK game settlement (KIP-16 OpZkPrecompile)".into(),
     }
 }
 

@@ -187,7 +187,48 @@ pub enum RedeemKind {
         min_sequence: u64,
         refund: [u8; 32],
     },
+    /// On-chain ZK game settlement (KIP-16 `OpZkPrecompile`, tag 0x20 / BN254 Groth16). The
+    /// covenant verifies the winner's RISC0->Groth16 game proof ON-CHAIN (Kaspa consensus, not a
+    /// Covex key): `OP_IF <vk> <n> <fr[n-1]..fr[0]> 0x20 OpZkPrecompile OP_DROP <winner> OpCheckSig
+    /// OP_ELSE <min_sequence> OpCheckSequenceVerify <refund> OpCheckSig OP_ENDIF`. The verifying
+    /// key and the baked public inputs (the RISC0 control-root/control-id constants + the
+    /// journal-binding claim halves) are exact-data pushes in the LOCK script so a spender cannot
+    /// swap in their own VK/inputs; the Groth16 proof comes from the spend WITNESS (pushed below
+    /// the baked material). `OpZkPrecompile` is verify-style: it aborts the script on a bad proof
+    /// and pushes a single TRUE on success, which the OP_DROP consumes before the winner's
+    /// OpCheckSig runs. The ELSE branch is a relative-timelock (CSV) refund so a stuck pot is
+    /// reclaimable if no winning proof is ever produced. No Covex key in any path. STAGE 3: gated
+    /// behind `KASPA_ZK_PRECOMPILE_ENABLED` (default off) and rejected on mainnet (Toccata is not
+    /// live on mainnet yet); see docs/ZK_ONCHAIN_PLAN.md.
+    ZkGameSettle {
+        /// ark-serialize COMPRESSED `VerifyingKey<Bn254>` (from zkvm/onchain verifying_key_compressed).
+        vk: Vec<u8>,
+        /// The baked Groth16 public inputs, 32-byte LITTLE-ENDIAN `Fr` each, in ABI order
+        /// (a0, a1, c0, c1, id_bn254_fr). Always `N_ZK_PUBLIC_INPUTS` (5) for a RISC0 receipt.
+        public_inputs: Vec<[u8; 32]>,
+        /// The winner's x-only pubkey (the journal-bound payee). Only this key's sig can spend the IF.
+        winner_pubkey: [u8; 32],
+        /// Relative-timelock (BIP68 CSV) units before the ELSE refund branch unlocks.
+        min_sequence: u64,
+        /// The refund x-only pubkey (funder reclaim if no winning proof is ever produced).
+        refund: [u8; 32],
+    },
 }
+
+/// The number of BN254 `Fr` public inputs a RISC0 Groth16 receipt verifies against (a0, a1, c0,
+/// c1, id_bn254_fr). Mirrors `covex-games-onchain`'s `N_PUBLIC_INPUTS`; duplicated as a small const
+/// here so the builder does not take a dependency on the zkvm crate.
+pub const N_ZK_PUBLIC_INPUTS: usize = 5;
+
+/// The Kaspa KIP-16 `OpZkPrecompile` opcode BYTE (`0xa6`). kaspa-txscript 0.15.0 predates this
+/// opcode, so there is no `OpZkPrecompile` constant; we emit the raw byte directly (the Stage-3
+/// raw-byte emission the plan prescribes, to avoid upgrading the whole backend to the unaudited
+/// pre-HF rusty-kaspa git rev where the opcode number may still churn).
+pub const OP_ZK_PRECOMPILE: u8 = 0xa6;
+
+/// The KIP-16 tag byte selecting the BN254 Groth16 verifier (`Groth16` = `0x20`). Pushed as a
+/// 1-byte STACK item (the opcode pops it first via `parse_tag`), NOT a raw script byte.
+pub const ZK_TAG_GROTH16: u8 = 0x20;
 
 impl RedeemKind {
     /// Serialize this kind into its Kaspa redeem script bytes (the single source of truth;
@@ -252,6 +293,13 @@ impl RedeemKind {
                 min_sequence,
                 refund,
             } => redeem_oracle_escrow_refundable(oracle, player_a, player_b, *min_sequence, refund),
+            RedeemKind::ZkGameSettle {
+                vk,
+                public_inputs,
+                winner_pubkey,
+                min_sequence,
+                refund,
+            } => redeem_zk_game_settle(vk, public_inputs, winner_pubkey, *min_sequence, refund),
         }
     }
 
@@ -291,6 +339,9 @@ impl RedeemKind {
             RedeemKind::OracleEscrowRefundable { min_sequence, .. } => {
                 format!("oracle_escrow_refundable:{min_sequence}")
             }
+            RedeemKind::ZkGameSettle { min_sequence, .. } => {
+                format!("zk_game_settle:{min_sequence}")
+            }
         }
     }
 
@@ -314,6 +365,7 @@ impl RedeemKind {
             RedeemKind::BinaryOracleSelect { .. } => "p2sh_binary_oracle_select",
             RedeemKind::OracleEnforcedRefundable { .. } => "oracle_enforced_refundable",
             RedeemKind::OracleEscrowRefundable { .. } => "oracle_escrow_refundable",
+            RedeemKind::ZkGameSettle { .. } => "p2sh_zk_game_settle",
         }
     }
 }
@@ -585,6 +637,176 @@ pub fn redeem_binary_oracle_select(
     b.add_op(OpEndIf)
         .map_err(|e| format!("bos OpEndIf(outer): {e}"))?;
     Ok(b.drain())
+}
+
+/// Push one byte as a stack DATA item via `OpData1` (`0x01`), i.e. emit `[0x01, byte]`. The KIP-16
+/// tag (0x20) and the small `n_inputs` count are read off the stack as single-byte items, so they
+/// must be genuine 1-byte data pushes (an `OpN` small-int opcode would NOT be readable by the
+/// opcode's `parse_tag`, which pops a raw pushed byte). We emit the OpData1 push explicitly rather
+/// than relying on ScriptBuilder canonicalization so the byte layout is exact and unit-testable.
+fn push_data1(out: &mut Vec<u8>, byte: u8) {
+    out.push(0x01); // OpData1: the next 1 byte is a data push.
+    out.push(byte);
+}
+
+/// Push a 32-byte value as a stack DATA item via `OpData32` (`0x20`): emit `[0x20, b0..b31]`. Used
+/// for the compressed VK chunks / Fr inputs that exceed what a small push covers. (kaspa-txscript's
+/// `add_data` would also produce this, but we splice raw to keep the whole ZK script deterministic
+/// and to interleave the raw 0xa6 opcode.)
+fn push_data_raw(out: &mut Vec<u8>, data: &[u8]) -> BResult<()> {
+    // Reuse the audited ScriptBuilder canonical-push for arbitrary-length data (handles OpData1..75
+    // and OpPushData1/2/4), then splice its bytes in. This keeps long-data encoding identical to
+    // every other redeem builder while letting us interleave the raw 0xa6 opcode + 1-byte items.
+    let mut b = ScriptBuilder::new();
+    b.add_data(data)
+        .map_err(|e| format!("zk push_data ({} bytes): {e}", data.len()))?;
+    out.extend_from_slice(&b.drain());
+    Ok(())
+}
+
+/// The verify-only CORE of the KIP-16 Groth16 (tag 0x20) check, emitting the exact byte sequence
+/// `OpZkPrecompile` consumes (everything baked, no witness): for `inputs = [in0..in_{n-1}]`,
+///
+/// ```text
+///   push in_{n-1} ... push in_0   // inputs, REVERSE order so in_0 ends up NEAREST the top
+///   push proof                    // compressed Proof<Bn254>
+///   push vk                       // compressed VerifyingKey<Bn254> (ends on top under the tag)
+///   OpData1 0x20                  // tag byte (popped FIRST by the opcode)
+///   0xa6                          // OpZkPrecompile (raw byte; pops tag, VK, proof, n, inputs)
+/// ```
+///
+/// Wait - the opcode also pops `n_inputs` (an i32) between the proof and the inputs. The full pop
+/// order (top -> bottom) is: tag, VK, proof, n, in_0 .. in_{n-1}. So building bottom -> top the
+/// sequence is: in_{n-1}, .., in_0, n, proof, VK, tag. This function emits exactly that. It is the
+/// all-baked P2SH used for the Stage-3 on-chain proof (a known-good vector verifies; a forged proof
+/// is rejected by consensus) and for the byte-layout unit tests against docs/zk_precompile_abi.md.
+pub fn redeem_zk_precompile_verify_core(
+    vk: &[u8],
+    proof: &[u8],
+    inputs: &[[u8; 32]],
+) -> BResult<Vec<u8>> {
+    if inputs.len() > i32::MAX as usize {
+        return Err("zk verify core: too many public inputs".into());
+    }
+    let mut r: Vec<u8> = Vec::new();
+    // Inputs in REVERSE: in_{n-1} pushed first (bottom), in_0 last (nearest the top).
+    for fr in inputs.iter().rev() {
+        push_data_raw(&mut r, fr)?;
+    }
+    // n_inputs as a 1-byte stack item (the opcode reads it as an i32 script-number). For the
+    // RISC0 schema n is always 5; this stays correct for any 0..=75 via OpData1, which is the only
+    // range we use. (A larger n would need a multi-byte minimal script-number; not needed here.)
+    if inputs.len() > 75 {
+        return Err("zk verify core: n_inputs > 75 not supported by the 1-byte push".into());
+    }
+    push_data1(&mut r, inputs.len() as u8);
+    // proof (from witness in the full settlement form; baked here for the all-baked verify core).
+    push_data_raw(&mut r, proof)?;
+    // VK (ends on top, just under the tag).
+    push_data_raw(&mut r, vk)?;
+    // tag byte 0x20 as a 1-byte data item (popped first).
+    push_data1(&mut r, ZK_TAG_GROTH16);
+    // OpZkPrecompile - raw opcode byte (kaspa-txscript 0.15.0 has no constant for it).
+    r.push(OP_ZK_PRECOMPILE);
+    Ok(r)
+}
+
+/// Redeem script for an on-chain ZK game settlement (KIP-16 tag 0x20). The winning branch verifies
+/// the winner's RISC0->Groth16 proof on-chain, then requires the winner's signature; the refund
+/// branch is a relative-timelock (CSV) reclaim. The proof comes from the spend WITNESS (it is the
+/// item the spender pushes below the baked material); the VK + the 5 public inputs + the winner +
+/// the refund are BAKED here so a spender cannot substitute them.
+///
+/// ```text
+/// OP_IF
+///   <in4> <in3> <in2> <in1> <in0>   // baked Fr inputs, reverse order (in0 nearest top)
+///   <n=5>                            // input count (1-byte stack item)
+///   ; the Groth16 proof is supplied by the WITNESS, landing just under the VK
+///   <vk>                             // baked compressed VK (ends on top, under the tag)
+///   OpData1 0x20                     // tag
+///   0xa6  (OpZkPrecompile)           // verifies; aborts on a bad proof; pushes TRUE on success
+///   OP_DROP                          // consume the pushed TRUE
+///   <winner_pubkey> OpCheckSig       // only the journal-bound winner can spend
+/// OP_ELSE
+///   <min_sequence> OpCheckSequenceVerify <refund> OpCheckSig
+/// OP_ENDIF
+/// ```
+///
+/// IMPORTANT (Stage 4 caveat): because the witness pushes happen at the very BOTTOM of the stack
+/// (before the redeem script runs), the proof a spender pushes lands UNDER all the baked inputs,
+/// not in the tag's expected `proof` slot. Making the proof witness-supplied therefore requires the
+/// spend satisfier to be ordered so the proof ends up between `n` and `VK` on the stack at the
+/// moment OpZkPrecompile runs. That spend-side stack choreography (and its TN12 e2e) is Stage 4.
+/// This builder freezes the LOCK-side byte layout and the baked-vs-witness split; the Stage-3
+/// on-chain proof uses the all-baked `redeem_zk_precompile_verify_core` (no witness) to verify the
+/// opcode end to end on TN12 independent of a real game seal.
+pub fn redeem_zk_game_settle(
+    vk: &[u8],
+    public_inputs: &[[u8; 32]],
+    winner_pubkey: &[u8; 32],
+    min_sequence: u64,
+    refund: &[u8; 32],
+) -> BResult<Vec<u8>> {
+    if public_inputs.len() != N_ZK_PUBLIC_INPUTS {
+        return Err(format!(
+            "zk_game_settle: expected {N_ZK_PUBLIC_INPUTS} public inputs, got {}",
+            public_inputs.len()
+        ));
+    }
+    if vk.is_empty() {
+        return Err("zk_game_settle: empty verifying key".into());
+    }
+    let mut r: Vec<u8> = Vec::new();
+    r.push(OpIf);
+    // Baked inputs in REVERSE order (in0 nearest top), then n. (Proof is witness-supplied.)
+    for fr in public_inputs.iter().rev() {
+        push_data_raw(&mut r, fr)?;
+    }
+    push_data1(&mut r, public_inputs.len() as u8);
+    // Baked VK (ends on top under the tag at opcode time).
+    push_data_raw(&mut r, vk)?;
+    push_data1(&mut r, ZK_TAG_GROTH16);
+    r.push(OP_ZK_PRECOMPILE); // verify-style: aborts on fail, pushes TRUE on success.
+    r.push(0x75); // OpDrop: consume the TRUE the opcode pushed.
+    push_data_raw(&mut r, winner_pubkey)?;
+    r.push(OpCheckSig);
+    r.push(OpElse);
+    // Refund branch: relative-timelock then the refund key's signature.
+    let mut ltb = ScriptBuilder::new();
+    ltb.add_lock_time(min_sequence)
+        .map_err(|e| format!("zk_game_settle add seq: {e}"))?;
+    r.extend_from_slice(&ltb.drain());
+    r.push(OpCheckSequenceVerify);
+    push_data_raw(&mut r, refund)?;
+    r.push(OpCheckSig);
+    r.push(OpEndIf);
+    Ok(r)
+}
+
+/// Stage-3 deploy gate for the ZK on-chain kind. The kind is OFF by default: it deploys only when
+/// `KASPA_ZK_PRECOMPILE_ENABLED` is truthy, and NEVER on mainnet (the Toccata HF, hence the
+/// `OpZkPrecompile` opcode, is not live on Kaspa mainnet yet - it activates ~30 Jun 2026). Returns
+/// `Ok(())` when a ZkGameSettle deploy may proceed for `network`, else a caller-surfaceable error.
+pub fn zk_precompile_deploy_allowed(network: &str) -> BResult<()> {
+    if network == "mainnet" || network == "mainnet-1" {
+        return Err(
+            "on-chain ZK settlement (OpZkPrecompile) is not available on mainnet yet (Toccata not live)"
+                .to_string(),
+        );
+    }
+    let enabled = std::env::var("KASPA_ZK_PRECOMPILE_ENABLED")
+        .map(|v| {
+            let v = v.trim().to_ascii_lowercase();
+            v == "1" || v == "true" || v == "yes" || v == "on"
+        })
+        .unwrap_or(false);
+    if !enabled {
+        return Err(
+            "on-chain ZK settlement is disabled (set KASPA_ZK_PRECOMPILE_ENABLED=1 to enable)"
+                .to_string(),
+        );
+    }
+    Ok(())
 }
 
 /// Redeem script for an N-of-M multisig, built by kaspa-txscript:
@@ -9457,5 +9679,181 @@ mod tests {
         assert!(MARKET_MAX_ORDER_SOMPI <= MARKET_MAX_OPEN_SOMPI_PER_SIDE);
         assert!(MARKET_MAX_OPEN_SOMPI_PER_SIDE <= MARKET_MAX_FUNDED_SOMPI);
         assert!(MARKET_MAX_MATCH_PAIRS >= 1);
+    }
+
+    // ---- Stage 3: KIP-16 OpZkPrecompile (tag 0x20) byte-layout ----------------------------------
+    //
+    // These assert the ZkGameSettle / verify-core byte construction matches the FROZEN ABI in
+    // docs/zk_precompile_abi.md exactly: the raw 0xa6 opcode, the OpData1 0x20 tag, the OpData1 n
+    // count, and the REVERSE input push order (in0 nearest the top). The on-chain TN12 proof is the
+    // ultimate gate, but a wrong byte here would fail there silently; these catch it locally.
+
+    /// Strip a leading kaspa P2SH-style data push (OpData1..75 / OpPushData1) and return the
+    /// payload + the index just past it. Minimal disassembler for the layout assertions.
+    fn read_push(script: &[u8], i: usize) -> (Vec<u8>, usize) {
+        let op = script[i];
+        if (0x01..=0x4b).contains(&op) {
+            let n = op as usize;
+            (script[i + 1..i + 1 + n].to_vec(), i + 1 + n)
+        } else if op == 0x4c {
+            let n = script[i + 1] as usize;
+            (script[i + 2..i + 2 + n].to_vec(), i + 2 + n)
+        } else {
+            panic!("expected a data push at offset {i}, found opcode 0x{op:02x}");
+        }
+    }
+
+    #[test]
+    fn zk_verify_core_byte_layout_matches_abi() {
+        // Distinct, recognizable material so position is unambiguous.
+        let vk = vec![0xAAu8; 40];
+        let proof = vec![0xBBu8; 24];
+        let inputs: Vec<[u8; 32]> = (0u8..5).map(|k| [0x10 + k; 32]).collect();
+        let s = redeem_zk_precompile_verify_core(&vk, &proof, &inputs).unwrap();
+
+        // The script MUST end with: OpData1 0x20 (tag) then the raw 0xa6 opcode.
+        assert_eq!(s[s.len() - 1], OP_ZK_PRECOMPILE, "last byte must be 0xa6 OpZkPrecompile");
+        assert_eq!(s[s.len() - 3], 0x01, "tag must be an OpData1 push");
+        assert_eq!(s[s.len() - 2], ZK_TAG_GROTH16, "tag value must be 0x20 (Groth16)");
+
+        // Walk the pushes from the start: inputs in REVERSE (in4..in0), then n, then proof, then VK.
+        let mut i = 0usize;
+        for k in (0u8..5).rev() {
+            let (got, ni) = read_push(&s, i);
+            assert_eq!(got, vec![0x10 + k; 32], "input push {k} out of order");
+            i = ni;
+        }
+        // n_inputs = 5 as a 1-byte OpData1 push.
+        let (n, ni) = read_push(&s, i);
+        assert_eq!(n, vec![5u8], "n_inputs must be the single byte 0x05");
+        i = ni;
+        // proof, then VK.
+        let (p, pi) = read_push(&s, i);
+        assert_eq!(p, proof, "proof push mismatch");
+        i = pi;
+        let (k, ki) = read_push(&s, i);
+        assert_eq!(k, vk, "vk push mismatch");
+        i = ki;
+        // Then exactly tag + opcode.
+        assert_eq!(&s[i..], &[0x01, ZK_TAG_GROTH16, OP_ZK_PRECOMPILE], "trailer must be OpData1 0x20 0xa6");
+    }
+
+    #[test]
+    fn zk_verify_core_accepts_known_good_vector_layout() {
+        // The frozen known-good Groth16 stack from docs/zk_precompile_abi.md (5 inputs). We assert
+        // our builder reproduces the doc's documented stack push order (bottom->top: input4,
+        // input3, input2, input1, input0, n=5, proof, VK; then the opcode pushes/pops the tag).
+        let vk = hex::decode(concat!(
+            "e2f26dbea299f5223b646cb1fb33eadb059d9407559d7441dfd902e3a79a4d2d",
+            "abb73dc17fbc13021e2471e0c08bd67d8401f52b73d6d07483794cad4778180e",
+            "0c06f33bbc4c79a9cadef253a68084d382f17788f885c9afd176f7cb2f036789",
+            "edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018",
+            "c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e19",
+            "33033e7fea1f40604eaacf699d4be9aacc577054a0db22d9129a1728ff85a01a",
+            "1c3af829b62bf4914c0bcf2c81a4bd577190eff5f194ee9bac95faefd53cb003",
+            "0600000000000000e43bdc655d0f9d730535554d9caa611ddd152c081a06a932",
+            "a8e1d5dc259aac123f42a188f683d869873ccc4c119442e57b056e03e2fa92f2",
+            "028c97bc20b9078747c30f85444697fdf436e348711c011115963f855197243e",
+            "4b39e6cbe236ca8ba7f2042e11f9255afbb6c6e2c3accb88e401f2aac21c097c",
+            "92b3fbdb99f98a9b0dcd6c075ada6ed0ddfece1d4a2d005f61a7d5df0b75c18a",
+            "5b2374d64e495fab93d4c4b1200394d5253cce2f25a59b862ee8e4cd43686603",
+            "faa09d5d0d3c1c8f"
+        ))
+        .unwrap();
+        let proof = hex::decode(concat!(
+            "570253c0c483a1b16460118e63c155f3684e784ae7d97e8fc3f544128b37fe15",
+            "075eab5ac31150c8a44253d8525971241bbd7227fcefbae2db4ae71675c56a2e",
+            "0eb9235136b15ab72f16e707832f3d6ae5b0ba7cca53ae17cb52b3201919eb9d",
+            "908c16297abd90aa7e00267bc21a9a78116e717d4d76edd44e21cca17e3d592d"
+        ))
+        .unwrap();
+        let fr = |h: &str| -> [u8; 32] { hex::decode(h).unwrap().try_into().unwrap() };
+        let inputs = [
+            fr("a54dc85ac99f851c92d7c96d7318af4100000000000000000000000000000000"),
+            fr("dbe7c0194edfcc37eb4d422a998c1f5600000000000000000000000000000000"),
+            fr("a95ac0b37bfedcd8136e6c1143086bf500000000000000000000000000000000"),
+            fr("d223ffcb21c6ffcb7c8f60392ca49dde00000000000000000000000000000000"),
+            fr("c07a65145c3cb48b6101962ea607a4dd93c753bb26975cb47feb00d3666e4404"),
+        ];
+        let s = redeem_zk_precompile_verify_core(&vk, &proof, &inputs).unwrap();
+
+        // Rebuild the exact expected byte stream and compare (the doc's bottom->top order).
+        let mut want: Vec<u8> = Vec::new();
+        let mut pd = |out: &mut Vec<u8>, d: &[u8]| {
+            let mut b = ScriptBuilder::new();
+            b.add_data(d).unwrap();
+            out.extend_from_slice(&b.drain());
+        };
+        pd(&mut want, &inputs[4]);
+        pd(&mut want, &inputs[3]);
+        pd(&mut want, &inputs[2]);
+        pd(&mut want, &inputs[1]);
+        pd(&mut want, &inputs[0]);
+        want.extend_from_slice(&[0x01, 0x05]); // n = 5
+        pd(&mut want, &proof);
+        pd(&mut want, &vk);
+        want.extend_from_slice(&[0x01, ZK_TAG_GROTH16, OP_ZK_PRECOMPILE]);
+        assert_eq!(s, want, "verify-core bytes must equal the frozen ABI stack");
+    }
+
+    #[test]
+    fn zk_game_settle_has_if_zk_drop_checksig_else_csv() {
+        let vk = vec![0xCDu8; 40];
+        let inputs: Vec<[u8; 32]> = (0u8..5).map(|k| [0x20 + k; 32]).collect();
+        let winner = [0x77u8; 32];
+        let refund = [0x88u8; 32];
+        let s = redeem_zk_game_settle(&vk, &inputs, &winner, 42, &refund).unwrap();
+
+        assert_eq!(s[0], OpIf, "must open with OP_IF");
+        assert_eq!(*s.last().unwrap(), OpEndIf, "must close with OP_ENDIF");
+        // The winning branch verifies then drops the TRUE then checks the winner sig: the byte
+        // window [0xa6, OpDrop(0x75), OpData32, <winner 32>, OpCheckSig] must appear in order.
+        let drop_op = 0x75u8;
+        let zk_at = s
+            .windows(3)
+            .position(|w| w == [ZK_TAG_GROTH16, OP_ZK_PRECOMPILE, drop_op])
+            .expect("tag,0xa6,OpDrop must be contiguous (tag is OpData1's payload)");
+        // After OpDrop: OpData32 winner OpCheckSig.
+        let after = zk_at + 3;
+        assert_eq!(s[after], 0x20, "winner must be an OpData32 push after OpDrop");
+        assert_eq!(&s[after + 1..after + 33], &winner, "winner pubkey bytes");
+        assert_eq!(s[after + 33], OpCheckSig, "winner branch ends in OpCheckSig");
+        // An OP_ELSE and an OpCheckSequenceVerify (CSV refund) must follow.
+        assert!(s[after + 34..].contains(&OpElse), "must have an OP_ELSE refund branch");
+        assert!(
+            s[after + 34..].contains(&OpCheckSequenceVerify),
+            "refund branch must use OpCheckSequenceVerify (CSV)"
+        );
+        assert!(s[after + 34..].windows(32).any(|w| w == refund), "refund key must be present");
+    }
+
+    #[test]
+    fn zk_game_settle_rejects_wrong_input_count() {
+        let vk = vec![0x01u8; 8];
+        let four: Vec<[u8; 32]> = vec![[0u8; 32]; 4];
+        assert!(
+            redeem_zk_game_settle(&vk, &four, &[0u8; 32], 1, &[0u8; 32]).is_err(),
+            "must require exactly 5 public inputs (RISC0 schema)"
+        );
+    }
+
+    #[test]
+    fn zk_precompile_deploy_gate_is_fail_closed_and_mainnet_blocked() {
+        // Mainnet always rejected regardless of the env flag.
+        std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "1");
+        assert!(zk_precompile_deploy_allowed("mainnet").is_err(), "mainnet must be blocked");
+        assert!(zk_precompile_deploy_allowed("mainnet-1").is_err(), "mainnet-1 must be blocked");
+        // Testnet allowed only when explicitly enabled.
+        assert!(zk_precompile_deploy_allowed("testnet-12").is_ok(), "tn12 allowed when enabled");
+        std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "0");
+        assert!(
+            zk_precompile_deploy_allowed("testnet-12").is_err(),
+            "must be fail-closed when the flag is off"
+        );
+        std::env::remove_var("KASPA_ZK_PRECOMPILE_ENABLED");
+        assert!(
+            zk_precompile_deploy_allowed("testnet-12").is_err(),
+            "must be fail-closed when the flag is unset (default off)"
+        );
     }
 }

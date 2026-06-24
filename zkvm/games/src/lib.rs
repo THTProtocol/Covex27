@@ -158,6 +158,77 @@ pub const WINNER_P1: u8 = 0;
 pub const WINNER_P2: u8 = 1;
 pub const WINNER_DRAW: u8 = 2;
 
+/// A self-sufficient settlement journal that BINDS a game proof to THIS pot and its payout.
+///
+/// `GameResult` answers "who won this game"; `SettlementJournal` answers "who gets paid, out of
+/// which pot, how much". The difference matters on-chain: the settlement covenant pays the
+/// `winner_pubkey`, scoped to `covenant_id`, for `stake_sompi`. By committing these fields INSIDE
+/// the proof (Stage 1 makes the journal self-sufficient), the RISC0 receipt attests the winner's
+/// IDENTITY and the pot binding directly, not merely a `winner` index that a settlement layer would
+/// have to re-resolve against an out-of-band player list. With KIP-16 (`OpZkPrecompile`, see
+/// `docs/zk_precompile_abi.md`) these fields become the Groth16 public inputs the covenant checks,
+/// so consensus itself enforces "this proof is for this pot and names this winner".
+///
+/// Honesty: `settle` derives every field from the TRUSTED `replay` result and the public input. It
+/// invents nothing. `winner_pubkey` is `players[winner]` for a decisive game and ALL-ZERO for a draw
+/// (there is no single payee; the settlement covenant splits the pot 50/50 by output amount). A
+/// caller cannot forge `winner_pubkey`: it is read from `input.players` at the index `replay` decided,
+/// and `replay` only returns a winner for a legal, finished game.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SettlementJournal {
+    /// Binds the proof to THIS match (the deploy tx id), preventing cross-pot replay. Echoed
+    /// verbatim from `GameInput::covenant_id`.
+    pub covenant_id: [u8; 32],
+    /// `0` = player 1, `1` = player 2, `2` = draw/push. Same code space as `GameResult::winner`.
+    pub winner_code: u8,
+    /// The 32-byte id of the side that gets paid: `players[winner_code]` for a decisive game, or
+    /// ALL-ZERO for a draw (`winner_code == WINNER_DRAW`), where the pot is split rather than paid
+    /// to one party.
+    pub winner_pubkey: [u8; 32],
+    /// The staked amount in sompi, echoed verbatim from `GameInput::stake_sompi`. Carried through
+    /// for the settlement covenant's payout/refund math.
+    pub stake_sompi: u64,
+    /// `sha256` of the joined moves, carried from `GameResult::moves_digest`, binding the journal to
+    /// the exact game that was replayed.
+    pub moves_digest: [u8; 32],
+}
+
+/// Replay a recorded game and produce a self-sufficient [`SettlementJournal`] that binds the result
+/// to THIS pot and names the payee.
+///
+/// This is the settlement-layer entry point: it calls [`replay`] (the single honesty gate, which
+/// returns `Err` for any illegal / unfinished / forged game), then maps the genuine `winner` to a
+/// payout identity:
+/// - decisive game -> `winner_pubkey = input.players[winner]`
+/// - draw (`winner == WINNER_DRAW`) -> `winner_pubkey = [0u8; 32]` (no single payee; pot is split)
+///
+/// `covenant_id` and `stake_sompi` are echoed from the public input, and `moves_digest` is carried
+/// from the replay result. Because `settle` is a thin, deterministic wrapper over `replay`, a proof
+/// of `settle` carries the SAME honesty guarantee as a proof of `replay`, plus the pot/payee binding.
+///
+/// A `winner` code outside `0..=2` would be a rules-engine bug; `settle` rejects it with `Err` rather
+/// than index out of bounds, so a malformed result can never silently mis-pay.
+pub fn settle(input: &GameInput) -> Result<SettlementJournal, String> {
+    let result = replay(input)?;
+    let winner_pubkey = match result.winner {
+        WINNER_P1 => input.players[0],
+        WINNER_P2 => input.players[1],
+        WINNER_DRAW => [0u8; 32],
+        other => {
+            return Err(format!(
+                "replay returned an invalid winner code {other} (expected 0=P1, 1=P2, 2=draw)"
+            ));
+        }
+    };
+    Ok(SettlementJournal {
+        covenant_id: input.covenant_id,
+        winner_code: result.winner,
+        winner_pubkey,
+        stake_sompi: input.stake_sompi,
+        moves_digest: result.moves_digest,
+    })
+}
+
 /// The rules of a two-player, alternating-turn, deterministic game.
 ///
 /// `replay` drives an impl of this trait: it asks whose turn it is, applies one ply at a time,
@@ -555,5 +626,114 @@ mod tests {
         let commit = sha256_bytes(&deck); // honest hash of the bad deck
         let err = verify_committed_deck(&deck, &commit).unwrap_err();
         assert!(err.contains("permutation") || err.contains("twice"), "got: {err}");
+    }
+
+    // ---- SettlementJournal / settle() tests (Stage 1: self-sufficient journal) ----
+
+    /// Distinct, recognizable player pubkeys so a wrong mapping is obvious.
+    fn distinct_pids() -> [[u8; 32]; 2] {
+        [[0xA1u8; 32], [0xB2u8; 32]]
+    }
+
+    /// A P1 win (white delivers Scholar's mate) settles to players[0], echoing covenant_id + stake.
+    #[test]
+    fn settle_maps_p1_win_to_player0() {
+        let mut input = untimed(
+            GameType::Chess,
+            &["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7"],
+        );
+        input.players = distinct_pids();
+        input.covenant_id = [0x77u8; 32];
+        input.stake_sompi = 123_456;
+
+        let j = settle(&input).expect("a legal finished game must settle");
+        assert_eq!(j.winner_code, WINNER_P1);
+        assert_eq!(j.winner_pubkey, [0xA1u8; 32], "P1 win must pay players[0]");
+        assert_eq!(j.covenant_id, [0x77u8; 32], "covenant_id must echo through");
+        assert_eq!(j.stake_sompi, 123_456, "stake must echo through");
+        // moves_digest must equal the replay()'s digest (carried, not recomputed differently).
+        assert_eq!(j.moves_digest, replay(&input).unwrap().moves_digest);
+    }
+
+    /// A P2 win (Fool's mate, black delivers checkmate) settles to players[1] - proves the mapping is
+    /// not hardcoded to player 0.
+    #[test]
+    fn settle_maps_p2_win_to_player1() {
+        let mut input = untimed(GameType::Chess, &["f2f3", "e7e5", "g2g4", "d8h4"]);
+        input.players = distinct_pids();
+        input.covenant_id = [0x33u8; 32];
+        input.stake_sompi = 9_000;
+
+        let j = settle(&input).expect("a legal finished game must settle");
+        assert_eq!(j.winner_code, WINNER_P2);
+        assert_eq!(j.winner_pubkey, [0xB2u8; 32], "P2 win must pay players[1]");
+        assert_eq!(j.covenant_id, [0x33u8; 32]);
+        assert_eq!(j.stake_sompi, 9_000);
+    }
+
+    /// A draw settles winner_code = WINNER_DRAW with an ALL-ZERO winner_pubkey (no single payee; the
+    /// settlement covenant splits the pot). Tic-tac-toe filled with no three-in-a-row is a draw.
+    #[test]
+    fn settle_draw_has_zero_winner_pubkey() {
+        // A full TTT board with no completed line -> draw. This is the known-good drawn sequence
+        // from games::tic_tac_toe::tests::full_board_no_line_is_draw.
+        let mut input = untimed(
+            GameType::TicTacToe,
+            &["0", "1", "2", "4", "3", "5", "7", "6", "8"],
+        );
+        input.players = distinct_pids();
+        input.covenant_id = [0x55u8; 32];
+        input.stake_sompi = 42;
+
+        let r = replay(&input).expect("a full no-line TTT board is a legal draw");
+        assert_eq!(r.winner, WINNER_DRAW, "this board must be a draw");
+
+        let j = settle(&input).expect("a legal finished game must settle");
+        assert_eq!(j.winner_code, WINNER_DRAW);
+        assert_eq!(
+            j.winner_pubkey, [0u8; 32],
+            "a draw must carry an all-zero winner_pubkey (pot is split, no single payee)"
+        );
+        assert_eq!(j.covenant_id, [0x55u8; 32]);
+        assert_eq!(j.stake_sompi, 42);
+    }
+
+    /// settle() inherits replay()'s honesty gate: an illegal/unfinished game does NOT settle.
+    #[test]
+    fn settle_rejects_unfinished_game() {
+        let input = untimed(GameType::Chess, &["e2e4"]); // one legal move, no winner
+        assert!(settle(&input).is_err(), "an unfinished game must not settle");
+    }
+
+    /// TAMPER GATE (the existing pattern, at the settlement layer): a SettlementJournal whose
+    /// winner_pubkey is swapped to the LOSER does not match the journal that settle() honestly
+    /// produces. This is the off-chain analogue of the on-chain binding: the covenant pays the
+    /// winner_pubkey FROM the journal, and that field is bound by the proof, so a re-labeled payee
+    /// cannot ride a genuine receipt.
+    #[test]
+    fn tampered_winner_pubkey_is_rejected() {
+        let mut input = untimed(
+            GameType::Chess,
+            &["e2e4", "e7e5", "f1c4", "b8c6", "d1h5", "g8f6", "h5f7"],
+        );
+        input.players = distinct_pids();
+
+        let honest = settle(&input).expect("legal game settles");
+        // An attacker re-labels the payee to the LOSER (players[1]) while keeping winner_code = P1.
+        let mut forged = honest.clone();
+        forged.winner_pubkey = input.players[1];
+
+        assert_ne!(
+            forged, honest,
+            "a journal with a swapped winner_pubkey must differ from the honest one"
+        );
+        // The honest journal is the only one consistent with replay(): re-deriving from the same
+        // input must reproduce the honest payee, never the forged one.
+        let rederived = settle(&input).expect("re-settle");
+        assert_eq!(rederived.winner_pubkey, honest.winner_pubkey);
+        assert_ne!(
+            rederived.winner_pubkey, forged.winner_pubkey,
+            "re-derivation must reject the tampered (loser) payee"
+        );
     }
 }

@@ -17,10 +17,30 @@
 
 use std::time::Instant;
 
-use covex_games::{GameInput, GameResult, GameType, WINNER_P1, WINNER_P2};
+use covex_games::{
+    GameInput, GameResult, GameType, SettlementJournal, WINNER_DRAW, WINNER_P1, WINNER_P2,
+};
 use methods::{GAMES_GUEST_ELF, GAMES_GUEST_ID};
+use risc0_zkvm::serde::Deserializer;
 use risc0_zkvm::{default_prover, ExecutorEnv, Receipt};
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
+
+/// Decode BOTH committed journal items in order: the `GameResult` (committed first, unchanged) and
+/// the `SettlementJournal` (committed second, Stage 1). The guest does `env::commit(&result)` then
+/// `env::commit(&journal)`, which lays two sequential serde frames in the word-aligned journal. We
+/// build one risc0 `Deserializer` over the journal words and deserialize twice; the `WordRead`
+/// reader advances between the two reads. (`journal.decode::<GameResult>()` still works for the
+/// FIRST item alone - backward compatible - but we need both here to check the binding.)
+fn decode_result_and_journal(journal_bytes: &[u8]) -> (GameResult, SettlementJournal) {
+    // RISC0 journals are word (u32) aligned; collect to u32 words then deserialize sequentially.
+    let words: Vec<u32> = bytemuck::allocation::pod_collect_to_vec::<u8, u32>(journal_bytes);
+    let mut de = Deserializer::new(words.as_slice());
+    let result = GameResult::deserialize(&mut de).expect("decode GameResult (journal item 1)");
+    let settlement =
+        SettlementJournal::deserialize(&mut de).expect("decode SettlementJournal (journal item 2)");
+    (result, settlement)
+}
 
 /// Opaque 32-byte player id helper.
 fn pid(b: u8) -> [u8; 32] {
@@ -251,11 +271,8 @@ fn prove_and_verify(
         .verify(GAMES_GUEST_ID)
         .expect("receipt must verify against the guest image id");
 
-    // Decode the committed journal into a GameResult.
-    let result: GameResult = receipt
-        .journal
-        .decode()
-        .expect("decode the GameResult journal");
+    // Decode BOTH committed journal items: the GameResult and the self-sufficient SettlementJournal.
+    let (result, settlement) = decode_result_and_journal(&receipt.journal.bytes);
 
     println!(
         "  PROVED+VERIFIED  winner={} reason={:?} plies={} prove_time={:.2}s",
@@ -266,6 +283,43 @@ fn prove_and_verify(
         result.winner, expected_winner,
         "{label}: committed winner {} != expected {expected_winner}",
         result.winner
+    );
+
+    // ---- Stage 1 binding assertions: the SettlementJournal must bind THIS pot + the right payee. ----
+    // The covenant pays settlement.winner_pubkey, scoped to settlement.covenant_id. Confirm the proof
+    // committed exactly the pot we asked for and the payee that corresponds to the genuine winner.
+    let expected_pubkey = match expected_winner {
+        WINNER_P1 => input.players[0],
+        WINNER_P2 => input.players[1],
+        WINNER_DRAW => [0u8; 32], // draw: no single payee, pot is split
+        other => panic!("{label}: test bug - expected_winner {other} is not a valid code"),
+    };
+    assert_eq!(
+        settlement.winner_code, expected_winner,
+        "{label}: settlement winner_code {} != expected {expected_winner}",
+        settlement.winner_code
+    );
+    assert_eq!(
+        settlement.winner_pubkey, expected_pubkey,
+        "{label}: settlement winner_pubkey != players[expected_winner] (payee binding broken)"
+    );
+    assert_eq!(
+        settlement.covenant_id, input.covenant_id,
+        "{label}: settlement covenant_id != input.covenant_id (pot binding broken)"
+    );
+    assert_eq!(
+        settlement.stake_sompi, input.stake_sompi,
+        "{label}: settlement stake_sompi != input.stake_sompi"
+    );
+    assert_eq!(
+        settlement.moves_digest, result.moves_digest,
+        "{label}: settlement moves_digest != GameResult moves_digest"
+    );
+    println!(
+        "  BOUND  covenant_id[0..4]={:02x?} winner_pubkey[0..4]={:02x?} stake={} (settlement journal)",
+        &settlement.covenant_id[..4],
+        &settlement.winner_pubkey[..4],
+        settlement.stake_sompi
     );
 
     (result, elapsed, receipt)
@@ -295,6 +349,67 @@ fn tamper_must_be_rejected(label: &str, receipt: &Receipt) {
     match tampered.verify(GAMES_GUEST_ID) {
         Ok(_) => panic!("{label}: SECURITY FAILURE - a tampered receipt verified!"),
         Err(e) => println!("  OK - tampered receipt rejected by verify(). error: {e}"),
+    }
+}
+
+/// NEGATIVE GATE (Stage 1 binding soundness): a SettlementJournal whose `winner_pubkey` is swapped
+/// to the LOSER must make the receipt fail verification. The payee binding lives INSIDE the journal,
+/// which is sealed by the proof, so re-labeling the payee on a genuine winning receipt cannot ride
+/// through. We locate the journal item-2 `winner_pubkey` bytes (they equal players[winner]), flip
+/// them to players[loser], and confirm verify() rejects the tampered receipt. (Skipped in dev mode:
+/// dev receipts carry no real seal binding the journal.)
+fn settlement_tamper_must_be_rejected(label: &str, receipt: &Receipt, input: &GameInput) {
+    println!("\n==== {label} (negative: tampered settlement winner_pubkey MUST be rejected) ====");
+    let dev_mode = std::env::var("RISC0_DEV_MODE")
+        .map(|v| v != "0" && !v.is_empty())
+        .unwrap_or(false);
+    if dev_mode {
+        println!("  SKIP - RISC0_DEV_MODE is on; dev receipts carry no real seal to tamper.");
+        return;
+    }
+
+    // Decode to discover the honest payee + the loser id we will forge in.
+    let (result, settlement) = decode_result_and_journal(&receipt.journal.bytes);
+    let loser_pubkey = match result.winner {
+        WINNER_P1 => input.players[1],
+        WINNER_P2 => input.players[0],
+        // A draw has an all-zero payee; forge in a non-zero id instead.
+        _ => [0xEEu8; 32],
+    };
+    assert_ne!(
+        settlement.winner_pubkey, loser_pubkey,
+        "{label}: test bug - honest payee already equals the loser id"
+    );
+
+    // The journal is serialized word-by-word: a `[u8; 32]` array becomes 32 u32 words (each byte
+    // zero-extended), NOT 32 packed bytes. So we tamper in WORD space: find the 32-word run that
+    // equals the winner_pubkey (one word per byte) and overwrite it with the loser id, then re-pack
+    // to journal bytes and re-verify. The sealed claim digest no longer matches -> verify() rejects.
+    let words: Vec<u32> = bytemuck::allocation::pod_collect_to_vec::<u8, u32>(&receipt.journal.bytes);
+    let needle: Vec<u32> = settlement.winner_pubkey.iter().map(|&b| b as u32).collect();
+    let pos = words
+        .windows(32)
+        .position(|w| w == needle.as_slice())
+        .expect("winner_pubkey (as 32 words) must appear in the journal");
+    let mut tampered_words = words.clone();
+    for (i, &b) in loser_pubkey.iter().enumerate() {
+        tampered_words[pos + i] = b as u32;
+    }
+
+    let mut tampered = receipt.clone();
+    tampered.journal.bytes = bytemuck::allocation::pod_collect_to_vec::<u32, u8>(&tampered_words);
+
+    // Sanity: the tampered journal must now decode to the LOSER payee (the forgery took effect),
+    // proving we actually flipped the binding field before testing that verify() rejects it.
+    let (_r2, s2) = decode_result_and_journal(&tampered.journal.bytes);
+    assert_eq!(
+        s2.winner_pubkey, loser_pubkey,
+        "{label}: tamper did not take effect - winner_pubkey was not flipped to the loser"
+    );
+
+    match tampered.verify(GAMES_GUEST_ID) {
+        Ok(_) => panic!("{label}: SECURITY FAILURE - a tampered-payee receipt verified!"),
+        Err(e) => println!("  OK - tampered settlement payee rejected by verify(). error: {e}"),
     }
 }
 
@@ -549,6 +664,16 @@ fn main() {
 
     // ----- NEGATIVE GATE #7: a TAMPERED receipt must fail verification (soundness). -----
     tamper_must_be_rejected("CHESS - tampered Scholar's-mate receipt", &chess_receipt);
+
+    // ----- NEGATIVE GATE #8 (Stage 1): a TAMPERED SETTLEMENT PAYEE must fail verification. -----
+    // Re-label the journal's winner_pubkey to the LOSER on the genuine Scholar's-mate receipt; the
+    // sealed journal binds the payee, so verify() must reject it. This is the off-chain proof of the
+    // on-chain payee binding (winner_pubkey becomes a Groth16 public input under KIP-16).
+    settlement_tamper_must_be_rejected(
+        "CHESS - tampered settlement payee (loser substituted)",
+        &chess_receipt,
+        &chess,
+    );
 
     // ----- SUMMARY -----
     println!("\n================ SUMMARY ================");

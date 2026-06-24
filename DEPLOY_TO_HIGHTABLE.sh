@@ -65,20 +65,40 @@ FE_EOF
 echo "[4/6] Deploying frontend to nginx..."
 $SSH_CMD << CP_EOF
   cp -r $HETZNER_SRC/frontend/dist/* /root/htp/public/
-  # Robust active bundle detection + perms (prevents "Permission denied" and blank "Active bundle:" in logs)
   chmod -R a+r /root/htp/public/ 2>/dev/null || true
-  # Try html first (script src="/assets/index-xxx.js" or similar), then latest in assets/
-  ACTIVE=$(grep -oE 'index-[A-Za-z0-9_.-]+\.js' /root/htp/public/index.html 2>/dev/null | head -1 || true)
-  if [ -z "\$ACTIVE" ]; then
-    ACTIVE=$(ls -1t /root/htp/public/assets/index-*.js 2>/dev/null | head -1 | xargs -r basename 2>/dev/null || true)
-  fi
-  if [ -d /root/htp/public/assets ] && [ -n "\$ACTIVE" ]; then
-    cd /root/htp/public/assets 2>/dev/null || true
-    for f in index-*.js; do
-      if [ "\$f" != "\$ACTIVE" ]; then
-        rm -v "\$f" 2>/dev/null || true
+
+  # ─── Prune ALL stale hashed assets, not just index-*.js ───
+  # Vite content-hashes and code-splits every page into its own chunk
+  # (index-<hash>.js, Terms-<hash>.js, …) plus a matching .js.map. Old chunks
+  # from prior builds orphan in the nginx assets/ dir and stay publicly
+  # downloadable (e.g. a superseded Terms-DPA5k2pv.js served after a rewrite).
+  # The freshly built dist is the source of truth: delete any file in the live
+  # assets/ dir whose basename is absent from the fresh dist/assets/. We never
+  # touch a file the build just produced, so this is safe for every asset type
+  # (.js, .js.map, .css, fonts, images).
+  #
+  # NOTE: the \$(...) and \$f below are escaped so they run on the SERVER. The
+  # previous version left grep's \$(...) unescaped, so it executed on the local
+  # (Windows) box where /root/htp/public/index.html does not exist — ACTIVE was
+  # always empty, the cleanup guard failed, and NOTHING was ever pruned.
+  FRESH_ASSETS="$HETZNER_SRC/frontend/dist/assets"
+  LIVE_ASSETS="/root/htp/public/assets"
+  PRUNED=0
+  if [ -d "\$LIVE_ASSETS" ] && [ -d "\$FRESH_ASSETS" ]; then
+    for f in "\$LIVE_ASSETS"/*; do
+      [ -e "\$f" ] || continue
+      base=\$(basename "\$f")
+      if [ ! -e "\$FRESH_ASSETS/\$base" ]; then
+        rm -vf "\$f" && PRUNED=\$((PRUNED + 1))
       fi
     done
+  fi
+  echo "  Pruned \$PRUNED stale asset(s) absent from fresh build"
+
+  # Report the active entry bundle (from index.html) for log visibility.
+  ACTIVE=\$(grep -oE 'index-[A-Za-z0-9_.-]+\.js' /root/htp/public/index.html 2>/dev/null | head -1 || true)
+  if [ -z "\$ACTIVE" ]; then
+    ACTIVE=\$(ls -1t /root/htp/public/assets/index-*.js 2>/dev/null | head -1 | xargs -r basename 2>/dev/null || true)
   fi
   echo "  Active bundle: \${ACTIVE:-unknown}"
 CP_EOF

@@ -30,6 +30,9 @@ ark-ff = "0.5"
 hex = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Re-interpret the word-aligned RISC0 journal bytes as u32 words so the two committed serde frames
+# (GameResult then SettlementJournal) can be deserialized; matches the chess host's decoder.
+bytemuck = "1"
 
 [dev-dependencies]
 # Curve generators for the seal-decoder round-trip test (build a known proof from generator points).

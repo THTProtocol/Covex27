@@ -301,6 +301,139 @@ pub fn from_receipt(receipt: &risc0_zkvm::Receipt) -> Result<OnchainGroth16, Err
     })
 }
 
+/// The exact material the on-chain ZkGameSettle SPEND plumbing consumes for the WINNER branch. It is
+/// the `OnchainGroth16` proof+inputs (which BIND the game on-chain) plus the two journal fields the
+/// covenant bakes and pays out to: `covenant_id` (the pot this proof settles) and `winner_pubkey`
+/// (the 32-byte payee id `replay` decided). Stage 4 is then literally: produce the receipt -> call
+/// [`game_settle_spend_from_receipt`] -> hand `{proof_hex, public_inputs_le, winner_pubkey,
+/// covenant_id}` to the backend's spend builder, which assembles the winner-branch witness in the
+/// frozen KIP-16 order.
+///
+/// ## HONEST binding caveat (read this before wiring a deploy)
+///
+/// `winner_pubkey` here is the journal's `SettlementJournal::winner_pubkey`, which is
+/// `players[winner]` - an OPAQUE 32-byte player id (e.g. `sha256(seat||pubkey)` or whatever the
+/// deployer chose for `GameInput::players`). It is NOT, in general, the secp256k1 x-only key the
+/// covenant's trailing `OpCheckSig` verifies. The covenant binds the PAYOUT to whatever x-only key
+/// was baked at deploy; the proof binds the GAME to this player id via the claim digest. The deployer
+/// is responsible for making the two consistent: bake the covenant's `winner_pubkey` (x-only) so it
+/// corresponds to the same party `players[winner_index]` names, e.g. by setting
+/// `GameInput::players[i] = the x-only key padded/derived in an agreed way`. This crate does NOT
+/// assert that correspondence (it cannot know the deployer's id scheme); it surfaces both so the
+/// caller can. A draw (`winner_code == 2`) yields an ALL-ZERO `winner_pubkey` and no single payee -
+/// the settlement is a 50/50 split, which the single-winner ZkGameSettle branch does NOT cover, so
+/// this helper REJECTS a draw rather than emit a zero payee.
+#[derive(Clone, Debug)]
+pub struct GameSettleSpend {
+    /// The full on-chain Groth16 material (VK + proof + 5 LE inputs) - the part the opcode verifies.
+    pub onchain: OnchainGroth16,
+    /// The pot this proof settles, from `SettlementJournal::covenant_id`. The deploy must bake the
+    /// covenant against the inputs that fold THIS id (via the claim digest), so a spend cannot be
+    /// replayed against a different pot.
+    pub covenant_id: [u8; 32],
+    /// The journal's payee id (`players[winner]`). See the caveat above: map this to the baked
+    /// x-only covenant key at deploy time.
+    pub winner_pubkey: [u8; 32],
+    /// `0` = player 1, `1` = player 2 (a draw is rejected by the helper).
+    pub winner_code: u8,
+    /// The staked amount in sompi, echoed from the journal (for the caller's payout/refund math).
+    pub stake_sompi: u64,
+}
+
+impl GameSettleSpend {
+    /// The compressed Groth16 proof as lowercase hex (the witness item the winner-branch spend pushes).
+    pub fn proof_hex(&self) -> String {
+        hex::encode(&self.onchain.proof_compressed)
+    }
+    /// The compressed VK as lowercase hex (baked in the lock script at deploy).
+    pub fn vk_hex(&self) -> String {
+        hex::encode(&self.onchain.vk_compressed)
+    }
+    /// The 5 public inputs as lowercase-hex strings, ABI order (a0, a1, c0, c1, id), 32-byte LE each.
+    pub fn public_inputs_hex(&self) -> [String; N_PUBLIC_INPUTS] {
+        let mut out: [String; N_PUBLIC_INPUTS] = Default::default();
+        for (i, fr) in self.onchain.public_inputs_le.iter().enumerate() {
+            out[i] = hex::encode(fr);
+        }
+        out
+    }
+}
+
+/// Errors specific to decoding the games journal into a settle-spend.
+#[derive(Debug)]
+pub enum SettleError {
+    /// The receipt could not be converted to on-chain Groth16 material (not a Groth16 receipt, etc).
+    Onchain(Error),
+    /// The second journal frame (the `SettlementJournal`) could not be deserialized.
+    Journal(String),
+    /// The journal names a draw (winner_code 2): there is no single payee, so the single-winner
+    /// ZkGameSettle branch does not apply (a draw is a 50/50 split, a different settlement shape).
+    Draw,
+}
+
+impl std::fmt::Display for SettleError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SettleError::Onchain(e) => write!(f, "on-chain conversion: {e}"),
+            SettleError::Journal(e) => write!(f, "journal decode: {e}"),
+            SettleError::Draw => write!(
+                f,
+                "journal is a draw (winner_code 2): no single payee for the ZkGameSettle winner branch (a draw splits the pot 50/50)"
+            ),
+        }
+    }
+}
+impl std::error::Error for SettleError {}
+
+/// Turn a real games RISC0->Groth16 `Receipt` into the exact `{proof, public inputs, winner_pubkey,
+/// covenant_id}` the ZkGameSettle WINNER-branch spend plumbing consumes. This is the single Stage-4
+/// bridge: produce the receipt (Docker stark2snark wrap, off-box), call this, hand the result to the
+/// backend spend builder.
+///
+/// It (1) converts the receipt to on-chain Groth16 material via [`from_receipt`] (the part the opcode
+/// verifies), and (2) decodes the journal's SECOND frame (the `SettlementJournal`) to surface the
+/// `covenant_id` + `winner_pubkey` + `winner_code` the covenant pays out against. A draw is rejected
+/// (no single payee for the winner branch).
+///
+/// The journal decode mirrors the chess host's two-frame `Deserializer` walk (GameResult first, then
+/// SettlementJournal). It does NOT re-verify the proof (the on-chain node does that) and does NOT
+/// assert the journal id equals a baked x-only key (see [`GameSettleSpend`]'s caveat).
+pub fn game_settle_spend_from_receipt(
+    receipt: &risc0_zkvm::Receipt,
+) -> Result<GameSettleSpend, SettleError> {
+    let onchain = from_receipt(receipt).map_err(SettleError::Onchain)?;
+    let settlement = decode_settlement_journal(&receipt.journal.bytes)?;
+    if settlement.winner_code == covex_games::WINNER_DRAW {
+        return Err(SettleError::Draw);
+    }
+    Ok(GameSettleSpend {
+        onchain,
+        covenant_id: settlement.covenant_id,
+        winner_pubkey: settlement.winner_pubkey,
+        winner_code: settlement.winner_code,
+        stake_sompi: settlement.stake_sompi,
+    })
+}
+
+/// Decode the SECOND committed frame (`SettlementJournal`) from a RISC0 games journal. The journal is
+/// u32-word aligned and holds two sequential serde frames; we read the first (`GameResult`) to advance
+/// the reader, then the settlement frame. We deserialize the REAL `covex_games` structs (a path dep)
+/// so the field set/order can never drift from the guest's `env::commit` layout. Mirrors
+/// `zkvm/chess/host`'s `decode_result_and_journal`.
+fn decode_settlement_journal(
+    journal_bytes: &[u8],
+) -> Result<covex_games::SettlementJournal, SettleError> {
+    use risc0_zkvm::serde::Deserializer;
+    use serde::Deserialize;
+    let words: Vec<u32> = bytemuck::allocation::pod_collect_to_vec::<u8, u32>(journal_bytes);
+    let mut de = Deserializer::new(words.as_slice());
+    let _first = covex_games::GameResult::deserialize(&mut de)
+        .map_err(|e| SettleError::Journal(format!("frame 1 (GameResult): {e}")))?;
+    let settlement = covex_games::SettlementJournal::deserialize(&mut de)
+        .map_err(|e| SettleError::Journal(format!("frame 2 (SettlementJournal): {e}")))?;
+    Ok(settlement)
+}
+
 /// Convenience: lowercase hex of a byte slice (for writing the sample artifacts).
 pub fn hex_of(bytes: &[u8]) -> String {
     hex::encode(bytes)
@@ -429,5 +562,101 @@ mod tests {
         assert_eq!(recovered.a, proof.a, "G1 'a' point mismatch (byte ordering wrong)");
         assert_eq!(recovered.b, proof.b, "G2 'b' point mismatch (Fp2/coord ordering wrong)");
         assert_eq!(recovered.c, proof.c, "G1 'c' point mismatch");
+    }
+
+    // ── GameSettleSpend journal decode (NO real receipt needed) ──────────────────────────────────
+    //
+    // A real games receipt needs the Docker stark2snark wrap (Stage 4). But the JOURNAL-decode half
+    // of `game_settle_spend_from_receipt` is pure serde over the exact `covex_games` structs, so we
+    // exercise it directly: build the SAME two-frame journal the guest commits (`env::commit(&result)`
+    // then `env::commit(&journal)`) with the RISC0 serializer, decode it back, and assert the fields
+    // round-trip and that a draw is rejected. The PROOF half (claim digest -> 5 LE inputs) is covered
+    // by `from_receipt`'s own tests; the real-receipt end-to-end path is awaiting the seal.
+
+    /// Serialize the two committed frames exactly as the guest does, into one word-aligned journal.
+    fn make_journal(result: &covex_games::GameResult, j: &covex_games::SettlementJournal) -> Vec<u8> {
+        // risc0 serde to_vec gives u32 words; concatenating two frames mirrors two sequential
+        // env::commit calls. Convert the words to the byte journal the helper consumes.
+        let mut words: Vec<u32> = risc0_zkvm::serde::to_vec(result).expect("ser GameResult");
+        words.extend(risc0_zkvm::serde::to_vec(j).expect("ser SettlementJournal"));
+        bytemuck::allocation::pod_collect_to_vec::<u32, u8>(&words)
+    }
+
+    #[test]
+    fn settlement_journal_decode_roundtrips_winner_fields() {
+        let result = covex_games::GameResult {
+            winner: covex_games::WINNER_P2,
+            reason: "checkmate".to_string(),
+            num_plies: 41,
+            moves_digest: [0x33u8; 32],
+            score: None,
+        };
+        let journal = covex_games::SettlementJournal {
+            covenant_id: [0xCAu8; 32],
+            winner_code: covex_games::WINNER_P2,
+            winner_pubkey: [0xB2u8; 32],
+            stake_sompi: 5_000_000,
+            moves_digest: [0x33u8; 32],
+        };
+        let bytes = make_journal(&result, &journal);
+        let decoded = decode_settlement_journal(&bytes).expect("decode settlement frame");
+        assert_eq!(decoded.covenant_id, [0xCAu8; 32], "covenant_id must round-trip");
+        assert_eq!(decoded.winner_pubkey, [0xB2u8; 32], "winner_pubkey (payee id) must round-trip");
+        assert_eq!(decoded.winner_code, covex_games::WINNER_P2);
+        assert_eq!(decoded.stake_sompi, 5_000_000);
+        // The first frame's String + Option<[u64;2]> fields must NOT corrupt the reader: if the
+        // GameResult mirror were wrong, the settlement frame would decode to garbage. The exact match
+        // above proves the two-frame walk is aligned.
+    }
+
+    #[test]
+    fn settlement_journal_decode_rejects_a_draw_via_helper_error() {
+        // We cannot call game_settle_spend_from_receipt without a Receipt, but the draw gate reads the
+        // decoded winner_code; assert the decode surfaces a draw so the helper's `== WINNER_DRAW`
+        // branch fires. (The helper wraps this same decode then returns SettleError::Draw.)
+        let result = covex_games::GameResult {
+            winner: covex_games::WINNER_DRAW,
+            reason: "draw".to_string(),
+            num_plies: 60,
+            moves_digest: [0u8; 32],
+            score: None,
+        };
+        let journal = covex_games::SettlementJournal {
+            covenant_id: [0x01u8; 32],
+            winner_code: covex_games::WINNER_DRAW,
+            winner_pubkey: [0u8; 32],
+            stake_sompi: 1_000,
+            moves_digest: [0u8; 32],
+        };
+        let bytes = make_journal(&result, &journal);
+        let decoded = decode_settlement_journal(&bytes).expect("decode");
+        assert_eq!(decoded.winner_code, covex_games::WINNER_DRAW);
+        assert_eq!(decoded.winner_pubkey, [0u8; 32], "a draw has no single payee");
+    }
+
+    #[test]
+    fn game_settle_spend_exposes_hex_in_abi_order() {
+        // Hex accessors operate on an OnchainGroth16 we build directly (no receipt): assert the proof
+        // hex and the 5 inputs hex are emitted in ABI order, the shape the backend spend builder reads.
+        let onchain = OnchainGroth16 {
+            vk_compressed: vec![0xAA; 4],
+            proof_compressed: vec![0xBB, 0xCC],
+            public_inputs_le: [
+                [0x00u8; 32], [0x11u8; 32], [0x22u8; 32], [0x33u8; 32], [0x44u8; 32],
+            ],
+            journal: vec![],
+        };
+        let spend = GameSettleSpend {
+            onchain,
+            covenant_id: [0xCAu8; 32],
+            winner_pubkey: [0xB2u8; 32],
+            winner_code: covex_games::WINNER_P1,
+            stake_sompi: 7,
+        };
+        assert_eq!(spend.proof_hex(), "bbcc");
+        assert_eq!(spend.vk_hex(), "aaaaaaaa");
+        let inputs = spend.public_inputs_hex();
+        assert_eq!(inputs[0], "00".repeat(32), "a0 first");
+        assert_eq!(inputs[4], "44".repeat(32), "id last (ABI order a0,a1,c0,c1,id)");
     }
 }

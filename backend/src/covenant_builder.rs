@@ -230,6 +230,18 @@ pub const OP_ZK_PRECOMPILE: u8 = 0xa6;
 /// 1-byte STACK item (the opcode pops it first via `parse_tag`), NOT a raw script byte.
 pub const ZK_TAG_GROTH16: u8 = 0x20;
 
+/// `OpToAltStack` (`0x6b`) / `OpFromAltStack` (`0x6c`): move the top main-stack item to/from the
+/// alt stack. The ZkGameSettle WINNER branch needs them because a P2SH witness lands at the BOTTOM
+/// of the main stack, but `OpZkPrecompile` wants the proof BETWEEN the baked `n` and the baked `VK`.
+/// So the script stashes the witness proof on the alt stack, pushes the baked inputs + n, then
+/// restores the proof on top - landing it in the exact slot the opcode pops. kaspa-txscript 0.15.0
+/// predates these as named constants on our build path, so we emit the raw bytes (like 0xa6); they
+/// are present + active on the TN12 covenant node (rusty-kaspa `toccata`).
+pub const OP_TO_ALT_STACK: u8 = 0x6b;
+pub const OP_FROM_ALT_STACK: u8 = 0x6c;
+/// `OpDrop` (`0x75`): pop and discard the top item. Consumes the TRUE `OpZkPrecompile` pushes.
+pub const OP_DROP_BYTE: u8 = 0x75;
+
 impl RedeemKind {
     /// Serialize this kind into its Kaspa redeem script bytes (the single source of truth;
     /// the deploy handler and the spend path both route through here).
@@ -426,6 +438,12 @@ pub enum SpendKind {
     OracleEscrowRefundable {
         min_sequence: u64,
     },
+    /// `zk_game_settle:N` - on-chain ZK game settlement (KIP-16). IF [OpZkPrecompile + winner
+    /// CheckSig] ELSE [CSV refund CheckSig] = 2 static sig ops (one per branch; OpZkPrecompile is
+    /// NOT a sig op). The refund branch needs the spend input's sequence >= N.
+    ZkGameSettle {
+        min_sequence: u64,
+    },
 }
 
 impl SpendKind {
@@ -473,6 +491,9 @@ impl SpendKind {
             "oracle_escrow_refundable" => Some(SpendKind::OracleEscrowRefundable {
                 min_sequence: param?.parse().ok()?,
             }),
+            "zk_game_settle" => Some(SpendKind::ZkGameSettle {
+                min_sequence: param?.parse().ok()?,
+            }),
             _ => None,
         }
     }
@@ -499,6 +520,8 @@ impl SpendKind {
             SpendKind::OracleEnforcedRefundable { .. } => 3,
             // IF [oracle CheckSigVerify + a CheckSig + b CheckSig = 3] ELSE [CSV refund CheckSig = 1] = 4.
             SpendKind::OracleEscrowRefundable { .. } => 4,
+            // IF [OpZkPrecompile (not a sig op) + winner CheckSig = 1] ELSE [CSV refund CheckSig = 1] = 2.
+            SpendKind::ZkGameSettle { .. } => 2,
             // Two multisigs (IF + ELSE), each counting one sig-op per listed pubkey.
             SpendKind::TimeDecay { n } => 2 * *n,
         }
@@ -711,6 +734,54 @@ pub fn redeem_zk_precompile_verify_core(
     Ok(r)
 }
 
+/// The verify-only KIP-16 core with the PROOF supplied by the WITNESS (not baked), using the SAME
+/// alt-stack choreography as the full `redeem_zk_game_settle` winner branch - but WITHOUT the
+/// trailing winner OpCheckSig. This isolates the stack reorder so the on-chain TN12 e2e can prove
+/// "a witness-supplied proof lands in the right slot and OpZkPrecompile verifies it" using the node's
+/// KNOWN-GOOD vector, independent of a real game seal (which needs Docker). The redeem is:
+/// `OpToAltStack <in4..in0> <n> OpFromAltStack <vk> OpData1 0x20 0xa6` and the spend witness pushes
+/// just the proof (no OP_IF here: there is no branch, so no selector). On a good proof the opcode
+/// leaves a single TRUE on the stack (the spend succeeds); a forged proof aborts the script.
+pub fn redeem_zk_precompile_verify_core_witness_proof(
+    vk: &[u8],
+    inputs: &[[u8; 32]],
+) -> BResult<Vec<u8>> {
+    if inputs.len() != N_ZK_PUBLIC_INPUTS {
+        return Err(format!(
+            "zk verify-core (witness proof): expected {N_ZK_PUBLIC_INPUTS} inputs, got {}",
+            inputs.len()
+        ));
+    }
+    if vk.is_empty() {
+        return Err("zk verify-core (witness proof): empty verifying key".into());
+    }
+    let mut r: Vec<u8> = Vec::new();
+    // The witness pushes ONLY the proof, so at redeem-start it is on top; stash it.
+    r.push(OP_TO_ALT_STACK);
+    for fr in inputs.iter().rev() {
+        push_data_raw(&mut r, fr)?;
+    }
+    push_data1(&mut r, inputs.len() as u8);
+    r.push(OP_FROM_ALT_STACK); // restore proof -> in4..in0, n, proof
+    push_data_raw(&mut r, vk)?;
+    push_data1(&mut r, ZK_TAG_GROTH16);
+    r.push(OP_ZK_PRECOMPILE); // leaves TRUE on success (the spend's truthy result), aborts on fail.
+    Ok(r)
+}
+
+/// Build the witness (signature_script) for `redeem_zk_precompile_verify_core_witness_proof`: it
+/// pushes ONLY the proof (no signature, no selector - the redeem has no branch). The on-chain
+/// OpZkPrecompile leaves the truthy result that satisfies the spend.
+pub fn build_zk_verify_core_witness_proof_satisfier(proof: &[u8], redeem: &[u8]) -> BResult<Vec<u8>> {
+    if proof.is_empty() {
+        return Err("zk verify-core witness: empty proof".into());
+    }
+    let mut satisfier: Vec<u8> = Vec::new();
+    push_data_raw(&mut satisfier, proof)?;
+    kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
+        .map_err(|e| format!("zk verify-core witness signature script: {e}"))
+}
+
 /// Redeem script for an on-chain ZK game settlement (KIP-16 tag 0x20). The winning branch verifies
 /// the winner's RISC0->Groth16 proof on-chain, then requires the winner's signature; the refund
 /// branch is a relative-timelock (CSV) reclaim. The proof comes from the spend WITNESS (it is the
@@ -719,9 +790,10 @@ pub fn redeem_zk_precompile_verify_core(
 ///
 /// ```text
 /// OP_IF
+///   OpToAltStack                     // 0x6b: stash the WITNESS proof (it arrives at the stack bottom)
 ///   <in4> <in3> <in2> <in1> <in0>   // baked Fr inputs, reverse order (in0 nearest top)
 ///   <n=5>                            // input count (1-byte stack item)
-///   ; the Groth16 proof is supplied by the WITNESS, landing just under the VK
+///   OpFromAltStack                   // 0x6c: restore the proof on top -> stack: in4..in0, n, proof
 ///   <vk>                             // baked compressed VK (ends on top, under the tag)
 ///   OpData1 0x20                     // tag
 ///   0xa6  (OpZkPrecompile)           // verifies; aborts on a bad proof; pushes TRUE on success
@@ -732,14 +804,17 @@ pub fn redeem_zk_precompile_verify_core(
 /// OP_ENDIF
 /// ```
 ///
-/// IMPORTANT (Stage 4 caveat): because the witness pushes happen at the very BOTTOM of the stack
-/// (before the redeem script runs), the proof a spender pushes lands UNDER all the baked inputs,
-/// not in the tag's expected `proof` slot. Making the proof witness-supplied therefore requires the
-/// spend satisfier to be ordered so the proof ends up between `n` and `VK` on the stack at the
-/// moment OpZkPrecompile runs. That spend-side stack choreography (and its TN12 e2e) is Stage 4.
-/// This builder freezes the LOCK-side byte layout and the baked-vs-witness split; the Stage-3
-/// on-chain proof uses the all-baked `redeem_zk_precompile_verify_core` (no witness) to verify the
-/// opcode end to end on TN12 independent of a real game seal.
+/// WHY the two alt-stack ops (the Stage-4 stack choreography, now resolved): a P2SH witness lands at
+/// the very BOTTOM of the main stack (the signature_script runs before the redeem). The opcode wants
+/// the proof BETWEEN the baked `n` and the baked `VK`. So the winner-branch witness pushes (bottom ->
+/// top) `[winner_sig, proof, OP_TRUE]`; OP_IF pops the TRUE, OpToAltStack lifts the `proof` off the
+/// top onto the alt stack (leaving `winner_sig` inert at the bottom), the baked `in4..in0` + `n` are
+/// pushed, OpFromAltStack restores `proof` on top (now `in4..in0, n, proof`), then the baked `VK` +
+/// tag complete the exact ABI stack the opcode pops. After the verify + OP_DROP, the baked
+/// `winner_pubkey` is pushed and OpCheckSig consumes `[winner_pubkey, winner_sig]`. The inputs + VK +
+/// winner stay BAKED (a spender cannot swap them, so the proof is bound to THIS game + THIS payee);
+/// only the proof is witness-supplied. The all-baked `redeem_zk_precompile_verify_core` (no witness,
+/// no alt-stack ops) is the Stage-3 verify-only core; THIS is the spendable settlement form.
 pub fn redeem_zk_game_settle(
     vk: &[u8],
     public_inputs: &[[u8; 32]],
@@ -758,16 +833,21 @@ pub fn redeem_zk_game_settle(
     }
     let mut r: Vec<u8> = Vec::new();
     r.push(OpIf);
-    // Baked inputs in REVERSE order (in0 nearest top), then n. (Proof is witness-supplied.)
+    // Stash the witness-supplied proof (it sits on top after OP_IF pops the selector) onto the alt
+    // stack, so the baked inputs can be pushed UNDER where the proof must land.
+    r.push(OP_TO_ALT_STACK);
+    // Baked inputs in REVERSE order (in0 nearest top), then n.
     for fr in public_inputs.iter().rev() {
         push_data_raw(&mut r, fr)?;
     }
     push_data1(&mut r, public_inputs.len() as u8);
+    // Restore the proof on top: stack is now in4..in0, n, proof (the opcode's expected layout).
+    r.push(OP_FROM_ALT_STACK);
     // Baked VK (ends on top under the tag at opcode time).
     push_data_raw(&mut r, vk)?;
     push_data1(&mut r, ZK_TAG_GROTH16);
     r.push(OP_ZK_PRECOMPILE); // verify-style: aborts on fail, pushes TRUE on success.
-    r.push(0x75); // OpDrop: consume the TRUE the opcode pushed.
+    r.push(OP_DROP_BYTE); // OpDrop: consume the TRUE the opcode pushed.
     push_data_raw(&mut r, winner_pubkey)?;
     r.push(OpCheckSig);
     r.push(OpElse);
@@ -781,6 +861,52 @@ pub fn redeem_zk_game_settle(
     r.push(OpCheckSig);
     r.push(OpEndIf);
     Ok(r)
+}
+
+/// Build the input `idx` signature_script (witness) for a ZkGameSettle **WINNER-branch** spend, in
+/// the exact byte order the redeem's stack choreography needs. The non-custodial flow: the WINNER
+/// signs the prepared sighash in their own wallet (the server never signs), and the Groth16 `proof`
+/// comes from the winner's RISC0->Groth16 receipt (via `covex-games-onchain`). The satisfier is, in
+/// stack bottom -> top order:
+///   1. `<winner_sig>`  - OpData65 push (64-byte BIP340 sig + SIG_HASH_ALL byte). Sits inert at the
+///      bottom until the trailing OpCheckSig consumes it.
+///   2. `<proof>`       - the ark-compressed Groth16 proof. OpToAltStack lifts THIS first.
+///   3. `OP_TRUE`       - the OP_IF selector (takes the winner branch).
+/// The VK + the 5 public inputs + the winner pubkey are BAKED in the redeem, not here, so a spender
+/// cannot substitute them.
+pub fn build_zk_game_settle_winner_satisfier(
+    winner_sig: &[u8; 64],
+    proof: &[u8],
+    redeem: &[u8],
+) -> BResult<Vec<u8>> {
+    if proof.is_empty() {
+        return Err("zk_game_settle winner spend: empty proof".into());
+    }
+    let mut satisfier: Vec<u8> = Vec::new();
+    // 1. winner signature (bottom; consumed by the trailing OpCheckSig).
+    satisfier.extend(push65(winner_sig));
+    // 2. the Groth16 proof (OpToAltStack stashes it, OpFromAltStack restores it into the ABI slot).
+    push_data_raw(&mut satisfier, proof)?;
+    // 3. OP_TRUE selects the winner (IF) branch.
+    satisfier.push(OpTrue);
+    kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
+        .map_err(|e| format!("zk_game_settle winner signature script: {e}"))
+}
+
+/// Build the input `idx` signature_script (witness) for a ZkGameSettle **CSV REFUND-branch** spend.
+/// The funder reclaims the pot once the UTXO has aged `min_sequence` units (the spending input's
+/// sequence must encode a relative lock >= min_sequence, BIP68, set by the caller - NOT here). No
+/// proof, no VK: the refund branch is a plain `<min_sequence> OpCheckSequenceVerify <refund>
+/// OpCheckSig`. Satisfier bottom -> top: `[refund_sig, OP_FALSE]` (OP_FALSE selects the ELSE branch).
+pub fn build_zk_game_settle_refund_satisfier(
+    refund_sig: &[u8; 64],
+    redeem: &[u8],
+) -> BResult<Vec<u8>> {
+    let mut satisfier: Vec<u8> = Vec::new();
+    satisfier.extend(push65(refund_sig));
+    satisfier.push(OpFalse); // select the ELSE (refund) branch.
+    kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
+        .map_err(|e| format!("zk_game_settle refund signature script: {e}"))
 }
 
 /// Stage-3 deploy gate for the ZK on-chain kind. The kind is OFF by default: it deploys only when
@@ -1535,6 +1661,49 @@ fn push65(sig: &[u8; 64]) -> Vec<u8> {
         .collect()
 }
 
+/// Parse the WINNER + REFUND x-only keys from a `zk_game_settle` redeem by structure (not the
+/// generic heuristic, which could mis-align inside the long baked VK bytes). The script ends, in
+/// order, with: `0xa6 OpDrop <0x20 winner_32> OpCheckSig OP_ELSE <min_seq> OpCheckSequenceVerify
+/// <0x20 refund_32> OpCheckSig OP_ENDIF`. So the WINNER key is the 32-byte push right after
+/// `OpDrop` (0x75) that follows the `0xa6` opcode, and the REFUND key is the 32-byte push right
+/// before the final `OpCheckSig`/`OP_ENDIF`. Returns `[winner, refund]` or `None` if the shape does
+/// not match. Used so prepare-spend surfaces the right signer to the wallet for each branch.
+fn parse_zk_game_settle_keys(redeem: &[u8]) -> Option<([u8; 32], [u8; 32])> {
+    // Winner: find the `0xa6 0x75` (OpZkPrecompile, OpDrop) marker, then a 0x20 push.
+    let mut winner: Option<[u8; 32]> = None;
+    let mut i = 0usize;
+    while i + 1 < redeem.len() {
+        if redeem[i] == OP_ZK_PRECOMPILE && redeem[i + 1] == OP_DROP_BYTE {
+            let p = i + 2;
+            if p + 33 <= redeem.len() && redeem[p] == 0x20 && redeem.get(p + 33) == Some(&OpCheckSig)
+            {
+                let mut w = [0u8; 32];
+                w.copy_from_slice(&redeem[p + 1..p + 33]);
+                winner = Some(w);
+            }
+            break;
+        }
+        i += 1;
+    }
+    // Refund: the LAST `0x20 <32> OpCheckSig` in the script (the ELSE branch's CheckSig).
+    let mut refund: Option<[u8; 32]> = None;
+    let mut j = 0usize;
+    while j + 34 <= redeem.len() {
+        if redeem[j] == 0x20 && redeem[j + 33] == OpCheckSig {
+            let mut r = [0u8; 32];
+            r.copy_from_slice(&redeem[j + 1..j + 33]);
+            refund = Some(r); // keep overwriting -> ends on the last (refund) CheckSig key.
+            j += 34;
+            continue;
+        }
+        j += 1;
+    }
+    match (winner, refund) {
+        (Some(w), Some(r)) => Some((w, r)),
+        _ => None,
+    }
+}
+
 /// Assemble the input signature_script for a multi-party P2SH spend from EXTERNALLY
 /// produced BIP340 signatures (the non-custodial path: each signature was made in a user's
 /// wallet over the prepared sighash; no key ever touches the server). The byte layout is
@@ -2022,6 +2191,20 @@ pub struct RedeemSpec {
     /// resolver cannot strand the funds.
     #[serde(default)]
     pub oracle_pubkey_hex: Option<String>,
+    /// zk_game_settle only: the ark-compressed BN254 `VerifyingKey` hex (from
+    /// `covex-games-onchain::verifying_key_compressed`). Baked into the lock script.
+    #[serde(default)]
+    pub vk_hex: Option<String>,
+    /// zk_game_settle only: the 5 baked Groth16 public inputs, each a 32-byte LITTLE-ENDIAN `Fr`
+    /// hex, in ABI order (a0, a1, c0, c1, id). These fold the RISC0 claim digest, which binds the
+    /// journal (covenant_id + winner) to THIS pot - so they are baked, never witness-supplied.
+    #[serde(default)]
+    pub public_inputs_hex: Option<Vec<String>>,
+    /// zk_game_settle only: the WINNER's x-only pubkey (the journal-bound payee). Baked; only this
+    /// key's signature can spend the winner branch. refund_pubkey_hex (above) is the CSV refund key,
+    /// and lock_daa (above) is reused as the CSV refund min_sequence.
+    #[serde(default)]
+    pub winner_pubkey_hex: Option<String>,
 }
 
 /// The two testnet dev-wallet secret keys for a network (used as default multisig
@@ -2435,8 +2618,62 @@ pub async fn p2sh_deploy_handler(
             };
             RedeemKind::BinaryOracleSelect { h_a, winner_a, h_b, winner_b, min_sequence, refund }
         }
+        "zk_game_settle" => {
+            // On-chain ZK game settlement (KIP-16 OpZkPrecompile, tag 0x20). GATED: off by default
+            // (KASPA_ZK_PRECOMPILE_ENABLED) and rejected on mainnet (Toccata not live there yet).
+            if let Err(e) = zk_precompile_deploy_allowed(&req.network) {
+                return err(e);
+            }
+            // Baked VK (ark-compressed BN254 VerifyingKey).
+            let vk = match &req.redeem.vk_hex {
+                Some(h) => match hex::decode(h.trim()) {
+                    Ok(b) if !b.is_empty() => b,
+                    Ok(_) => return err("zk_game_settle: vk_hex is empty".into()),
+                    Err(e) => return err(format!("zk_game_settle: bad vk_hex: {e}")),
+                },
+                None => return err("zk_game_settle requires vk_hex (ark-compressed BN254 VerifyingKey)".into()),
+            };
+            // Baked 5 public inputs (32-byte LE Fr each, ABI order a0,a1,c0,c1,id).
+            let inputs_hex = match &req.redeem.public_inputs_hex {
+                Some(v) => v,
+                None => return err("zk_game_settle requires public_inputs_hex (5 x 32-byte LE Fr)".into()),
+            };
+            if inputs_hex.len() != N_ZK_PUBLIC_INPUTS {
+                return err(format!(
+                    "zk_game_settle: expected {N_ZK_PUBLIC_INPUTS} public_inputs_hex, got {}",
+                    inputs_hex.len()
+                ));
+            }
+            let mut public_inputs: Vec<[u8; 32]> = Vec::with_capacity(N_ZK_PUBLIC_INPUTS);
+            for (i, h) in inputs_hex.iter().enumerate() {
+                match hex::decode(h.trim()) {
+                    Ok(b) if b.len() == 32 => {
+                        let mut a = [0u8; 32];
+                        a.copy_from_slice(&b);
+                        public_inputs.push(a);
+                    }
+                    Ok(_) => return err(format!("zk_game_settle: public_inputs_hex[{i}] must be 32 bytes (64 hex chars)")),
+                    Err(e) => return err(format!("zk_game_settle: bad public_inputs_hex[{i}]: {e}")),
+                }
+            }
+            // Baked winner x-only pubkey (the journal-bound payee).
+            let winner_pubkey = match &req.redeem.winner_pubkey_hex {
+                Some(h) => match decode_xonly_hex(h) { Ok(x) => x, Err(e) => return err(e) },
+                None => return err("zk_game_settle requires winner_pubkey_hex (the payee x-only key)".into()),
+            };
+            // CSV refund key (funder reclaim) - defaults to the deployer; min_sequence from lock_daa.
+            let refund = match &req.redeem.refund_pubkey_hex {
+                Some(h) => match decode_xonly_hex(h) { Ok(x) => x, Err(e) => return err(e) },
+                None => xonly,
+            };
+            let min_sequence = match req.redeem.lock_daa {
+                Some(d) => d,
+                None => return err("zk_game_settle requires lock_daa (the CSV refund min_sequence)".into()),
+            };
+            RedeemKind::ZkGameSettle { vk, public_inputs, winner_pubkey, min_sequence, refund }
+        }
         other => return err(format!(
-            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel|deadman|relative_timelock|timedecay|binary_oracle_select)"
+            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel|deadman|relative_timelock|timedecay|binary_oracle_select|zk_game_settle)"
         )),
     };
 
@@ -2770,6 +3007,14 @@ pub async fn p2sh_spend_handler(
         Ok(b) => b,
         Err(e) => return err(format!("corrupt redeem script: {e}")),
     };
+    // zk_game_settle is NON-CUSTODIAL only: the winner branch needs a Groth16 proof in the witness
+    // and the alt-stack stack choreography, which the custodial single-key path does not build, and
+    // the winner signs in their own wallet. Route it to the prepare-spend / submit-signed flow.
+    if cov.redeem_kind.starts_with("zk_game_settle") {
+        return err(
+            "zk_game_settle is non-custodial: use /covenant/p2sh/prepare-spend then /covenant/p2sh/submit-signed (the winner signs in their wallet and supplies the Groth16 proof_hex). The custodial /spend path does not assemble the on-chain ZK witness.".into(),
+        );
+    }
     // Redeem-kind dispatch: multisig (N keys), timelock (single owner key + lock_time),
     // singlesig/hashlock (single owner key).
     let is_multisig = cov.redeem_kind.starts_with("multisig");
@@ -4441,6 +4686,7 @@ pub async fn prepare_spend_handler(
             | "deadman"
             | "rcsv"
             | "binary_oracle_select"
+            | "zk_game_settle"
     ) {
         return err(format!(
             "non-custodial wallet signing does not support '{redeem_kind}'"
@@ -4468,17 +4714,33 @@ pub async fn prepare_spend_handler(
         .strip_prefix("binary_oracle_select:")
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(0);
+    // zk_game_settle:{min_sequence} - the refund (ELSE) branch is a CSV relative timelock, like
+    // binary_oracle_select. The winner (IF) branch carries no timelock.
+    let zk_min_seq: u64 = redeem_kind
+        .strip_prefix("zk_game_settle:")
+        .and_then(|s| s.parse::<u64>().ok())
+        .unwrap_or(0);
     // Branch selection (committed in the sighash via lock_time / sequence): HTLC claim(default)/
     // refund, channel close(default)/refund, deadman owner(default)/heir, binary_oracle_select
-    // reveal_a(default)/reveal_b/refund.
+    // reveal_a(default)/reveal_b/refund, zk_game_settle winner(default)/refund.
     let branch = req.branch.as_deref().unwrap_or("").to_lowercase();
+    // zk_game_settle accepts only "winner" (default) or "refund"; reject a typo'd branch.
+    if kind_base == "zk_game_settle"
+        && !branch.is_empty()
+        && !matches!(branch.as_str(), "winner" | "refund")
+    {
+        return err(format!(
+            "unknown zk_game_settle branch '{branch}' (expected winner or refund)"
+        ));
+    }
     // The "refund/ELSE" timeout branch: HTLC/channel refund, the dead-man's heir branch
-    // (requested as "heir" or "refund"), or the binary_oracle_select CSV refund. (The HTLC/
-    // channel/deadman variants are CLTV and set lock_time below; the bos variant is CSV and
-    // sets the input sequence instead.)
+    // (requested as "heir" or "refund"), the binary_oracle_select CSV refund, or the
+    // zk_game_settle CSV refund. (The HTLC/channel/deadman variants are CLTV and set lock_time
+    // below; the bos + zk variants are CSV and set the input sequence instead.)
     let branch_refund = (matches!(kind_base.as_str(), "htlc" | "channel") && branch == "refund")
         || (kind_base == "deadman" && (branch == "heir" || branch == "refund"))
-        || (kind_base == "binary_oracle_select" && branch == "refund");
+        || (kind_base == "binary_oracle_select" && branch == "refund")
+        || (kind_base == "zk_game_settle" && branch == "refund");
     // For binary_oracle_select reveal branches: outcome A (the IF branch, default) vs outcome B.
     // Carried into the session so submit-signed reproduces the exact branch selector. Refund
     // ignores it. The default (reveal_a / true) matches the custodial select_mode default.
@@ -4526,9 +4788,27 @@ pub async fn prepare_spend_handler(
     } else {
         None
     };
+    // zk_game_settle: parse the [winner, refund] keys BY STRUCTURE (the generic heuristic could
+    // mis-align inside the long baked VK bytes). The winner branch signer is the winner key; the
+    // refund branch signer is the refund key. The trailing-pubkey heuristic below would always
+    // return the refund key (the script ends with the refund CheckSig), so name the right one here.
+    let zk_named_xonly: Option<String> = if kind_base == "zk_game_settle" {
+        match parse_zk_game_settle_keys(&redeem) {
+            Some((winner, refund)) => {
+                Some(hex::encode(if branch_refund { refund } else { winner }))
+            }
+            None => {
+                return err("zk_game_settle redeem is malformed (cannot parse the winner/refund keys)".into())
+            }
+        }
+    } else {
+        None
+    };
     // The single-signer kinds end with `<0x20><pubkey32> OpCheckSig`; surface that as the
     // signer the wallet must use (multi-party kinds report required_signers instead).
     let signer_xonly = if let Some(x) = bos_named_xonly.clone() {
+        x
+    } else if let Some(x) = zk_named_xonly.clone() {
         x
     } else if redeem.len() >= 34
         && redeem[redeem.len() - 1] == 0xac
@@ -4570,6 +4850,12 @@ pub async fn prepare_spend_handler(
             let role = if branch_refund { "refund (after timelock)" } else if bos_winner_is_a { "winner (outcome A)" } else { "winner (outcome B)" };
             if signer_xonly.is_empty() { vec![] } else { vec![serde_json::json!({ "role": role, "xonly": signer_xonly.clone() })] }
         }
+        "zk_game_settle" => {
+            // One named key spends the chosen branch: the WINNER (IF, proves the game on-chain) or
+            // the REFUND key (ELSE, after the CSV delay). signer_xonly already carries the right one.
+            let role = if branch_refund { "refund (after timelock)" } else { "winner (proves the game)" };
+            if signer_xonly.is_empty() { vec![] } else { vec![serde_json::json!({ "role": role, "xonly": signer_xonly.clone() })] }
+        }
         _ => if signer_xonly.is_empty() { vec![] } else { vec![serde_json::json!({ "role": "signer", "xonly": signer_xonly.clone() })] },
     };
 
@@ -4609,10 +4895,13 @@ pub async fn prepare_spend_handler(
     // Mirrors the custodial /spend handler exactly so the same sighash is produced.
     let sig_op_count: u8 = SpendKind::parse(&redeem_kind).map_or(1, |k| k.sig_op_count());
     // Relative-timelock (CSV) spends commit the aging requirement in the INPUT SEQUENCE (BIP68),
-    // not lock_time: an rcsv covenant always, and a binary_oracle_select REFUND only. Every other
-    // spend uses 0 (non-final). Mirrors the custodial /spend handler so the sighash matches.
+    // not lock_time: an rcsv covenant always, a binary_oracle_select REFUND, and a zk_game_settle
+    // REFUND. Every other spend uses 0 (non-final). Mirrors the custodial /spend handler so the
+    // sighash matches.
     let spend_sequence: u64 = if kind_base == "binary_oracle_select" && branch_refund {
         bos_min_seq
+    } else if kind_base == "zk_game_settle" && branch_refund {
+        zk_min_seq
     } else {
         rcsv_min_seq
     };
@@ -4699,6 +4988,9 @@ pub async fn prepare_spend_handler(
     let needs_preimage = kind_base == "hashlock"
         || (kind_base == "htlc" && !branch_refund)
         || (kind_base == "binary_oracle_select" && !branch_refund);
+    // The zk_game_settle WINNER branch must also supply the Groth16 proof (proof_hex) in
+    // submit-signed; the refund branch needs no proof.
+    let needs_proof = kind_base == "zk_game_settle" && !branch_refund;
     let is_multi = matches!(kind_base.as_str(), "multisig" | "channel")
         && !(kind_base == "channel" && branch_refund);
     Json(serde_json::json!({
@@ -4708,12 +5000,13 @@ pub async fn prepare_spend_handler(
         "sign_scheme": "bip340-schnorr-secp256k1",
         "signer_xonly": signer_xonly,
         "required_signers": required_signers,
-        "branch": if matches!(kind_base.as_str(), "htlc" | "channel") { Some(if branch_refund { "refund" } else if kind_base == "htlc" { "claim" } else { "close" }) } else if kind_base == "deadman" { Some(if branch_refund { "heir" } else { "owner" }) } else if kind_base == "binary_oracle_select" { Some(if branch_refund { "refund" } else if bos_winner_is_a { "reveal_a" } else { "reveal_b" }) } else { None },
+        "branch": if matches!(kind_base.as_str(), "htlc" | "channel") { Some(if branch_refund { "refund" } else if kind_base == "htlc" { "claim" } else { "close" }) } else if kind_base == "deadman" { Some(if branch_refund { "heir" } else { "owner" }) } else if kind_base == "binary_oracle_select" { Some(if branch_refund { "refund" } else if bos_winner_is_a { "reveal_a" } else { "reveal_b" }) } else if kind_base == "zk_game_settle" { Some(if branch_refund { "refund" } else { "winner" }) } else { None },
         "p2sh_address": p2sh_address,
         "amount_sompi": amount,
         "destination": req.destination_addr,
         "redeem_kind": redeem_kind,
         "needs_preimage": needs_preimage,
+        "needs_proof": needs_proof,
         // CLIENT-SIDE VERIFY (trust-audit item #1): the exact buildUnsignedSpend params so the
         // wallet can rebuild THIS tx, assert it pays destination_addr the derived amount and
         // nothing else, recompute the sighash locally, and REFUSE to sign on any mismatch -
@@ -4772,6 +5065,12 @@ pub struct WalletSubmitRequest {
     /// Not a server secret (it is revealed on-chain by the spend anyway).
     #[serde(default)]
     pub preimage_hex: Option<String>,
+    /// For a zk_game_settle WINNER spend: the ark-compressed Groth16 proof hex (from the winner's
+    /// RISC0->Groth16 receipt, via `covex-games-onchain`). Pushed into the winner-branch witness so
+    /// the on-chain OpZkPrecompile verifies it. Not a secret (it is revealed on-chain). The refund
+    /// branch needs no proof.
+    #[serde(default)]
+    pub proof_hex: Option<String>,
 }
 
 /// POST /covenant/p2sh/submit-signed - assemble the wallet signature(s) into the satisfier
@@ -4836,26 +5135,68 @@ pub async fn submit_signed_handler(
         Some(b) => Some(b),
         None => None,
     };
-    // Assemble the satisfier from the externally-produced signature(s). Byte-identical to
-    // the custodial build_* satisfiers; only the signatures' provenance differs (wallet,
-    // not server).
-    let sig_script = match assemble_noncustodial_satisfier(
-        &kind_base,
-        pending.branch_refund,
-        &pending.redeem,
-        &pending.member_pubkeys,
-        &sigs,
-        solo.as_ref(),
-        preimage.as_deref(),
-        // The plain primitives (incl. binary_oracle_select) carry NO oracle signature - no Covex
-        // key is ever in this path. winner_is_a was fixed at prepare time (the branch selector the
-        // sighash committed to) and is meaningful only for binary_oracle_select reveal branches;
-        // every other kind ignores it (and defaults to true).
-        None,
-        pending.winner_is_a,
-    ) {
-        Ok(s) => s,
-        Err(e) => return err(e),
+    // zk_game_settle takes a different witness shape (proof, not preimage; alt-stack choreography),
+    // so it is assembled by its own builders rather than the generic satisfier. The WINNER branch
+    // needs the winner's signature + the Groth16 proof; the REFUND branch needs only the refund sig.
+    // No Covex key is in either path: the active player signs in their wallet; the server signs nothing.
+    let sig_script = if kind_base == "zk_game_settle" {
+        let signer_sig = match solo.as_ref() {
+            Some(s) => s,
+            None => {
+                return err(
+                    "zk_game_settle spend needs the branch key's signature (signature_hex)".into(),
+                )
+            }
+        };
+        if pending.branch_refund {
+            match build_zk_game_settle_refund_satisfier(signer_sig, &pending.redeem) {
+                Ok(s) => s,
+                Err(e) => return err(e),
+            }
+        } else {
+            let proof = match req
+                .proof_hex
+                .as_deref()
+                .map(|p| p.trim())
+                .filter(|p| !p.is_empty())
+            {
+                Some(h) => match hex::decode(h) {
+                    Ok(b) => b,
+                    Err(e) => return err(format!("zk_game_settle winner spend: bad proof_hex: {e}")),
+                },
+                None => {
+                    return err(
+                        "zk_game_settle winner spend requires proof_hex (the Groth16 proof)".into(),
+                    )
+                }
+            };
+            match build_zk_game_settle_winner_satisfier(signer_sig, &proof, &pending.redeem) {
+                Ok(s) => s,
+                Err(e) => return err(e),
+            }
+        }
+    } else {
+        // Assemble the satisfier from the externally-produced signature(s). Byte-identical to
+        // the custodial build_* satisfiers; only the signatures' provenance differs (wallet,
+        // not server).
+        match assemble_noncustodial_satisfier(
+            &kind_base,
+            pending.branch_refund,
+            &pending.redeem,
+            &pending.member_pubkeys,
+            &sigs,
+            solo.as_ref(),
+            preimage.as_deref(),
+            // The plain primitives (incl. binary_oracle_select) carry NO oracle signature - no Covex
+            // key is ever in this path. winner_is_a was fixed at prepare time (the branch selector the
+            // sighash committed to) and is meaningful only for binary_oracle_select reveal branches;
+            // every other kind ignores it (and defaults to true).
+            None,
+            pending.winner_is_a,
+        ) {
+            Ok(s) => s,
+            Err(e) => return err(e),
+        }
     };
     let mut signable =
         SignableTransaction::with_entries(pending.unsigned_tx.clone(), vec![pending.entry.clone()]);
@@ -9825,6 +10166,15 @@ mod tests {
             "refund branch must use OpCheckSequenceVerify (CSV)"
         );
         assert!(s[after + 34..].windows(32).any(|w| w == refund), "refund key must be present");
+
+        // The witness-proof choreography: OpToAltStack (0x6b) must immediately follow OP_IF, and
+        // OpFromAltStack (0x6c) must appear before the tag/opcode so the proof lands in its slot.
+        assert_eq!(s[1], OP_TO_ALT_STACK, "OpToAltStack (0x6b) must immediately follow OP_IF");
+        let from_alt = s.iter().position(|&b| b == OP_FROM_ALT_STACK).expect("OpFromAltStack present");
+        let tag_at = s.windows(2).position(|w| w == [ZK_TAG_GROTH16, OP_ZK_PRECOMPILE]).unwrap();
+        assert!(from_alt < tag_at, "OpFromAltStack must precede the tag/0xa6 (restore proof first)");
+        // OpFromAltStack must sit AFTER the n push (the inputs are baked under the restored proof).
+        assert!(s[..from_alt].windows(2).any(|w| w == [0x01, 0x05]), "n=5 push must precede OpFromAltStack");
     }
 
     #[test]
@@ -9835,6 +10185,91 @@ mod tests {
             redeem_zk_game_settle(&vk, &four, &[0u8; 32], 1, &[0u8; 32]).is_err(),
             "must require exactly 5 public inputs (RISC0 schema)"
         );
+    }
+
+    /// DEPLOY determinism (Stage 4 item 1): the same ZkGameSettle params must build the SAME redeem
+    /// script and the SAME P2SH address every time, the redeem must embed NO Covex key (only the
+    /// baked VK + inputs + the supplied winner/refund x-only keys), and the kind string round-trips.
+    #[test]
+    fn zk_game_settle_deploy_is_deterministic_and_covex_free() {
+        let vk = vec![0xABu8; 200];
+        let inputs: Vec<[u8; 32]> = (0u8..5).map(|k| [0x30 + k; 32]).collect();
+        let winner = xonly_from_seckey(&test_keypair(21).secret_key().secret_bytes()).unwrap();
+        let refund = xonly_from_seckey(&test_keypair(22).secret_key().secret_bytes()).unwrap();
+        let kind = RedeemKind::ZkGameSettle {
+            vk: vk.clone(),
+            public_inputs: inputs.clone(),
+            winner_pubkey: winner,
+            min_sequence: 720,
+            refund,
+        };
+        // Deterministic redeem + p2sh address.
+        let r1 = kind.redeem_script().unwrap();
+        let r2 = kind.redeem_script().unwrap();
+        assert_eq!(r1, r2, "redeem must be deterministic");
+        let a1 = p2sh_address(&r1, Prefix::Testnet).unwrap().to_string();
+        let a2 = p2sh_address(&r2, Prefix::Testnet).unwrap().to_string();
+        assert_eq!(a1, a2, "p2sh address must be deterministic");
+        assert_eq!(kind.kind_str(), "zk_game_settle:720", "kind string carries the CSV min_sequence");
+        assert_eq!(kind.catalog_id(), "p2sh_zk_game_settle");
+        // No Covex oracle key anywhere in the redeem: the only x-only keys present are winner + refund.
+        let covex_oracle = crate::oracle::oracle_xonly_pubkey_bytes();
+        assert!(
+            !r1.windows(32).any(|w| w == covex_oracle),
+            "ZkGameSettle redeem must embed NO Covex oracle key (trustless: consensus verifies the proof)"
+        );
+        // The winner + refund keys ARE present (baked).
+        assert!(r1.windows(32).any(|w| w == winner), "baked winner key must be present");
+        assert!(r1.windows(32).any(|w| w == refund), "baked refund key must be present");
+        // The structural parser recovers them in the right roles.
+        let (pw, pr) = parse_zk_game_settle_keys(&r1).expect("parse winner/refund keys");
+        assert_eq!(pw, winner, "parser must recover the winner key");
+        assert_eq!(pr, refund, "parser must recover the refund key");
+    }
+
+    /// WINNER-branch witness byte order (Stage 4 item 2): the satisfier must be, bottom -> top,
+    /// `[winner_sig (push65), proof (push), OP_TRUE]`, then the P2SH redeem push. We strip the
+    /// pay_to_script_hash framing and assert the three witness items in order.
+    #[test]
+    fn zk_game_settle_winner_witness_byte_order() {
+        let vk = vec![0xCDu8; 200];
+        let inputs: Vec<[u8; 32]> = (0u8..5).map(|k| [0x40 + k; 32]).collect();
+        let winner = xonly_from_seckey(&test_keypair(31).secret_key().secret_bytes()).unwrap();
+        let refund = xonly_from_seckey(&test_keypair(32).secret_key().secret_bytes()).unwrap();
+        let redeem = redeem_zk_game_settle(&vk, &inputs, &winner, 10, &refund).unwrap();
+        let sig = [0xEEu8; 64];
+        let proof = vec![0xBBu8; 128];
+        let script = build_zk_game_settle_winner_satisfier(&sig, &proof, &redeem).unwrap();
+
+        // Walk the leading witness pushes (before the redeem-script push at the end).
+        // 1. winner_sig as OpData65: 0x41, 64 sig bytes, SIG_HASH_ALL (0x01).
+        assert_eq!(script[0], 65, "winner sig must be an OpData65 push");
+        assert_eq!(&script[1..65], &sig, "winner sig bytes");
+        assert_eq!(script[65], SIG_HASH_ALL.to_u8(), "sig hash type byte");
+        let (got_proof, after_proof) = read_push(&script, 66);
+        assert_eq!(got_proof, proof, "proof must be the second witness push");
+        // 3. OP_TRUE selector (the IF branch).
+        assert_eq!(script[after_proof], OpTrue, "the IF selector (OP_TRUE) must follow the proof");
+        // After the selector, the rest is the redeem-script push (pay_to_script_hash framing).
+        assert!(script.len() > after_proof + 1, "redeem script push must follow the witness");
+        // An empty proof is rejected.
+        assert!(build_zk_game_settle_winner_satisfier(&sig, &[], &redeem).is_err());
+    }
+
+    /// REFUND-branch witness byte order (Stage 4 item 2): `[refund_sig (push65), OP_FALSE]`.
+    #[test]
+    fn zk_game_settle_refund_witness_byte_order() {
+        let vk = vec![0x11u8; 200];
+        let inputs: Vec<[u8; 32]> = (0u8..5).map(|k| [0x50 + k; 32]).collect();
+        let winner = xonly_from_seckey(&test_keypair(41).secret_key().secret_bytes()).unwrap();
+        let refund = xonly_from_seckey(&test_keypair(42).secret_key().secret_bytes()).unwrap();
+        let redeem = redeem_zk_game_settle(&vk, &inputs, &winner, 10, &refund).unwrap();
+        let sig = [0xDDu8; 64];
+        let script = build_zk_game_settle_refund_satisfier(&sig, &redeem).unwrap();
+        assert_eq!(script[0], 65, "refund sig must be an OpData65 push");
+        assert_eq!(&script[1..65], &sig, "refund sig bytes");
+        assert_eq!(script[65], SIG_HASH_ALL.to_u8(), "sig hash type byte");
+        assert_eq!(script[66], OpFalse, "OP_FALSE selector (the ELSE refund branch) must follow the sig");
     }
 
     /// STAGE 3 DECISIVE on-chain proof (ignored by default; run on the Hetzner TN12 box with
@@ -10031,6 +10466,194 @@ mod tests {
         assert!(
             zk_precompile_deploy_allowed("testnet-12").is_err(),
             "must be fail-closed when the flag is unset (default off)"
+        );
+    }
+
+    /// The witness-proof verify-core builder + satisfier must layer the bytes so the proof lands in
+    /// the opcode's slot (in4..in0, n, proof, VK, tag): OpToAltStack first, OpFromAltStack after the n
+    /// push, and the witness pushes ONLY the proof. This is the local byte-layout gate for the
+    /// alt-stack reorder; the on-chain proof (that the opcode accepts the witness proof) is the
+    /// ignored TN12 e2e below.
+    #[test]
+    fn zk_verify_core_witness_proof_layout_and_satisfier() {
+        let vk = vec![0xA5u8; 200];
+        let inputs: Vec<[u8; 32]> = (0u8..5).map(|k| [0x60 + k; 32]).collect();
+        let redeem = redeem_zk_precompile_verify_core_witness_proof(&vk, &inputs).unwrap();
+        // Redeem starts with OpToAltStack and ends with the tag + 0xa6; OpFromAltStack sits between
+        // the n push and the VK push.
+        assert_eq!(redeem[0], OP_TO_ALT_STACK, "redeem must open with OpToAltStack (0x6b)");
+        assert_eq!(redeem[redeem.len() - 1], OP_ZK_PRECOMPILE, "redeem must end with 0xa6");
+        assert_eq!(redeem[redeem.len() - 3], 0x01, "tag must be an OpData1 push");
+        assert_eq!(redeem[redeem.len() - 2], ZK_TAG_GROTH16, "tag value 0x20");
+        let from_alt = redeem.iter().position(|&b| b == OP_FROM_ALT_STACK).expect("OpFromAltStack");
+        assert!(redeem[..from_alt].windows(2).any(|w| w == [0x01, 0x05]), "n=5 push before OpFromAltStack");
+        // The satisfier pushes only the proof (then the redeem-script push).
+        let proof = vec![0x9Cu8; 128];
+        let script = build_zk_verify_core_witness_proof_satisfier(&proof, &redeem).unwrap();
+        let (got, _) = read_push(&script, 0);
+        assert_eq!(got, proof, "the only leading witness push must be the proof");
+        assert!(build_zk_verify_core_witness_proof_satisfier(&[], &redeem).is_err(), "empty proof rejected");
+        // n must be exactly 5 (RISC0 schema).
+        assert!(redeem_zk_precompile_verify_core_witness_proof(&vk, &inputs[..4]).is_err());
+    }
+
+    /// STAGE 4 (alt-stack reorder) ON-CHAIN PROOF (ignored; run on the Hetzner TN12 box):
+    ///   `cargo test --release --bin covex27-backend zk_witness_proof_tn12 -- --ignored --nocapture`
+    /// Funds a P2SH whose redeem is the WITNESS-PROOF verify core (OpToAltStack/OpFromAltStack
+    /// reorder, no OpCheckSig), then spends it with the proof supplied in the WITNESS (not baked),
+    /// using the node's KNOWN-GOOD Groth16 vector. The node ACCEPTS iff the alt-stack choreography
+    /// landed the witness proof in the opcode's slot AND the proof verified. Then it forges the proof
+    /// (one flipped byte in the witness) and asserts the node REJECTS. This proves the Stage-4 stack
+    /// reorder end to end on-chain, independent of a real game seal. The FULL winner branch (with the
+    /// trailing winner OpCheckSig) additionally needs a real game seal whose journal names a winner
+    /// key we control - that is the remaining Stage-4 step, gated below.
+    #[tokio::test]
+    #[ignore]
+    async fn zk_witness_proof_tn12_known_good_accept_and_forged_reject() {
+        let key_hex = match std::env::var("COVEX_DEV_WALLET_1_KEY_TN12") {
+            Ok(v) if !v.trim().is_empty() => v.trim().trim_start_matches("0x").to_string(),
+            _ => {
+                eprintln!("SKIP: COVEX_DEV_WALLET_1_KEY_TN12 not set");
+                return;
+            }
+        };
+        let network = "testnet-12";
+        let sk: [u8; 32] = hex::decode(&key_hex).unwrap().try_into().expect("32-byte key");
+        let dev_addr = crate::dev_wallets::DEV_WALLET_1_ADDRESS_TN12;
+
+        // Node known-good Groth16 (tag 0x20) vector (docs/zk_precompile_abi.md).
+        let vk = hex::decode("e2f26dbea299f5223b646cb1fb33eadb059d9407559d7441dfd902e3a79a4d2dabb73dc17fbc13021e2471e0c08bd67d8401f52b73d6d07483794cad4778180e0c06f33bbc4c79a9cadef253a68084d382f17788f885c9afd176f7cb2f036789edf692d95cbdde46ddda5ef7d422436779445c5e66006a42761e1f12efde0018c212f3aeb785e49712e7a9353349aaf1255dfb31b7bf60723a480d9293938e1933033e7fea1f40604eaacf699d4be9aacc577054a0db22d9129a1728ff85a01a1c3af829b62bf4914c0bcf2c81a4bd577190eff5f194ee9bac95faefd53cb0030600000000000000e43bdc655d0f9d730535554d9caa611ddd152c081a06a932a8e1d5dc259aac123f42a188f683d869873ccc4c119442e57b056e03e2fa92f2028c97bc20b9078747c30f85444697fdf436e348711c011115963f855197243e4b39e6cbe236ca8ba7f2042e11f9255afbb6c6e2c3accb88e401f2aac21c097c92b3fbdb99f98a9b0dcd6c075ada6ed0ddfece1d4a2d005f61a7d5df0b75c18a5b2374d64e495fab93d4c4b1200394d5253cce2f25a59b862ee8e4cd43686603faa09d5d0d3c1c8f").unwrap();
+        let mut proof = hex::decode("570253c0c483a1b16460118e63c155f3684e784ae7d97e8fc3f544128b37fe15075eab5ac31150c8a44253d8525971241bbd7227fcefbae2db4ae71675c56a2e0eb9235136b15ab72f16e707832f3d6ae5b0ba7cca53ae17cb52b3201919eb9d908c16297abd90aa7e00267bc21a9a78116e717d4d76edd44e21cca17e3d592d").unwrap();
+        let fr = |h: &str| -> [u8; 32] { hex::decode(h).unwrap().try_into().unwrap() };
+        let inputs = [
+            fr("a54dc85ac99f851c92d7c96d7318af4100000000000000000000000000000000"),
+            fr("dbe7c0194edfcc37eb4d422a998c1f5600000000000000000000000000000000"),
+            fr("a95ac0b37bfedcd8136e6c1143086bf500000000000000000000000000000000"),
+            fr("d223ffcb21c6ffcb7c8f60392ca49dde00000000000000000000000000000000"),
+            fr("c07a65145c3cb48b6101962ea607a4dd93c753bb26975cb47feb00d3666e4404"),
+        ];
+
+        let stake: u64 = 5_000_000;
+        let spend_fee: u64 = 1_000_000;
+        let client = client_for_network(network).await.expect("rpc client");
+
+        // Re-use the same fund + await helpers as the verify-core e2e, inlined here for the witness form.
+        async fn fund(
+            client: &KaspaRpcClient, dev_sk: &[u8; 32], dev_addr: &str, redeem: &[u8], stake: u64,
+        ) -> kaspa_consensus_core::tx::TransactionId {
+            let p2sh_spk = p2sh_script_pubkey(redeem);
+            let addr = Address::try_from(dev_addr).unwrap();
+            let utxos = client.get_utxos_by_addresses(vec![addr]).await.unwrap();
+            let (selected, fee) = select_utxos_with_fee(&utxos, stake, 1, |u| u.utxo_entry.amount).unwrap();
+            let total: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
+            let dev_script = selected[0].utxo_entry.script_public_key.clone();
+            let change = total - stake - fee;
+            let mut outputs = vec![TransactionOutput { value: stake, script_public_key: p2sh_spk }];
+            if change >= 10_000 { outputs.push(TransactionOutput { value: change, script_public_key: dev_script }); }
+            let tx_inputs: Vec<TransactionInput> = selected.iter().map(|u| TransactionInput {
+                previous_outpoint: TransactionOutpoint { transaction_id: u.outpoint.transaction_id, index: u.outpoint.index },
+                signature_script: vec![], sequence: 0, sig_op_count: 1,
+            }).collect();
+            let mut payload = vec![0xaa, 0x20];
+            payload.extend_from_slice(&blake2b256(redeem));
+            payload.extend_from_slice(redeem);
+            let unsigned = Transaction::new_non_finalized(0, tx_inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, payload);
+            let entries: Vec<UtxoEntry> = selected.iter().map(|u| UtxoEntry {
+                amount: u.utxo_entry.amount, script_public_key: u.utxo_entry.script_public_key.clone(),
+                block_daa_score: u.utxo_entry.block_daa_score, is_coinbase: u.utxo_entry.is_coinbase,
+            }).collect();
+            let signable = SignableTransaction::with_entries(unsigned, entries);
+            let mut signed = sign_with_multiple_v2(signable, &[*dev_sk]).fully_signed().unwrap();
+            signed.tx.finalize();
+            client.submit_transaction(RpcTransaction::from(&signed.tx), false).await.unwrap()
+        }
+        async fn await_utxo2(client: &KaspaRpcClient, redeem: &[u8], deploy: &kaspa_consensus_core::tx::TransactionId) -> (u64, u64, bool) {
+            let addr = p2sh_address(redeem, Prefix::Testnet).unwrap();
+            for _ in 0..60 {
+                let utxos = client.get_utxos_by_addresses(vec![addr.clone()]).await.unwrap();
+                if let Some(u) = utxos.iter().find(|u| &u.outpoint.transaction_id == deploy && u.outpoint.index == 0) {
+                    return (u.utxo_entry.amount, u.utxo_entry.block_daa_score, u.utxo_entry.is_coinbase);
+                }
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+            panic!("witness-proof P2SH UTXO never appeared for {deploy}");
+        }
+        // Spend with the proof in the WITNESS (alt-stack reorder; no signature).
+        async fn try_spend_witness(
+            client: &KaspaRpcClient, redeem: &[u8], proof: &[u8], deploy: kaspa_consensus_core::tx::TransactionId,
+            amount: u64, daa: u64, is_cb: bool, dev_addr: &str, fee: u64,
+        ) -> Result<kaspa_consensus_core::tx::TransactionId, String> {
+            let p2sh_spk = p2sh_script_pubkey(redeem);
+            let dest = script_pub_key_from_address(dev_addr).unwrap();
+            let inputs = vec![TransactionInput {
+                previous_outpoint: TransactionOutpoint { transaction_id: deploy, index: 0 },
+                signature_script: vec![], sequence: 0, sig_op_count: 0, // verify-core has no OpCheckSig
+            }];
+            let outputs = vec![TransactionOutput { value: amount - fee, script_public_key: dest }];
+            let unsigned = Transaction::new_non_finalized(0, inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, b"covex-zk-witness-spend".to_vec());
+            let entries = vec![UtxoEntry { amount, script_public_key: p2sh_spk, block_daa_score: daa, is_coinbase: is_cb }];
+            let mut signable = SignableTransaction::with_entries(unsigned, entries);
+            let sig_script = build_zk_verify_core_witness_proof_satisfier(proof, redeem).map_err(|e| e)?;
+            signable.tx.inputs[0].signature_script = sig_script;
+            signable.tx.finalize();
+            client.submit_transaction(RpcTransaction::from(&signable.tx), false).await.map_err(|e| format!("{e}"))
+        }
+
+        // (a) KNOWN-GOOD witness proof -> ACCEPT.
+        let redeem = redeem_zk_precompile_verify_core_witness_proof(&vk, &inputs).unwrap();
+        let deploy_good = fund(&client, &sk, dev_addr, &redeem, stake).await;
+        eprintln!("WITNESS-GOOD deploy_tx = {deploy_good}");
+        let (amt, daa, cb) = await_utxo2(&client, &redeem, &deploy_good).await;
+        let spend_good = try_spend_witness(&client, &redeem, &proof, deploy_good, amt, daa, cb, dev_addr, spend_fee).await;
+        eprintln!("WITNESS-GOOD spend = {spend_good:?}");
+        let good_id = spend_good.expect("witness-supplied known-good proof MUST be accepted (alt-stack reorder works)");
+        eprintln!("ACCEPT: alt-stack witness proof verified on-chain, spend_tx = {good_id}");
+
+        // (b) FORGED witness proof (flip one byte) -> REJECT.
+        proof[0] ^= 0x01;
+        // Same redeem (VK + inputs baked); only the witness proof differs.
+        let deploy_bad = fund(&client, &sk, dev_addr, &redeem, stake).await;
+        eprintln!("WITNESS-FORGED deploy_tx = {deploy_bad}");
+        let (amt2, daa2, cb2) = await_utxo2(&client, &redeem, &deploy_bad).await;
+        let spend_bad = try_spend_witness(&client, &redeem, &proof, deploy_bad, amt2, daa2, cb2, dev_addr, spend_fee).await;
+        eprintln!("WITNESS-FORGED spend = {spend_bad:?}");
+        assert!(spend_bad.is_err(), "a FORGED witness proof MUST be rejected by consensus: {spend_bad:?}");
+        eprintln!("REJECT: forged witness proof rejected on-chain: {}", spend_bad.unwrap_err());
+    }
+
+    /// STAGE 4 FULL WINNER-BRANCH SETTLEMENT (ignored; AWAITING THE REAL GAME SEAL):
+    ///   `cargo test --release --bin covex27-backend zk_game_settle_winner_tn12 -- --ignored --nocapture`
+    /// This is the decisive full-game settlement: deploy a real 2-player ZkGameSettle pot, then spend
+    /// the WINNER branch with (1) the winner's signature over the spend sighash AND (2) a real
+    /// RISC0->Groth16 proof whose journal names that winner + this pot's covenant_id, assembled by
+    /// `build_zk_game_settle_winner_satisfier`. It is BLOCKED until a real seal exists: a real proof
+    /// needs the Docker stark2snark wrap (the 7GB server cannot), and the proof's baked public inputs
+    /// must be derived from THAT receipt via `covex-games-onchain::game_settle_spend_from_receipt`.
+    /// Until then the body asserts only the local invariants it CAN (the witness assembles and the
+    /// deploy redeem is well-formed) and returns, so the test name documents the remaining work
+    /// without pretending to a live settlement that has not happened.
+    #[tokio::test]
+    #[ignore]
+    async fn zk_game_settle_winner_tn12_full_settlement_awaiting_seal() {
+        // What we CAN prove without the seal: the deploy redeem + the winner satisfier are
+        // byte-well-formed for arbitrary (placeholder) VK/inputs/proof. The REAL run swaps the
+        // placeholder vk/inputs/proof for a receipt's material and adds a real winner signature +
+        // on-chain submit (accept), plus a forged-proof submit (reject) and a too-early CSV refund
+        // (reject). Those four on-chain assertions are the Stage-4 acceptance gate.
+        let vk = vec![0x01u8; 200]; // placeholder; the real run uses covex-games-onchain's VK.
+        let inputs: Vec<[u8; 32]> = (0u8..5).map(|k| [0x70 + k; 32]).collect(); // placeholder inputs.
+        let winner = xonly_from_seckey(&test_keypair(51).secret_key().secret_bytes()).unwrap();
+        let refund = xonly_from_seckey(&test_keypair(52).secret_key().secret_bytes()).unwrap();
+        let redeem = redeem_zk_game_settle(&vk, &inputs, &winner, 720, &refund).unwrap();
+        assert_eq!(p2sh_address(&redeem, Prefix::Testnet).unwrap().to_string().is_empty(), false);
+        let sig = [0x22u8; 64];
+        let proof = vec![0xBBu8; 128]; // placeholder; the real run uses the receipt's proof.
+        let _winner_witness = build_zk_game_settle_winner_satisfier(&sig, &proof, &redeem).unwrap();
+        let _refund_witness = build_zk_game_settle_refund_satisfier(&sig, &redeem).unwrap();
+        eprintln!(
+            "AWAITING SEAL: deploy redeem + winner/refund witnesses are well-formed; the live \
+             accept/forged-reject/CSV-reject settlement needs a real RISC0->Groth16 game seal \
+             (Docker stark2snark) routed via covex-games-onchain::game_settle_spend_from_receipt."
         );
     }
 }

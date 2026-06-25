@@ -19,6 +19,8 @@ run "honesty: no new payment_just_confirmed (gate)" bash scripts/check-no-paymen
 run "frontend: sandbox guard (gate)" bash -c 'cd frontend && node scripts/check-sandbox.mjs' || fail=1
 run "frontend: vitest (gate)" bash -c 'cd frontend && npx vitest run' || fail=1
 run "frontend: vite build (gate)" bash -c 'cd frontend && npm run build' || fail=1
+run "cold-tool: claimability matrix matches KIND_CLAIM_MATRIX (gate)" bash -c 'cd frontend && npm run check:cold-tool' || fail=1
+run "cold-tool: satisfier matches cross-language golden (gate)" bash -c 'cd frontend && npm run check:cold-tool-satisfier' || fail=1
 run "frontend: eslint (advisory)" bash -c 'cd frontend && npm run lint' || echo "(advisory: eslint reported issues, not blocking)"
 if command -v cargo >/dev/null 2>&1; then
   run "backend: cargo test (advisory)" bash -c 'cd backend && cargo test --release -p covex27-backend --bin covex27-backend games:: signer:: main::' || echo "(advisory: cargo test reported issues, not blocking)"

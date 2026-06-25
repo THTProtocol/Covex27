@@ -31,11 +31,15 @@
   this tool's claimability copy can never silently drift from the in-app redeemer. A CI gate
   asserts the built tool's matrix kinds + offline flags equal KIND_CLAIM_MATRIX.
 
-  THE PURE CORE BELOW IS BYTE-IDENTICAL TO frontend/src/lib/redeemer/covenantRedeemer.js
-  buildSatisfier / push65 / pushData / parseRedeemPubkeys / sigOpCount were copied
-  VERBATIM from that file, whose satisfier bytes are CI-proven byte-for-byte identical to
-  the Rust assemble_noncustodial_satisfier. Do not edit the pure-core section by hand:
-  re-copy it from the source of truth if it ever changes.
+  THE PURE CORE BELOW IS INJECTED AT BUILD TIME (NOT HAND-COPIED) from the canonical
+  frontend/src/lib/redeemer/covenantRedeemer.js. build-cold-tool.mjs slices the signing-path
+  source (OPCODES / SIG_HASH_ALL / concatBytes / hexToBytes / bytesToHex / pushData / push65 /
+  parseRedeemPubkeys / sigOpCount / buildSatisfier) verbatim from between that file's
+  COLD_TOOL_SATISFIER_BEGIN / COLD_TOOL_SATISFIER_END sentinels into the __SATISFIER_SOURCE__
+  slot below, so the tool's satisfier is byte-identical-by-construction to the source whose
+  bytes are CI-proven byte-for-byte identical to the Rust assemble_noncustodial_satisfier. It
+  cannot drift: scripts/check-cold-tool-satisfier.mjs runs the BUILT tool's buildSatisfier
+  against tests/fixtures/satisfier_golden.json. Do not hand-copy it back; edit the source.
 -->
 <style>
   :root {
@@ -228,323 +232,20 @@
 
 <script>
 // ===========================================================================
-// (A) PURE CORE - copied VERBATIM from frontend/src/lib/redeemer/covenantRedeemer.js.
-//     Byte-parity with the Rust assemble_noncustodial_satisfier (CI-gated at the source).
-//     DO NOT edit by hand; re-copy from the source of truth if it changes.
+// (A) PURE CORE - INJECTED AT BUILD TIME (not hand-copied) from the canonical
+//     frontend/src/lib/redeemer/covenantRedeemer.js, sliced verbatim between its
+//     COLD_TOOL_SATISFIER_BEGIN / COLD_TOOL_SATISFIER_END sentinels by
+//     build-cold-tool.mjs (which strips the `export` keywords). This is the
+//     consensus-critical signing path - OPCODES, SIG_HASH_ALL, concatBytes,
+//     hexToBytes, bytesToHex, pushData, push65, parseRedeemPubkeys, sigOpCount,
+//     buildSatisfier - so it is byte-identical-by-construction to the source whose
+//     output is CI-pinned (Rust + JS) to tests/fixtures/satisfier_golden.json. It
+//     CANNOT hand-drift: scripts/check-cold-tool-satisfier.mjs re-runs THIS built
+//     tool's buildSatisfier against that golden. The placeholder below is filled by
+//     the build; an unbuilt template leaves it as a no-op comment.
 // ===========================================================================
 
-const OPCODES = Object.freeze({
-  OpFalse: 0x00, // pushes an empty value; also the "0"/ELSE branch selector
-  OpData1: 0x01, // OpData1..OpData75 (0x01..0x4b): direct N-byte push, opcode == N
-  OpData32: 0x20, // canonical push of a 32-byte x-only pubkey or 32-byte hash
-  OpData65: 0x41, // canonical push of the 65-byte (64 sig + 1 sighashtype) signature
-  OpData75: 0x4b,
-  OpPushData1: 0x4c, // 1-byte length prefix, for 76..255 data bytes
-  OpPushData2: 0x4d, // 2-byte little-endian length prefix, for 256..65535
-  OpPushData4: 0x4e, // 4-byte little-endian length prefix, for >= 65536
-  OpTrue: 0x51, // pushes 1; the "1"/IF branch selector
-  OpIf: 0x63,
-  OpElse: 0x67,
-  OpEndIf: 0x68,
-  OpEqualVerify: 0x88,
-  OpBlake2b: 0xaa,
-  OpCheckSig: 0xac,
-  OpCheckSigVerify: 0xad,
-  OpCheckMultiSig: 0xae,
-  OpCheckLockTimeVerify: 0xb0, // Kaspa CLTV; POPS its operand (no OpDrop)
-  OpCheckSequenceVerify: 0xb1, // Kaspa CSV;  POPS its operand (no OpDrop)
-});
-
-const SIG_HASH_ALL = 0x01;
-
-function concatBytes(...parts) {
-  let total = 0;
-  for (const p of parts) total += p.length;
-  const out = new Uint8Array(total);
-  let off = 0;
-  for (const p of parts) {
-    out.set(p, off);
-    off += p.length;
-  }
-  return out;
-}
-
-function hexToBytes(hex) {
-  let h = String(hex || '').trim();
-  if (h.startsWith('0x') || h.startsWith('0X')) h = h.slice(2);
-  if (h.length % 2 !== 0) throw new Error(`hex string has odd length: ${h.length}`);
-  const out = new Uint8Array(h.length / 2);
-  for (let i = 0; i < out.length; i++) {
-    const byte = parseInt(h.substr(i * 2, 2), 16);
-    if (Number.isNaN(byte)) throw new Error(`invalid hex at byte ${i}`);
-    out[i] = byte;
-  }
-  return out;
-}
-
-function bytesToHex(bytes) {
-  let s = '';
-  for (let i = 0; i < bytes.length; i++) s += bytes[i].toString(16).padStart(2, '0');
-  return s;
-}
-
-function pushData(bytes) {
-  const len = bytes.length;
-  if (len === 0) return Uint8Array.from([OPCODES.OpFalse]);
-  if (len <= 75) return concatBytes([len], bytes);
-  if (len <= 255) return concatBytes([OPCODES.OpPushData1, len], bytes);
-  if (len <= 65535) return concatBytes([OPCODES.OpPushData2, len & 0xff, (len >> 8) & 0xff], bytes);
-  return concatBytes(
-    [OPCODES.OpPushData4, len & 0xff, (len >> 8) & 0xff, (len >> 16) & 0xff, (len >>> 24) & 0xff],
-    bytes,
-  );
-}
-
-function push65(sig64) {
-  if (sig64.length !== 64) {
-    throw new Error(`push65 expects a 64-byte signature, got ${sig64.length}`);
-  }
-  return concatBytes([OPCODES.OpData65], sig64, [SIG_HASH_ALL]);
-}
-
-function parseRedeemPubkeys(redeem, checksigOnly) {
-  const out = [];
-  let i = 0;
-  // Rust loops `while i + 33 <= redeem.len()`.
-  while (i + 33 <= redeem.length) {
-    if (redeem[i] === OPCODES.OpData32) {
-      let isPubkey;
-      if (checksigOnly) {
-        const next = redeem[i + 33]; // may be undefined at the tail
-        isPubkey = next === OPCODES.OpCheckSig || next === OPCODES.OpCheckSigVerify;
-      } else {
-        isPubkey = true;
-      }
-      if (isPubkey) {
-        out.push(redeem.slice(i + 1, i + 33));
-        i += 33;
-        continue;
-      }
-    }
-    i += 1;
-  }
-  return out;
-}
-
-function sigOpCount(kind, opts = {}) {
-  switch (kind) {
-    case 'singlesig':
-    case 'hashlock':
-    case 'timelock':
-    case 'rcsv':
-    case 'htlc':
-      return 1;
-    case 'deadman':
-      return 2;
-    case 'channel':
-    case 'oracle_escrow':
-    case 'binary_oracle_select':
-      return 3;
-    case 'oracle_enforced_refundable':
-      return 3;
-    case 'oracle_escrow_refundable':
-      return 4;
-    case 'multisig':
-      if (typeof opts.total !== 'number') {
-        throw new Error('multisig sigOpCount requires opts.total (the N in m-of-N)');
-      }
-      return opts.total;
-    case 'oracle':
-    case 'oracle_enforced':
-      // OracleEnforced { total }; default 2 (the [oracle, winner] 2-of-2).
-      return typeof opts.total === 'number' ? opts.total : 2;
-    default:
-      throw new Error(`sigOpCount: unsupported kind '${kind}'`);
-  }
-}
-
-function buildSatisfier(args) {
-  const {
-    kind,
-    branch,
-    sig65: solo,
-    oracleSig,
-    winnerSig,
-    refundSig,
-    multisigSigs,
-    channelSig1,
-    channelSig2,
-    preimageBytes,
-    winnerIsA,
-  } = args || {};
-
-  // Map the high-level branch label to the Rust (branch_refund, winner_is_a) pair.
-  // For kinds that read winnerIsA directly (escrow / bos) the explicit arg wins; the
-  // branch label is a convenience for callers and for the test vectors.
-  const branchRefund = branch === 'refund' || branch === 'refundA' || branch === 'refundB';
-  // Resolve the A/B (IF / ELSE) outcome selector. Track whether it was set EXPLICITLY:
-  // the "branchy" kinds (oracle_escrow, oracle_escrow_refundable, binary_oracle_select)
-  // have two distinct winner keys, so a silent A-vs-B default could assemble the wrong
-  // outcome. That still fails on-chain (the named key's OpCheckSig rejects, fail-safe),
-  // but we require an explicit outcome and fail fast at build time instead.
-  let isA = true; // default only for kinds that ignore the A/B selector (singlesig-style)
-  let isAExplicit = false;
-  if (winnerIsA !== undefined) {
-    isA = !!winnerIsA;
-    isAExplicit = true;
-  } else if (branch === 'revealA' || branch === 'closeA') {
-    isA = true;
-    isAExplicit = true;
-  } else if (branch === 'revealB' || branch === 'closeB') {
-    isA = false;
-    isAExplicit = true;
-  }
-
-  const need = (v, msg) => {
-    if (!v) throw new Error(msg);
-    return v;
-  };
-
-  // For the branchy kinds, refuse to guess the outcome: an unstated A/B is a fund-path
-  // footgun, so require branch 'revealA'/'revealB' (or 'closeA'/'closeB') or winnerIsA.
-  const requireExplicitOutcome = () => {
-    if (!isAExplicit) {
-      throw new Error(
-        `${kind} requires an explicit outcome: pass branch 'revealA'/'revealB' (or 'closeA'/'closeB') or winnerIsA`,
-      );
-    }
-  };
-
-  const parts = [];
-
-  switch (kind) {
-    // singlesig / timelock / rcsv: just push65(sig). (Rust @1010-1012)
-    case 'singlesig':
-    case 'timelock':
-    case 'rcsv':
-      parts.push(push65(need(solo, `${kind} spend needs one signature (sig65)`)));
-      break;
-
-    // hashlock: push65(sig) then pushData(preimage). (Rust @1013-1017)
-    case 'hashlock':
-      parts.push(push65(need(solo, 'hashlock spend needs one signature (sig65)')));
-      parts.push(pushData(need(preimageBytes, 'hashlock spend requires preimageBytes')));
-      break;
-
-    // htlc: claim = receiver sig + preimage + OP_TRUE; refund = sender sig + OP_FALSE.
-    // (Rust @1018-1028)
-    case 'htlc':
-      parts.push(push65(need(solo, 'htlc spend needs one signature (sig65)')));
-      if (branchRefund) {
-        parts.push([OPCODES.OpFalse]);
-      } else {
-        parts.push(pushData(need(preimageBytes, 'HTLC claim requires preimageBytes')));
-        parts.push([OPCODES.OpTrue]);
-      }
-      break;
-
-    // multisig: push each present member's sig in pubkey (script) order. The caller
-    // supplies them already ordered. (Rust @1029-1042)
-    case 'multisig': {
-      const sigs = need(multisigSigs, 'multisig spend needs signatures (multisigSigs[])');
-      if (sigs.length === 0) throw new Error('multisig spend needs at least one signature');
-      for (const s of sigs) parts.push(push65(s));
-      break;
-    }
-
-    // channel: refund = p1 sig + OP_FALSE; cooperative close = sig_p2, sig_p1, OP_TRUE.
-    // (Rust @1043-1060)
-    case 'channel':
-      if (branchRefund) {
-        const s = channelSig1 || solo;
-        parts.push(push65(need(s, 'channel refund needs the funder (player1) signature')));
-        parts.push([OPCODES.OpFalse]);
-      } else {
-        parts.push(push65(need(channelSig2, "channel close needs player2's signature")));
-        parts.push(push65(need(channelSig1, "channel close needs player1's signature")));
-        parts.push([OPCODES.OpTrue]);
-      }
-      break;
-
-    // deadman: owner (IF) = sig + OP_TRUE; heir (ELSE) = sig + OP_FALSE. (Rust @1061-1065)
-    case 'deadman':
-      parts.push(push65(need(solo, 'deadman spend needs one signature (sig65)')));
-      parts.push([branchRefund ? OPCODES.OpFalse : OPCODES.OpTrue]);
-      break;
-
-    // oracle / oracle_enforced: 2-of-2 [oracle, winner]; OpCheckMultiSig pops sigs in
-    // pubkey (script) order, so push oracle FIRST then winner. (Rust @1070-1081)
-    case 'oracle':
-    case 'oracle_enforced':
-      parts.push(push65(need(oracleSig, 'oracle payout needs the server oracle signature')));
-      parts.push(push65(need(winnerSig || solo, "oracle payout needs the winner's browser signature")));
-      break;
-
-    // oracle_escrow: bottom->top = <winner_sig> <branch_selector> <oracle_sig>.
-    // (Rust @1082-1095)
-    case 'oracle_escrow':
-      requireExplicitOutcome();
-      parts.push(push65(need(winnerSig || solo, "oracle_escrow needs the winning player's signature")));
-      parts.push([isA ? OPCODES.OpTrue : OPCODES.OpFalse]);
-      parts.push(push65(need(oracleSig, 'oracle_escrow payout needs the server oracle signature')));
-      break;
-
-    // oracle_enforced_refundable: outer IF = the 2-of-2 [oracle, winner] then OP_TRUE;
-    // outer ELSE (refund) = <refund_sig> OP_FALSE. (Rust @1101-1126)
-    case 'oracle_enforced_refundable':
-      if (branchRefund) {
-        parts.push(push65(need(refundSig || solo, 'refund needs the funder/refund key signature')));
-        parts.push([OPCODES.OpFalse]);
-      } else {
-        parts.push(push65(need(oracleSig, 'payout needs the server oracle signature')));
-        parts.push(push65(need(winnerSig || solo, "payout needs the winner's browser signature")));
-        parts.push([OPCODES.OpTrue]);
-      }
-      break;
-
-    // oracle_escrow_refundable: outer IF = oracle_escrow layout then OP_TRUE; outer ELSE
-    // (refund) = <refund_sig> OP_FALSE. (Rust @1127-1153)
-    case 'oracle_escrow_refundable':
-      if (branchRefund) {
-        parts.push(push65(need(refundSig || solo, 'refund needs the funder/refund key signature')));
-        parts.push([OPCODES.OpFalse]);
-      } else {
-        requireExplicitOutcome();
-        parts.push(push65(need(winnerSig || solo, "payout needs the winning player's signature")));
-        parts.push([isA ? OPCODES.OpTrue : OPCODES.OpFalse]);
-        parts.push(push65(need(oracleSig, 'payout needs the server oracle signature')));
-        parts.push([OPCODES.OpTrue]);
-      }
-      break;
-
-    // binary_oracle_select (the parimutuel-bundle leg), winner-only NON-CUSTODIAL.
-    // (Rust @1166-1224). Stack bottom->top:
-    //   RevealA = <sig_a> <preimage> OP_TRUE
-    //   RevealB = <sig_b> <preimage> OP_TRUE OP_FALSE
-    //   Refund  = <sig_refund> OP_FALSE OP_FALSE
-    case 'binary_oracle_select':
-      if (branchRefund) {
-        parts.push(push65(need(refundSig || solo, 'binary_oracle_select refund needs the refund key signature')));
-        parts.push([OPCODES.OpFalse]);
-        parts.push([OPCODES.OpFalse]);
-      } else {
-        // RevealA uses the A key, RevealB uses the B key; the caller passes that as
-        // winnerSig (or solo) for whichever branch isA selects.
-        requireExplicitOutcome();
-        parts.push(push65(need(winnerSig || solo, 'binary_oracle_select reveal needs the branch key signature')));
-        parts.push(pushData(need(preimageBytes, 'binary_oracle_select reveal requires preimageBytes')));
-        parts.push([OPCODES.OpTrue]);
-        if (!isA) parts.push([OPCODES.OpFalse]); // outer IF -> ELSE (top of stack)
-      }
-      break;
-
-    default:
-      throw new Error(`buildSatisfier: unsupported kind '${kind}'`);
-  }
-
-  // Normalize each part (number[] selector or Uint8Array) and concat in push order.
-  return concatBytes(...parts.map((p) => (p instanceof Uint8Array ? p : Uint8Array.from(p))));
-}
+// __SATISFIER_SOURCE__
 
 // ===========================================================================
 // (B) STANDALONE WASM GLUE + TX PLUMBING. These talk to the INLINED kaspa-wasm

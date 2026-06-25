@@ -160,3 +160,13 @@ jobs:
       # mentions, so the fund-path surface can never silently drift again.
       - name: Cold-recovery matrix matches KIND_CLAIM_MATRIX
         run: npm run check:cold-tool
+
+      # GATE (money-path byte-parity anti-drift): the standalone cold-recovery tool's
+      # consensus-critical satisfier (buildSatisfier + push65 + pushData + sigOpCount + helpers)
+      # is now INJECTED from the canonical covenantRedeemer.js rather than hand-copied. This runs
+      # the BUILT tool's OWN buildSatisfier for every kind+branch in tests/fixtures/satisfier_golden.json
+      # and asserts the bytes EXACTLY equal the golden - the same byte-parity guarantee the in-app JS
+      # (covenantRedeemer.golden.test.js) and the Rust side (satisfier_golden_cross_language_parity)
+      # already enforce, so the cold tool's fund-path satisfier can never silently drift.
+      - name: Cold-recovery satisfier matches the cross-language golden
+        run: npm run check:cold-tool-satisfier

@@ -32,6 +32,16 @@
 // (A) PURE CORE - no imports, plain Uint8Array. Byte-parity with the Rust.
 // ===========================================================================
 
+// >>> COLD_TOOL_SATISFIER_BEGIN
+// Everything between this marker and COLD_TOOL_SATISFIER_END is the EXACT signing-path
+// source the standalone cold-recovery tool injects at build time (build-cold-tool.mjs
+// strips the `export` keywords and pastes this verbatim, so the tool cannot hand-drift).
+// A CI gate (scripts/check-cold-tool-satisfier.mjs) runs the BUILT tool's buildSatisfier
+// against tests/fixtures/satisfier_golden.json. Do NOT move these markers without updating
+// both. The span MUST cover the full transitive closure of the tool's signing path:
+// OPCODES, SIG_HASH_ALL, concatBytes, hexToBytes, bytesToHex, pushData, push65,
+// parseRedeemPubkeys, sigOpCount, buildSatisfier.
+
 // Kaspa txscript opcode bytes. Each constant is the exact byte the Rust
 // kaspa_txscript::opcodes::codes emits (cross-checked against
 // backend/src/covenant_builder.rs and backend/src/disassembler.rs).
@@ -467,6 +477,7 @@ export function buildSatisfier(args) {
   // Normalize each part (number[] selector or Uint8Array) and concat in push order.
   return concatBytes(...parts.map((p) => (p instanceof Uint8Array ? p : Uint8Array.from(p))));
 }
+// <<< COLD_TOOL_SATISFIER_END
 
 /**
  * Per-(kind, branch) map of WHICH parsed-pubkey index the chain will OpCheckSig for the

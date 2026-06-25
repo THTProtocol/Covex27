@@ -81,6 +81,71 @@ function deriveColdMatrix(KIND_CLAIM_MATRIX) {
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// CANONICAL SATISFIER SOURCE INJECTION (byte-parity anti-drift).
+//
+// The cold tool used to HAND-COPY the consensus-critical satisfier functions
+// (OPCODES, SIG_HASH_ALL, concatBytes, hexToBytes, bytesToHex, pushData, push65,
+// parseRedeemPubkeys, sigOpCount, buildSatisfier) out of covenantRedeemer.js. A
+// hand-copy on a fund-path can silently drift from the source whose bytes are the
+// ONLY cross-language CI-gated surface. We now SLICE that exact span out of the
+// canonical source between two sentinel comments, strip the `export` keywords (so
+// the declarations are valid top-level statements in the tool's classic <script>),
+// and inject it. The tool's signing path then has a single source of truth, and
+// scripts/check-cold-tool-satisfier.mjs re-runs the BUILT tool's buildSatisfier
+// against tests/fixtures/satisfier_golden.json so it can never drift again.
+const SAT_BEGIN = '// >>> COLD_TOOL_SATISFIER_BEGIN';
+const SAT_END = '// <<< COLD_TOOL_SATISFIER_END';
+
+// The complete set of declarations the span MUST contain (the tool's signing path's
+// transitive closure). The build FAILS LOUD if any is missing, so a refactor that
+// shrinks the span or renames a function cannot ship a tool with a hand-copy gap.
+const REQUIRED_SATISFIER_DECLS = [
+  'const OPCODES',
+  'const SIG_HASH_ALL',
+  'function concatBytes',
+  'function hexToBytes',
+  'function bytesToHex',
+  'function pushData',
+  'function push65',
+  'function parseRedeemPubkeys',
+  'function sigOpCount',
+  'function buildSatisfier',
+];
+
+// Extract the sentinel-delimited satisfier span from covenantRedeemer.js and turn it
+// into top-level (un-exported) source the tool's classic <script> can run.
+function extractCanonicalSatisfierSource(redeemerSrc) {
+  const begin = redeemerSrc.indexOf(SAT_BEGIN);
+  const end = redeemerSrc.indexOf(SAT_END);
+  if (begin === -1 || end === -1 || end <= begin) {
+    throw new Error(
+      `covenantRedeemer.js is missing the ${SAT_BEGIN} / ${SAT_END} sentinels (or they are out of order). ` +
+        'The cold tool injects the canonical satisfier source from between them; refusing to fall back to a hand-copy.',
+    );
+  }
+  // Slice the body strictly BETWEEN the marker lines (exclude the marker comments).
+  let body = redeemerSrc.slice(begin + SAT_BEGIN.length, end);
+  // Strip only the LEADING `export ` of each top-level `export const`/`export function`
+  // so the declarations become plain top-level statements. Anchored to line start
+  // (with optional indentation) so an `export` inside a string/comment is never touched.
+  body = body.replace(/^(\s*)export\s+(const|function|let|var|class)\b/gm, '$1$2');
+  // Guard: no `export`/`import` keyword may survive (a classic <script> cannot have them,
+  // and it would break the page's JS parse).
+  if (/^\s*export\b/m.test(body) || /^\s*import\b/m.test(body)) {
+    throw new Error('injected satisfier source still contains a top-level export/import; refusing to emit a broken tool');
+  }
+  // Guard: every required declaration MUST be present (exhaustive signing-path closure).
+  const missing = REQUIRED_SATISFIER_DECLS.filter((d) => !body.includes(d));
+  if (missing.length) {
+    throw new Error(
+      `the canonical satisfier span is missing required declaration(s): ${missing.join(', ')}. ` +
+        'The cold tool needs the full signing-path closure; widen the COLD_TOOL_SATISFIER span.',
+    );
+  }
+  return body.trim();
+}
+
 const TEMPLATE = join(__dirname, 'covex-cold-recovery.template.html');
 // The built artifact is emitted into the frontend's public/ tree so Vite copies it into
 // dist/ and it is SERVED at /tools/cold-recovery/covex-cold-recovery.html (reachable from the
@@ -136,6 +201,11 @@ async function main() {
   // honesty surface) and JSON.parse-safe. JSON keys are quoted; that is valid JS object syntax.
   const claimabilityJson = JSON.stringify(coldMatrix, null, 2);
 
+  // Extract the CANONICAL satisfier source (single source of truth) so the tool's signing
+  // path is byte-identical-by-construction to covenantRedeemer.js and cannot hand-drift.
+  const redeemerSrc = readFileSync(REDEEMER_SRC, 'utf8');
+  const satisfierSource = extractCanonicalSatisfierSource(redeemerSrc);
+
   const kaspaDir = resolveKaspaDir();
   const gluePath = join(kaspaDir, 'kaspa.js');
   const wasmPath = pickWasmBin(kaspaDir);
@@ -183,9 +253,14 @@ async function main() {
   // swap only the placeholder TOKEN (not the bare token in the doc comment) by matching the
   // exact assignment, so the build is unambiguous and idempotent.
   const CLAIM_SLOT = 'const CLAIMABILITY = __CLAIMABILITY_MATRIX_JSON__;';
+  // The satisfier-source slot: a lone `// __SATISFIER_SOURCE__` placeholder line inside the
+  // tool's pure-core <script>. We replace it with the canonical span sliced from
+  // covenantRedeemer.js, so the tool's signing path is single-sourced and cannot hand-drift.
+  const SAT_SLOT = '// __SATISFIER_SOURCE__';
   if (!html.includes(B64_SLOT)) throw new Error('template lost the wasm-b64 injection slot');
   if (!html.includes(GLUE_SLOT)) throw new Error('template lost the glue-module injection slot');
   if (!html.includes(CLAIM_SLOT)) throw new Error('template lost the claimability-matrix injection slot');
+  if (!html.includes(SAT_SLOT)) throw new Error('template lost the satisfier-source injection slot');
 
   html = html.split(B64_SLOT).join(
     '<script id="kaspa-wasm-b64" type="text/plain">' + wasmB64 + '</script>',
@@ -195,11 +270,14 @@ async function main() {
   );
   // split/join so any literal $ in the JSON is never treated as a String.replace pattern.
   html = html.split(CLAIM_SLOT).join('const CLAIMABILITY = ' + claimabilityJson + ';');
+  // split/join so any literal $ in the injected source (template literals) is never treated
+  // as a String.replace replacement pattern.
+  html = html.split(SAT_SLOT).join(satisfierSource);
 
-  // Final guard: the two INJECTION SLOTS must be filled. We check the slot strings, not the
+  // Final guard: every INJECTION SLOT must be filled. We check the slot strings, not the
   // bare placeholder tokens - the template's doc comment legitimately names the tokens while
   // explaining the build, and those mentions must survive untouched.
-  if (html.includes(B64_SLOT) || html.includes(GLUE_SLOT) || html.includes(CLAIM_SLOT)) {
+  if (html.includes(B64_SLOT) || html.includes(GLUE_SLOT) || html.includes(CLAIM_SLOT) || html.includes(SAT_SLOT)) {
     throw new Error('build left an unfilled injection slot in the output; refusing to emit a broken tool');
   }
   // Belt-and-braces: the placeholder token must be gone from the OUTPUT (it would break the
@@ -217,6 +295,7 @@ async function main() {
   console.log('  wasm:   ' + wasmPath + ' (' + (wasmBin.length / 1024 / 1024).toFixed(2) + ' MB)');
   console.log('  output: ' + OUT + ' (' + sizeKb + ' KB)');
   console.log('  matrix: ' + Object.keys(coldMatrix).length + ' kinds injected from KIND_CLAIM_MATRIX');
+  console.log('  satisfier: canonical buildSatisfier+helpers injected from covenantRedeemer.js (' + REQUIRED_SATISFIER_DECLS.length + ' decls, ' + satisfierSource.split('\n').length + ' lines)');
   console.log('  SHA-256: ' + sha);
   console.log('');
   console.log('Pin that SHA-256 in README.md. Verify it before trusting the file:');

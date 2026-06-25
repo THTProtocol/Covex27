@@ -919,7 +919,10 @@ pub fn build_zk_game_settle_refund_satisfier(
 /// `OpZkPrecompile` opcode, is not live on Kaspa mainnet yet - it activates ~30 Jun 2026). Returns
 /// `Ok(())` when a ZkGameSettle deploy may proceed for `network`, else a caller-surfaceable error.
 pub fn zk_precompile_deploy_allowed(network: &str) -> BResult<()> {
-    if network == "mainnet" || network == "mainnet-1" {
+    // `starts_with("mainnet")`, not `==`: a "mainnet-foo" variant would otherwise slip past an
+    // exact match here and then route to the TN12 RPC via client_for_network's else-branch. The
+    // prefix check freezes every mainnet-ish string (audit P3, 2026-06-25).
+    if network.starts_with("mainnet") {
         return Err(
             "on-chain ZK settlement (OpZkPrecompile) is not available on mainnet yet (Toccata not live)"
                 .to_string(),
@@ -2106,6 +2109,25 @@ async fn client_for_network(network: &str) -> BResult<Arc<KaspaRpcClient>> {
         }
     }
     Ok(Arc::new(c))
+}
+
+/// Fetch the LIVE virtual DAA score (current chain tip) for `network` via wRPC. Used by money
+/// routes that must validate an absolute DAA deadline (e.g. a CLTV refund window) against the
+/// real tip rather than trusting a client-supplied value. Mirrors the crawler's bounded
+/// `get_block_dag_info` call (a short timeout so a down/syncing node returns a clear error
+/// instead of hanging the request). Fail-closed: any connect / RPC / timeout error propagates.
+pub async fn current_virtual_daa(network: &str) -> BResult<u64> {
+    let client = client_for_network(network).await?;
+    let dag = tokio::time::timeout(
+        std::time::Duration::from_secs(12),
+        client.get_block_dag_info(),
+    )
+    .await
+    .map_err(|_| {
+        format!("get_block_dag_info for {network} timed out (the node may be down or syncing)")
+    })?
+    .map_err(|e| format!("get_block_dag_info for {network} failed: {e}"))?;
+    Ok(dag.virtual_daa_score)
 }
 
 /// Resolve the (private_key_hex, address) that signs, honoring use_dev_mode for the

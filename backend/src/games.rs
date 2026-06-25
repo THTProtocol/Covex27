@@ -303,6 +303,35 @@ fn xonly_hex_from_address(addr: &str) -> Result<String, String> {
 /// has aged this many units (BIP68, node-enforced) if the referee never reveals a secret.
 const DEFAULT_HASHLOCK_REFUND_BLOCKS: u64 = 720;
 
+/// Minimum refund window (in DAA / block units) for a `zk_game_settle` channel escrow.
+/// The escrow is SINGLE-FUNDED by player1 (the funder), whose only unilateral exit is the
+/// CLTV refund branch at `refund_after_daa`. If the funder could set that deadline at or
+/// near the current tip, they could reclaim their own stake before the counterparty's
+/// post-game winner-claim (deploy-zk-settlement -> settle-zk) can land - griefing the
+/// expected prize (audit P2, 2026-06-25). So require the deadline to sit at least this many
+/// blocks ahead of the current virtual DAA: comfortably more than a clock-bounded match
+/// (the seat clocks cap total play at minutes/side) plus the settlement deploy + a few
+/// confirmations. Sized as ~1 hour at 10 BPS (Toccata/Crescendo cadence; ~10 hours at the
+/// old 1 BPS) - generous headroom over any plausible match, yet trivially small relative to
+/// any sane real refund deadline a funder would set. Tune here if the seat clocks grow.
+const MIN_REFUND_WINDOW_DAA: u64 = 36_000;
+
+/// Validate a `zk_game_settle` channel escrow's CLTV refund deadline against the live tip.
+/// Fail-closed: the funder's refund deadline MUST be at least [`MIN_REFUND_WINDOW_DAA`] blocks
+/// ahead of `current_daa`, so a single-funder cannot bake a near-immediate refund window and
+/// reclaim the pot before the counterparty's winner-claim can land. Returns `Ok(())` when the
+/// window is wide enough, else a caller-surfaceable error. Pure (no I/O) so it is unit-testable
+/// without a live node; the caller supplies the freshly fetched virtual DAA score.
+fn check_zk_refund_window(refund_after_daa: u64, current_daa: u64) -> Result<(), String> {
+    let earliest = current_daa.saturating_add(MIN_REFUND_WINDOW_DAA);
+    if refund_after_daa < earliest {
+        return Err(format!(
+            "refund_after_daa ({refund_after_daa}) is too close to the current node DAA ({current_daa}): a zk_game_settle escrow requires the funder's CLTV refund deadline to be at least {MIN_REFUND_WINDOW_DAA} blocks ahead (>= {earliest}), so the funder cannot reclaim the single-funded pot before the winner's post-game claim can land"
+        ));
+    }
+    Ok(())
+}
+
 /// POST /games/:id/lock-pot {token, stake_kas, network?, settle_mode?, refund_after_blocks?} :
 /// PREPARE a real on-chain pot for this match. NON-CUSTODIAL: returns the UNSIGNED funding tx +
 /// sighash for player1's browser wallet to sign (no use_dev_mode, the server never holds
@@ -385,9 +414,10 @@ async fn lock_pot(
     }
     // ON-CHAIN ZK GATE (security review C1/C2): lock_pot routes through prepare_deploy_handler,
     // which does NOT carry the p2sh_deploy_handler ZK gate. So gate the zk_game_settle lock here
-    // EXPLICITLY: zk_precompile_deploy_allowed is off by default and rejects mainnet. We additionally
-    // keep the broader `starts_with("mainnet")` reject above (the gate's own check is `==`-only, so
-    // a "mainnet-foo" variant could otherwise slip past), making the outer guard dominate.
+    // EXPLICITLY: zk_precompile_deploy_allowed is off by default and rejects mainnet. Note the
+    // outer net.starts_with("mainnet") guard above does NOT cover this branch (it excludes
+    // zk_game_settle by design), so the freeze relies on the gate itself - which now uses its own
+    // starts_with("mainnet") check, freezing even a "mainnet-foo" variant (audit P3, 2026-06-25).
     if settle_mode == "zk_game_settle" {
         if let Err(e) = crate::covenant_builder::zk_precompile_deploy_allowed(&net) {
             return Json(json!({ "success": false, "error": e }));
@@ -421,6 +451,21 @@ async fn lock_pot(
                 return Json(json!({ "success": false, "error": "zk_game_settle lock requires refund_after_daa (current node DAA + a refund window for the channel escrow's CLTV refund branch)" }));
             }
         };
+        // GRIEFING GUARD (audit P2, 2026-06-25): refund_after_daa was only checked for `> 0`,
+        // so the single-funder (player1) could bake a near-immediate CLTV refund and reclaim
+        // the stake before the counterparty's winner-claim (deploy-zk-settlement -> settle-zk)
+        // could land. Fetch the LIVE virtual DAA and require the deadline to sit a full
+        // settlement window ahead. Fail closed if the tip can't be read (the lock already needs
+        // the node up - it builds the funding tx from on-chain UTXOs below).
+        let current_daa = match crate::covenant_builder::current_virtual_daa(&net).await {
+            Ok(d) => d,
+            Err(e) => {
+                return Json(json!({ "success": false, "error": format!("cannot validate the zk_game_settle refund window: {e}") }));
+            }
+        };
+        if let Err(e) = check_zk_refund_window(refund_after_daa, current_daa) {
+            return Json(json!({ "success": false, "error": e }));
+        }
         (
             json!({
                 "network": net, "deployer_addr": p1, "stake_kas": stake,
@@ -3050,8 +3095,9 @@ mod tests {
     }
 
     /// (zk-2) lock_pot zk_game_settle is REJECTED on mainnet regardless of the env
-    /// gate: the outer starts_with("mainnet") guard dominates (it catches even a
-    /// "mainnet-foo" variant the ==-only gate would miss). Mainnet stays frozen.
+    /// gate: the zk_precompile_deploy_allowed gate's own starts_with("mainnet") check
+    /// freezes it (the outer lock_pot mainnet guard excludes zk_game_settle by design,
+    /// so the gate is what dominates here). Mainnet stays frozen.
     #[tokio::test]
     async fn lock_pot_zk_game_settle_rejected_on_mainnet() {
         let db = fresh_db();
@@ -3073,6 +3119,44 @@ mod tests {
             err.contains("mainnet"),
             "the refusal must explain mainnet, got: {err}"
         );
+    }
+
+    /// (zk-2b) FAIL-CLOSED refund-window guard (audit P2, 2026-06-25). The zk_game_settle
+    /// channel escrow is single-funded by player1, whose only unilateral exit is the CLTV
+    /// refund at refund_after_daa. check_zk_refund_window must REJECT a deadline that sits
+    /// at/near the current tip (a near-immediate refund would let the funder rug the
+    /// counterparty's winner-claim) and ACCEPT one a full settlement window ahead. Pure +
+    /// deterministic: no env, no node, no db - it proves the guard in isolation, and the
+    /// lock_pot zk branch calls it with the freshly fetched virtual DAA.
+    #[test]
+    fn zk_refund_window_rejects_near_immediate_deadline() {
+        let current = 1_000_000u64;
+        // Near-immediate: only a handful of blocks ahead of the tip -> REJECTED.
+        let err = check_zk_refund_window(current + 5, current)
+            .expect_err("a near-immediate refund_after_daa must be rejected");
+        assert!(
+            err.contains("too close"),
+            "the refusal must explain the window is too close, got: {err}"
+        );
+        // At the tip, or behind it -> REJECTED.
+        assert!(
+            check_zk_refund_window(current, current).is_err(),
+            "a deadline equal to the current tip must be rejected"
+        );
+        assert!(
+            check_zk_refund_window(current - 1, current).is_err(),
+            "a deadline behind the current tip must be rejected"
+        );
+        // One block short of the minimum window -> still REJECTED (boundary).
+        assert!(
+            check_zk_refund_window(current + MIN_REFUND_WINDOW_DAA - 1, current).is_err(),
+            "one block short of the minimum window must be rejected"
+        );
+        // Exactly the minimum window ahead, and beyond -> ACCEPTED.
+        check_zk_refund_window(current + MIN_REFUND_WINDOW_DAA, current)
+            .expect("a deadline exactly MIN_REFUND_WINDOW_DAA ahead is allowed");
+        check_zk_refund_window(current + MIN_REFUND_WINDOW_DAA + 5_000, current)
+            .expect("a deadline beyond the minimum window is allowed");
     }
 
     /// (zk-3) game_pot_is_draw is the FAIL-CLOSED draw money gate: true ONLY for a

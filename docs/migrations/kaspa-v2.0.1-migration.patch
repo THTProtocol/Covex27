@@ -1,0 +1,889 @@
+diff --git a/backend/Cargo.toml b/backend/Cargo.toml
+index 39f0ede3..e288f894 100644
+--- a/backend/Cargo.toml
++++ b/backend/Cargo.toml
+@@ -1,7 +1,7 @@
+ [package]
+ name = "covex27-backend"
+ version = "1.1.0"
+-edition = "2021"
++edition = "2024"
+ description = "Covex -- The Stateful Kaspa Covenant Indexer and SaaS Platform"
+ 
+ [dependencies]
+@@ -9,14 +9,14 @@ tokio = { version = "1", features = ["full"] }
+ axum = { version = "0.7", features = ["macros", "ws"] }
+ tower-http = { version = "0.5", features = ["cors", "limit", "set-header"] }
+ tower = { version = "0.4", features = ["limit", "util"] }
+-kaspa-wrpc-client = "0.15.0"
+-kaspa-rpc-core = "0.15.0"
+-kaspa-consensus-core = "0.15.0"
+-kaspa-addresses = "0.15.0"
+-kaspa-hashes = "0.15.0"
+-kaspa-txscript = "0.15.0"
++kaspa-wrpc-client = { git = "https://github.com/kaspanet/rusty-kaspa", tag = "v2.0.1" }
++kaspa-rpc-core = { git = "https://github.com/kaspanet/rusty-kaspa", tag = "v2.0.1" }
++kaspa-consensus-core = { git = "https://github.com/kaspanet/rusty-kaspa", tag = "v2.0.1" }
++kaspa-addresses = { git = "https://github.com/kaspanet/rusty-kaspa", tag = "v2.0.1" }
++kaspa-hashes = { git = "https://github.com/kaspanet/rusty-kaspa", tag = "v2.0.1" }
++kaspa-txscript = { git = "https://github.com/kaspanet/rusty-kaspa", tag = "v2.0.1" }
+ workflow-core = "0.18.0"
+-wasm-bindgen = "=0.2.115"
++wasm-bindgen = "=0.2.100"
+ serde = { version = "1", features = ["derive"] }
+ serde_json = "1"
+ anyhow = "1"
+@@ -41,5 +41,3 @@ shakmaty = "0.27"
+ # so this only promotes it to a direct dependency and adds the json feature.
+ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+ 
+-[patch.crates-io]
+-kaspa-consensus-core = { path = "vendor/kaspa-consensus-core" }
+diff --git a/backend/src/covenant_builder.rs b/backend/src/covenant_builder.rs
+index e9e4fbd1..a5775576 100644
+--- a/backend/src/covenant_builder.rs
++++ b/backend/src/covenant_builder.rs
+@@ -23,10 +23,11 @@
+ 
+ use axum::{routing::post, Extension, Json, Router};
+ use kaspa_addresses::{Address, Prefix};
+-use kaspa_consensus_core::hashing::sighash::{calc_schnorr_signature_hash, SigHashReusedValues};
++use kaspa_consensus_core::hashing::sighash::{calc_schnorr_signature_hash, SigHashReusedValuesUnsync};
+ use kaspa_consensus_core::hashing::sighash_type::SIG_HASH_ALL;
+ use kaspa_consensus_core::sign::sign_with_multiple_v2;
+ use kaspa_consensus_core::subnets::SubnetworkId;
++use kaspa_consensus_core::mass::SigopCount;
+ use kaspa_consensus_core::tx::{
+     ScriptPublicKey, ScriptVec, SignableTransaction, Transaction, TransactionInput,
+     TransactionOutpoint, TransactionOutput, UtxoEntry,
+@@ -971,9 +972,9 @@ pub fn build_p2sh_multisig_signature_script(
+     keypairs: &[secp256k1::Keypair],
+     redeem: &[u8],
+ ) -> BResult<Vec<u8>> {
+-    let mut reused = SigHashReusedValues::new();
++    let mut reused = SigHashReusedValuesUnsync::new();
+     let sig_hash =
+-        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
++        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &reused);
+     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+         .map_err(|e| format!("sighash->msg: {e}"))?;
+     let mut satisfier: Vec<u8> = Vec::new();
+@@ -1033,9 +1034,9 @@ pub fn build_timedecay_signature_script(
+     redeem: &[u8],
+     after_timeout: bool,
+ ) -> BResult<Vec<u8>> {
+-    let mut reused = SigHashReusedValues::new();
++    let mut reused = SigHashReusedValuesUnsync::new();
+     let sig_hash =
+-        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
++        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &reused);
+     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+         .map_err(|e| format!("sighash->msg: {e}"))?;
+     let mut satisfier: Vec<u8> = Vec::new();
+@@ -1227,9 +1228,9 @@ pub fn build_oracle_escrow_signature_script(
+     winner_is_a: bool,
+     redeem: &[u8],
+ ) -> BResult<Vec<u8>> {
+-    let mut reused = SigHashReusedValues::new();
++    let mut reused = SigHashReusedValuesUnsync::new();
+     let sig_hash =
+-        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
++        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &reused);
+     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+         .map_err(|e| format!("sighash->msg: {e}"))?;
+     let player_sig: [u8; 64] = *player_kp.sign_schnorr(msg).as_ref();
+@@ -1268,9 +1269,9 @@ pub fn build_htlc_signature_script(
+     claim: bool,
+     preimage: Option<&[u8]>,
+ ) -> BResult<Vec<u8>> {
+-    let mut reused = SigHashReusedValues::new();
++    let mut reused = SigHashReusedValuesUnsync::new();
+     let sig_hash =
+-        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
++        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &reused);
+     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+         .map_err(|e| format!("sighash->msg: {e}"))?;
+     let sig: [u8; 64] = *keypair.sign_schnorr(msg).as_ref();
+@@ -1319,9 +1320,9 @@ pub fn build_binary_oracle_select_signature_script(
+     branch: BinarySelectBranch,
+     preimage: Option<&[u8]>,
+ ) -> BResult<Vec<u8>> {
+-    let mut reused = SigHashReusedValues::new();
++    let mut reused = SigHashReusedValuesUnsync::new();
+     let sig_hash =
+-        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
++        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &reused);
+     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+         .map_err(|e| format!("sighash->msg: {e}"))?;
+     let sig: [u8; 64] = *keypair.sign_schnorr(msg).as_ref();
+@@ -1394,9 +1395,9 @@ pub fn build_deadman_signature_script(
+     redeem: &[u8],
+     owner_branch: bool,
+ ) -> BResult<Vec<u8>> {
+-    let mut reused = SigHashReusedValues::new();
++    let mut reused = SigHashReusedValuesUnsync::new();
+     let sig_hash =
+-        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
++        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &reused);
+     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+         .map_err(|e| format!("sighash->msg: {e}"))?;
+     let sig: [u8; 64] = *keypair.sign_schnorr(msg).as_ref();
+@@ -1454,9 +1455,9 @@ pub fn build_channel_signature_script(
+     cooperative: bool,
+     redeem: &[u8],
+ ) -> BResult<Vec<u8>> {
+-    let mut reused = SigHashReusedValues::new();
++    let mut reused = SigHashReusedValuesUnsync::new();
+     let sig_hash =
+-        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
++        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &reused);
+     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+         .map_err(|e| format!("sighash->msg: {e}"))?;
+     let push65 = |sig: [u8; 64]| -> Vec<u8> {
+@@ -1621,9 +1622,9 @@ pub fn build_p2sh_signature_script(
+     redeem: &[u8],
+     extra_after_sig: &[Vec<u8>],
+ ) -> BResult<Vec<u8>> {
+-    let mut reused = SigHashReusedValues::new();
++    let mut reused = SigHashReusedValuesUnsync::new();
+     let sig_hash =
+-        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &mut reused);
++        calc_schnorr_signature_hash(&signable.as_verifiable(), idx, SIG_HASH_ALL, &reused);
+     let msg = secp256k1::Message::from_digest_slice(sig_hash.as_bytes().as_slice())
+         .map_err(|e| format!("sighash->msg: {e}"))?;
+     let sig: [u8; 64] = *keypair.sign_schnorr(msg).as_ref();
+@@ -2754,11 +2755,13 @@ pub async fn p2sh_deploy_handler(
+     let mut outputs = vec![TransactionOutput {
+         value: stake_sompi,
+         script_public_key: p2sh_spk,
++        covenant: None,
+     }];
+     if change > 0 {
+         outputs.push(TransactionOutput {
+             value: change,
+             script_public_key: deployer_script,
++        covenant: None,
+         });
+     }
+ 
+@@ -2772,7 +2775,7 @@ pub async fn p2sh_deploy_handler(
+             },
+             signature_script: vec![],
+             sequence: 0,
+-            sig_op_count: 1,
++            compute_commit: SigopCount(1).into(),
+         })
+         .collect();
+ 
+@@ -2811,6 +2814,7 @@ pub async fn p2sh_deploy_handler(
+             script_public_key: u.utxo_entry.script_public_key.clone(),
+             block_daa_score: u.utxo_entry.block_daa_score,
+             is_coinbase: u.utxo_entry.is_coinbase,
++        covenant_id: None,
+         })
+         .collect();
+     let signable = SignableTransaction::with_entries(unsigned, entries);
+@@ -3369,11 +3373,12 @@ pub async fn p2sh_spend_handler(
+         // count must cover the redeem's actual sig ops or the node rejects with
+         // "script units exceeded". The channel redeem has 3 sig ops across its branches
+         // (CheckSigVerify + CheckSig in IF, CheckSig in ELSE). Single-key redeems use 1.
+-        sig_op_count: SpendKind::parse(&cov.redeem_kind).map_or(1, |k| k.sig_op_count()),
++        compute_commit: SigopCount(SpendKind::parse(&cov.redeem_kind).map_or(1, |k| k.sig_op_count())).into(),
+     }];
+     let outputs = vec![TransactionOutput {
+         value: amount - TX_FEE,
+         script_public_key: dest_script,
++        covenant: None,
+     }];
+     // Non-empty payload required (same sighash reason as deploy). Not an aa-envelope,
+     // so the crawler does not misread a redeem spend as a new covenant.
+@@ -3412,6 +3417,7 @@ pub async fn p2sh_spend_handler(
+         script_public_key: p2sh_spk,
+         block_daa_score: utxo.utxo_entry.block_daa_score,
+         is_coinbase: utxo.utxo_entry.is_coinbase,
++        covenant_id: None,
+     }];
+     let mut signable = SignableTransaction::with_entries(unsigned, entries);
+     let sig_script = if is_multisig {
+@@ -3854,11 +3860,12 @@ pub async fn oracle_payout_handler(
+         sequence: 0,
+         // oracle:2 multisig counts 2 pubkeys; oracle_escrow counts the static sig ops
+         // in the redeem (OpCheckSigVerify + both branches' OpCheckSig = 3).
+-        sig_op_count: SpendKind::parse(&cov.redeem_kind).map_or(2, |k| k.sig_op_count()),
++        compute_commit: SigopCount(SpendKind::parse(&cov.redeem_kind).map_or(2, |k| k.sig_op_count())).into(),
+     }];
+     let outputs = vec![TransactionOutput {
+         value: amount - TX_FEE,
+         script_public_key: dest_script,
++        covenant: None,
+     }];
+     let unsigned = Transaction::new_non_finalized(
+         0,
+@@ -3874,6 +3881,7 @@ pub async fn oracle_payout_handler(
+         script_public_key: p2sh_spk,
+         block_daa_score: utxo.utxo_entry.block_daa_score,
+         is_coinbase: utxo.utxo_entry.is_coinbase,
++        covenant_id: None,
+     }];
+     let mut signable = SignableTransaction::with_entries(unsigned, entries);
+     let oracle_kp = crate::oracle::oracle_keypair();
+@@ -4312,8 +4320,8 @@ pub async fn prepare_oracle_payout_handler(
+         },
+         signature_script: vec![],
+         sequence: 0,
+-        sig_op_count: SpendKind::parse(&cov.redeem_kind)
+-            .map_or(if is_escrow { 3 } else { 2 }, |k| k.sig_op_count()),
++        compute_commit: SigopCount(SpendKind::parse(&cov.redeem_kind)
++            .map_or(if is_escrow { 3 } else { 2 }, |k| k.sig_op_count())).into(),
+     }];
+     // The SOLE output pays the verified winner. The oracle signs the sighash over THIS exact
+     // output set, so a winner who later tries to redirect funds changes the sighash and voids
+@@ -4321,6 +4329,7 @@ pub async fn prepare_oracle_payout_handler(
+     let outputs = vec![TransactionOutput {
+         value: amount - TX_FEE,
+         script_public_key: dest_script,
++        covenant: None,
+     }];
+     let unsigned = Transaction::new_non_finalized(
+         0,
+@@ -4336,11 +4345,12 @@ pub async fn prepare_oracle_payout_handler(
+         script_public_key: p2sh_spk,
+         block_daa_score: utxo.utxo_entry.block_daa_score,
+         is_coinbase: utxo.utxo_entry.is_coinbase,
++        covenant_id: None,
+     };
+     let signable = SignableTransaction::with_entries(unsigned.clone(), vec![entry.clone()]);
+-    let mut reused = SigHashReusedValues::new();
++    let mut reused = SigHashReusedValuesUnsync::new();
+     let sig_hash =
+-        calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
++        calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &reused);
+     let sighash_hex = hex::encode(sig_hash.as_bytes());
+ 
+     // Produce ONLY the oracle's partial signature over the sighash. The winner's half is
+@@ -4932,11 +4942,12 @@ pub async fn prepare_spend_handler(
+         },
+         signature_script: vec![],
+         sequence: spend_sequence, // rcsv / bos-refund: satisfies OpCheckSequenceVerify; all others 0 (non-final)
+-        sig_op_count,
++        compute_commit: SigopCount(sig_op_count).into(),
+     }];
+     let outputs = vec![TransactionOutput {
+         value: amount - TX_FEE,
+         script_public_key: dest_script,
++        covenant: None,
+     }];
+     // A spend that takes a CLTV branch MUST carry lock_time = lock_daa (with a non-final
+     // input sequence, set above) so OpCheckLockTimeVerify passes, and the chain must have
+@@ -4975,11 +4986,12 @@ pub async fn prepare_spend_handler(
+         script_public_key: p2sh_script_pubkey(&redeem),
+         block_daa_score: utxo.utxo_entry.block_daa_score,
+         is_coinbase: utxo.utxo_entry.is_coinbase,
++        covenant_id: None,
+     };
+     let signable = SignableTransaction::with_entries(unsigned.clone(), vec![entry.clone()]);
+-    let mut reused = SigHashReusedValues::new();
++    let mut reused = SigHashReusedValuesUnsync::new();
+     let sig_hash =
+-        calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
++        calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &reused);
+     let sighash_hex = hex::encode(sig_hash.as_bytes());
+ 
+     let session_id = uuid::Uuid::new_v4().to_string();
+@@ -5460,11 +5472,13 @@ pub async fn prepare_deploy_handler(
+     let mut outputs = vec![TransactionOutput {
+         value: stake_sompi,
+         script_public_key: p2sh_spk,
++        covenant: None,
+     }];
+     if change > 0 {
+         outputs.push(TransactionOutput {
+             value: change,
+             script_public_key: deployer_script,
++        covenant: None,
+         });
+     }
+     let inputs: Vec<TransactionInput> = selected
+@@ -5476,7 +5490,7 @@ pub async fn prepare_deploy_handler(
+             },
+             signature_script: vec![],
+             sequence: 0,
+-            sig_op_count: 1,
++            compute_commit: SigopCount(1).into(),
+         })
+         .collect();
+     // Same aa20 + blake2b(redeem) + full-redeem payload as the custodial deploy (required
+@@ -5501,16 +5515,17 @@ pub async fn prepare_deploy_handler(
+             script_public_key: u.utxo_entry.script_public_key.clone(),
+             block_daa_score: u.utxo_entry.block_daa_score,
+             is_coinbase: u.utxo_entry.is_coinbase,
++        covenant_id: None,
+         })
+         .collect();
+     let signable = SignableTransaction::with_entries(unsigned.clone(), entries.clone());
+     // Compute the sighash for EVERY input. Each input commits the SAME outputs (SIG_HASH_ALL)
+     // but its own outpoint, so the per-input sighashes differ; the browser signs each.
+-    let mut reused = SigHashReusedValues::new();
++    let mut reused = SigHashReusedValuesUnsync::new();
+     let mut inputs_json = Vec::with_capacity(selected.len());
+     for (i, u) in selected.iter().enumerate() {
+         let sh =
+-            calc_schnorr_signature_hash(&signable.as_verifiable(), i, SIG_HASH_ALL, &mut reused);
++            calc_schnorr_signature_hash(&signable.as_verifiable(), i, SIG_HASH_ALL, &reused);
+         inputs_json.push(serde_json::json!({
+             "index": i,
+             "outpoint_tx": u.outpoint.transaction_id.to_string(),
+@@ -6004,12 +6019,14 @@ pub async fn bundle_deploy_handler(
+         .map(|(amt, redeem, _, _)| TransactionOutput {
+             value: *amt,
+             script_public_key: p2sh_script_pubkey(redeem),
++        covenant: None,
+         })
+         .collect();
+     if change > 0 {
+         outputs.push(TransactionOutput {
+             value: change,
+             script_public_key: funder_script,
++        covenant: None,
+         });
+     }
+     // One input per selected UTXO; each is the funder's P2PK so sig_op_count = 1.
+@@ -6022,7 +6039,7 @@ pub async fn bundle_deploy_handler(
+             },
+             signature_script: vec![],
+             sequence: 0,
+-            sig_op_count: 1,
++            compute_commit: SigopCount(1).into(),
+         })
+         .collect();
+     // Non-empty payload (sighash) + aa20 discovery marker for the first leg.
+@@ -6045,6 +6062,7 @@ pub async fn bundle_deploy_handler(
+             script_public_key: u.utxo_entry.script_public_key.clone(),
+             block_daa_score: u.utxo_entry.block_daa_score,
+             is_coinbase: u.utxo_entry.is_coinbase,
++        covenant_id: None,
+         })
+         .collect();
+     let signable = SignableTransaction::with_entries(unsigned, entries);
+@@ -6949,7 +6967,8 @@ mod tests {
+         Transaction, TransactionInput, TransactionOutpoint, TransactionOutput, UtxoEntry,
+         VerifiableTransaction,
+     };
+-    use kaspa_txscript::{caches::Cache, TxScriptEngine};
++    use kaspa_txscript::{caches::Cache, TxScriptEngine, EngineFlags};
++    use kaspa_txscript::engine_context::EngineContext;
+     use secp256k1::Keypair;
+ 
+     fn test_keypair(seed: u8) -> Keypair {
+@@ -7018,9 +7037,8 @@ mod tests {
+     #[test]
+     fn h4_onchain_binding_unlisted_circuit_without_binding_fails_closed_by_default() {
+         // Make sure neither env knob is set (clean default).
+-        std::env::remove_var("COVEX_REQUIRE_COVENANT_BINDING");
+-        std::env::remove_var("COVEX_ALLOW_NO_BINDING");
+-
++        unsafe { std::env::remove_var("COVEX_REQUIRE_COVENANT_BINDING"); }
++        unsafe { std::env::remove_var("COVEX_ALLOW_NO_BINDING"); }
+         // A circuit name that is NOT on the no-binding allowlist and does NOT emit a binding.
+         let circuit = "some_unlisted_circuit_with_no_binding";
+         let covenant = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
+@@ -7043,18 +7061,18 @@ mod tests {
+         );
+ 
+         // The blanket emergency escape hatch relaxes the unlisted circuit too.
+-        std::env::set_var("COVEX_ALLOW_NO_BINDING", "true");
++        unsafe { std::env::set_var("COVEX_ALLOW_NO_BINDING", "true"); }
+         let relaxed = enforce_onchain_covenant_binding(covenant, circuit, &public_inputs);
+-        std::env::remove_var("COVEX_ALLOW_NO_BINDING");
++        unsafe { std::env::remove_var("COVEX_ALLOW_NO_BINDING"); }
+         assert!(
+             relaxed.is_ok(),
+             "COVEX_ALLOW_NO_BINDING=true must relax the fail-closed default"
+         );
+ 
+         // COVEX_REQUIRE_COVENANT_BINDING=true force-rejects even an allowlisted circuit.
+-        std::env::set_var("COVEX_REQUIRE_COVENANT_BINDING", "true");
++        unsafe { std::env::set_var("COVEX_REQUIRE_COVENANT_BINDING", "true"); }
+         let forced = enforce_onchain_covenant_binding(covenant, "collateral_ltv", &public_inputs);
+-        std::env::remove_var("COVEX_REQUIRE_COVENANT_BINDING");
++        unsafe { std::env::remove_var("COVEX_REQUIRE_COVENANT_BINDING"); }
+         assert!(
+             forced.is_err(),
+             "COVEX_REQUIRE_COVENANT_BINDING=true must fail closed even for allowlisted circuits"
+@@ -7408,11 +7426,16 @@ mod tests {
+                 previous_outpoint: prev,
+                 signature_script: vec![],
+                 sequence,
+-                sig_op_count: 1,
++                // v2.0.1 enforces a hard per-input sig-op budget (ExceededSigOpLimit). The
++                // shared test helper does not know the redeem kind, so it budgets the
++                // production maximum (oracle_escrow = 3) so multisig / oracle-cosign branches
++                // can run. Production builders set the exact per-kind SpendKind::sig_op_count.
++                compute_commit: SigopCount(3).into(),
+             }],
+             vec![TransactionOutput {
+                 value: 90_000_000,
+                 script_public_key: p2sh_script_pubkey(redeem),
++        covenant: None,
+             }],
+             lock_time,
+             SubnetworkId::from_bytes([0u8; 20]),
+@@ -7424,6 +7447,7 @@ mod tests {
+             script_public_key: p2sh_script_pubkey(redeem),
+             block_daa_score: 1,
+             is_coinbase: false,
++        covenant_id: None,
+         }];
+         let mut signable = SignableTransaction::with_entries(tx, entries);
+         let sig_script = make_sig(&signable);
+@@ -7431,17 +7455,16 @@ mod tests {
+ 
+         let verifiable = signable.as_verifiable();
+         let (input, entry) = verifiable.populated_inputs().next().unwrap();
+-        let mut reused = SigHashReusedValues::new();
++        let mut reused = SigHashReusedValuesUnsync::new();
+         let cache = Cache::new(10_000);
+         let mut engine = TxScriptEngine::from_transaction_input(
+             &verifiable,
+             input,
+             0,
+             entry,
+-            &mut reused,
+-            &cache,
+-        )
+-        .unwrap();
++            EngineContext::new(&cache).with_reused(&reused),
++            EngineFlags::default(),
++        );
+         engine.execute().is_ok()
+     }
+ 
+@@ -7612,11 +7635,12 @@ mod tests {
+             },
+             signature_script: vec![],
+             sequence: 0,
+-            sig_op_count: 2,
++            compute_commit: SigopCount(2).into(),
+         }];
+         let outputs = vec![TransactionOutput {
+             value: amount - TX_FEE,
+             script_public_key: p2sh_spk.clone(),
++        covenant: None,
+         }];
+         let unsigned = Transaction::new_non_finalized(
+             0,
+@@ -7632,13 +7656,14 @@ mod tests {
+             script_public_key: p2sh_spk.clone(),
+             block_daa_score: 12_345,
+             is_coinbase: false,
++        covenant_id: None,
+         };
+ 
+         // The sighash the oracle WOULD sign at prepare.
+         let signable = SignableTransaction::with_entries(unsigned.clone(), vec![entry.clone()]);
+-        let mut reused = SigHashReusedValues::new();
++        let mut reused = SigHashReusedValuesUnsync::new();
+         let orig_sighash =
+-            calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
++            calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &reused);
+         // A real oracle signature over that exact sighash (fixed bytes are fine; we only check it
+         // survives the round-trip unchanged).
+         let msg =
+@@ -7684,7 +7709,7 @@ mod tests {
+             restored.unsigned_tx.clone(),
+             vec![restored.entry.clone()],
+         );
+-        let mut reused2 = SigHashReusedValues::new();
++        let mut reused2 = SigHashReusedValuesUnsync::new();
+         let restored_sighash = calc_schnorr_signature_hash(
+             &restored_signable.as_verifiable(),
+             0,
+@@ -8617,9 +8642,9 @@ mod tests {
+     // EXTERNALLY-produced signatures (each "wallet" signs the sighash, the server only
+     // assembles + relays) satisfies the SAME consensus script engine. ──
+     fn sighash_msg(signable: &SignableTransaction) -> secp256k1::Message {
+-        let mut reused = SigHashReusedValues::new();
++        let mut reused = SigHashReusedValuesUnsync::new();
+         let h =
+-            calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
++            calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &reused);
+         secp256k1::Message::from_digest_slice(h.as_bytes().as_slice()).unwrap()
+     }
+     fn ext_sigs(
+@@ -9462,11 +9487,12 @@ mod tests {
+                     previous_outpoint: prev,
+                     signature_script: vec![],
+                     sequence: 0,
+-                    sig_op_count: 1,
++                    compute_commit: SigopCount(1).into(),
+                 }],
+                 vec![TransactionOutput {
+                     value: 90_000_000,
+                     script_public_key: p2pk_spk.clone(),
++        covenant: None,
+                 }],
+                 0,
+                 SubnetworkId::from_bytes([0u8; 20]),
+@@ -9478,23 +9504,23 @@ mod tests {
+                 script_public_key: p2pk_spk.clone(),
+                 block_daa_score: 1,
+                 is_coinbase: false,
++        covenant_id: None,
+             }];
+             let mut signable = SignableTransaction::with_entries(tx, entries);
+             let sig_script = make_sig(&signable);
+             signable.tx.inputs[0].signature_script = sig_script;
+             let verifiable = signable.as_verifiable();
+             let (input, entry) = verifiable.populated_inputs().next().unwrap();
+-            let mut reused = SigHashReusedValues::new();
++            let mut reused = SigHashReusedValuesUnsync::new();
+             let cache = Cache::new(10_000);
+             let mut engine = TxScriptEngine::from_transaction_input(
+                 &verifiable,
+                 input,
+                 0,
+                 entry,
+-                &mut reused,
+-                &cache,
+-            )
+-            .unwrap();
++                EngineContext::new(&cache).with_reused(&reused),
++                EngineFlags::default(),
++            );
+             engine.execute().is_ok()
+         }
+         let kp = test_keypair(61);
+@@ -9505,8 +9531,8 @@ mod tests {
+         p2pk.push(0xac);
+         let p2pk_spk = ScriptPublicKey::new(0, ScriptVec::from_slice(&p2pk));
+         let sign = |s: &SignableTransaction, k: &Keypair| -> [u8; 64] {
+-            let mut reused = SigHashReusedValues::new();
+-            let h = calc_schnorr_signature_hash(&s.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
++            let mut reused = SigHashReusedValuesUnsync::new();
++            let h = calc_schnorr_signature_hash(&s.as_verifiable(), 0, SIG_HASH_ALL, &reused);
+             let msg = secp256k1::Message::from_digest_slice(h.as_bytes().as_slice()).unwrap();
+             *k.sign_schnorr(msg).as_ref()
+         };
+@@ -10176,7 +10202,7 @@ mod tests {
+             },
+             signature_script: vec![],
+             sequence,
+-            sig_op_count,
++            compute_commit: SigopCount(sig_op_count).into(),
+         }];
+ 
+         // Output: fixed value to a fixed destination script (version + script bytes pinned).
+@@ -10189,6 +10215,7 @@ mod tests {
+         let outputs = vec![TransactionOutput {
+             value: out_value,
+             script_public_key: dest_script,
++        covenant: None,
+         }];
+ 
+         let payload = get_str(s, "payload_utf8").into_bytes();
+@@ -10216,12 +10243,13 @@ mod tests {
+             script_public_key: p2sh_spk,
+             block_daa_score: utxo_block_daa,
+             is_coinbase: false,
++        covenant_id: None,
+         }];
+         let signable = SignableTransaction::with_entries(unsigned, entries);
+ 
+-        let mut reused = SigHashReusedValues::new();
++        let mut reused = SigHashReusedValuesUnsync::new();
+         let sig_hash =
+-            calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &mut reused);
++            calc_schnorr_signature_hash(&signable.as_verifiable(), 0, SIG_HASH_ALL, &reused);
+         let got = hex::encode(sig_hash.as_bytes());
+         let expected = doc["expected_sighash_hex"]
+             .as_str()
+@@ -10590,9 +10618,9 @@ mod tests {
+             let total: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
+             let dev_script = selected[0].utxo_entry.script_public_key.clone();
+             let change = total - stake - fee;
+-            let mut outputs = vec![TransactionOutput { value: stake, script_public_key: p2sh_spk.clone() }];
++            let mut outputs = vec![TransactionOutput { value: stake, script_public_key: p2sh_spk.clone(), covenant: None }];
+             if change >= 10_000 {
+-                outputs.push(TransactionOutput { value: change, script_public_key: dev_script });
++                outputs.push(TransactionOutput { value: change, script_public_key: dev_script, covenant: None });
+             }
+             let tx_inputs: Vec<TransactionInput> = selected
+                 .iter()
+@@ -10603,7 +10631,7 @@ mod tests {
+                     },
+                     signature_script: vec![],
+                     sequence: 0,
+-                    sig_op_count: 1,
++                    compute_commit: SigopCount(1).into(),
+                 })
+                 .collect();
+             let mut payload = vec![0xaa, 0x20];
+@@ -10619,6 +10647,7 @@ mod tests {
+                     script_public_key: u.utxo_entry.script_public_key.clone(),
+                     block_daa_score: u.utxo_entry.block_daa_score,
+                     is_coinbase: u.utxo_entry.is_coinbase,
++        covenant_id: None,
+                 })
+                 .collect();
+             let signable = SignableTransaction::with_entries(unsigned, entries);
+@@ -10665,13 +10694,13 @@ mod tests {
+                 previous_outpoint: TransactionOutpoint { transaction_id: deploy_txid, index: 0 },
+                 signature_script: vec![],
+                 sequence: 0,
+-                sig_op_count: 0, // verify-core has no OpCheckSig
++                compute_commit: SigopCount(0).into(), // verify-core has no OpCheckSig
+             }];
+-            let outputs = vec![TransactionOutput { value: amount - fee, script_public_key: dest }];
++            let outputs = vec![TransactionOutput { value: amount - fee, script_public_key: dest, covenant: None }];
+             let unsigned = Transaction::new_non_finalized(
+                 0, inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, b"covex-zk-spend".to_vec(),
+             );
+-            let entries = vec![UtxoEntry { amount, script_public_key: p2sh_spk, block_daa_score: daa, is_coinbase: is_cb }];
++            let entries = vec![UtxoEntry { amount, script_public_key: p2sh_spk, block_daa_score: daa, is_coinbase: is_cb, covenant_id: None }];
+             let mut signable = SignableTransaction::with_entries(unsigned, entries);
+             // P2SH satisfier is EMPTY: the redeem itself yields the truthy OpZkPrecompile result.
+             let sig_script = kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), vec![])
+@@ -10713,17 +10742,17 @@ mod tests {
+     #[test]
+     fn zk_precompile_deploy_gate_is_fail_closed_and_mainnet_blocked() {
+         // Mainnet always rejected regardless of the env flag.
+-        std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "1");
++        unsafe { std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "1"); }
+         assert!(zk_precompile_deploy_allowed("mainnet").is_err(), "mainnet must be blocked");
+         assert!(zk_precompile_deploy_allowed("mainnet-1").is_err(), "mainnet-1 must be blocked");
+         // Testnet allowed only when explicitly enabled.
+         assert!(zk_precompile_deploy_allowed("testnet-12").is_ok(), "tn12 allowed when enabled");
+-        std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "0");
++        unsafe { std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "0"); }
+         assert!(
+             zk_precompile_deploy_allowed("testnet-12").is_err(),
+             "must be fail-closed when the flag is off"
+         );
+-        std::env::remove_var("KASPA_ZK_PRECOMPILE_ENABLED");
++        unsafe { std::env::remove_var("KASPA_ZK_PRECOMPILE_ENABLED"); }
+         assert!(
+             zk_precompile_deploy_allowed("testnet-12").is_err(),
+             "must be fail-closed when the flag is unset (default off)"
+@@ -10809,11 +10838,11 @@ mod tests {
+             let total: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
+             let dev_script = selected[0].utxo_entry.script_public_key.clone();
+             let change = total - stake - fee;
+-            let mut outputs = vec![TransactionOutput { value: stake, script_public_key: p2sh_spk }];
+-            if change >= 10_000 { outputs.push(TransactionOutput { value: change, script_public_key: dev_script }); }
++            let mut outputs = vec![TransactionOutput { value: stake, script_public_key: p2sh_spk, covenant: None }];
++            if change >= 10_000 { outputs.push(TransactionOutput { value: change, script_public_key: dev_script, covenant: None }); }
+             let tx_inputs: Vec<TransactionInput> = selected.iter().map(|u| TransactionInput {
+                 previous_outpoint: TransactionOutpoint { transaction_id: u.outpoint.transaction_id, index: u.outpoint.index },
+-                signature_script: vec![], sequence: 0, sig_op_count: 1,
++                signature_script: vec![], sequence: 0, compute_commit: SigopCount(1).into(),
+             }).collect();
+             let mut payload = vec![0xaa, 0x20];
+             payload.extend_from_slice(&blake2b256(redeem));
+@@ -10822,6 +10851,7 @@ mod tests {
+             let entries: Vec<UtxoEntry> = selected.iter().map(|u| UtxoEntry {
+                 amount: u.utxo_entry.amount, script_public_key: u.utxo_entry.script_public_key.clone(),
+                 block_daa_score: u.utxo_entry.block_daa_score, is_coinbase: u.utxo_entry.is_coinbase,
++        covenant_id: None,
+             }).collect();
+             let signable = SignableTransaction::with_entries(unsigned, entries);
+             let mut signed = sign_with_multiple_v2(signable, &[*dev_sk]).fully_signed().unwrap();
+@@ -10848,11 +10878,11 @@ mod tests {
+             let dest = script_pub_key_from_address(dev_addr).unwrap();
+             let inputs = vec![TransactionInput {
+                 previous_outpoint: TransactionOutpoint { transaction_id: deploy, index: 0 },
+-                signature_script: vec![], sequence: 0, sig_op_count: 0, // verify-core has no OpCheckSig
++                signature_script: vec![], sequence: 0, compute_commit: SigopCount(0).into(), // verify-core has no OpCheckSig
+             }];
+-            let outputs = vec![TransactionOutput { value: amount - fee, script_public_key: dest }];
++            let outputs = vec![TransactionOutput { value: amount - fee, script_public_key: dest, covenant: None }];
+             let unsigned = Transaction::new_non_finalized(0, inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, b"covex-zk-witness-spend".to_vec());
+-            let entries = vec![UtxoEntry { amount, script_public_key: p2sh_spk, block_daa_score: daa, is_coinbase: is_cb }];
++            let entries = vec![UtxoEntry { amount, script_public_key: p2sh_spk, block_daa_score: daa, is_coinbase: is_cb, covenant_id: None }];
+             let mut signable = SignableTransaction::with_entries(unsigned, entries);
+             let sig_script = build_zk_verify_core_witness_proof_satisfier(proof, redeem).map_err(|e| e)?;
+             signable.tx.inputs[0].signature_script = sig_script;
+diff --git a/backend/src/crawler.rs b/backend/src/crawler.rs
+index 5fdfc339..a8b8d87a 100644
+--- a/backend/src/crawler.rs
++++ b/backend/src/crawler.rs
+@@ -600,7 +600,7 @@ async fn reconcile_reorgs(
+     }
+     let resp = match tokio::time::timeout(
+         std::time::Duration::from_secs(15),
+-        client.get_virtual_chain_from_block(start, true),
++        client.get_virtual_chain_from_block(start, true, None),
+     )
+     .await
+     {
+diff --git a/backend/src/disassembler.rs b/backend/src/disassembler.rs
+index 9bd1286f..8eb3af30 100644
+--- a/backend/src/disassembler.rs
++++ b/backend/src/disassembler.rs
+@@ -508,7 +508,7 @@ mod tests {
+         let mut it = script.iter();
+         let mut out: Vec<(u8, Vec<u8>)> = Vec::new();
+         loop {
+-            match deserialize_next_opcode::<_, PopulatedTransaction>(&mut it) {
++            match deserialize_next_opcode::<_, PopulatedTransaction, kaspa_consensus_core::hashing::sighash::SigHashReusedValuesUnsync>(&mut it) {
+                 Some(Ok(op)) => out.push((op.value(), op.get_data().to_vec())),
+                 Some(Err(_)) => return (out, true),
+                 None => return (out, false),
+diff --git a/backend/src/games.rs b/backend/src/games.rs
+index 7b236118..45cea5bc 100644
+--- a/backend/src/games.rs
++++ b/backend/src/games.rs
+@@ -2289,8 +2289,7 @@ mod tests {
+         let domain = "match-redeem-check";
+         // A throwaway oracle key so oracle_xonly_pubkey_hex() does not fail closed
+         // in this test (env is process-global; we only SET it, never assert unset).
+-        std::env::set_var("COVEX_ORACLE_KEY", "11".repeat(32));
+-
++        unsafe { std::env::set_var("COVEX_ORACLE_KEY", "11".repeat(32)); }
+         let h_a = crate::referee::outcome_hashlock(net, domain, 0);
+         let h_b = crate::referee::outcome_hashlock(net, domain, 1);
+         // Player x-only keys from the test addresses (same derivation lock-pot uses).
+@@ -2451,8 +2450,8 @@ mod tests {
+     /// Uses a finished decisive board so only the ZK gate can be the refuser.
+     #[tokio::test]
+     async fn settle_pot_hashlock_refuses_unverifiable_supplied_proof() {
+-        std::env::remove_var("COVEX_GAMES_PROVER_BIN");
+-        std::env::remove_var("COVEX_GAMES_ZK_REQUIRE");
++        unsafe { std::env::remove_var("COVEX_GAMES_PROVER_BIN"); }
++        unsafe { std::env::remove_var("COVEX_GAMES_ZK_REQUIRE"); }
+         let db = fresh_db();
+         // Finished, server-timed timeout to player1 so game_pot_outcome Verifies(0); the
+         // ONLY remaining gate is the ZK gate, which must refuse a proof it cannot verify.
+@@ -2499,9 +2498,8 @@ mod tests {
+     #[tokio::test]
+     async fn settle_pot_hashlock_mainnet_refuses_without_zk_receipt() {
+         // Env flag OFF (the whole point: mainnet must require a proof regardless).
+-        std::env::remove_var("COVEX_GAMES_ZK_REQUIRE");
+-        std::env::remove_var("COVEX_GAMES_PROVER_BIN");
+-
++        unsafe { std::env::remove_var("COVEX_GAMES_ZK_REQUIRE"); }
++        unsafe { std::env::remove_var("COVEX_GAMES_PROVER_BIN"); }
+         let db = fresh_db();
+         seed_hashlock_pot(
+             &db,
+diff --git a/backend/src/oracle.rs b/backend/src/oracle.rs
+index 76ece2cb..9687a857 100644
+--- a/backend/src/oracle.rs
++++ b/backend/src/oracle.rs
+@@ -680,7 +680,7 @@ async fn verify_and_sign_handler(
+         // This keeps everything compatible while making liveness/oracle connection to covenants trivial to test.
+         if input.circuit_type == "decentralized_liveness" {
+             if let Some(s) = &input.simulate {
+-                std::env::set_var("SIMULATE_LIVENESS", s);
++                unsafe { std::env::set_var("SIMULATE_LIVENESS", s); }
+             }
+         }
+     }
+@@ -1042,10 +1042,12 @@ mod tests {
+     fn test_oracle_schnorr_roundtrip() {
+         // The oracle now fails closed without COVEX_ORACLE_KEY (no baked-in default),
+         // so the test supplies its own throwaway key rather than relying on a secret.
+-        std::env::set_var(
+-            "COVEX_ORACLE_KEY",
+-            "1111111111111111111111111111111111111111111111111111111111111111",
+-        );
++        unsafe {
++            std::env::set_var(
++                "COVEX_ORACLE_KEY",
++                "1111111111111111111111111111111111111111111111111111111111111111",
++            );
++        }
+         let message = "covex-oracle:test123:0:1717000000";
+         let sig = sign_outcome(message);
+         // BIP340 schnorr signature: 64 bytes = 128 hex chars
+diff --git a/backend/src/referee_zk.rs b/backend/src/referee_zk.rs
+index 1c12ab14..2f8035c2 100644
+--- a/backend/src/referee_zk.rs
++++ b/backend/src/referee_zk.rs
+@@ -419,8 +419,8 @@ mod tests {
+     /// Refused (never accept an unverified proof as if it were real ZK).
+     #[test]
+     fn gate_without_verifier() {
+-        std::env::remove_var(PROVER_BIN_ENV);
+-        std::env::remove_var(REQUIRE_ENV);
++        unsafe { std::env::remove_var(PROVER_BIN_ENV); }
++        unsafe { std::env::remove_var(REQUIRE_ENV); }
+         let moves = vec!["e2e4".to_string(), "resign".to_string()];
+ 
+         match run_gate(None, 0, &moves) {
+@@ -439,11 +439,11 @@ mod tests {
+     fn gate_requires_proof_when_mandated() {
+         // NOTE: tests in this bin run on one thread for env isolation in this crate's
+         // suite; set then clear so we do not leak state to sibling tests.
+-        std::env::set_var(REQUIRE_ENV, "true");
+-        std::env::remove_var(PROVER_BIN_ENV);
++        unsafe { std::env::set_var(REQUIRE_ENV, "true"); }
++        unsafe { std::env::remove_var(PROVER_BIN_ENV); }
+         let moves = vec!["e2e4".to_string(), "resign".to_string()];
+         let decision = run_gate(None, 0, &moves);
+-        std::env::remove_var(REQUIRE_ENV);
++        unsafe { std::env::remove_var(REQUIRE_ENV); }
+         match decision {
+             ZkGate::Refused(_) => {}
+             _ => panic!("absent receipt + zk_required must be Refused"),
+@@ -457,8 +457,8 @@ mod tests {
+     /// verifier never runs). The refusal explains it is the mainnet rule.
+     #[test]
+     fn mainnet_forces_proof_required_regardless_of_env() {
+-        std::env::remove_var(REQUIRE_ENV);
+-        std::env::remove_var(PROVER_BIN_ENV);
++        unsafe { std::env::remove_var(REQUIRE_ENV); }
++        unsafe { std::env::remove_var(PROVER_BIN_ENV); }
+         let moves = vec!["e2e4".to_string(), "resign".to_string()];
+ 
+         // Flag-agnostic predicate: mainnet is always required, testnet is not (flag off).
+diff --git a/backend/src/signer.rs b/backend/src/signer.rs
+index 0f77ff12..85df5a10 100644
+--- a/backend/src/signer.rs
++++ b/backend/src/signer.rs
+@@ -26,6 +26,7 @@ use axum::{routing::post, Extension, Json, Router};
+ use kaspa_addresses::Address;
+ use kaspa_consensus_core::sign::sign_with_multiple_v2;
+ use kaspa_consensus_core::subnets::SubnetworkId;
++use kaspa_consensus_core::mass::SigopCount;
+ use kaspa_consensus_core::tx::{
+     ScriptPublicKey, ScriptVec, SignableTransaction, Transaction, TransactionInput,
+     TransactionOutpoint, TransactionOutput, UtxoEntry,
+@@ -218,6 +219,7 @@ fn to_utxo_entry(entry: &RpcUtxosByAddressesEntry) -> UtxoEntry {
+         script_public_key: entry.utxo_entry.script_public_key.clone(),
+         block_daa_score: entry.utxo_entry.block_daa_score,
+         is_coinbase: entry.utxo_entry.is_coinbase,
++        covenant_id: None,
+     }
+ }
+ 
+@@ -567,18 +569,21 @@ pub async fn sign_and_broadcast_handler(
+         outputs.push(TransactionOutput {
+             value: covenant_fund,
+             script_public_key: deployer_script.clone(),
++        covenant: None,
+         });
+     }
+     if tier_fee > 0 {
+         outputs.push(TransactionOutput {
+             value: tier_fee,
+             script_public_key: treasury_script,
++        covenant: None,
+         });
+     }
+     if change > 0 {
+         outputs.push(TransactionOutput {
+             value: change,
+             script_public_key: deployer_script.clone(),
++        covenant: None,
+         });
+     }
+ 
+@@ -592,7 +597,7 @@ pub async fn sign_and_broadcast_handler(
+             },
+             signature_script: vec![],
+             sequence: 0,
+-            sig_op_count: 1,
++            compute_commit: SigopCount(1).into(),
+         })
+         .collect();
+ 

@@ -3618,6 +3618,37 @@ pub(crate) fn game_pot_outcome(db: &db::Db, pot_tx: &str) -> GamePot {
     }
 }
 
+/// FAIL-CLOSED draw gate (security review C5). Returns `true` ONLY when `pot_tx` is the linked pot
+/// of a FINISHED skill_games match whose server-authoritative engine replay of the move log yields a
+/// genuine `GameResult::Draw`. Every other state - not finished, no engine, unfinished board, a
+/// decisive winner, a client-claimed draw not backed by the move log - returns `false`. This is the
+/// money gate for the draw 50/50 split: `game_pot_outcome` deliberately returns `Rejected` on a draw
+/// (the single-winner primitives pay one side), so the draw route needs this distinct, equally
+/// fail-closed signal to authorize the split, and ONLY the genuine engine draw may authorize it.
+pub(crate) fn game_pot_is_draw(db: &db::Db, pot_tx: &str) -> bool {
+    let row: Option<(String, String, String)> = {
+        let conn = db.lock().unwrap();
+        conn.query_row(
+            "SELECT game_type, moves, status FROM skill_games WHERE pot_tx = ?1",
+            rusqlite::params![pot_tx],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .ok()
+    };
+    let (gtype, moves_raw, status) = match row {
+        Some(t) => t,
+        None => return false,
+    };
+    if status != "finished" {
+        return false;
+    }
+    let moves: Vec<String> = serde_json::from_str(&moves_raw).unwrap_or_default();
+    matches!(
+        crate::game_engine::result_from_moves(&gtype, &moves),
+        Some(crate::game_engine::GameResult::Draw)
+    )
+}
+
 /// H4 (on-chain twin of the oracle.rs verify-and-sign gate): bind the verified proof to
 /// THIS covenant's deploy_tx_id so a proof generated for covenant A cannot be replayed to
 /// release a DIFFERENT covenant B of the same circuit type (cross-covenant proof reuse).
@@ -4629,6 +4660,15 @@ pub struct WalletPrepareRequest {
     /// fixed at prepare time and the wallet signs that exact sighash.
     #[serde(default)]
     pub branch: Option<String>,
+    /// DRAW 50/50 SPLIT (channel cooperative close only): an OPTIONAL second destination. When set,
+    /// the spend builds TWO outputs paying `destination_addr` and `split_destination_addr` each
+    /// `(amount - fee)/2` (the odd sompi goes to `destination_addr`; both signers see it in the
+    /// committed sighash). It is honored ONLY for a channel cooperative close (kind=channel, not the
+    /// refund branch) - any other kind ignores it. Server-internal: the games draw route sets it; the
+    /// amounts are server-derived and stored in the session, so submit-signed (which re-signs the
+    /// stored tx, never a client-supplied output) cannot be tricked into a different split.
+    #[serde(default)]
+    pub split_destination_addr: Option<String>,
 }
 
 /// POST /covenant/p2sh/prepare-spend - build the unsigned spend + return the sighash the
@@ -4934,10 +4974,50 @@ pub async fn prepare_spend_handler(
         sequence: spend_sequence, // rcsv / bos-refund: satisfies OpCheckSequenceVerify; all others 0 (non-final)
         sig_op_count,
     }];
-    let outputs = vec![TransactionOutput {
-        value: amount - TX_FEE,
-        script_public_key: dest_script,
-    }];
+    // Outputs: normally a single payout. For a DRAW 50/50 split (channel cooperative close with a
+    // second destination), build TWO outputs each ~half of (amount - fee). The odd sompi goes to the
+    // first destination; both signers see the exact split in the committed SIG_HASH_ALL sighash, so
+    // neither can alter it. The split is rejected if either half would fall below the dust floor.
+    let split_close = req
+        .split_destination_addr
+        .as_deref()
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty());
+    let outputs = if let Some(split_addr) = split_close {
+        if kind_base != "channel" || branch_refund {
+            return err(
+                "split_destination_addr is only valid for a channel cooperative close (the draw 50/50 split)".into(),
+            );
+        }
+        let split_script = match script_pub_key_from_address(split_addr) {
+            Ok(s) => s,
+            Err(e) => return err(format!("bad split_destination_addr: {e}")),
+        };
+        let payable = amount - TX_FEE;
+        let half_b = payable / 2;
+        let half_a = payable - half_b; // the odd sompi goes to destination_addr.
+        if half_b < DUST_THRESHOLD {
+            return err(format!(
+                "draw split refused: each half ({half_a}/{half_b} sompi) would fall below the {DUST_THRESHOLD} dust floor; the pot is too small to split"
+            ));
+        }
+        vec![
+            TransactionOutput { value: half_a, script_public_key: dest_script },
+            TransactionOutput { value: half_b, script_public_key: split_script },
+        ]
+    } else {
+        vec![TransactionOutput {
+            value: amount - TX_FEE,
+            script_public_key: dest_script,
+        }]
+    };
+    // Capture the split amounts (a, b) before `outputs` is moved into the unsigned tx, so the
+    // response can echo the exact two-output plan for client-side verification.
+    let split_amounts: Option<(u64, u64)> = if split_close.is_some() && outputs.len() == 2 {
+        Some((outputs[0].value, outputs[1].value))
+    } else {
+        None
+    };
     // A spend that takes a CLTV branch MUST carry lock_time = lock_daa (with a non-final
     // input sequence, set above) so OpCheckLockTimeVerify passes, and the chain must have
     // reached that DAA. This applies to a timelock covenant, an HTLC refund, and a channel
@@ -5024,6 +5104,17 @@ pub async fn prepare_spend_handler(
         "p2sh_address": p2sh_address,
         "amount_sompi": amount,
         "destination": req.destination_addr,
+        // DRAW split (when present): the two server-derived outputs so the client can verify the tx
+        // pays exactly destination_addr + split_destination_addr each ~half, and nothing else.
+        "split": match (split_close, split_amounts) {
+            (Some(split_addr), Some((a, b))) => serde_json::json!({
+                "destination_a": req.destination_addr.clone(),
+                "amount_a_sompi": a,
+                "destination_b": split_addr,
+                "amount_b_sompi": b,
+            }),
+            _ => serde_json::Value::Null,
+        },
         "redeem_kind": redeem_kind,
         "needs_preimage": needs_preimage,
         "needs_proof": needs_proof,

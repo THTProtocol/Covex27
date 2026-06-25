@@ -170,3 +170,39 @@ jobs:
       # already enforce, so the cold tool's fund-path satisfier can never silently drift.
       - name: Cold-recovery satisfier matches the cross-language golden
         run: npm run check:cold-tool-satisfier
+
+  zk-image-id:
+    name: ZK guest image-id (no drift from the on-chain pin)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # GATE (on-chain-ZK anti-drift): the KIP-16 ZkGameSettle settlement covenant pins ONE guest
+      # image id on-chain. The backend ships it as a frozen literal (GAMES_GUEST_ID in
+      # zkvm/onchain/src/lib.rs). If the guest source OR the RISC0 toolchain drifts, the compiled
+      # image id no longer equals that literal: the prover would self-verify receipts that every
+      # deployed covenant REJECTS on-chain, silently bricking the games payout path. This job runs
+      # the existing `image_id_matches_methods` dev-test (re-derives the image id from a fresh guest
+      # compile and asserts equality) so a drift FAILS the build and forces re-freezing the literal +
+      # redeploying the covenant. It does NOT edit any zkvm source (Lane C owns it); it only RUNS the
+      # check. The guest *compile* needs the RISC0 toolchain but NOT Docker/proving, so it is CI-light.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo + target (zkvm/onchain)
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: zkvm/onchain
+
+      # The pin was frozen under RISC0 1.94.1 / risc0-zkvm 3.0.5; install that guest toolchain so a
+      # toolchain bump does not masquerade as a source drift. rzup puts the guest toolchain in
+      # ~/.risc0/bin, which the check script adds to PATH.
+      - name: Install RISC0 guest toolchain (rzup)
+        run: |
+          curl -L https://risczero.com/install | bash
+          export PATH="$HOME/.risc0/bin:$PATH"
+          rzup install rust 1.94.1 || rzup install rust || rzup install
+          rzup install r0vm || true
+
+      - name: Frozen GAMES_GUEST_ID matches the live guest compile
+        run: bash scripts/check-zk-image-id.sh

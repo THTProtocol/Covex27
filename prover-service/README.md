@@ -57,6 +57,36 @@ export COVEX_PROVER_URL=http://127.0.0.1:7720
 # (and KASPA_ZK_PRECOMPILE_ENABLED=1 to allow the gated settle-zk route on testnet)
 ```
 
+## Security: bind + auth (do NOT expose an open prove endpoint)
+
+`POST /prove-game-settle` runs a minutes-long compute job (the RISC0 -> Groth16 wrap). An open,
+unauthenticated copy of it on a public interface is a DoS amplifier. The service therefore:
+
+- **binds to `127.0.0.1` by default** (`COVEX_PROVER_BIND`). It is reachable only from the same box
+  unless you change this.
+- supports an **optional shared-secret bearer token** (`COVEX_PROVER_TOKEN`). When set, every
+  `/prove-game-settle` request MUST carry `Authorization: Bearer <token>` or it is rejected `401`
+  (`/healthz` stays open for liveness checks).
+
+If the backend and the prover live on the SAME box, the loopback default needs no token. If the
+prover is on a SEPARATE box reachable over the network, you MUST set the token and sit behind a TLS
+reverse proxy:
+
+```bash
+# On the prove box:
+export COVEX_PROVER_BIND=0.0.0.0           # reachable across the network (proxy in front of it)
+export COVEX_PROVER_TOKEN="$(openssl rand -hex 32)"   # a strong shared secret
+node prover-service/server.mjs
+
+# On the Covex backend box (sends the same token automatically):
+export COVEX_PROVER_URL=https://prover.internal.example   # the TLS reverse proxy
+export COVEX_PROVER_TOKEN="<the same secret>"
+```
+
+The service logs `auth: token required` / `auth: disabled` at startup and warns loudly if it binds
+to a non-loopback address with NO token set. The backend's `zk_prover_client` attaches the token as
+`Authorization: Bearer` whenever `COVEX_PROVER_TOKEN` is set on the backend.
+
 ## API
 
 ### `POST /prove-game-settle`

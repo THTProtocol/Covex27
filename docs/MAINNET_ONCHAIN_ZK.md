@@ -101,10 +101,36 @@ UTXO, with the forged-proof and wrong-covenant_id cases rejected by consensus on
   unaudited pre-HF branch that could renumber before mainnet (issue #914 churn); confirm
   no renumber landed and re-pin against the activated build, not against the current
   `toccata` HEAD.
-- [ ] (3) The prover's RISC0 control-root / image id MATCHES the activated kaspad build.
-  A mismatch is silent and catastrophic: it makes either any proof verify or no proof
-  verify. The Stage 0 known-good-vector check and the Stage 4 forged-proof rejection are
-  the non-negotiable gates that catch this.
+- [ ] (3) BLOCKING: the prover's RISC0 control-root + the pinned VerifyingKey BYTE-MATCH the
+  activated mainnet kaspad build. This is the single most dangerous parity gap and it is, today,
+  by CONVENTION not by proof: both the prover and our node link `risc0-zkvm` 3.0.x and so SHOULD
+  share the same default control-root / verifier params + BN254 VK, but nothing checks the bytes
+  are identical. A mismatch is silent and catastrophic: a wrong control-root or VK makes EITHER
+  any proof verify (a forged win could pay out) OR no proof verify (every honest winner is locked
+  out and only the CSV refund path works). Byte-equality MUST be proven against the activated
+  build before the gate flips. The exact checks (all must pass):
+  - VK byte-match. The covenant pins the compressed BN254 VerifyingKey the spend witness carries.
+    Confirm the prover emits the SAME bytes the node verifies against:
+    - prover side: `covex-games-prover settle-spend <receipt> | jq -r .vk_hex`
+      (or the `vk.hex` from `zkvm/onchain/prove_sample.sh`), and the frozen reference
+      `cargo test -p covex-games-onchain --release vk_compressed_roundtrips -- --nocapture`.
+    - node side: dump the VK the activated kaspad's `OpZkPrecompile` tag `0x20` path expects for
+      our pinned image id and diff the hex. They must be byte-identical (`diff <(echo PROVER_VK)
+      <(echo NODE_VK)` returns nothing). A non-empty diff is a BLOCK.
+  - RISC0 control-root / image-id match. The journal's image id and the verifier's control-root
+    both come from the RISC0 build; re-pin them against the ACTIVATED kaspad binary, not the
+    current `toccata` HEAD:
+    - confirm the frozen `GAMES_GUEST_ID` literal still matches a fresh guest compile
+      (`bash scripts/check-zk-image-id.sh`, the CI gate added for finding #2), and
+    - set `COVEX_PROVER_IMAGE_ID` on the backend to that frozen hex so `settle-zk` refuses any
+      prover whose `image_id` drifts (defense-in-depth added for finding #4), and
+    - record the RISC0 control-root the activated kaspad build embeds and confirm it equals the
+      prover's `risc0-zkvm` 3.0.x control-root. If kaspad bumped its risc0 minor/patch at the HF,
+      the prover MUST be rebuilt against the same risc0 rev and re-frozen.
+  - Live behavioural confirmation (the gates that actually catch a mismatch): the Stage 0
+    known-good-vector check (a node-blessed proof verifies through the Covex byte layout) AND the
+    Stage 4 forged-proof + wrong-covenant_id rejections. If the known-good vector does NOT verify,
+    or a forged proof DOES verify, the control-root/VK parity is wrong: STOP, do not flip the gate.
 - [ ] (4) A Groth16 proving box is provisioned. x86_64 + Docker (stark2snark) or Bonsai,
   with measured per-game proving latency. The 7GB server cannot do this.
 - [ ] (5) Stage 4 e2e PASSED on TN12: a real game -> on-chain `OpZkPrecompile` verify ->

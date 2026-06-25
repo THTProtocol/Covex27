@@ -60,6 +60,45 @@ pub fn prover_url() -> Option<String> {
         .filter(|s| !s.is_empty())
 }
 
+/// Trim a raw env value to a non-empty token, or None. (Pure; tested without touching global env.)
+fn normalize_token(raw: &str) -> Option<String> {
+    let t = raw.trim();
+    if t.is_empty() {
+        None
+    } else {
+        Some(t.to_string())
+    }
+}
+
+/// Trim + lowercase a raw image-id env value to a non-empty hex string, or None. (Pure; tested.)
+fn normalize_image_id(raw: &str) -> Option<String> {
+    let t = raw.trim().to_lowercase();
+    if t.is_empty() {
+        None
+    } else {
+        Some(t)
+    }
+}
+
+/// The optional shared-secret bearer token from `COVEX_PROVER_TOKEN`. When set, it is sent as
+/// `Authorization: Bearer <token>` so a token-protected prover-service (one bound to a non-loopback
+/// address) accepts the backend's request. Empty/unset = no auth header (a loopback prover needs none).
+pub fn prover_token() -> Option<String> {
+    std::env::var("COVEX_PROVER_TOKEN")
+        .ok()
+        .and_then(|s| normalize_token(&s))
+}
+
+/// The expected guest image id (frozen `GAMES_GUEST_ID` hex), from `COVEX_PROVER_IMAGE_ID`. When set,
+/// the settle route asserts the prover's returned `image_id` matches it before handing out a witness
+/// (a drifted prover guest would produce a receipt the on-chain covenant pins against and rejects).
+/// Empty/unset = the check is skipped (the chain is still the final verifier). Compared lowercase.
+pub fn expected_image_id() -> Option<String> {
+    std::env::var("COVEX_PROVER_IMAGE_ID")
+        .ok()
+        .and_then(|s| normalize_image_id(&s))
+}
+
 /// Groth16 proving is heavy (composite STARK -> succinct -> Docker wrap), so allow a long timeout.
 /// Overridable with `COVEX_PROVER_TIMEOUT_SECS`.
 fn prover_timeout() -> Duration {
@@ -86,9 +125,12 @@ pub async fn request_settle_spend(
         .build()
         .map_err(|e| format!("could not initialize the prover HTTP client: {e}"))?;
 
-    let resp = client
-        .post(&url)
-        .json(input)
+    let mut request = client.post(&url).json(input);
+    // Send the shared-secret bearer token when configured, so a token-protected prover accepts us.
+    if let Some(token) = prover_token() {
+        request = request.bearer_auth(token);
+    }
+    let resp = request
         .send()
         .await
         .map_err(|e| format!("the prover service ({base}) could not be reached: {e}"))?;
@@ -122,4 +164,37 @@ pub async fn request_settle_spend(
         );
     }
     Ok(parsed)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn token_normalizes_trims_and_treats_empty_as_unset() {
+        assert_eq!(normalize_token(""), None);
+        assert_eq!(normalize_token("   "), None);
+        assert_eq!(normalize_token("  secret  "), Some("secret".to_string()));
+        // The token is case-sensitive (a bearer secret), so case is preserved.
+        assert_eq!(normalize_token("AbC123"), Some("AbC123".to_string()));
+    }
+
+    #[test]
+    fn image_id_normalizes_lowercases_trims_and_treats_empty_as_unset() {
+        assert_eq!(normalize_image_id(""), None);
+        assert_eq!(normalize_image_id("  \t "), None);
+        // Hex image id is compared case-insensitively, so normalize to lowercase.
+        assert_eq!(
+            normalize_image_id("  DEADBEEF  "),
+            Some("deadbeef".to_string())
+        );
+    }
+
+    #[test]
+    fn image_id_parity_is_case_insensitive() {
+        // The settle route asserts spend.image_id matches expected_image_id() case-insensitively.
+        let expected = normalize_image_id("ABCDef01").unwrap();
+        assert!("abcdEF01".eq_ignore_ascii_case(&expected));
+        assert!(!"abcdef02".eq_ignore_ascii_case(&expected));
+    }
 }

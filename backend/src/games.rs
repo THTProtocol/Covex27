@@ -1075,6 +1075,9 @@ async fn settle_zk(
         Ok(x) => x,
         Err(e) => return Json(json!({ "success": false, "error": e })),
     };
+    // The verified winner's x-only key (the journal payee the prover MUST echo back). Captured before
+    // p1x/p2x are moved into the prover input so we can assert parity on the prover's response below.
+    let winner_xonly = if outcome == 0 { p1x.clone() } else { p2x.clone() };
     let game_type = game["game_type"].as_str().unwrap_or("").to_string();
     let moves: Vec<String> =
         serde_json::from_str(game["moves"].as_str().unwrap_or("[]")).unwrap_or_default();
@@ -1103,6 +1106,34 @@ async fn settle_zk(
     // proof would not pay the server-verified winner, so refuse rather than hand over a mismatch.
     if spend.winner_code as u32 != outcome {
         return Json(json!({ "success": false, "error": format!("prover winner_code {} disagrees with the server-verified outcome {outcome}; refusing to settle", spend.winner_code) }));
+    }
+    // Defense-in-depth parity on the prover's returned binding fields. The chain is the final verifier
+    // (it pins the VK + image id + journal binding and rejects a bad proof), so a mismatch here is not
+    // a fund-drain. But a prover that returns material bound to a DIFFERENT pot/winner/guest would hand
+    // the winner a witness doomed to be rejected on-chain (wasted fee + confusing failure). Refuse it
+    // here with a clear message rather than letting the user broadcast a dead spend.
+    //   * covenant_id: the journal must bind THIS pot (the deploy tx id we asked the prover to prove).
+    if !spend.covenant_id.eq_ignore_ascii_case(&pot_tx) {
+        return Json(json!({ "success": false, "error": format!("prover returned a proof bound to covenant_id {} but this pot is {pot_tx}; refusing to settle a cross-pot proof", spend.covenant_id) }));
+    }
+    //   * winner_pubkey: the journal payee must be the server-verified winner's own x-only key.
+    if !spend.winner_pubkey.eq_ignore_ascii_case(&winner_xonly) {
+        return Json(json!({ "success": false, "error": format!("prover winner_pubkey {} does not match the verified winner key {winner_xonly}; refusing to settle", spend.winner_pubkey) }));
+    }
+    //   * image_id: when an expected guest image id is pinned (COVEX_PROVER_IMAGE_ID), the prover's
+    //     guest must match it. A drifted prover guest produces a receipt the on-chain covenant (which
+    //     pins the VK/image id) rejects; catch it here so a guest rebuild that was not re-frozen +
+    //     redeployed cannot silently produce dead witnesses. Skipped when unpinned or unreported.
+    if let Some(expected) = crate::zk_prover_client::expected_image_id() {
+        match spend.image_id.as_deref() {
+            Some(got) if got.trim().eq_ignore_ascii_case(&expected) => {}
+            Some(got) => {
+                return Json(json!({ "success": false, "error": format!("prover guest image_id {got} does not match the pinned COVEX_PROVER_IMAGE_ID; the prover guest drifted from the deployed covenant (re-freeze + redeploy). Refusing to settle a doomed proof") }));
+            }
+            None => {
+                return Json(json!({ "success": false, "error": "COVEX_PROVER_IMAGE_ID is pinned but the prover did not report an image_id; refusing to settle without confirming the guest matches the deployed covenant" }));
+            }
+        }
     }
 
     // Build the UNSIGNED winner-branch spend via the EXISTING non-custodial prepare-spend path. The

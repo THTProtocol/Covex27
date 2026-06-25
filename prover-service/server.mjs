@@ -19,16 +19,52 @@
 // REQUIREMENTS (see README.md): a built `covex-games-prover` binary (COVEX_GAMES_PROVER_BIN or on
 // PATH), Docker running (RISC0 stark2snark image), RISC0_DEV_MODE unset (a real proof), and
 // >=12GB RAM. Run it on a dev/GPU/Bonsai box, NOT the 7GB backend host.
+//
+// SECURITY: /prove-game-settle is a minutes-long unauthenticated compute endpoint (a DoS amplifier
+// if exposed). So this service:
+//   * binds to 127.0.0.1 by DEFAULT (override with COVEX_PROVER_BIND, e.g. 0.0.0.0 behind a proxy),
+//   * supports an OPTIONAL shared-secret bearer token (COVEX_PROVER_TOKEN). When that env var is set,
+//     every /prove-game-settle request MUST carry `Authorization: Bearer <token>` or it is rejected
+//     401. The Covex backend sends this token when its own COVEX_PROVER_TOKEN is set (zk_prover_client).
+// A publicly-reachable prove box MUST set COVEX_PROVER_TOKEN and sit behind a TLS reverse proxy; the
+// startup log warns loudly if it binds to a non-loopback address with no token configured.
 
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { timingSafeEqual } from 'node:crypto';
 
 const PORT = parseInt(process.env.PROVER_PORT || '7720', 10);
+// Bind to loopback by default so the heavy prove endpoint is not exposed on every interface. Set
+// COVEX_PROVER_BIND=0.0.0.0 (and COVEX_PROVER_TOKEN + a reverse proxy) to reach it from the backend
+// box across the network.
+const BIND = (process.env.COVEX_PROVER_BIND || '127.0.0.1').trim();
+// Optional shared-secret bearer token. When set, /prove-game-settle requires `Authorization: Bearer
+// <token>`. Empty/unset = no auth (only safe on a loopback bind).
+const TOKEN = (process.env.COVEX_PROVER_TOKEN || '').trim();
 const PROVER_BIN = process.env.COVEX_GAMES_PROVER_BIN || 'covex-games-prover';
 const MAX_BODY = 256 * 1024; // a GameInput is tiny; reject anything large.
+
+// True iff BIND is a loopback address (so a missing token there is acceptable).
+function bindIsLoopback() {
+  return BIND === '127.0.0.1' || BIND === 'localhost' || BIND === '::1';
+}
+
+// Constant-time bearer-token check. Returns true when no token is configured (auth disabled), or when
+// the request carries `Authorization: Bearer <token>` matching COVEX_PROVER_TOKEN exactly.
+function authorized(req) {
+  if (!TOKEN) return true; // auth disabled
+  const header = req.headers['authorization'] || '';
+  const m = /^Bearer\s+(.+)$/i.exec(header);
+  if (!m) return false;
+  const got = Buffer.from(m[1], 'utf8');
+  const want = Buffer.from(TOKEN, 'utf8');
+  // timingSafeEqual requires equal lengths; compare lengths first (length is not secret).
+  if (got.length !== want.length) return false;
+  return timingSafeEqual(got, want);
+}
 
 // Run a command, capture stdout/stderr, resolve with { code, stdout, stderr }.
 function run(bin, args, opts = {}) {
@@ -118,6 +154,12 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 200, { ok: true, prover_bin: PROVER_BIN });
   }
   if (req.method === 'POST' && req.url === '/prove-game-settle') {
+    // GATE: reject unauthenticated callers when a shared-secret token is configured.
+    if (!authorized(req)) {
+      return sendJson(res, 401, {
+        error: 'unauthorized: this prover requires a bearer token (set Authorization: Bearer <COVEX_PROVER_TOKEN>)',
+      });
+    }
     let chunks = [];
     let size = 0;
     req.on('data', (c) => {
@@ -142,11 +184,19 @@ const server = http.createServer((req, res) => {
   sendJson(res, 404, { error: 'not found (POST /prove-game-settle or GET /healthz)' });
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, BIND, () => {
   // eslint-disable-next-line no-console
-  console.log(`covex prover-service listening on :${PORT} (prover bin: ${PROVER_BIN})`);
+  console.log(
+    `covex prover-service listening on ${BIND}:${PORT} (prover bin: ${PROVER_BIN}, auth: ${TOKEN ? 'token required' : 'disabled'})`
+  );
   if (process.env.RISC0_DEV_MODE && process.env.RISC0_DEV_MODE !== '0') {
     // eslint-disable-next-line no-console
     console.warn('WARNING: RISC0_DEV_MODE is set; prove-groth16 will REFUSE (it needs a real proof).');
+  }
+  if (!bindIsLoopback() && !TOKEN) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      `WARNING: bound to a non-loopback address (${BIND}) with NO COVEX_PROVER_TOKEN set. This minutes-long prove endpoint is reachable + unauthenticated (DoS risk). Set COVEX_PROVER_TOKEN and put it behind a TLS reverse proxy.`
+    );
   }
 });

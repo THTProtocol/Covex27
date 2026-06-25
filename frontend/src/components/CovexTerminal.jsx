@@ -4421,7 +4421,7 @@ ${gameMeta.outcomeBranches}
               <p className="font-semibold mb-1">Technical Reality</p>
               <p>
                 The proof is verified off-chain by calling <code className="text-amber-300 bg-amber-500/10 px-1 rounded">POST /api/oracle/verify-and-sign</code>.
-                The oracle signature is a real BIP340 Schnorr signature over secp256k1 (scheme <code className="text-amber-300 bg-amber-500/10 px-1 rounded">bip340-schnorr-secp256k1</code> from <code className="text-amber-300 bg-amber-500/10 px-1 rounded">/api/oracle/pubkey</code>), verifiable against the published x-only public key and checkable on-chain via OpCheckSig at Toccata.
+                The oracle signature is a real BIP340 Schnorr signature over secp256k1 (scheme <code className="text-amber-300 bg-amber-500/10 px-1 rounded">bip340-schnorr-secp256k1</code> from <code className="text-amber-300 bg-amber-500/10 px-1 rounded">/api/oracle/pubkey</code>), verifiable against the published x-only public key and checked on-chain via OpCheckSig in the covenant's unlock branch once the covenant is deployed on mainnet at Toccata.
                 The covenant unlock path still requires manual construction of the unlock transaction with the oracle signature as witness data.
               </p>
             </div>

@@ -77,10 +77,18 @@ function BranchCard({ b }) {
 }
 
 function OpcodeRow({ t }) {
+  // The covenant-era overlay tags each opcode with its owning KIP and whether it is
+  // already live on mainnet. KIP-10 introspection (7 opcodes) is consensus-active since
+  // Crescendo (May 2025); KIP-16/17/20 opcodes are gated on the Toccata fork. We surface
+  // the exact KIP so the badge never conflates the two forks.
+  const introLabel = t.introspection ? (t.mainnet_live ? `${t.kip || 'KIP-10'} live` : t.kip || 'Toccata') : null;
+  const introCls = t.introspection && t.mainnet_live
+    ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+    : 'bg-sky-500/15 text-sky-300 border-sky-500/30';
   const flag =
     (t.illegal && { label: 'illegal', cls: 'bg-red-500/15 text-red-300 border-red-500/30' }) ||
     (t.disabled && { label: 'disabled', cls: 'bg-red-500/15 text-red-300 border-red-500/30' }) ||
-    (t.introspection && { label: 'KIP-10', cls: 'bg-sky-500/15 text-sky-300 border-sky-500/30' }) ||
+    (introLabel && { label: introLabel, cls: introCls }) ||
     (t.reserved_unknown && { label: 'reserved', cls: 'bg-amber-500/15 text-amber-300 border-amber-500/30' }) ||
     null;
   return (

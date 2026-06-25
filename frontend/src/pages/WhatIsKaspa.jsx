@@ -162,7 +162,7 @@ export default function WhatIsKaspaPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <div className="uppercase tracking-widest text-[10px] text-[#49EACB] mb-1">Core Primitive</div>
-                <p className="text-gray-200">UTXOs can carry small scripts (aa20-aa23 opcodes in Toccata) that control spending conditions, including time locks, hash locks, public key checks, and arbitrary state machines.</p>
+                <p className="text-gray-200">UTXOs carry scripts that control spending conditions: time locks, hash locks, public key checks. Crescendo (May 2025) already shipped the KIP-10 transaction-introspection opcodes (the 0xb2 to 0xc3 range) on mainnet; the Toccata fork adds the rest of the covenant toolkit (KIP-17 extended scripting, KIP-20 covenant IDs, KIP-16 ZK verification) for full state machines.</p>
               </div>
               <div>
                 <div className="uppercase tracking-widest text-[10px] text-[#49EACB] mb-1">Covex Use Case</div>
@@ -185,7 +185,7 @@ export default function WhatIsKaspaPage() {
               { title: "SPECTRE: Serialization of Proof-of-work Events", subtitle: "Sompolinsky, Lewenberg & Zohar (2016). The earlier inclusive protocol that influenced all later BlockDAG work.", href: "https://eprint.iacr.org/2016/1159.pdf" },
               { title: "Inclusive Block Chain Protocols", subtitle: "Lewenberg, Sompolinsky & Zohar (2015). The paper that introduced the idea of rewarding all honest work instead of discarding orphans.", href: "https://eprint.iacr.org/2015/1139.pdf" },
               { title: "The GHOST Protocol", subtitle: "Sompolinsky & Zohar (2013). The original Greedy Heaviest Observed SubTree idea that eventually became GHOSTDAG.", href: "https://eprint.iacr.org/2013/881.pdf" },
-              { title: "KIP-17: Covenants and Improved Scripting Capabilities", subtitle: "Ori Newman. The canonical covenant design document: introspection opcodes (aa20-aa23 / 0xb2+), covenant semantics, and how they are validated in the Rust node. Activated for Kaspa mainnet via the Toccata covenant hard fork.", href: "https://github.com/kaspanet/kips/blob/master/kip-0017.md" },
+              { title: "KIP-17: Covenants and Improved Scripting Capabilities", subtitle: "Ori Newman. The canonical covenant design document: the extended introspection opcodes (0xb2 to 0xc9), byte-string and arithmetic ops (OpCat, OpMul, OpBlake3, OpCheckSigFromStack), covenant semantics, and how they are validated in the Rust node. Activates on Kaspa mainnet via the Toccata covenant hard fork.", href: "https://github.com/kaspanet/kips/blob/master/kip-0017.md" },
               { title: "kHeavyHash Specification & Rationale", subtitle: "Kaspa documentation. Details on the custom PoW, optical mining design goals, and why it differs from SHA256 / Ethash / etc.", href: "https://github.com/kaspanet/docs" },
               { title: "Kaspa Rust Node Architecture (rusty-kaspa)", subtitle: "The reference implementation. Covers consensus core, UTXO set, mempool, RPC, and how covenants are indexed.", href: "https://github.com/kaspanet/rusty-kaspa" },
             ].map((p, i) => (

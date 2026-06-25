@@ -5,7 +5,7 @@
 //!
 //! Design notes:
 //!  - The token walk is keyed on the OPCODE BYTE, never on a v0.15.0 enum name, so
-//!    it stays correct across the Toccata opcode renames/additions (KIP-10/17/20):
+//!    it stays correct across the covenant-era opcode renames/additions (KIP-16/17/20):
 //!    a byte that reads as `OpUnknown178` today renders as `OpTxVersion` once the
 //!    `toccata` flag is set, with no change to the parsing.
 //!  - The push-data walk replicates kaspa-txscript 0.15.0's consensus tokenizer
@@ -16,10 +16,24 @@
 //!    `deserialize_next_opcode` over the full builder corpus plus random scripts, so
 //!    any divergence from consensus fails the build.
 //!  - The 256-entry name table is generated from the crate's `opcode_list!` macro
-//!    (kaspa-txscript 0.15.0). The `toccata` overlay (bytes 0xb2..=0xd6) carries the
-//!    KIP-10/17/20 introspection + covenant opcode names from rusty-kaspa master;
-//!    those activate on mainnet at the Toccata fork, so they are flagged
-//!    `introspection: true` rather than presented as live-today.
+//!    (kaspa-txscript 0.15.0). The `toccata` overlay carries the KIP-16/17/20 opcode
+//!    NAMES + byte values as published in the official KIPs (kaspanet/kips
+//!    kip-0010 / kip-0016 / kip-0017 / kip-0020). This overlay is a DISPLAY aid, not
+//!    consensus, and the bytes are sourced from the KIP specifications rather than the
+//!    v2.0.1 node binary; only bytes the KIPs assign a concrete value are mapped, and
+//!    anything uncertain is left as `OpUnknown*` rather than mislabeled.
+//!  - Two distinct activations are tagged so the reader is honest about what is LIVE:
+//!      * The 7 KIP-10 introspection opcodes (OpTxInputCount 0xb3, OpTxOutputCount 0xb4,
+//!        OpTxInputIndex 0xb9, OpTxInputAmount 0xbe, OpTxInputSpk 0xbf,
+//!        OpTxOutputAmount 0xc2, OpTxOutputSpk 0xc3) have been consensus-active on Kaspa
+//!        MAINNET since the Crescendo hard fork (May 2025). They carry
+//!        `kip: "KIP-10"`, `mainnet_live: true`.
+//!      * Every other overlay opcode (the rest of KIP-17's extended introspection +
+//!        OpCat/OpSubStr/OpMul/OpBlake3/OpCheckSigFromStack, KIP-20 covenant IDs, and
+//!        KIP-16's OpZkPrecompile 0xa6) is GATED on the Toccata fork (mainnet ~mid-2026)
+//!        and is NOT live on mainnet yet. These carry `mainnet_live: false`.
+//!    Both groups are flagged `introspection: true` only when `toccata = true`, so the
+//!    UI never presents Toccata names as live-today.
 
 use serde::Serialize;
 
@@ -59,10 +73,21 @@ pub struct Token {
     /// fails if executed today; set `toccata` to see its proposed introspection name.
     #[serde(skip_serializing_if = "is_false")]
     pub reserved_unknown: bool,
-    /// A Toccata (KIP-10/17/20) introspection or covenant opcode. Only set when the
-    /// caller passes `toccata = true`; these activate on mainnet at the Toccata fork.
+    /// A Toccata-era introspection / covenant / ZK opcode (KIP-16/17/20). Only set when
+    /// the caller passes `toccata = true`; the KIP-17/20/16 names below activate on
+    /// mainnet at the Toccata fork. (The 7 KIP-10 introspection bytes are a separate,
+    /// Crescendo-live subset, distinguished by `kip` / `mainnet_live`.)
     #[serde(skip_serializing_if = "is_false")]
     pub introspection: bool,
+    /// Which Kaspa improvement proposal owns this opcode, when known and the `toccata`
+    /// overlay is on (e.g. "KIP-10", "KIP-16", "KIP-17", "KIP-20"). Display only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kip: Option<&'static str>,
+    /// True only for the 7 KIP-10 introspection opcodes, which have been consensus-active
+    /// on Kaspa mainnet since the Crescendo hard fork (May 2025). Every other overlay
+    /// opcode (KIP-16/17/20) is gated on the Toccata fork and is NOT live on mainnet yet.
+    #[serde(skip_serializing_if = "is_false")]
+    pub mainnet_live: bool,
 }
 
 /// The result of disassembling a script.
@@ -205,11 +230,18 @@ fn legacy_name(byte: u8) -> Option<&'static str> {
     })
 }
 
-/// Toccata (KIP-10/17/20) introspection + covenant opcode names for bytes 0xb2..=0xd6.
-/// Source: rusty-kaspa master `opcodes/mod.rs`. These activate on mainnet at the
-/// Toccata fork; before then they read as the reserved `OpUnknown*` bytes above.
+/// Covenant-era (KIP-16/17/20) opcode names for the bytes the official KIPs assign a
+/// concrete value. Source: the kaspanet/kips specifications (kip-0010 / kip-0016 /
+/// kip-0017 / kip-0020), NOT the node binary, so this is a display overlay only and any
+/// byte the KIPs do not pin is left unmapped (it falls through to `OpUnknown*`).
+/// The 7 KIP-10 bytes here are mainnet-live since Crescendo; the rest activate at the
+/// Toccata fork. Before activation each reads as the reserved `OpUnknown*` byte above.
 fn toccata_name(byte: u8) -> Option<&'static str> {
     Some(match byte {
+        // KIP-16: zero-knowledge proof verification precompile.
+        0xa6 => "OpZkPrecompile",
+        // KIP-17: keyed BLAKE2b.
+        0xa7 => "OpBlake2bWithKey",
         0xb2 => "OpTxVersion",
         0xb3 => "OpTxInputCount",
         0xb4 => "OpTxOutputCount",
@@ -247,8 +279,38 @@ fn toccata_name(byte: u8) -> Option<&'static str> {
         0xd4 => "OpChainblockSeqCommit",
         0xd5 => "OpOutputCovenantId",
         0xd6 => "OpOutputAuthorizingInput",
+        // KIP-17: check-sig-from-stack + BLAKE3.
+        0xd7 => "OpCheckSigFromStack",
+        0xd8 => "OpCheckSigFromStackECDSA",
+        0xd9 => "OpBlake3",
+        0xda => "OpBlake3WithKey",
         _ => return None,
     })
+}
+
+/// The 7 KIP-10 introspection opcodes, consensus-active on Kaspa MAINNET since the
+/// Crescendo hard fork (May 2025). Distinguished from the Toccata-gated overlay so the
+/// disassembler can honestly tag what is live today vs what awaits the Toccata fork.
+fn is_kip10_live_byte(byte: u8) -> bool {
+    matches!(byte, 0xb3 | 0xb4 | 0xb9 | 0xbe | 0xbf | 0xc2 | 0xc3)
+}
+
+/// Which KIP owns `byte` in the covenant-era overlay, for display tagging. `None` for
+/// bytes outside the overlay. The 0xa6 ZK precompile is KIP-16; the covenant-ID family
+/// (0xcb..=0xd6) is KIP-20; everything else in the overlay is KIP-17 (which also
+/// re-specifies and extends the KIP-10 introspection set). The 7 mainnet-live bytes are
+/// reported as KIP-10, their originating proposal.
+fn kip_for_byte(byte: u8) -> Option<&'static str> {
+    if is_kip10_live_byte(byte) {
+        return Some("KIP-10");
+    }
+    match byte {
+        0xa6 => Some("KIP-16"),
+        0xcb..=0xd6 => Some("KIP-20"),
+        // The remaining named overlay bytes are KIP-17's extended scripting set.
+        _ if toccata_name(byte).is_some() => Some("KIP-17"),
+        _ => None,
+    }
 }
 
 /// Disabled under the 0.15.0 consensus VM (the script fails if the opcode executes).
@@ -401,6 +463,10 @@ pub fn disassemble(script: &[u8], toccata: bool) -> Disassembly {
             // Under Toccata, the introspection bytes are no longer reserved/unknown.
             reserved_unknown: is_unknown_byte(op) && !is_intro,
             introspection: is_intro,
+            // Display tags, only meaningful on the overlay. KIP-10's 7 bytes are
+            // mainnet-live (Crescendo); the rest of the overlay awaits Toccata.
+            kip: if is_intro { kip_for_byte(op) } else { None },
+            mainnet_live: is_intro && is_kip10_live_byte(op),
             name,
             data_hex,
         });
@@ -574,12 +640,55 @@ mod tests {
         assert_eq!(opcode_name(0xac, false), "OpCheckSig");
         assert_eq!(opcode_name(0xb0, false), "OpCheckLockTimeVerify");
         assert_eq!(opcode_name(0xb1, false), "OpCheckSequenceVerify");
-        // Reserved today, KIP-10 introspection under Toccata.
+        // Reserved today, covenant-era introspection under the Toccata overlay.
         assert_eq!(opcode_name(0xb2, false), "OpUnknown178");
         assert_eq!(opcode_name(0xb2, true), "OpTxVersion");
         assert_eq!(opcode_name(0xc2, true), "OpTxOutputAmount");
         assert_eq!(opcode_name(0xcf, true), "OpInputCovenantId");
         assert_eq!(opcode_name(0xd6, true), "OpOutputAuthorizingInput");
+        // KIP-16 ZK precompile + KIP-17 sig/hash additions (verified byte values from
+        // the official KIPs). Reserved/unknown before the Toccata overlay is applied.
+        assert_eq!(opcode_name(0xa6, false), "OpUnknown166");
+        assert_eq!(opcode_name(0xa6, true), "OpZkPrecompile");
+        assert_eq!(opcode_name(0xa7, true), "OpBlake2bWithKey");
+        assert_eq!(opcode_name(0xd7, true), "OpCheckSigFromStack");
+        assert_eq!(opcode_name(0xd8, true), "OpCheckSigFromStackECDSA");
+        assert_eq!(opcode_name(0xd9, true), "OpBlake3");
+        assert_eq!(opcode_name(0xda, true), "OpBlake3WithKey");
+        // OpCat/OpSubStr/OpMul are legacy-named bytes (live names today, disabled in the
+        // 0.15.0 VM), KIP-17 re-enables them; they are not part of the toccata overlay.
+        assert_eq!(opcode_name(0x7e, false), "OpCat");
+        assert_eq!(opcode_name(0x95, false), "OpMul");
+    }
+
+    #[test]
+    fn fork_tags_separate_crescendo_live_from_toccata_gated() {
+        // KIP-10 introspection: mainnet-live since Crescendo. The 7 canonical bytes.
+        for b in [0xb3u8, 0xb4, 0xb9, 0xbe, 0xbf, 0xc2, 0xc3] {
+            let dis = disassemble(&[b], true);
+            let t = &dis.tokens[0];
+            assert!(t.introspection, "{b:#x} should be flagged introspection");
+            assert_eq!(t.kip, Some("KIP-10"), "{b:#x} should be tagged KIP-10");
+            assert!(t.mainnet_live, "{b:#x} (KIP-10) is mainnet-live since Crescendo");
+            assert!(!t.reserved_unknown, "{b:#x} no longer reserved under the overlay");
+        }
+        // KIP-16 ZK precompile: Toccata-gated, NOT mainnet-live.
+        let zk = &disassemble(&[0xa6], true).tokens[0];
+        assert_eq!(zk.kip, Some("KIP-16"));
+        assert!(!zk.mainnet_live, "OpZkPrecompile is gated on Toccata, not live today");
+        // KIP-20 covenant ID: Toccata-gated.
+        let cov = &disassemble(&[0xcf], true).tokens[0];
+        assert_eq!(cov.kip, Some("KIP-20"));
+        assert!(!cov.mainnet_live);
+        // KIP-17 extended introspection byte (OpTxVersion 0xb2): Toccata-gated.
+        let v = &disassemble(&[0xb2], true).tokens[0];
+        assert_eq!(v.kip, Some("KIP-17"));
+        assert!(!v.mainnet_live);
+        // Without the overlay, none of these carry a kip / mainnet_live tag.
+        let off = &disassemble(&[0xc2], false).tokens[0];
+        assert_eq!(off.kip, None);
+        assert!(!off.mainnet_live);
+        assert!(off.reserved_unknown, "0xc2 is a reserved byte pre-Toccata");
     }
 
     #[test]

@@ -11,18 +11,33 @@ Stage-4 seal, so nothing here overclaims.
   BN254 Groth16) is live + active on the Covex TN12 covenant node; a known-good Groth16 proof
   verifies on-chain and a forged one is rejected by consensus, both inside a Covex-built P2SH. See
   `docs/zk_precompile_abi.md` for the byte-exact ABI frozen from the node source.
-- **BUILT (this stage, Stage 4 plumbing):** the deploy path can lock a 2-player `ZkGameSettle` pot
-  (baked VK + 5 public inputs + winner key + CSV refund), and the non-custodial spend path assembles
-  the winner-branch witness (the winner signs in their own wallet; the server signs nothing) and the
-  CSV refund-branch witness. The witness byte order and the alt-stack stack choreography are
-  unit-tested against the frozen ABI, and the alt-stack reorder is proven on-chain on TN12 with a
-  witness-supplied known-good proof (accept) + a forged witness proof (reject).
-- **PENDING (Stage 4 decisive):** a LIVE full-game settlement transaction. It needs a real
-  RISC0->Groth16 receipt for a real game, which requires the Docker `stark2snark` wrap (the 7GB
-  server cannot do it; a dev/GPU/Bonsai box does). The on-chain verification is proven against the
-  node verifier, but a complete play -> prove -> settle tx has NOT yet been recorded. The kind is
-  gated OFF by default (`KASPA_ZK_PRECOMPILE_ENABLED`) and rejected on mainnet (Toccata is not live
-  on Kaspa mainnet yet).
+- **BUILT (Stage 4 plumbing):** the deploy path can lock a 2-player `ZkGameSettle` covenant (baked VK
+  + 5 public inputs + winner key + CSV refund), and the non-custodial spend path assembles the
+  winner-branch witness (the winner signs in their own wallet; the server signs nothing) and the CSV
+  refund-branch witness. The witness byte order and the alt-stack stack choreography are unit-tested
+  against the frozen ABI, and the alt-stack reorder is proven on-chain on TN12 with a witness-supplied
+  known-good proof (accept) + a forged witness proof (reject).
+- **WIRED INTO NORMAL GAME FLOW (this stage):** `/games/:id/lock-pot` with `settle_mode=zk_game_settle`
+  now reaches the on-chain ZK settle path. Because the `ZkGameSettle` redeem bakes the winner key + the
+  receipt-derived inputs (both UNKNOWABLE at lock time), lock-pot CANNOT deploy a spendable
+  `ZkGameSettle` directly; it locks the stake into a neutral, winner-agnostic 2-of-2 channel escrow
+  instead (no Covex key, no winner baked), and the winner-payout covenant is deployed post-game by
+  `/games/:id/deploy-zk-settlement`. A draw splits the escrow 50/50 via `/games/:id/settle-pot-draw`;
+  the funder always retains a CLTV refund via `/games/:id/refund-pot-zk`. All four routes are env-gated
+  (`KASPA_ZK_PRECOMPILE_ENABLED`, off by default) and mainnet-rejected, with fail-closed unit coverage
+  (seat-token auth, the env+mainnet gate, the draw money gate, the escrow-phase gate, the one-shot
+  settlement guard, funder-only refund). See "The deployable flow" below.
+- **PENDING (Stage 4 decisive):** a LIVE full-game settlement transaction. Two things remain. (1) A
+  real RISC0->Groth16 receipt for a real game, which requires the Docker `stark2snark` wrap (the 7GB
+  server cannot do it; a dev/GPU/Bonsai box does, reached via `COVEX_PROVER_URL`). (2) The SWEEP +
+  re-link inside `/deploy-zk-settlement`: it gates, re-derives the winner fail-closed, and obtains the
+  receipt-derived settlement material from the prover, but does NOT yet move the stake from the neutral
+  escrow into the freshly-deployed `ZkGameSettle` covenant or re-link `pot_tx` to it. That needs the
+  off-box prover AND a 2-of-2 escrow-sweep signing flow with TN12 liveness, and the one-shot,
+  C4-validated `pot_tx` re-link (see the residual note in `deploy_zk_settlement`). The on-chain
+  verification is proven against the node verifier, but a complete play -> prove -> sweep -> settle tx
+  has NOT yet been recorded. The kind is gated OFF by default (`KASPA_ZK_PRECOMPILE_ENABLED`) and
+  rejected on mainnet (Toccata is not live on Kaspa mainnet yet).
 
 ## The model
 
@@ -131,6 +146,55 @@ soundness note below.
   emits `0xa6` (and `0x6b`/`0x6c`) as raw bytes rather than upgrading the whole node to the unaudited
   pre-HF rev.
 
+## The deployable flow (lock-pot -> settle), and why it is two-phase
+
+`/games/:id/lock-pot` accepts three `settle_mode` values: the legacy `oracle_escrow` (Covex co-sign,
+mainnet-frozen), the live `hashlock` (referee-reveal, the current default), and `zk_game_settle` (the
+on-chain ZK path). The `ZkGameSettle` redeem bakes the winner x-only key + the 5 receipt-derived
+Groth16 public inputs, and BOTH are unknowable at lock time (they fold the game outcome and this pot's
+own future settlement-tx id). So lock-pot cannot deploy a spendable `ZkGameSettle` directly - the
+winner branch could never verify, and only the CSV refund would ever spend. The path is two-phase:
+
+1. **Lock (escrow phase).** `lock-pot settle_mode=zk_game_settle` (env-gated, mainnet-rejected, and it
+   requires `refund_after_daa`) locks the stake into a NEUTRAL, winner-agnostic 2-of-2 channel escrow:
+   `OP_IF` 2-of-2 [player1, player2] cooperative close `OP_ELSE` a CLTV refund to the funder
+   (player1). No Covex key, no referee key, no winner baked - lock-pot asserts the resulting redeem
+   embeds neither the oracle nor the referee x-only before it proceeds. `submit-pot` persists
+   `settle_mode = zk_game_settle` + `match_id = covenant_id` so the settle path can find the pot. The
+   funder always retains a unilateral CLTV refund, so no funds can be stranded.
+2. **Settle (settlement phase), one of three outcomes.**
+   - **Decisive win:** `/games/:id/deploy-zk-settlement` re-derives the winner fail-closed
+     (`game_pot_outcome`), obtains the receipt-derived `{vk, 5 inputs, winner_pubkey}` from the prover
+     (no prover -> fail closed, no fabricated material), then deploys the real `ZkGameSettle` covenant,
+     sweeps the escrow into it, and re-links `pot_tx` (one-shot). `/games/:id/settle-zk` then prepares
+     the winner-branch on-chain ZK payout spend (it refuses while `pot_tx` is still the `channel`
+     escrow, with an honest "deploy first" next step). The SWEEP + re-link is the documented residual
+     above; until it lands, `deploy-zk-settlement` returns the material + an explicit next step and
+     moves no value.
+   - **Draw:** `/games/:id/settle-pot-draw` settles a genuine engine-decided draw
+     (`game_pot_is_draw`, fail closed) by splitting the neutral escrow 50/50 to both players. See the
+     design choice below.
+   - **Liveness:** `/games/:id/refund-pot-zk` lets the FUNDER (player1 only) reclaim the stake via the
+     escrow's CLTV refund (or, once re-linked, the settlement covenant's CSV refund). Never pays a
+     false winner; only returns the stake.
+
+### The draw design choice (50/50 via a 2-of-2 cooperative close)
+
+A draw is `winner_code == 2`, which the single-winner `ZkGameSettle` branch deliberately does not
+cover (and `game_pot_outcome` returns `Rejected` for, to keep the single-winner primitives honest).
+Kaspa 0.15.0 has NO output-introspection opcode, so a covenant cannot itself enforce a 50/50 amount
+split on-chain. The soundest available draw settlement is therefore the neutral escrow's 2-of-2
+COOPERATIVE CLOSE to two outputs: the server builds the unsigned two-output split (each
+`(amount - fee)/2`, the odd sompi to player1, both halves dust-checked), and BOTH players sign the
+exact same `SIG_HASH_ALL` sighash in their own wallets. Neither player can alter the split (changing
+any output voids the other's signature), and neither can move the funds alone (it is a 2-of-2). The
+split amounts are server-derived and stored in the prepare session, so `submit-signed` re-signs the
+stored tx and cannot be tricked into a different split. If a player refuses to co-sign a true draw,
+the only fallback is the funder's CLTV refund (`/refund-pot-zk`), which returns the whole stake to
+player1 - a liveness escape, never a false winner payout. (When KIP-10 output introspection or a
+draw-aware settlement guest lands, this can be upgraded to a chain-enforced split; the 2-of-2 close is
+the honest interim.)
+
 ## The Stage-4 path (what makes it a real game)
 
 Once a real game receipt exists (Docker `stark2snark`):
@@ -164,6 +228,12 @@ Once a real game receipt exists (Docker `stark2snark`):
   `game_settle_spend_from_receipt` (the Stage-4 bridge to the spend plumbing).
 - `backend/src/covenant_builder.rs` - `redeem_zk_game_settle` (the settlement lock script),
   `build_zk_game_settle_winner_satisfier` / `build_zk_game_settle_refund_satisfier` (the spend
-  witnesses), the deploy dispatch (`kind: "zk_game_settle"`), and the non-custodial prepare/submit
-  wiring + the ignored TN12 e2e tests.
+  witnesses), the deploy dispatch (`kind: "zk_game_settle"`), `game_pot_is_draw` (the fail-closed draw
+  money gate), the `split_destination_addr` 50/50 cooperative-close split in `prepare_spend_handler`,
+  and the non-custodial prepare/submit wiring + the ignored TN12 e2e tests.
+- `backend/src/games.rs` - `lock_pot` (`settle_mode=zk_game_settle` neutral-escrow lock),
+  `deploy_zk_settlement` / `settle_zk` / `settle_pot_draw` / `refund_pot_zk` (the four settlement-phase
+  routes), `load_zk_pot` (escrow-vs-settlement phase detection), and the fail-closed gate unit tests
+  (`game_pot_is_draw_only_for_genuine_engine_draw`, `settle_zk_refuses_while_in_neutral_escrow`,
+  `deploy_zk_settlement_refuses_when_already_settled`, the auth + env + mainnet + funder-only tests).
 - `zkvm/games/src/lib.rs` - `replay` (the honesty gate) and `settle` (the self-sufficient journal).

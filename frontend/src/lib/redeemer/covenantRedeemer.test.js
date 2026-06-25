@@ -340,10 +340,17 @@ describe('parseRedeemPubkeys', () => {
 // sigOpCount per kind (port of SpendKind::sig_op_count).
 // ---------------------------------------------------------------------------
 describe('sigOpCount', () => {
-  it('1 for singlesig/hashlock/timelock/rcsv/htlc', () => {
-    for (const k of ['singlesig', 'hashlock', 'timelock', 'rcsv', 'htlc']) {
+  it('1 for singlesig/hashlock/timelock/rcsv', () => {
+    for (const k of ['singlesig', 'hashlock', 'timelock', 'rcsv']) {
       expect(sigOpCount(k)).toBe(1);
     }
+  });
+
+  // HTLC redeem has TWO CheckSig (claim branch + refund branch); the node sums both
+  // statically => 2. Declaring 1 made every HTLC spend (and cold-recovery claim) fail
+  // WrongSigOpCount(1, 2) and permanently lock the funds.
+  it('2 for htlc (claim CheckSig + refund CheckSig)', () => {
+    expect(sigOpCount('htlc')).toBe(2);
   });
 
   it('2 for deadman', () => {

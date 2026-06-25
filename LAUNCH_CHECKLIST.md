@@ -1,5 +1,13 @@
 # Covex Mainnet Launch Checklist (Toccata, 2026-06-30)
 
+## Status delta (verified 2026-06-25)
+
+- FOUNDATION PROVEN: the rusty-kaspa v2.0.1 (Toccata) crate migration is verification-complete on a spike branch (`spike/kaspa-2.0.1`, NOT yet on master): backend builds + 184 tests green, the committed sighash golden is UNCHANGED (existing covenants stay spendable), and the vendored sighash fork is now redundant (upstream v2.0.1 implements the exact Toccata payload_hash rule). The official browser SDK (kaspa-wasm32-sdk-v2.0.1) produces a byte-identical sighash (parity confirmed). A v2.0.1-serialized deploy+spend was ACCEPTED and redeemed on the live TN12 covenant node (deploy b7879e67, spend be155020). Landing on master is gated on a coordinated merge + the items below.
+- ON-CHAIN ZK IS REAL ON TOCCATA (corrects line 65 below): v2.0.1 txscript ships OpZkPrecompile (0xa6), a real on-chain Groth16 (tag 0x20) and RISC0 (tag 0x21) verifier. Kaspa DOES have an on-chain proof verifier on Toccata; on-chain ZK verification is viable but NOT yet shipped end to end. Honest nuance: on-chain verification removes verifier-trust, NOT input-trust - circuits over real-world facts still need a trusted attester for the INPUT.
+- FUND-LOSS FIX IN FLIGHT (HTLC): the HTLC redeem has two OpCheckSig (claim + refund), so its consensus sig_op_count is 2, but the code declared 1. On a Toccata/v2.0.1 node every HTLC spend would fail WrongSigOpCount(1, 2) and the locked funds would be permanently stuck. Fix on branch `fix/htlc-sigop-count` (Rust builder + JS redeemer + cold tool + test), landing with a TN12 e2e. DO NOT enable HTLC for value on mainnet until this fix is in the DEPLOYED binary.
+- MONITORING IS LIVE (master 2f384ae6) but UNARMED: on-box covex-watch.timer (backend / node-tip-freshness / disk / TLS / services, every 5 min) + an off-box GitHub Actions uptime probe. OWNER ACTION: arm it - write COVEX_ALERT_WEBHOOK into /opt/covex-monitor/alert.env (chmod 600) AND set the GitHub repo secret ALERT_WEBHOOK. Arm only ONE webhook (an older monitor-and-alert.sh / covex-kaspad-watchdog already runs).
+- NEW OWNER/INFRA ITEM: on-chain ZK GAMES need a >=12GB x86_64 prover host (or a Bonsai key) for the stark2snark wrap; the 7GB box cannot prove. Provision this only if on-chain ZK games are in launch scope.
+
 ## Owner pre-flight (June 29, in order)
 
 1. RESOLVED (verified 2026-06-20, binary evidence): the deployed mainnet node IS a
@@ -61,8 +69,9 @@
 
 ## What users see when flipped
 
-- Singlesig, hashlock, timelock, multisig, htlc primitives: consensus-enforced, fully live
-- All 19 ZK circuits: Full ZK pill, Groth16-verified off-chain by the external resolver, "Verified off-chain, oracle co-signs payout" (none chain-enforced; Kaspa has no on-chain pairing verifier and there is no proof-to-hashlock binding)
+- Singlesig, hashlock, timelock, multisig primitives: consensus-enforced, fully live
+- htlc: consensus-enforced, BUT (see Status delta) the sig_op_count fix on branch `fix/htlc-sigop-count` MUST be in the deployed binary before htlc is enabled for value on Toccata mainnet, else every htlc spend fails WrongSigOpCount and the funds lock permanently
+- All 19 ZK circuits: TODAY shipped as Groth16-verified off-chain by the external resolver, "Verified off-chain, oracle co-signs payout", with no proof-to-hashlock binding. NOTE (corrected 2026-06-25): Toccata v2.0.1 DOES provide an on-chain proof verifier (OpZkPrecompile 0xa6, Groth16 + RISC0), so on-chain ZK verification is now technically possible; it is simply not yet wired end to end. The honest current state is off-chain verification; on-chain is a post-launch upgrade (and even on-chain, real-world-input circuits still trust an attester for the input)
 - Markets / oracle_escrow / oracle covenants: GATED off until owner explicitly enables (GATE 2, the `p2sh_deploy_handler` mainnet freeze in covenant_builder.rs)
 
 ## Rollback

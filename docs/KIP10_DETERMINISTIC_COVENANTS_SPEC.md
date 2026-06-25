@@ -68,16 +68,13 @@ OpDrop 0x75, OpVerify 0x69, OpDup 0x76.
 
 ### UNCONFIRMED / MUST-VERIFY-IN-T1 (flagged honestly)
 
-1. EXACT byte layout that OpTxOutputSpk / OpTxInputSpk push. The consensus type
-   ScriptPublicKey serializes (per rusty-kaspa consensus/core script_public_key.rs Borsh
-   impl) as [2-byte LE version][len][script bytes]. But what the OPCODE pushes onto the
-   stack may be a DIFFERENT framing (version-prefixed without a borsh length, or the bare
-   script). This MATTERS: the covenant reconstructs the winner SPK on the stack to compare,
-   so we must build that reconstruction byte-for-byte identical to what the opcode pushes.
-   RESOLUTION: build the reconstruction helper (section 4) by EXACTLY mirroring the
-   serialize-spk-for-stack form in the rusty-kaspa opcode impl under the v2.0.1 crate (T1),
-   and add a golden vector that decodes a real on-chain SPK push from a TN12 spend. Until
-   that vector passes, treat the SPK-equality templates as PROVISIONAL.
+1. EXACT byte layout that OpTxOutputSpk / OpTxInputSpk push. RESOLVED 2026-06-25 by an
+   on-chain TN12 experiment (guess-and-check; the wrong forms were consensus-rejected with
+   "false stack entry at end of script execution", proving the opcode ran and discriminated):
+   OpTxOutputSpk (0xc3) pushes [2-byte LE version][raw script bytes] -- version-prefixed, NO
+   length prefix. The covenant reconstructs the winner SPK on the stack as
+   version_u16_LE || script. SPK-equality templates are NO LONGER provisional. (The borsh
+   [version][len][script] consensus form is NOT what the opcode pushes.)
 
 2. Whether OpTxOutputAmount returns sompi as a plain i64 number directly comparable with a
    pushed-number literal (assumed yes from push_number in the opcode impl), versus any
@@ -248,13 +245,16 @@ A Kaspa P2PK output script is PUSH(xonly_pubkey) OpCheckSig = 0x20 pubkey32 0xac
 The scriptPublicKey ALSO carries a 2-byte version. Per rusty-kaspa
 consensus/core script_public_key.rs the type is { version: u16, script: Vec<u8> }.
 
-UNCERTAINTY (repeated from section 1, flagged): the on-stack push form of the SPK is NOT
-guaranteed to be the Borsh [2-byte LE version][4-byte len][script] form. It is most likely
-[2-byte LE version][script] (version-prefixed, no length, since the opcode pushes a
-known-length byte string). push_p2pk_spk MUST reproduce whatever the v2.0.1 opcode impl
-produces, verified by a golden vector captured from a real TN12 OpTxOutputSpk push. Do NOT
-ship the Spk-equality templates until that golden passes. The Amount templates
-(0xc2 / 0xbe / OpNumEqual) do not depend on this and can ship first if desired.
+CONFIRMED 2026-06-25 (on-chain TN12 golden vector): OpTxOutputSpk pushes
+[2-byte LE version][script], version-prefixed, NO length prefix. So push_p2pk_spk MUST build
+and push, as ONE canonical data push: version_u16_LE (2 bytes, 0x0000 for a standard P2PK)
+|| 0x20 || xonly(32) || 0xac. Worked golden vector: for x-only key
+d83d04fa71379caea93eb11ebb6ba62f629ac05384a4c5bc7a7e165ff9b1d02d, OpTxOutputSpk pushed
+000020d83d04fa71379caea93eb11ebb6ba62f629ac05384a4c5bc7a7e165ff9b1d02dac (36 bytes). Proven
+by spend 0e10765e3a218fd4756e9785e90c95f82108d9a731adbc758f10db3d7e21061a (the no-length form
+spent; the with-length and bare-script forms were consensus-rejected). SPK-equality templates
+are now shippable. The Amount templates (0xc2 / 0xbe / OpNumEqual) remain independent and can
+ship in parallel; their amount-arithmetic (R3) still needs its own section-5 e2e.
 
 Cross-language: add push_p2pk_spk to the JS redeemer (frontend/src/lib/redeemer/
 covenantRedeemer.js) and the composer (frontend/src/lib/composer/redeem.js), and extend the
@@ -340,10 +340,10 @@ caught.
 
 ## 8. Top risks / uncertainties (read before implementing)
 
-R1 (HIGH) - OpTxOutputSpk push byte format is UNCONFIRMED. The SPK-equality templates are
-provisional until a golden vector from a real TN12 OpTxOutputSpk push pins the exact form
-(version prefix? length prefix?). Mitigation: ship the Amount binding first; gate the Spk
-binding on the golden. See sections 1, 4.
+R1 (RESOLVED 2026-06-25) - OpTxOutputSpk pushes [2-byte LE version][script] (version-prefixed,
+NO length), pinned by an on-chain TN12 golden vector (spend
+0e10765e3a218fd4756e9785e90c95f82108d9a731adbc758f10db3d7e21061a; the wrong forms were
+consensus-rejected). SPK-equality templates are no longer provisional. See sections 1, 4.
 
 R2 (HIGH) - change/skim outputs. output[0]-only binding is unsafe without OpTxOutputCount == 1
 (or a fully-accounted multi-output form). The templates include the count bind; do NOT drop

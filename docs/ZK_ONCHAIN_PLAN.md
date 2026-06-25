@@ -47,6 +47,22 @@ PR #775 / branch `covpp-reset1`. See [[kaspa-kip16-onchain-zk-2026-06-24]].
   node verifies via OpZkPrecompile -> pays winner. Record the spend tx. Negative on-chain: a
   forged proof and a wrong-covenant_id proof are both REJECTED by consensus; loser pre-CSV
   rejected; CSV refund is the only liveness escape (never pays a false winner).
+  - **WIRED (this stage):** the on-chain ZK settle path is now reachable from normal game flow.
+    `lock-pot settle_mode=zk_game_settle` locks the stake into a NEUTRAL 2-of-2 channel escrow (the
+    ZkGameSettle redeem bakes the winner key + receipt-derived inputs, both unknowable at lock time,
+    so a direct lock would be unsound), and the winner-payout covenant is deployed POST-game by
+    `/games/:id/deploy-zk-settlement`; `/settle-zk` then spends the winner branch (it refuses while
+    the stake is still in the escrow). A draw splits the escrow 50/50 via `/games/:id/settle-pot-draw`
+    (a 2-of-2 cooperative close to two outputs - Kaspa 0.15.0 has no output introspection, so the
+    co-sign is the soundest available draw settlement); the funder reclaims via `/games/:id/
+    refund-pot-zk` (CLTV/CSV). All four routes are env-gated + mainnet-rejected with fail-closed unit
+    coverage. See docs/ZK_TRUSTLESS_GAMES.md "The deployable flow".
+  - **REMAINING (decisive seal):** (1) a real RISC0->Groth16 receipt from the off-box prover
+    (`COVEX_PROVER_URL`, Docker stark2snark); (2) the SWEEP inside `/deploy-zk-settlement` - it gates,
+    re-derives the winner, and fetches the settlement material, but does NOT yet move the stake from
+    the neutral escrow into the freshly-deployed ZkGameSettle covenant or re-link `pot_tx` (one-shot,
+    C4-validated). That needs the off-box prover + a 2-of-2 escrow-sweep signing flow with TN12
+    liveness. Until both land, `/deploy-zk-settlement` fails closed before moving value.
 - **STAGE 5:** whitepaper honesty: false-win impossibility + referee/co-sign retirement +
   residual trust (the covex-games rules crate is the trusted core; image-id pinning means a
   guest upgrade needs covenant redeploy; liveness via CSV refund).

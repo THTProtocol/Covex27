@@ -104,6 +104,140 @@ Pre-launch / cutover specific:
   false or `behind_daa` is large (do not flip on a mid-sync node).
 - After flipping: alert if `mainnet_ready` is not `true`.
 
+## Live alerting
+
+This is the alerting system to arm. It has two halves that cover each other's
+blind spots: an on-box monitor and an off-box dead-man's-switch.
+
+### On-box monitor: `covex-watch` (`deploy/monitoring/`)
+
+Source lives at `deploy/monitoring/covex-watch.sh`; it is installed on the box
+at `/opt/covex-monitor/covex-watch.sh` and driven by the systemd timer
+`covex-watch.timer` (`OnCalendar=*:0/5`, `Persistent=true`) via the oneshot unit
+`covex-watch.service`. It runs five checks every five minutes and aggregates RED
+and WARN conditions:
+
+| # | check | RED when | WARN when |
+|---|-------|----------|-----------|
+| 1 | backend liveness | `http://127.0.0.1:3006/health` is not 200, or 200 with no `app`/`status` field, or `status != ok` | - |
+| 2 | node tip freshness | `testnet-12` `node_sync.tip_daa` has not advanced within the staleness window (default 900s), OR the backend's own `stalled`/`stall_reason` is set (`node_tip_frozen` / `indexer_frozen` / `disconnected`), OR `connected == false` | - |
+| 3 | disk | `/` or `/mnt/covex-data` `>= 85%` used | `>= 80%` used |
+| 4 | TLS cert expiry | `hightable.pro:443` or `oracle.hightable.pro:443` cert has `< 14` days left | (could not read/parse a cert) |
+| 5 | systemd units | `covex-backend.service`, `koracle.service`, `kaspad-tn12.service`, or `nginx.service` is not `active` | - |
+
+Tip-freshness detail (the core gap this closes): the monitor persists the
+last-seen `tip_daa` and the time it FIRST saw that value in
+`/opt/covex-monitor/state.json`, and goes RED if the tip has not changed within
+`COVEX_TIP_STALE_SECONDS`. This is an INDEPENDENT cross-run check, separate from
+the backend's in-process 600s watchdog (`node_status.rs`), which resets its
+`tip_changed_at` whenever the backend restarts. So the on-box monitor still
+catches a tip freeze that spans a backend restart, and it ALSO surfaces the
+backend's own `stalled`/`stall_reason` verdict when that is available. The tip
+signal used is `node_sync["testnet-12"].tip_daa` from `/status` (the live
+covenant network); change it with `COVEX_TIP_NETWORK`.
+
+De-dup and heartbeat: an alert is sent ONLY on a state change (green -> red/warn,
+or red/warn -> green, with a `RECOVERED:` recovery line on clearing) PLUS one
+daily "all green" heartbeat, tracked in `state.json`. Silence therefore means the
+timer is dead, which is itself a signal. Every run prints a one-line status to
+the journal regardless (`journalctl -u covex-watch.service`).
+
+Fail-safe arming: the webhook is read from `/opt/covex-monitor/alert.env`
+(`chmod 600`). If `COVEX_ALERT_WEBHOOK` is unset/empty, the monitor logs
+`ALERT WEBHOOK UNARMED; would have sent: <summary>` and exits 0, so an unarmed
+box is considered healthy and ready, not broken. When armed it POSTs a JSON body
+carrying BOTH a `text` key (Slack) and a `content` key (Discord), so either
+platform's generic incoming webhook renders the multi-line summary (hostname,
+git_commit, timestamp, and each RED/WARN line). The monitor only OBSERVES; it
+does not restart anything (node auto-restart on a frozen tip is the separate
+`covex-kaspad-watchdog`).
+
+Install / reinstall on the box:
+```bash
+install -m 755 deploy/monitoring/covex-watch.sh /opt/covex-monitor/covex-watch.sh
+cp deploy/monitoring/covex-watch.service deploy/monitoring/covex-watch.timer /etc/systemd/system/
+cp deploy/monitoring/alert.env.example /opt/covex-monitor/alert.env.example
+# create /opt/covex-monitor/alert.env (chmod 600) from the example if absent
+systemctl daemon-reload
+systemctl enable --now covex-watch.timer
+systemctl list-timers | grep covex-watch     # confirm scheduled
+/opt/covex-monitor/covex-watch.sh             # run once, read the output
+```
+
+### Off-box dead-man's-switch: GitHub Actions (`.github/workflows/uptime.yml`)
+
+The on-box monitor goes silent exactly when the box does (network, power,
+kernel). The GitHub Actions `uptime` workflow runs on GitHub's infra, cron every
+~10 min plus `workflow_dispatch`, and curls the PUBLIC endpoints:
+
+- `https://hightable.pro/api/health` - must be 200 with `status` + `git_commit`.
+- `https://oracle.hightable.pro/health` - probed, but koracle has NO `/health`
+  route (it 404s); the service answers 200 on `/`, so the job falls back to `/`
+  and accepts that. This divergence is expected and is why the oracle probe does
+  not hard-fail on the `/health` 404 alone.
+
+On any failure the job FAILS (the red X in the Actions tab is itself the alert)
+and, if the repo secret `ALERT_WEBHOOK` is set, POSTs the same dual-key
+(`text` + `content`) JSON. If the secret is unset the POST is skipped gracefully
+but the job still fails. It is dependency-free (just `curl` + `python3` on the
+runner).
+
+### How the owner ARMS it (two independent places)
+
+1. On the box, write the webhook into the on-box arm file:
+   ```bash
+   ssh root@hightable.pro
+   printf 'COVEX_ALERT_WEBHOOK=%s\nCOVEX_TIP_STALE_SECONDS=900\n' \
+     'https://hooks.slack.com/services/XXX/YYY/ZZZ' > /opt/covex-monitor/alert.env
+   chmod 600 /opt/covex-monitor/alert.env
+   /opt/covex-monitor/covex-watch.sh   # next state-change/heartbeat now POSTs
+   ```
+   (Slack hook, Discord `.../api/webhooks/...`, or an ntfy.sh topic all work.)
+2. In the GitHub repo, set the Actions secret `ALERT_WEBHOOK` to the SAME (or a
+   different) webhook URL: Settings -> Secrets and variables -> Actions -> New
+   repository secret, name `ALERT_WEBHOOK`. Until it is set, a failed probe is
+   still visible as a failed workflow run.
+
+Staleness window: `COVEX_TIP_STALE_SECONDS` (default 900 = 15 min) controls the
+on-box independent tip-advance check. Lower it for a tighter freeze SLA; raise it
+if the chain legitimately has long quiet gaps (it should not - TN12 is ~10 BPS).
+
+### What this does NOT cover (honest limits)
+
+- The on-box monitor is BLIND to a total box outage: if the box is down, the
+  timer cannot run and cannot page. That exact gap is what the off-box GitHub
+  Actions probe exists to catch.
+- The off-box GitHub Actions probe is BLIND to an internal node-tip freeze while
+  the box is still up and `/api/health` still returns 200: health does not carry
+  the tip. That exact gap is what the on-box tip-freshness check (and the
+  backend's `node_sync.stalled` verdict) exists to catch.
+- Neither half checks APPLICATION-LOGIC correctness: that covenant
+  build/sign/settle math is right, that the oracle signs only when it should, or
+  that ZK proofs verify. Those are enforced by the backend's own fail-closed
+  gates and the test suite, not by this monitor. A 200 health response and an
+  advancing tip do not prove the money path is correct.
+- TLS, disk, and unit-active checks are point-in-time; there is no trend
+  retention here (no "is disk filling over days" history). The
+  `node_sync.behind_daa` field is the closest live signal for indexer lag; long
+  term trending is still a suggested addition (see below).
+- The webhook POST is best-effort: if the configured webhook is itself down, the
+  alert is logged to the journal but not delivered. The off-box job additionally
+  fails visibly, but the on-box monitor relies on the webhook being reachable.
+
+### Relationship to the older `monitor-and-alert.sh`
+
+A prior monitor, `deploy/monitor-and-alert.sh` (timer `covex-monitor.timer`),
+also runs on the box and overlaps on backend-health, disk (`/` only), process
+presence, the per-network stall flag, and a prod-vs-master drift check. It reads
+its webhook from `/etc/covex/alert.env` (`WEBHOOK_URL`, single `text` key) - a
+DIFFERENT file and key from `covex-watch`. `covex-watch` is the newer, broader
+on-box monitor (it adds TLS expiry, systemd is-active per unit, the data-volume
+disk check, an independent cross-run tip-advance check, the dual-key Slack +
+Discord payload, and the daily heartbeat). The two can coexist; to avoid double
+paging once both are armed, arm ONE of them (prefer `covex-watch` via
+`/opt/covex-monitor/alert.env`) and leave the other's webhook unset, or point
+both at the same URL and accept the duplicate.
+
 ## Alerting wiring that EXISTS today
 
 Two systemd-timer driven scripts already run on the server. They are the real

@@ -1,0 +1,94 @@
+name: uptime
+
+# Off-box dead-man's-switch for Covex prod. Runs on GitHub's infra, fully
+# independent of the Hetzner box, so it detects the case the on-box monitor
+# cannot: the box being entirely down (network, power, kernel). The on-box
+# monitor (deploy/monitoring/covex-watch.sh) covers the inverse: internal
+# node-tip freeze while the box is still up and serving 200s.
+#
+# A failed probe FAILS the job (visible in the Actions tab) and, if the repo
+# secret ALERT_WEBHOOK is set, POSTs the same dual-key JSON the on-box monitor
+# uses. If the secret is unset, the POST is skipped gracefully but the job
+# still fails, so the red X is itself the alert.
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub cron can be delayed under load; this is a
+    # dead-man's-switch, not a hard SLA timer.
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe Covex public endpoints
+        env:
+          ALERT_WEBHOOK: ${{ secrets.ALERT_WEBHOOK }}
+        run: |
+          set -u
+          fail=0
+          summary=""
+          add() { summary="${summary}${1}
+          "; }
+
+          # 1. Backend health: must be 200 with the expected JSON shape.
+          #    (nginx maps /api/health -> backend /health.)
+          health_url="https://hightable.pro/api/health"
+          code=$(curl -s -o /tmp/health.json -w "%{http_code}" --max-time 15 "$health_url" || echo "000")
+          if [ "$code" != "200" ]; then
+            add "RED  backend health $health_url -> HTTP $code (expected 200)"
+            fail=1
+          elif ! grep -q '"status"' /tmp/health.json || ! grep -q '"git_commit"' /tmp/health.json; then
+            add "RED  backend health $health_url -> 200 but unexpected JSON (no status/git_commit)"
+            fail=1
+          else
+            echo "ok: backend health 200 ($(tr -d '\n' < /tmp/health.json | cut -c1-160))"
+          fi
+
+          # 2. Oracle liveness. NOTE: oracle.hightable.pro has NO /health route
+          #    (it 404s); the koracle service answers 200 on "/". So we probe "/"
+          #    and accept 200. This divergence is documented in docs/MONITORING.md.
+          oracle_url="https://oracle.hightable.pro/health"
+          ocode=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$oracle_url" || echo "000")
+          if [ "$ocode" = "200" ]; then
+            echo "ok: oracle $oracle_url 200"
+          else
+            # Fall back to the root path, which koracle does serve.
+            oroot="https://oracle.hightable.pro/"
+            orcode=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$oroot" || echo "000")
+            if [ "$orcode" = "200" ]; then
+              echo "ok: oracle root $oroot 200 (/health returned $ocode; expected, /health is not a koracle route)"
+            else
+              add "RED  oracle $oroot -> HTTP $orcode (and /health -> $ocode)"
+              fail=1
+            fi
+          fi
+
+          if [ "$fail" -eq 0 ]; then
+            echo "All external probes green."
+            exit 0
+          fi
+
+          echo "PROBE FAILURES:"
+          printf '%s\n' "$summary"
+
+          # Page if armed. Dual-key JSON so Slack ("text") and Discord ("content")
+          # both render. If the secret is unset, skip the POST but still fail.
+          if [ -n "${ALERT_WEBHOOK:-}" ]; then
+            msg="Covex EXTERNAL probe FAILED (GitHub Actions dead-man's-switch) @ $(date -u +%FT%TZ)
+          ${summary}"
+            payload=$(MSG="$msg" python3 -c 'import json,os; m=os.environ["MSG"]; print(json.dumps({"text": m, "content": m}))')
+            curl -fsS --max-time 15 -X POST -H 'Content-Type: application/json' \
+              -d "$payload" "$ALERT_WEBHOOK" >/dev/null 2>&1 \
+              && echo "alerted via ALERT_WEBHOOK" \
+              || echo "WARN: ALERT_WEBHOOK POST failed (job still fails, which is itself visible)"
+          else
+            echo "ALERT_WEBHOOK secret unset; skipping POST. The failing job is the alert."
+          fi
+
+          exit 1

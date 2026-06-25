@@ -1,0 +1,16 @@
+[Unit]
+Description=Covex production on-box monitor (liveness, node-tip freshness, disk, TLS, systemd)
+Documentation=file:///mnt/HC_Volume_105579109/Covex27/docs/MONITORING.md
+After=network-online.target covex-backend.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# The webhook + overrides (COVEX_ALERT_WEBHOOK, COVEX_TIP_STALE_SECONDS) live in
+# /opt/covex-monitor/alert.env (chmod 600). The script also sources it directly,
+# so this is belt-and-suspenders; "-" means absent is fine (unarmed = healthy).
+EnvironmentFile=-/opt/covex-monitor/alert.env
+ExecStart=/opt/covex-monitor/covex-watch.sh
+# Never let a transient check failure mark the unit failed and spam OnFailure.
+SuccessExitStatus=0
+Nice=10

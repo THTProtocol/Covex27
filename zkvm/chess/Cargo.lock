@@ -581,6 +581,7 @@ dependencies = [
  "anyhow",
  "bincode",
  "covex-games",
+ "covex-games-onchain",
  "hex",
  "methods",
  "risc0-zkvm",

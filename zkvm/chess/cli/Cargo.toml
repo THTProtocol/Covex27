@@ -1,8 +1,12 @@
 # covex-games-prover: the open-source CLI around the Covex zkVM games prover.
 #
-# Two subcommands:
-#   prove  <input.json> <out_receipt.bin>  - read a GameInput as JSON, produce a REAL zk receipt.
-#   verify <receipt.bin>                    - verify a receipt against the embedded guest image id.
+# Subcommands:
+#   prove          <input.json> <out_receipt.bin>  - read a GameInput as JSON, produce a REAL STARK receipt.
+#   prove-groth16  <input.json> <out_receipt.bin>  - same, but a RISC0->Groth16 receipt (on-chain KIP-16
+#                                                    OpZkPrecompile tag 0x20 verifiable; needs Docker + RAM).
+#   verify         <receipt.bin>                    - verify a receipt against the embedded guest image id.
+#   settle-spend   <receipt.bin>                    - map a Groth16 receipt to the {proof, 5 inputs,
+#                                                    winner_pubkey, covenant_id, vk} settle JSON (no proving).
 #
 # This is the trustless "winner generates the proof, anyone verifies the receipt" baseline. The
 # prover wraps covex_games::replay (illegal/forged/unfinished games cannot be proven). The verifier
@@ -25,6 +29,11 @@ risc0-zkvm = "3.0"
 methods = { path = "../methods" }
 # The shared GameInput / GameResult types (same layout as the guest).
 covex-games = { path = "../../games" }
+# The RISC0->Groth16 receipt -> on-chain KIP-16 (OpZkPrecompile tag 0x20) witness serializer. Used by
+# the `prove-groth16` + `settle-spend` subcommands so the prover service returns the exact {proof, 5
+# public inputs, winner_pubkey, covenant_id} the backend settle-zk route + spend builder consume.
+# Pure serializer (no proving, no on-chain verify here).
+covex-games-onchain = { path = "../../onchain" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # Compact, deterministic binary (de)serialization of the Receipt for the on-disk receipt file.

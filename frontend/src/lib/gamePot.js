@@ -309,14 +309,14 @@ export async function settlePotZkOnchain({ covenantId, token, privKeyHex, onStat
   step('signing');
   const signature_hex = signSighash(bundle.sighash, privKeyHex);
 
-  // 4. Submit [signature, proof, public inputs] for the winner-branch satisfier. The node verifies
-  //    the Groth16 proof via OpZkPrecompile (0xa6) before the winner's OpCheckSig releases the pot.
+  // 4. Submit [signature, proof] for the winner-branch satisfier. The node verifies the Groth16
+  //    proof via OpZkPrecompile (0xa6) before the winner's OpCheckSig releases the pot. The 5 public
+  //    inputs are BAKED in the lock script (not witness-supplied), so submit carries only the proof.
   step('broadcast');
   const sub = await submitSigned({
     session_id: bundle.session_id,
     signature_hex,
-    zk_proof_hex: bundle.proof_hex,
-    zk_public_inputs: bundle.public_inputs,
+    proof_hex: bundle.proof_hex,
   });
   if (!sub.success) throw new Error(sub.error || 'Could not broadcast the on-chain ZK payout.');
   step('paid');

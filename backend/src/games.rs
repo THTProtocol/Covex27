@@ -37,6 +37,10 @@ pub fn games_routes() -> Router {
             "/games/:covenant_id/refund-pot-hashlock",
             post(refund_pot_hashlock),
         )
+        // On-chain ZK settle (KIP-16 OpZkPrecompile). GATED behind KASPA_ZK_PRECOMPILE_ENABLED,
+        // mainnet-rejected. The winner proves the game off-device (a prover service), the chain
+        // verifies the Groth16 proof; the server signs nothing.
+        .route("/games/:covenant_id/settle-zk", post(settle_zk))
         .route("/games/:covenant_id/lock-channel", post(lock_channel))
         .route(
             "/games/:covenant_id/bind-channel-pot",
@@ -946,6 +950,190 @@ async fn refund_pot_hashlock(
     if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
         v["next"] = json!(format!(
             "Sign `sighash` (BIP340 Schnorr) with the funder's wallet ({p1}), then POST {{session_id, signature_hex}} to /covenant/p2sh/submit-signed. The node enforces the CSV age window; the refund only confirms once the pot UTXO has aged."
+        ));
+    }
+    Json(v)
+}
+
+/// Load the linked pot for a zk_game_settle match: (pot_tx, network). Errors if there is no pot or
+/// the pot is not a zk_game_settle pot. The network is read from the p2sh_covenants row.
+fn load_zk_pot(db: &crate::db::Db, covenant_id: &str) -> Result<(String, String), String> {
+    let conn = db.lock().unwrap();
+    let (pot_tx, settle_mode): (Option<String>, Option<String>) = conn
+        .query_row(
+            "SELECT pot_tx, settle_mode FROM skill_games WHERE covenant_id = ?1",
+            params![covenant_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .map_err(|_| "no match for this covenant".to_string())?;
+    let pot_tx = match pot_tx {
+        Some(t) if !t.is_empty() => t,
+        _ => return Err("no pot locked for this game".to_string()),
+    };
+    if settle_mode.as_deref() != Some("zk_game_settle") {
+        return Err(
+            "this pot is not an on-chain ZK pot (settle_mode != zk_game_settle); use the hashlock settle path instead"
+                .to_string(),
+        );
+    }
+    let net: String = conn
+        .query_row(
+            "SELECT network FROM p2sh_covenants WHERE tx_id = ?1",
+            params![pot_tx],
+            |r| r.get::<_, String>(0),
+        )
+        .unwrap_or_else(|_| "testnet-12".to_string());
+    Ok((pot_tx, net))
+}
+
+/// POST /games/:id/settle-zk {token} : PREPARE the on-chain ZK winner payout for a finished
+/// zk_game_settle pot (KIP-16 OpZkPrecompile). The winner proves the game and the CHAIN verifies the
+/// Groth16 proof: NO referee reveal and NO Covex co-signature. The server signs nothing.
+///
+/// GATES (all fail-closed):
+///   0. ENV/NET: KASPA_ZK_PRECOMPILE_ENABLED must be on and the network must not be mainnet
+///      (zk_precompile_deploy_allowed). Toccata is not live on Kaspa mainnet yet.
+///   1. AUTH: a seated player's seat token (authorize_money_caller). The caller must additionally be
+///      the WINNER (the verified-outcome side), since only the winner key can spend the winner branch.
+///   2. MONEY GATE: the winning side is re-derived from the server-authoritative engine replay
+///      (game_pot_outcome, FAIL CLOSED), so a poisoned `winner` field cannot redirect the pot.
+///
+/// Then it reconstructs the match's `GameInput` (game_type + move log + the two player x-only keys +
+/// covenant_id = the pot deploy tx id + stake), asks the PROVER SERVICE (COVEX_PROVER_URL) for a
+/// RISC0->Groth16 receipt mapped to its on-chain settle material, builds the UNSIGNED winner-branch
+/// spend via the existing non-custodial prepare-spend path, and returns exactly the shape the
+/// frontend gamePot.settlePotZkOnchain consumes:
+///   { success, proof_hex, public_inputs[5], winner_pubkey, covenant_id, vk_hex, sighash, session_id,
+///     signer_xonly, winner_addr, outcome }
+/// The winner signs `sighash` (BIP340) in their wallet and POSTs {session_id, signature_hex,
+/// proof_hex} to /covenant/p2sh/submit-signed, which assembles the witness + broadcasts. The node
+/// runs OpZkPrecompile (0xa6) to verify the proof on-chain before the winner's OpCheckSig pays out.
+/// A loser cannot reach a payout: an illegal/unfinished game yields no provable receipt, the journal
+/// binds the winner + covenant_id, and consensus rejects a forged or wrong-pot proof.
+async fn settle_zk(
+    Extension(db): Extension<crate::db::Db>,
+    Path(covenant_id): Path<String>,
+    Json(req): Json<serde_json::Value>,
+) -> Json<serde_json::Value> {
+    // GATE 1 (auth): only a seated player may settle.
+    let token = req.get("token").and_then(|v| v.as_str()).unwrap_or("");
+    let seat = match authorize_money_caller(&db, &covenant_id, token) {
+        Ok(s) => s,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
+    let game = match fetch_game(&db, &covenant_id) {
+        Some(g) => g,
+        None => return Json(json!({ "success": false, "error": "game not found" })),
+    };
+    let p1 = game["player1"].as_str().unwrap_or("").to_string();
+    let p2 = game["player2"].as_str().unwrap_or("").to_string();
+
+    let (pot_tx, net) = match load_zk_pot(&db, &covenant_id) {
+        Ok(v) => v,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
+
+    // GATE 0 (env/net): the on-chain ZK kind is OFF by default and rejected on mainnet. This is the
+    // SAME gate the deploy path uses, so the route cannot run for value before the opcode is frozen.
+    if let Err(e) = crate::covenant_builder::zk_precompile_deploy_allowed(&net) {
+        return Json(json!({ "success": false, "error": e }));
+    }
+
+    // GATE 2 (money gate): re-derive the winning side from the server-authoritative engine replay.
+    // game_pot_outcome FAILS CLOSED on anything that is not an engine-decisive board or a server-timed
+    // timeout. 0 = player1, 1 = player2.
+    let outcome: u32 = match crate::covenant_builder::game_pot_outcome(&db, &pot_tx) {
+        crate::covenant_builder::GamePot::Verified(o) => o,
+        crate::covenant_builder::GamePot::Rejected(msg) => {
+            return Json(json!({ "success": false, "error": format!("pot settle refused: {msg}") }))
+        }
+        crate::covenant_builder::GamePot::NotAGamePot => {
+            return Json(json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to settle" }))
+        }
+    };
+    let (winner_addr, winner_seat) = if outcome == 0 {
+        (p1.clone(), Seat::Player1)
+    } else {
+        (p2.clone(), Seat::Player2)
+    };
+    if winner_addr.is_empty() {
+        return Json(json!({ "success": false, "error": "winner address missing for the verified outcome" }));
+    }
+    // Only the WINNER may claim the winner branch (their key is the only one that can sign it).
+    if std::mem::discriminant(&seat) != std::mem::discriminant(&winner_seat) {
+        return Json(json!({ "success": false, "error": "only the verified winner may claim the on-chain ZK payout (the loser cannot spend the winner branch)" }));
+    }
+
+    // Reconstruct the match's GameInput for the prover. The players are the two x-only keys (so the
+    // proof's players[winner] == the covenant's baked winner key), covenant_id = the pot deploy tx id
+    // (so the proof binds THIS pot), game_type + moves come from the authoritative match record.
+    let p1x = match xonly_hex_from_address(&p1) {
+        Ok(x) => x,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
+    let p2x = match xonly_hex_from_address(&p2) {
+        Ok(x) => x,
+        Err(e) => return Json(json!({ "success": false, "error": e })),
+    };
+    let game_type = game["game_type"].as_str().unwrap_or("").to_string();
+    let moves: Vec<String> =
+        serde_json::from_str(game["moves"].as_str().unwrap_or("[]")).unwrap_or_default();
+    // Stake in sompi from the recorded pot amount (informational in the journal). 1 KAS = 1e8 sompi.
+    let stake_sompi: u64 = game["pot_amount_kas"]
+        .as_f64()
+        .map(|kas| (kas * 100_000_000.0).round() as u64)
+        .unwrap_or(0);
+    let prover_input = crate::zk_prover_client::ProverGameInput {
+        game_type,
+        moves,
+        players: [p1x, p2x],
+        covenant_id: pot_tx.clone(),
+        stake_sompi,
+        elapsed_ms: None,
+    };
+
+    // Ask the PROVER SERVICE for the on-chain settle material. The backend host cannot prove
+    // RISC0->Groth16; a missing/unreachable/erroring prover fails closed with an honest message (no
+    // fabricated proof is ever returned). The chain re-verifies the proof at spend time regardless.
+    let spend = match crate::zk_prover_client::request_settle_spend(&prover_input).await {
+        Ok(s) => s,
+        Err(e) => return Json(json!({ "success": false, "error": format!("could not obtain the on-chain ZK proof: {e}") })),
+    };
+    // Sanity: the prover's winner_code must agree with the server money gate. If they disagree the
+    // proof would not pay the server-verified winner, so refuse rather than hand over a mismatch.
+    if spend.winner_code as u32 != outcome {
+        return Json(json!({ "success": false, "error": format!("prover winner_code {} disagrees with the server-verified outcome {outcome}; refusing to settle", spend.winner_code) }));
+    }
+
+    // Build the UNSIGNED winner-branch spend via the EXISTING non-custodial prepare-spend path. The
+    // winner's OWN x-only key is the branch signer, the destination is the re-derived winner, and the
+    // server holds no key. The winner signs the returned sighash and submits with proof_hex.
+    let preq: crate::covenant_builder::WalletPrepareRequest = match serde_json::from_value(json!({
+        "network": net,
+        "deploy_tx_id": pot_tx,
+        "destination_addr": winner_addr,
+        "branch": "winner"
+    })) {
+        Ok(r) => r,
+        Err(e) => {
+            return Json(json!({ "success": false, "error": format!("build prepare-spend request: {e}") }))
+        }
+    };
+    let mut v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq))
+        .await
+        .0;
+    if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
+        // Carry the on-chain witness material the winner submits with (the chain re-verifies it).
+        v["proof_hex"] = json!(spend.proof_hex);
+        v["public_inputs"] = json!(spend.public_inputs);
+        v["winner_pubkey"] = json!(spend.winner_pubkey);
+        v["covenant_id"] = json!(spend.covenant_id);
+        v["vk_hex"] = json!(spend.vk_hex);
+        v["winner_addr"] = json!(winner_addr);
+        v["outcome"] = json!(outcome);
+        v["onchain_zk"] = json!(true);
+        v["next"] = json!(format!(
+            "Sign `sighash` (BIP340 Schnorr) with the WINNER's wallet ({winner_addr}), then POST {{session_id, signature_hex, proof_hex}} to /covenant/p2sh/submit-signed to broadcast. The node verifies the Groth16 proof on-chain via OpZkPrecompile before the winner's OpCheckSig releases the pot; the server contributed no signature."
         ));
     }
     Json(v)

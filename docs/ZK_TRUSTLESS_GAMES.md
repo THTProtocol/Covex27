@@ -136,14 +136,23 @@ soundness note below.
 Once a real game receipt exists (Docker `stark2snark`):
 
 1. Produce the RISC0->Groth16 `Receipt` for the finished game (guest replays it, commits the
-   two-frame journal).
-2. Call `covex_games_onchain::game_settle_spend_from_receipt(&receipt)` -> `{ proof, the 5 public
-   inputs, covenant_id, winner_pubkey, winner_code, stake }`.
+   two-frame journal). The reference **prover service** (`prover-service/`) does this: it shells out
+   to `covex-games-prover prove-groth16` (the real proof) then `settle-spend` (the mapping). The
+   backend host cannot prove; the service runs on a Docker + >=12GB RAM box, reached via
+   `COVEX_PROVER_URL`.
+2. `covex_games_onchain::game_settle_spend_from_receipt(&receipt)` -> `{ proof, the 5 public inputs,
+   covenant_id, winner_pubkey, winner_code, stake }` (this is what `settle-spend` emits as JSON).
 3. Deploy a `ZkGameSettle` covenant baking that VK + those 5 inputs + the winner x-only key + a CSV
    refund (via `POST /covenant/p2sh/deploy` with `kind: "zk_game_settle"`).
-4. The winner calls `POST /covenant/p2sh/prepare-spend` (branch `winner`), signs the returned sighash
-   in their wallet, and calls `POST /covenant/p2sh/submit-signed` with `signature_hex` + `proof_hex`.
-   The server assembles the witness and broadcasts; it holds no key.
+4. WIRED end-to-end via `POST /api/games/:id/settle-zk` (gated behind `KASPA_ZK_PRECOMPILE_ENABLED`,
+   mainnet-rejected): it auths the seated winner, re-derives the winner via the fail-closed
+   `game_pot_outcome`, reconstructs the match `GameInput`, asks the prover service for the on-chain
+   settle material, builds the UNSIGNED winner-branch spend (the existing `prepare_spend_handler`,
+   branch `winner`), and returns `{ proof_hex, public_inputs[5], winner_pubkey, covenant_id, vk_hex,
+   sighash, session_id }`. The server signs nothing. The winner signs `sighash` (BIP340) in their
+   wallet and POSTs `{ session_id, signature_hex, proof_hex }` to `/covenant/p2sh/submit-signed`,
+   which assembles the witness and broadcasts. (Frontend: `gamePot.settlePotZkOnchain`, gated behind
+   `VITE_ZK_ONCHAIN_GAMES`.)
 5. The node verifies the proof on-chain via `OpZkPrecompile` and pays the winner. On timeout, the
    funder uses branch `refund` (CSV) instead.
 

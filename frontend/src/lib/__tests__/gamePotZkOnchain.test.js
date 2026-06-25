@@ -159,9 +159,11 @@ describe('settlePotZkOnchain (gated, stubbed pending the backend settle endpoint
     expect(calls[0].url).toBe('/api/games/cov1/settle-zk');
     expect(calls[0].body).toEqual({ token: 'tok' });
     expect(calls[1].url).toBe('/api/covenant/p2sh/submit-signed');
-    // the proof + public inputs are carried into the satisfier so the chain can re-verify on-chain
-    expect(calls[1].body.zk_proof_hex).toBe('deadbeef');
-    expect(calls[1].body.zk_public_inputs).toHaveLength(5);
+    // the proof is carried into the winner-branch satisfier so the chain re-verifies it on-chain via
+    // OpZkPrecompile. The 5 public inputs are BAKED in the lock script (not witness-supplied), so the
+    // submit body carries only proof_hex - the exact field the backend submit-signed handler reads.
+    expect(calls[1].body.proof_hex).toBe('deadbeef');
+    expect(calls[1].body.zk_proof_hex).toBeUndefined();
     expect(calls[1].body.session_id).toBe('zk-sess-1');
     expect(typeof calls[1].body.signature_hex).toBe('string');
     expect(out.onchain_zk).toBe(true);

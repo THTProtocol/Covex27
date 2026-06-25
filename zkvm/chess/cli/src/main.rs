@@ -28,7 +28,7 @@ use std::process::ExitCode;
 use anyhow::{anyhow, bail, Context, Result};
 use covex_games::{GameInput, GameResult, GameType, WINNER_DRAW, WINNER_P1, WINNER_P2};
 use methods::{GAMES_GUEST_ELF, GAMES_GUEST_ID};
-use risc0_zkvm::{default_prover, ExecutorEnv, Receipt};
+use risc0_zkvm::{default_prover, ExecutorEnv, ProverOpts, Receipt};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
@@ -307,6 +307,113 @@ fn cmd_prove(input_path: &str, out_path: &str) -> Result<()> {
 }
 
 // ----------------------------------------------------------------------------------------------
+// prove-groth16 (on-chain KIP-16 path)
+//
+// Same input as `prove`, but produces a RISC0->Groth16 receipt via ProverOpts::groth16(). That is
+// the form the Kaspa KIP-16 OpZkPrecompile (opcode 0xa6, tag 0x20) verifies ON-CHAIN. Unlike the
+// STARK path, the Groth16 wrap shells out to the RISC0 stark2snark Docker image, so this needs an
+// x86_64 host with Docker + >=12GB RAM (the 7GB backend box CANNOT run it - see prover-service/README).
+//
+// The honesty gate is identical: an illegal / unfinished / forged game makes the guest panic, so no
+// receipt is produced. The output .bin is bincode(Receipt) (Groth16 inner), feed it to `settle-spend`.
+// ----------------------------------------------------------------------------------------------
+
+fn cmd_prove_groth16(input_path: &str, out_path: &str) -> Result<()> {
+    let json = std::fs::read_to_string(input_path)
+        .with_context(|| format!("read input JSON {input_path}"))?;
+    let parsed: JsonGameInput =
+        serde_json::from_str(&json).with_context(|| format!("parse input JSON {input_path}"))?;
+    let input = build_game_input(parsed)?;
+
+    if matches!(std::env::var("RISC0_DEV_MODE"), Ok(ref v) if v != "0" && !v.is_empty()) {
+        // Dev mode produces a fake (Fake inner) receipt that the on-chain converter cannot turn into
+        // a Groth16 proof. Refuse rather than emit a receipt that would mislead `settle-spend`.
+        bail!("prove-groth16 needs a REAL proof: unset RISC0_DEV_MODE (the on-chain path requires a genuine Groth16 seal)");
+    }
+
+    println!("Covex games prover - prove-groth16 (on-chain KIP-16 tag 0x20)");
+    println!("  image id     : {}", image_id_hex());
+    println!("  game_type    : {:?}", input.game_type);
+    println!("  covenant_id  : {}", hex32(&input.covenant_id));
+    println!("Proving Groth16 (composite STARK -> succinct -> Docker stark2snark; needs Docker + >=12GB RAM)...");
+
+    let env = ExecutorEnv::builder()
+        .write(&input)
+        .context("serialize GameInput into the executor env")?
+        .build()
+        .context("build executor env")?;
+
+    let prover = default_prover();
+    let t0 = std::time::Instant::now();
+    let prove_info = prover
+        .prove_with_opts(env, GAMES_GUEST_ELF, &ProverOpts::groth16())
+        .map_err(|e| anyhow!("groth16 proving failed (illegal/unfinished/forged game cannot be proven, OR the stark2snark Docker stage is unavailable - needs x86_64 + Docker + >=12GB RAM): {e}"))?;
+    let elapsed = t0.elapsed().as_secs_f64();
+    let receipt = prove_info.receipt;
+
+    // The receipt MUST be a Groth16 inner receipt and MUST verify against our image id before we save.
+    if !matches!(receipt.inner, risc0_zkvm::InnerReceipt::Groth16(_)) {
+        bail!("prove_with_opts(groth16) did not produce a Groth16 inner receipt (the stark2snark wrap likely did not run)");
+    }
+    receipt
+        .verify(GAMES_GUEST_ID)
+        .context("freshly produced groth16 receipt failed self-verification (toolchain/image-id mismatch?)")?;
+
+    // The journal's FIRST committed frame is the GameResult (the on-chain converter decodes the
+    // SECOND, the SettlementJournal). journal.decode() reads exactly the first value, like `prove`.
+    let result: GameResult = receipt
+        .journal
+        .decode()
+        .context("decode GameResult (journal frame 1)")?;
+
+    let bytes = bincode::serialize(&receipt).context("serialize groth16 receipt with bincode")?;
+    std::fs::write(out_path, &bytes).with_context(|| format!("write groth16 receipt to {out_path}"))?;
+
+    println!("PROVED (groth16) + self-verified in {elapsed:.2}s");
+    print_result(&result);
+    println!("  receipt      : {out_path} ({} bytes, Groth16)", bytes.len());
+    println!("\nMap it to the on-chain settle JSON:\n  covex-games-prover settle-spend {out_path}");
+    Ok(())
+}
+
+// ----------------------------------------------------------------------------------------------
+// settle-spend (Groth16 receipt -> on-chain settle JSON)
+//
+// Map a Groth16 receipt to the EXACT shape the backend settle-zk route + spend builder consume:
+//   { proof_hex, vk_hex, public_inputs[5], winner_pubkey, covenant_id, winner_code, stake_sompi,
+//     image_id }
+// This is a pure serializer (covex_games_onchain::game_settle_spend_from_receipt) - no proving, no
+// on-chain verify. The chain verifies the proof at spend time. A draw is rejected (no single payee).
+// ----------------------------------------------------------------------------------------------
+
+fn cmd_settle_spend(receipt_path: &str) -> Result<()> {
+    let bytes = std::fs::read(receipt_path)
+        .with_context(|| format!("read receipt file {receipt_path}"))?;
+    let receipt: Receipt =
+        bincode::deserialize(&bytes).with_context(|| format!("deserialize receipt {receipt_path}"))?;
+
+    let spend = covex_games_onchain::game_settle_spend_from_receipt(&receipt)
+        .map_err(|e| anyhow!("map receipt -> on-chain settle: {e}"))?;
+
+    let inputs = spend.public_inputs_hex();
+    let out = serde_json::json!({
+        "schema": "covex-games-settle-spend/v1",
+        "proof_hex": spend.proof_hex(),
+        "vk_hex": spend.vk_hex(),
+        "public_inputs": inputs,
+        "winner_pubkey": hex::encode(spend.winner_pubkey),
+        "covenant_id": hex::encode(spend.covenant_id),
+        "winner_code": spend.winner_code,
+        "stake_sompi": spend.stake_sompi,
+        "image_id": covex_games_onchain::image_id_hex(),
+        "n_public_inputs": inputs.len(),
+    });
+    // Pure JSON on stdout so a service / script can capture it.
+    println!("{}", serde_json::to_string(&out).context("serialize settle JSON")?);
+    Ok(())
+}
+
+// ----------------------------------------------------------------------------------------------
 // verify
 // ----------------------------------------------------------------------------------------------
 
@@ -370,16 +477,22 @@ fn dev_mode_str() -> String {
 // ----------------------------------------------------------------------------------------------
 
 fn usage() -> String {
-    "covex-games-prover - prove a Covex staked game and verify the receipt off-chain.\n\
+    "covex-games-prover - prove a Covex staked game and verify the receipt off-chain or on-chain.\n\
      \n\
      USAGE:\n\
-     \x20 covex-games-prover prove  <input.json> <out_receipt.bin>\n\
-     \x20 covex-games-prover verify <receipt.bin>\n\
+     \x20 covex-games-prover prove          <input.json> <out_receipt.bin>\n\
+     \x20 covex-games-prover prove-groth16  <input.json> <out_receipt.bin>\n\
+     \x20 covex-games-prover settle-spend   <receipt.bin>\n\
+     \x20 covex-games-prover verify         <receipt.bin>\n\
      \n\
-     prove   read a GameInput as JSON, produce a real zk receipt (RISC0_DEV_MODE=0), print the\n\
-     \x20       committed GameResult + image id, and write the receipt to <out_receipt.bin>.\n\
-     verify  verify a receipt against the embedded guest image id, print the GameResult, and exit\n\
-     \x20       non-zero if verification fails (the trustless check anyone can run).\n"
+     prove          read a GameInput as JSON, produce a real STARK receipt (RISC0_DEV_MODE=0), print\n\
+     \x20              the committed GameResult + image id, and write the receipt to <out_receipt.bin>.\n\
+     prove-groth16  same input, but a RISC0->Groth16 receipt the Kaspa KIP-16 OpZkPrecompile verifies\n\
+     \x20              ON-CHAIN (needs x86_64 + Docker + >=12GB RAM for the stark2snark wrap).\n\
+     settle-spend   map a Groth16 receipt to the {proof, 5 inputs, winner_pubkey, covenant_id, vk}\n\
+     \x20              settle JSON on stdout (no proving; the chain verifies the proof at spend time).\n\
+     verify         verify a receipt against the embedded guest image id, print the GameResult, and\n\
+     \x20              exit non-zero if verification fails (the trustless check anyone can run).\n"
         .to_string()
 }
 
@@ -391,6 +504,15 @@ fn run() -> Result<()> {
             let input = args.get(2).ok_or_else(|| anyhow!("prove: missing <input.json>\n\n{}", usage()))?;
             let out = args.get(3).ok_or_else(|| anyhow!("prove: missing <out_receipt.bin>\n\n{}", usage()))?;
             cmd_prove(input, out)
+        }
+        "prove-groth16" => {
+            let input = args.get(2).ok_or_else(|| anyhow!("prove-groth16: missing <input.json>\n\n{}", usage()))?;
+            let out = args.get(3).ok_or_else(|| anyhow!("prove-groth16: missing <out_receipt.bin>\n\n{}", usage()))?;
+            cmd_prove_groth16(input, out)
+        }
+        "settle-spend" => {
+            let receipt = args.get(2).ok_or_else(|| anyhow!("settle-spend: missing <receipt.bin>\n\n{}", usage()))?;
+            cmd_settle_spend(receipt)
         }
         "verify" => {
             let receipt = args.get(2).ok_or_else(|| anyhow!("verify: missing <receipt.bin>\n\n{}", usage()))?;

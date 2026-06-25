@@ -59,6 +59,7 @@ mod resolve;
 mod resolver_failover;
 mod signer;
 mod ui_generator;
+mod zk_prover_client;
 
 /// Default Kaspa network label used when KASPA_NETWORK env var is not set.
 /// The project targets Toccata Testnet-12 (TN12).

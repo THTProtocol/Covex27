@@ -498,15 +498,20 @@ impl SpendKind {
         }
     }
 
-    /// The input `sig_op_count` to commit in the spend's sighash. Kaspa counts a
-    /// CheckMultiSig as one sig-op per listed pubkey, and each CheckSig / CheckSigVerify
-    /// as one; too low a count is rejected by the node ("script units exceeded").
+    /// The input `sig_op_count` to commit in the spend's sighash. Kaspa STATICALLY sums
+    /// sig-ops over the WHOLE redeem script (every CheckSig / CheckSigVerify counts as one,
+    /// every CheckMultiSig as one per listed pubkey) across ALL IF/ELSE arms, not just the
+    /// executed branch, and requires declared == calculated; any mismatch (too low OR too
+    /// high) is rejected by the node as WrongSigOpCount.
     pub fn sig_op_count(&self) -> u8 {
         match self {
             SpendKind::SingleSig
             | SpendKind::HashLock
-            | SpendKind::Timelock { .. }
-            | SpendKind::Htlc { .. } => 1,
+            | SpendKind::Timelock { .. } => 1,
+            // IF <hash> CheckSig (claim) ELSE CLTV <sender> CheckSig (refund) ENDIF = 2 static
+            // sig ops (one CheckSig per branch). Declaring 1 made EVERY HTLC spend fail
+            // WrongSigOpCount(1, 2) on a covenant node and permanently locked the funds.
+            SpendKind::Htlc { .. } => 2,
             SpendKind::Multisig { total } => *total,
             SpendKind::Channel { .. } => 3,
             SpendKind::OracleEnforced { total } => *total,
@@ -7331,7 +7336,9 @@ mod tests {
         assert_eq!(SpendKind::parse("singlesig").unwrap().sig_op_count(), 1);
         assert_eq!(SpendKind::parse("hashlock").unwrap().sig_op_count(), 1);
         assert_eq!(SpendKind::parse("timelock:1").unwrap().sig_op_count(), 1);
-        assert_eq!(SpendKind::parse("htlc:1").unwrap().sig_op_count(), 1);
+        // HTLC redeem has TWO CheckSig (claim + refund branch) = 2 static sig ops; declaring
+        // 1 made every HTLC spend fail WrongSigOpCount(1, 2) and locked the funds permanently.
+        assert_eq!(SpendKind::parse("htlc:1").unwrap().sig_op_count(), 2);
         assert_eq!(SpendKind::parse("multisig:5").unwrap().sig_op_count(), 5);
         assert_eq!(SpendKind::parse("channel:1").unwrap().sig_op_count(), 3);
         assert_eq!(SpendKind::parse("oracle:2").unwrap().sig_op_count(), 2);

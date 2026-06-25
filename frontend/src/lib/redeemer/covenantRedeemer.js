@@ -219,12 +219,15 @@ export function parseRedeemPubkeys(redeem, checksigOnly) {
 /**
  * Port of Rust `SpendKind::sig_op_count` (backend/src/covenant_builder.rs:303-325) for
  * the kinds the non-custodial path supports. This value is committed in the spend
- * input's sighash; too low and the node rejects the tx ("script units exceeded").
+ * input's sighash. Kaspa STATICALLY sums sig-ops over the WHOLE redeem script across
+ * ALL IF/ELSE arms (not just the executed branch) and requires declared == calculated;
+ * any mismatch (too low OR too high) is rejected by the node as WrongSigOpCount.
  *
  * Kaspa counts a CheckMultiSig as one sig-op per LISTED pubkey, and each
  * CheckSig / CheckSigVerify as one.
  *
- *   singlesig | hashlock | timelock | rcsv | htlc        -> 1
+ *   singlesig | hashlock | timelock | rcsv               -> 1
+ *   htlc                                                 -> 2 (claim CheckSig + refund CheckSig)
  *   deadman                                              -> 2 (one CheckSig per branch)
  *   channel | oracle_escrow | binary_oracle_select       -> 3
  *   oracle_enforced_refundable                           -> 3 (2 multisig + 1 refund)
@@ -242,8 +245,12 @@ export function sigOpCount(kind, opts = {}) {
     case 'hashlock':
     case 'timelock':
     case 'rcsv':
-    case 'htlc':
       return 1;
+    // HTLC redeem has TWO CheckSig (claim branch + refund branch); the node sums both =>
+    // 2. Declaring 1 made every HTLC spend (and offline cold-recovery claim) fail
+    // WrongSigOpCount(1, 2) and permanently lock the funds.
+    case 'htlc':
+      return 2;
     case 'deadman':
       return 2;
     case 'channel':

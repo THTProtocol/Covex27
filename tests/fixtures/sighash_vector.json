@@ -1,0 +1,22 @@
+{
+  "_comment": "CANONICAL SIGHASH GOLDEN for a fixed covenant spend. Pins the backend calc_schnorr_signature_hash (vendored kaspa-consensus-core) over one deterministic native-subnetwork P2SH spend. Asserted by the Rust test sighash_vector_matches_committed_golden in backend/src/covenant_builder.rs. A later frontend task asserts the browser kaspa-wasm sighash over the SAME fixed spend equals expected_sighash_hex, making this the canonical Rust<->browser interop anchor. See docs/SIGHASH_PARITY.md for the native+empty-payload divergence (this vector deliberately uses the NON-empty payload both stacks agree on).",
+  "_generation": "Deterministic, no randomness. spend.redeem_hex = redeem_singlesig(redeem_singlesig_xonly) (the same fixed xonly as tests/fixtures/redeem_golden.json). The spent UTXO script_public_key is p2sh_script_pubkey(redeem) (the P2SH wrapper, which is what a P2SH sighash commits to). The tx is Transaction::new_non_finalized(version=0, [one input], [one output], lock_time, SubnetworkId native all-zero, gas, payload) with payload = the backend non-empty spend marker bytes \"covex-p2sh-spend\". expected_sighash_hex = hex(calc_schnorr_signature_hash(signable.as_verifiable(), 0, SIG_HASH_ALL)) emitted by the test itself; to regenerate, edit the spend fields, run the test once to read the asserted-vs-got diff, and paste the got value here.",
+  "spend": {
+    "redeem_singlesig_xonly": "48913e36d03867255247dd6be04c5fa8769cc3014a8fc7c1d5e2c8038357beb9",
+    "redeem_hex": "2048913e36d03867255247dd6be04c5fa8769cc3014a8fc7c1d5e2c8038357beb9ac",
+    "input_txid": "1111111111111111111111111111111111111111111111111111111111111111",
+    "input_index": 0,
+    "input_sequence": 0,
+    "input_sig_op_count": 1,
+    "utxo_amount": 100000000,
+    "utxo_block_daa_score": 0,
+    "output_value": 99990000,
+    "output_script_version": 0,
+    "output_script_hex": "202222222222222222222222222222222222222222222222222222222222222222ac",
+    "lock_time": 0,
+    "gas": 0,
+    "payload_utf8": "covex-p2sh-spend",
+    "payload_hex": "636f7665782d703273682d7370656e64"
+  },
+  "expected_sighash_hex": "d4eeaa044dfa960a72dae4d51d4e4e69a7a5a9d93ff4238b11c9f1620a3121b3"
+}

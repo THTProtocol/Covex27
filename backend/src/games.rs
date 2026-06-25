@@ -2964,4 +2964,285 @@ mod tests {
             "no referee secret may leak when mainnet refuses a proofless settle"
         );
     }
+
+    // -- on-chain ZK settle (zk_game_settle) gate + draw + refund coverage --
+    //
+    // These exercise the lock_pot zk_game_settle escrow gate, the draw money gate
+    // (game_pot_is_draw), and the settle/deploy/refund phase + auth gates. They
+    // intentionally assert the FAIL-CLOSED rejections that do NOT depend on the
+    // KASPA_ZK_PRECOMPILE_ENABLED env var (which is process-global and would race
+    // across parallel tests): the gates that fire BEFORE the env gate (mainnet
+    // reject, auth, phase, one-shot, funder-only, draw money gate).
+
+    /// Seed a linked zk_game_settle pot whose on-chain covenant has the given
+    /// redeem_kind (channel = neutral escrow phase; zk_game_settle = settlement
+    /// phase). The skill_games row is finished with the given winner/moves so the
+    /// money gates downstream can resolve.
+    fn seed_zk_pot(
+        db: &Db,
+        covenant_id: &str,
+        pot_tx: &str,
+        pot_redeem_kind: &str,
+        network: &str,
+        status: &str,
+        winner: Option<&str>,
+        game_type: &str,
+        moves_json: &str,
+    ) {
+        let conn = db.lock().unwrap();
+        conn.execute(
+            "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, player2, status, p1_token, p2_token, turn_started_at, p1_time_ms, p2_time_ms, pot_tx, settle_mode, match_id, winner, moves) \
+             VALUES (?1, ?8, 1.0, ?2, ?3, ?4, 'tok-p1', 'tok-p2', unixepoch(), 300000, 300000, ?5, 'zk_game_settle', ?1, ?6, ?7)",
+            params![covenant_id, P1_ADDR, P2_ADDR, status, pot_tx, winner, moves_json, game_type],
+        )
+        .expect("seed zk_game_settle skill_games row");
+        conn.execute(
+            "INSERT INTO p2sh_covenants (tx_id, network, p2sh_address, redeem_script_hex, redeem_kind, amount_sompi, outpoint_index, owner_addr, created_at) \
+             VALUES (?1, ?2, 'p2sh:test', '00', ?3, 100000000, 0, ?4, unixepoch())",
+            params![pot_tx, network, pot_redeem_kind, P1_ADDR],
+        )
+        .expect("seed zk pot p2sh_covenants row");
+    }
+
+    /// A genuine tic-tac-toe draw move log (a full board with no three-in-a-row):
+    /// X at {0,2,4,5,7}, O at {1,3,6,8}, board full, and no premature line forms
+    /// during play.
+    const TTT_DRAW_MOVES: &str = r#"["X0","O1","X2","O3","X4","O6","X5","O8","X7"]"#;
+    /// A decisive tic-tac-toe win for X (completes the top row 0,1,2).
+    const TTT_X_WIN_MOVES: &str = r#"["X0","O3","X1","O4","X2"]"#;
+
+    /// (zk-1) lock_pot zk_game_settle is GATED OFF by default: with
+    /// KASPA_ZK_PRECOMPILE_ENABLED unset, the explicit zk gate in lock_pot rejects
+    /// the lock before any covenant is built. Fail-closed: no pot is locked.
+    #[tokio::test]
+    async fn lock_pot_zk_game_settle_rejected_when_disabled() {
+        // Ensure the env gate is OFF for this test (the default state).
+        std::env::remove_var("KASPA_ZK_PRECOMPILE_ENABLED");
+        let db = fresh_db();
+        seed_two_player_active(&db, "cov-zk-off", P1_ADDR, P2_ADDR, "tok-p1", "tok-p2");
+        let body = json!({
+            "token": "tok-p1", "stake_kas": 1.0, "network": "testnet-12",
+            "settle_mode": "zk_game_settle", "refund_after_daa": 1000
+        });
+        let resp = lock_pot(Extension(db.clone()), Path("cov-zk-off".into()), Json(body))
+            .await
+            .0;
+        assert_eq!(
+            resp["success"],
+            json!(false),
+            "zk_game_settle lock must fail closed when the precompile gate is off"
+        );
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("disabled") || err.contains("KASPA_ZK_PRECOMPILE_ENABLED"),
+            "the refusal must come from the precompile gate, got: {err}"
+        );
+        // No pot row was linked.
+        let conn = db.lock().unwrap();
+        let pot: Option<String> = conn
+            .query_row(
+                "SELECT pot_tx FROM skill_games WHERE covenant_id = 'cov-zk-off'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(pot.is_none(), "no pot may be linked when the gate refuses");
+    }
+
+    /// (zk-2) lock_pot zk_game_settle is REJECTED on mainnet regardless of the env
+    /// gate: the outer starts_with("mainnet") guard dominates (it catches even a
+    /// "mainnet-foo" variant the ==-only gate would miss). Mainnet stays frozen.
+    #[tokio::test]
+    async fn lock_pot_zk_game_settle_rejected_on_mainnet() {
+        let db = fresh_db();
+        seed_two_player_active(&db, "cov-zk-mn", P1_ADDR, P2_ADDR, "tok-p1", "tok-p2");
+        let body = json!({
+            "token": "tok-p1", "stake_kas": 1.0, "network": "mainnet",
+            "settle_mode": "zk_game_settle", "refund_after_daa": 1000
+        });
+        let resp = lock_pot(Extension(db), Path("cov-zk-mn".into()), Json(body))
+            .await
+            .0;
+        assert_eq!(
+            resp["success"],
+            json!(false),
+            "zk_game_settle lock must be rejected on mainnet"
+        );
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("mainnet"),
+            "the refusal must explain mainnet, got: {err}"
+        );
+    }
+
+    /// (zk-3) game_pot_is_draw is the FAIL-CLOSED draw money gate: true ONLY for a
+    /// finished match whose engine replay of the move log is a genuine draw, and
+    /// false for every other state (decisive winner, unfinished, not finished, no
+    /// such pot, unsupported engine).
+    #[test]
+    fn game_pot_is_draw_only_for_genuine_engine_draw() {
+        let db = fresh_db();
+        // (a) genuine finished tic-tac-toe draw -> true.
+        seed_zk_pot(&db, "cov-d1", "pot-d1", "channel", "testnet-12", "finished", Some("draw"), "tictactoe", TTT_DRAW_MOVES);
+        assert!(
+            crate::covenant_builder::game_pot_is_draw(&db, "pot-d1"),
+            "a real engine-decided draw must authorize the split"
+        );
+        // (b) a decisive X win -> false (even if the row's winner field lied as draw).
+        seed_zk_pot(&db, "cov-d2", "pot-d2", "channel", "testnet-12", "finished", Some("draw"), "tictactoe", TTT_X_WIN_MOVES);
+        assert!(
+            !crate::covenant_builder::game_pot_is_draw(&db, "pot-d2"),
+            "a decisive game must NOT be treated as a draw, even if winner says draw"
+        );
+        // (c) unfinished board -> false.
+        seed_zk_pot(&db, "cov-d3", "pot-d3", "channel", "testnet-12", "finished", None, "tictactoe", r#"["X0","O1"]"#);
+        assert!(
+            !crate::covenant_builder::game_pot_is_draw(&db, "pot-d3"),
+            "an unfinished board is not a draw"
+        );
+        // (d) not finished status -> false (even with a draw move log).
+        seed_zk_pot(&db, "cov-d4", "pot-d4", "channel", "testnet-12", "active", None, "tictactoe", TTT_DRAW_MOVES);
+        assert!(
+            !crate::covenant_builder::game_pot_is_draw(&db, "pot-d4"),
+            "a non-finished match cannot authorize a draw split"
+        );
+        // (e) no such pot -> false.
+        assert!(
+            !crate::covenant_builder::game_pot_is_draw(&db, "pot-nope"),
+            "a missing pot must fail closed"
+        );
+        // (f) unsupported engine (no result_from_moves) -> false.
+        seed_zk_pot(&db, "cov-d5", "pot-d5", "channel", "testnet-12", "finished", Some("draw"), "blackjack", r#"["whatever"]"#);
+        assert!(
+            !crate::covenant_builder::game_pot_is_draw(&db, "pot-d5"),
+            "an engine with no server-authoritative replay must fail closed"
+        );
+    }
+
+    /// (zk-4) settle_pot_draw fails CLOSED on the seat-token auth gate (the 2-of-2
+    /// is the hard enforcer, but the route still refuses an unauthenticated caller).
+    #[tokio::test]
+    async fn settle_pot_draw_rejects_missing_seat_token() {
+        let db = fresh_db();
+        seed_zk_pot(&db, "cov-dr", "pot-dr", "channel", "testnet-12", "finished", Some("draw"), "tictactoe", TTT_DRAW_MOVES);
+        let resp = settle_pot_draw(Extension(db), Path("cov-dr".into()), Json(json!({})))
+            .await
+            .0;
+        assert_eq!(resp["success"], json!(false));
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("seat token"),
+            "draw settle must fail closed without a seat token, got: {err}"
+        );
+    }
+
+    /// (zk-5) settle_zk fails CLOSED on the seat-token auth gate before anything
+    /// else (no env dependency).
+    #[tokio::test]
+    async fn settle_zk_rejects_missing_seat_token() {
+        let db = fresh_db();
+        seed_zk_pot(&db, "cov-sz", "pot-sz", "zk_game_settle", "testnet-12", "finished", Some("white"), "chess", "[]");
+        let resp = settle_zk(Extension(db), Path("cov-sz".into()), Json(json!({})))
+            .await
+            .0;
+        assert_eq!(resp["success"], json!(false));
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("seat token"),
+            "settle_zk must fail closed without a seat token, got: {err}"
+        );
+    }
+
+    /// (zk-6) PHASE gate: settle_zk refuses while the stake is still in the neutral
+    /// channel escrow (pot_tx is a channel covenant, not yet zk_game_settle). This
+    /// fires before the env gate, so it holds with the precompile gate off.
+    #[tokio::test]
+    async fn settle_zk_refuses_while_in_neutral_escrow() {
+        let db = fresh_db();
+        // pot is linked but its on-chain covenant is still the neutral CHANNEL escrow.
+        seed_zk_pot(&db, "cov-esc", "pot-esc", "channel", "testnet-12", "finished", Some("white"), "chess", "[]");
+        let resp = settle_zk(Extension(db), Path("cov-esc".into()), Json(json!({ "token": "tok-p1" })))
+            .await
+            .0;
+        assert_eq!(resp["success"], json!(false));
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("neutral escrow") && err.contains("deploy-zk-settlement"),
+            "settle_zk must refuse the escrow phase with the deploy-first next step, got: {err}"
+        );
+    }
+
+    /// (zk-7) ONE-SHOT gate: deploy_zk_settlement refuses if pot_tx ALREADY points
+    /// at a zk_game_settle covenant (the settlement was already deployed + linked),
+    /// so the settlement covenant can never be swapped. Fires before the env gate.
+    #[tokio::test]
+    async fn deploy_zk_settlement_refuses_when_already_settled() {
+        let db = fresh_db();
+        seed_zk_pot(&db, "cov-os", "pot-os", "zk_game_settle", "testnet-12", "finished", Some("white"), "chess", "[]");
+        let resp = deploy_zk_settlement(
+            Extension(db),
+            Path("cov-os".into()),
+            Json(json!({ "token": "tok-p1" })),
+        )
+        .await
+        .0;
+        assert_eq!(resp["success"], json!(false));
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("already deployed"),
+            "deploy_zk_settlement must be one-shot, got: {err}"
+        );
+    }
+
+    /// (zk-8) deploy_zk_settlement fails CLOSED on the seat-token auth gate.
+    #[tokio::test]
+    async fn deploy_zk_settlement_rejects_missing_seat_token() {
+        let db = fresh_db();
+        seed_zk_pot(&db, "cov-da", "pot-da", "channel", "testnet-12", "finished", Some("white"), "chess", "[]");
+        let resp = deploy_zk_settlement(
+            Extension(db),
+            Path("cov-da".into()),
+            Json(json!({})),
+        )
+        .await
+        .0;
+        assert_eq!(resp["success"], json!(false));
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("seat token"),
+            "deploy_zk_settlement must fail closed without a seat token, got: {err}"
+        );
+    }
+
+    /// (zk-9) refund_pot_zk is FUNDER-ONLY: a player2 seat token is rejected (only
+    /// player1, the funder/refund key, may take the refund branch). Fires before
+    /// the env gate.
+    #[tokio::test]
+    async fn refund_pot_zk_only_funder() {
+        let db = fresh_db();
+        seed_zk_pot(&db, "cov-rf", "pot-rf", "channel", "testnet-12", "finished", None, "chess", "[]");
+        // player2's token must be refused.
+        let resp = refund_pot_zk(
+            Extension(db.clone()),
+            Path("cov-rf".into()),
+            Json(serde_json::from_value(json!({ "token": "tok-p2" })).unwrap()),
+        )
+        .await
+        .0;
+        assert_eq!(resp["success"], json!(false));
+        let err = resp["error"].as_str().unwrap_or("");
+        assert!(
+            err.contains("funder") || err.contains("player1"),
+            "refund_pot_zk must restrict to the funder (player1), got: {err}"
+        );
+        // a missing token is also refused.
+        let resp2 = refund_pot_zk(
+            Extension(db),
+            Path("cov-rf".into()),
+            Json(serde_json::from_value(json!({})).unwrap()),
+        )
+        .await
+        .0;
+        assert_eq!(resp2["success"], json!(false));
+    }
 }

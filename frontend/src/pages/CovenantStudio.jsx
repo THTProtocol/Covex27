@@ -776,7 +776,7 @@ function StudioHelpDrawer({ onClose }) {
   const sections = [
     {
       title: 'Templates',
-      body: <p>Templates are platform-authored starting points: they pre-fill the canvas with blocks for a hero, live odds, leaderboard, and footer. Replace anything. Blocks are platform-authored, no raw HTML or JS. The EnforcementBadge always reads the server-derived reality, never an override from the template.</p>,
+      body: <p>Templates are platform-authored starting points: they pre-fill the canvas with blocks for a hero, live pools, an activity feed, and a footer. Replace anything. Blocks are platform-authored, no raw HTML or JS. The EnforcementBadge always reads the server-derived reality, never an override from the template.</p>,
     },
     {
       title: 'Theme',
@@ -1076,7 +1076,7 @@ function ThemePickerModal({ onApply, onClose }) {
 // ── Page settings drawer: stake amount + name / description override. These are the
 // only unique controls the old Fix page had, absorbed into Studio so creators never
 // need a second tool. Saves via the SAME terminal-config POST (no new endpoint). The
-// stake is a default DISPLAY amount for the public page and arena; it never sets a fund
+// stake is a default DISPLAY amount for the public page; it never sets a fund
 // destination, which always derives from the indexed covenant record. Hoisted so it
 // never remounts mid-typing. Full dark / light / mobile parity. ──
 function PageSettingsModal({ covenant, saving, onSave, onClose }) {
@@ -1140,7 +1140,7 @@ function PageSettingsModal({ covenant, saving, onSave, onClose }) {
               />
             </div>
             <p className="text-[11px] text-gray-500 light:text-slate-500 mt-1.5 leading-relaxed">
-              This is the suggested stake shown on the public page and arena. It never sets a fund destination, which is always derived from the indexed covenant record. Custody and payouts are consensus-enforced where the script supports it, or co-signed by an external resolver the deployer binds by pubkey at deploy, fail-closed.
+              This is the suggested stake shown on the public page. It never sets a fund destination, which is always derived from the indexed covenant record. Custody and payouts are consensus-enforced where the script supports it, or co-signed by an external resolver the deployer binds by pubkey at deploy, fail-closed.
             </p>
           </div>
         </div>

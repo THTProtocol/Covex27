@@ -16,8 +16,8 @@ import {
 // align across light/dark and small/large screens. Single source of truth.
 const num = 'num';
 
-// Conjoined-covenant parimutuel markets. Each market commits two outcome secrets (H_A/H_B);
-// bettors place YES/NO orders that the matcher pairs into mini-pools, each funded by a bundle
+// Conjoined-covenant pooled outcome covenants. Each one commits two outcome secrets (H_A/H_B);
+// participants place YES/NO orders that the matcher pairs into mini-pools, each funded by a bundle
 // of binary_oracle_select P2SH covenants. Revealing one secret routes the whole bundle on-chain.
 const net = () => (typeof window !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'mainnet';
 const api = (path, body) =>
@@ -112,7 +112,7 @@ function OddsRow({ book, odds, resolved, showOpen }) {
 }
 
 // Place-an-order panel (open-state only). Owns the inlined OddsRow so the
-// bettor sees price + stake + back-button in one card without scrolling.
+// participant sees price + stake + back-button in one card without scrolling.
 // All request payloads (/order, /match) are passed through unchanged via
 // the onPlaceBet / onMatch callbacks the parent owns.
 function PlaceOrderCard({
@@ -153,7 +153,7 @@ function PlaceOrderCard({
           onClick={onPlaceBet}
           className="flex-1 min-w-0 truncate font-extrabold"
         >
-          {busy === 'Bet placed' ? <Spinner variant="inverse" size="xs" /> : `Back "${side === 0 ? book.outcome_a : book.outcome_b}"`}
+          {busy === 'Order placed' ? <Spinner variant="inverse" size="xs" /> : `Back "${side === 0 ? book.outcome_a : book.outcome_b}"`}
         </Button>
         <Button
           variant="glass" size="lg"
@@ -165,7 +165,7 @@ function PlaceOrderCard({
           {busy === 'Matched' ? <Spinner variant="mono" size="xs" /> : 'Match'}
         </Button>
       </div>
-      <p className="text-[11px] text-gray-500 light:text-slate-500 mt-2">A bet is an order on one side. When the other side has liquidity it's matched into a mini-pool and funded by a conjoined bundle (several on-chain covenants created at once).</p>
+      <p className="text-[11px] text-gray-500 light:text-slate-500 mt-2">An order backs one side. When the other side has liquidity it's matched into a mini-pool and funded by a conjoined bundle (several on-chain covenants created at once).</p>
     </div>
   );
 }
@@ -229,7 +229,7 @@ function Settled({ wonLabel, feePct, rebatePct, busy, settleRes, onSettle }) {
 
 // Mobile-only sticky bottom rail (<sm). Mirrors the StickyActionRail visual
 // pattern (fixed inset-x-0 bottom-0, safe-area-inset-bottom, mx-3 mb-3 rounded
-// glass panel) so the bettor gets a one-tap back-YES / back-NO without scrolling
+// glass panel) so the participant gets a one-tap back-YES / back-NO without scrolling
 // past HonestLimits. Calls the same onPlaceBet handler as PlaceOrderCard, so
 // the request payload (/order + /match) is unchanged. Hidden on sm+ where the
 // full PlaceOrderCard is already in the viewport. Reduced-motion safe (no slide).
@@ -241,14 +241,14 @@ function MobileBetRail({
   return (
     <div
       role="region"
-      aria-label="Place bet"
+      aria-label="Place order"
       className="sm:hidden fixed inset-x-0 bottom-0 z-40"
       style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
     >
       <div className="mx-3 mb-3 rounded-2xl border border-white/10 light:border-slate-200 bg-[#0a0a0a]/95 light:bg-white/95 backdrop-blur-xl p-3 shadow-[0_-8px_40px_-12px_rgba(0,0,0,0.7)] light:shadow-[0_-8px_28px_-12px_rgba(15,23,42,0.18)]">
         <div className="flex flex-col gap-2.5">
           {/* YES <-> NO toggle (segmented). Same setSide as PlaceOrderCard. */}
-          <div role="radiogroup" aria-label="Bet side" className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white/[0.04] light:bg-slate-100 border border-white/10 light:border-slate-200">
+          <div role="radiogroup" aria-label="Order side" className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-white/[0.04] light:bg-slate-100 border border-white/10 light:border-slate-200">
             {[book.outcome_a, book.outcome_b].map((label, i) => (
               <button
                 key={i}
@@ -264,9 +264,9 @@ function MobileBetRail({
           </div>
           {/* Amount + primary back button on one row */}
           <div className="flex items-stretch gap-2">
-            <label className="sr-only" htmlFor="mobile-bet-stake">Stake amount in KAS</label>
+            <label className="sr-only" htmlFor="mobile-order-stake">Stake amount in KAS</label>
             <input
-              id="mobile-bet-stake"
+              id="mobile-order-stake"
               value={stake}
               onChange={(e) => setStake(e.target.value)}
               type="number" inputMode="decimal" min="1" step="0.5"
@@ -279,13 +279,13 @@ function MobileBetRail({
               onClick={onPlaceBet}
               className="flex-1 min-w-0 truncate font-extrabold"
             >
-              {busy === 'Bet placed'
+              {busy === 'Order placed'
                 ? <Spinner variant="inverse" size="xs" />
                 : <span className="inline-flex items-center gap-1.5 truncate">Back "{sideLabel}" <ArrowRight size={14} aria-hidden="true" /></span>}
             </Button>
           </div>
           {!addr && (
-            <p className="text-[10.5px] text-gray-500 light:text-slate-500 leading-snug">Set your payout address in the order card above to enable betting.</p>
+            <p className="text-[10.5px] text-gray-500 light:text-slate-500 leading-snug">Set your payout address in the order card above to enable ordering.</p>
           )}
         </div>
       </div>
@@ -383,9 +383,9 @@ function MarketDetail({ id }) {
   const feePct = Math.round(f * 100), rebatePct = Math.round(r * 100);
   const breakeven = odds.breakeven_lp || (f / Math.max(1e-9, 1 - f - r));
 
-  // Place a bet, then immediately try to match: same two-step flow as before,
+  // Place an order, then immediately try to match: same two-step flow as before,
   // same payloads, same /order then /match request shape.
-  const onPlaceBet = () => act('Bet placed', async () => {
+  const onPlaceBet = () => act('Order placed', async () => {
     const o = await api('/covenant/market/order', { market_id: id, side, stake_kas: parseFloat(stake), bettor_addr: addr.trim() });
     if (o && o.success === false) return o;
     // Immediately match: if the opposite side has open liquidity, this funds the
@@ -416,7 +416,7 @@ function MarketDetail({ id }) {
       <MarketHero book={book} market={market} resolved={resolved} wonLabel={wonLabel} />
 
       {/* Place an order - action-first, with live OddsCards inlined side-by-side
-          so a bettor sees price + stake + back-button in one card without scrolling. */}
+          so a participant sees price + stake + back-button in one card without scrolling. */}
       {!resolved && (
         <PlaceOrderCard
           book={book} market={market} odds={odds} resolved={resolved}
@@ -444,7 +444,7 @@ function MarketDetail({ id }) {
           <AlertTriangle size={18} className="text-amber-400 shrink-0 mt-0.5" />
           <p className="text-[12px] text-amber-200/90 light:text-amber-800 leading-relaxed">
             <span className="font-semibold text-amber-300 light:text-amber-700">You can be right and still lose.</span> The winner multiplier is
-            {' '}<span className={num}>{(1 - f).toFixed(2)}</span> + <span className={num}>{(1 - f - r).toFixed(2)}</span>×(opposing pool ÷ your pool). A correct bet only profits when the opposing pool is more than
+            {' '}<span className={num}>{(1 - f).toFixed(2)}</span> + <span className={num}>{(1 - f - r).toFixed(2)}</span>×(opposing pool ÷ your pool). A correct order only profits when the opposing pool is more than
             {' '}<span className={`font-semibold ${num}`}>{breakeven.toFixed(2)}×</span> your side, the creator fee is {feePct}% and losers get {rebatePct}% back.
           </p>
         </div>
@@ -455,7 +455,7 @@ function MarketDetail({ id }) {
 
         {/* Collapsible "Pool math and on-chain proofs": pools breakdown + commitment hashes.
             Hidden by default to keep the action card above the fold, but the
-            responsible-gambling disclosure above is never gated behind a click. */}
+            honest-economics disclosure above is never gated behind a click. */}
         <div className="rounded-2xl border border-white/[0.06] light:border-slate-200 overflow-hidden">
           <button
             type="button"
@@ -472,7 +472,7 @@ function MarketDetail({ id }) {
             <div className="p-5 border-t border-white/[0.06] light:border-slate-200">
               {/* Pools - reward / hedge-rebate / fee split of the matched pool */}
               {(book.funded_pool_a_kas + book.funded_pool_b_kas) === 0 ? (
-                <div className="text-[12px] text-gray-500 light:text-slate-500">No matched liquidity yet, the reward and hedge pools fill as bets get matched.</div>
+                <div className="text-[12px] text-gray-500 light:text-slate-500">No matched liquidity yet, the reward and hedge pools fill as orders get matched.</div>
               ) : (
                 <>
                   <div className="flex items-end justify-between gap-3 mb-1"><span className="kicker">Total matched</span><span className={`text-2xl font-black leading-none text-right text-white light:text-slate-900 ${num}`}>{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} <span className="text-sm text-gray-400 light:text-slate-500">KAS</span></span></div>
@@ -573,12 +573,12 @@ function MarketDetail({ id }) {
   );
 }
 
-// No default export and no standalone market list: per the constitution, prediction
-// markets are NOT a separate section. They live in the Explorer and render their full
-// custom market website on the covenant page (CovenantInteractive) via MarketView below.
+// No default export and no standalone listing: conditional-outcome covenants are NOT a
+// separate section. They live in the Explorer and render their full custom website on the
+// covenant page (CovenantInteractive) via MarketView below.
 //
-// Reusable market website (betting, live odds, pools, resolve), rendered on a
-// prediction-market covenant's page in the Explorer (CovenantInteractive).
+// Reusable conditional-outcome website (orders, live pools, resolve), rendered on a
+// conditional-outcome covenant's page in the Explorer (CovenantInteractive).
 export function MarketView({ marketId }) {
   return <MarketDetail id={marketId} />;
 }

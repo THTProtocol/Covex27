@@ -129,7 +129,7 @@ export default function ApiDocs() {
         {[
           ['Networks', <>The <code className="text-white">network=</code> query defaults to <span className="text-white">mainnet</span>. Mainnet is configured and indexing-ready but returns <span className="text-white">0 covenants until the Toccata upgrade (2026 window, no confirmed day)</span> activates on-chain covenants - that is expected, not an error.</>],
           ['Auth & limits', <>No API key for reads. Requests are rate-limited per IP (a burst returns <code className="text-white">429</code> "rate limit exceeded"). Lists paginate with <code className="text-white">limit</code> (max 200, default 60) and <code className="text-white">offset</code>.</>],
-          ['Search', <>Keyword search supports OR alternatives with a pipe: <code className="text-white">q=chess|poker</code>. Fetch a single covenant by txid at <code className="text-white">/covenants/&lt;txid&gt;</code>.</>],
+          ['Search', <>Keyword search supports OR alternatives with a pipe: <code className="text-white">q=escrow|vesting</code>. Fetch a single covenant by txid at <code className="text-white">/covenants/&lt;txid&gt;</code>.</>],
           ['Honesty', <>Every covenant carries an <code className="text-white">enforcement_reality</code>, one of <span className="text-white">on-chain</span> / <span className="text-white">hybrid</span> / <span className="text-white">oracle-attested</span> / <span className="text-white">decorative</span> (a metadata-only marker). The finer "zero-knowledge" label in the UI is a resolution-trust badge for the proof-verified circuits, layered on top - not a separate API value. The API never claims more enforcement than the chain provides.</>],
         ].map(([title, body]) => (
           <div key={title} className="glass-panel rounded-2xl p-4 border border-white/[0.06] hover-lift">
@@ -262,7 +262,7 @@ export default function ApiDocs() {
           <div className="glass-panel rounded-2xl p-5 border border-kaspa-green/20 flex items-start gap-3">
             <Code2 size={18} className="text-kaspa-green shrink-0 mt-0.5" />
             <p className="text-xs text-gray-300 leading-relaxed">
-              Point any app at this API to reproduce the explorer views. Lists cap at 200 items per page; use offset to walk the full set. Keyword search supports OR alternatives with a pipe, for example q=chess|poker. POST endpoints are rate limited per IP.
+              Point any app at this API to reproduce the explorer views. Lists cap at 200 items per page; use offset to walk the full set. Keyword search supports OR alternatives with a pipe, for example q=escrow|vesting. POST endpoints are rate limited per IP.
             </p>
           </div>
         </div>

@@ -65,8 +65,8 @@ export default function ZkClaimPanel({ covenant }) {
   const circuitType = circuitTypeFor(circuitId);
   // HONESTY: no deployed circuit's ZK proof is bound to a chain-checked hashlock. Every
   // in-browser-provable circuit is full-zk: a real Groth16 proof verified OFF-CHAIN (by you,
-  // the counterparty, or any external verifier - snarkjs against the audited vkey). Kaspa has
-  // no on-chain pairing verifier; a valid proof gates a 2-of-2 cosign + CSV timeout.
+  // the counterparty, or any external verifier - snarkjs against the audited vkey). For the
+  // circom suite the proof is verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout.
   const realityKey = 'full-zk';
   const realityHeadline = REALITY_HEADLINE[realityKey];
   const realityBody = REALITY_BODY[realityKey];
@@ -142,7 +142,7 @@ export default function ZkClaimPanel({ covenant }) {
         </div>
         <p className="text-[12.5px] leading-relaxed text-amber-100/90">
           Your proof is verified off-chain (by you, the counterparty, or any external verifier -
-          snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier, so a valid
+          snarkjs against the audited vkey). For this circom circuit the proof is verified off-chain, so a valid
           proof gates a 2-of-2 cosign + CSV timeout rather than being checked on-chain.
         </p>
         <p className="mt-1.5 text-[11.5px] text-gray-400 leading-relaxed">

@@ -247,7 +247,7 @@ export const puckConfig = {
         title: { type: 'text' },
         subtitle: { type: 'textarea' },
         ctaLabel: { type: 'text', label: 'Button label (blank to hide)' },
-        ctaAction: { type: 'select', options: [{ label: 'Open interact', value: 'interact' }, { label: 'Place a bet', value: 'bet' }, { label: 'Lock / spend', value: 'spend' }] },
+        ctaAction: { type: 'select', options: [{ label: 'Open interact', value: 'interact' }, { label: 'Back an outcome', value: 'bet' }, { label: 'Lock / spend', value: 'spend' }] },
         accentColor: colorField('Accent color'),
         alignment: { type: 'radio', options: [{ label: 'Left', value: 'left' }, { label: 'Center', value: 'center' }] },
       },
@@ -284,7 +284,7 @@ export const puckConfig = {
         headline: { type: 'text' },
         description: { type: 'textarea' },
         buttonLabel: { type: 'text' },
-        buttonAction: { type: 'select', options: [{ label: 'Open interact', value: 'interact' }, { label: 'Place a bet', value: 'bet' }, { label: 'Lock / spend', value: 'spend' }] },
+        buttonAction: { type: 'select', options: [{ label: 'Open interact', value: 'interact' }, { label: 'Back an outcome', value: 'bet' }, { label: 'Lock / spend', value: 'spend' }] },
         backgroundGradient: { type: 'select', options: [{ label: 'Kaspa', value: 'kaspa' }, { label: 'Gold', value: 'gold' }, { label: 'Purple', value: 'purple' }, { label: 'Blue', value: 'blue' }] },
       },
       defaultProps: { headline: 'Ready to join?', description: 'Stake in your own wallet. Non-custodial, settled on-chain. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk verified off-chain).', buttonLabel: 'Get started', buttonAction: 'interact', backgroundGradient: 'kaspa' },
@@ -350,7 +350,7 @@ export const puckConfig = {
         let label = 'Metadata only';
         let desc = 'A descriptive label; not enforced by the protocol.';
         if (er === 'on-chain') { variant = 'on-chain'; label = 'On-chain enforced'; desc = 'Kaspa consensus enforces the script. Funds move only by satisfying it.'; }
-        else if (er === 'full-zk') { variant = 'full-zk'; label = 'Full ZK verified'; desc = 'A real zero-knowledge proof, verified fail-closed off-chain by you, the counterparty, or any external verifier, gating a 2-of-2 cosign. Kaspa has no on-chain pairing verifier.'; }
+        else if (er === 'full-zk') { variant = 'full-zk'; label = 'Full ZK verified'; desc = 'A real zero-knowledge proof, verified fail-closed off-chain by you, the counterparty, or any external verifier, gating a 2-of-2 cosign. For the circom suite the proof is verified off-chain.'; }
         else if (er === 'hybrid' || er.includes('oracle')) { variant = 'oracle'; label = 'Oracle-attested'; desc = 'Custody and payout are on-chain; the outcome is attested by an external resolver the deployer binds by pubkey at deploy. Covex never attests real-world facts.'; }
         return (
           <div className="mx-2 md:mx-4 mb-5 flex flex-col items-center text-center gap-2">
@@ -660,7 +660,7 @@ export const puckConfig = {
         steps: [
           { label: 'Deployed', detail: 'Covenant locked on the Kaspa BlockDAG.', state: 'done' },
           { label: 'Open', detail: 'Players join and stake.', state: 'active' },
-          { label: 'Settle', detail: 'Outcome resolves and the pot pays out.', state: 'upcoming' },
+          { label: 'Settle', detail: 'Outcome resolves and the pool pays out.', state: 'upcoming' },
         ],
       },
       render: ({ title, steps, puck }) => {
@@ -723,7 +723,7 @@ export const puckConfig = {
       defaultProps: {
         tabs: [
           { label: 'How it works', body: 'Stake in your own wallet. Funds lock to the covenant script.' },
-          { label: 'Payouts', body: 'The pot pays out per the disclosed rules. Everything is on the explorer.' },
+          { label: 'Payouts', body: 'The pool pays out per the disclosed rules. Everything is on the explorer.' },
         ],
       },
       render: ({ tabs, puck }) => <TabsBlock tabs={tabs} live={puck?.metadata?.live || {}} />,
@@ -735,7 +735,7 @@ export const puckConfig = {
         items: {
           type: 'array',
           arrayFields: { q: { type: 'text', label: 'Question' }, a: { type: 'textarea', label: 'Answer' } },
-          defaultItemProps: { q: 'How do payouts work?', a: 'The disclosed rules release the pot. Custody and payout are on-chain.' },
+          defaultItemProps: { q: 'How do payouts work?', a: 'The disclosed rules release the pool. Custody and payout are on-chain.' },
         },
       },
       defaultProps: {
@@ -797,7 +797,7 @@ export const puckConfig = {
     BulletList: {
       label: 'Bullet List',
       fields: { items: { type: 'array', arrayFields: { text: { type: 'text' } }, defaultItemProps: { text: 'A rule of this covenant' } } },
-      defaultProps: { items: [{ text: 'Players stake equal amounts' }, { text: 'Winner takes the pot minus fees' }] },
+      defaultProps: { items: [{ text: 'Players stake equal amounts' }, { text: 'Winner receives the staked amount minus fees' }] },
       render: ({ items, puck }) => {
         const live = puck?.metadata?.live || {};
         return (
@@ -812,7 +812,7 @@ export const puckConfig = {
     FAQItem: {
       label: 'FAQ Item',
       fields: { question: { type: 'text' }, answer: { type: 'textarea' } },
-      defaultProps: { question: 'How do payouts work?', answer: 'The disclosed rules release the pot. Custody and payout are on-chain and verifiable on the explorer.' },
+      defaultProps: { question: 'How do payouts work?', answer: 'The disclosed rules release the pool. Custody and payout are on-chain and verifiable on the explorer.' },
       render: ({ question, answer, puck }) => {
         const live = puck?.metadata?.live || {};
         return (
@@ -902,7 +902,7 @@ export const puckConfig = {
       render: ({ label, value, suffix, decimals, color, puck }) => <CounterBlock label={label} value={value} suffix={suffix} decimals={decimals} color={color} live={puck?.metadata?.live || {}} />,
     },
     OddsBar: {
-      label: 'Odds Bar (live)',
+      label: 'Split Bar (live)',
       fields: {
         labelA: { type: 'text', label: 'Outcome A label' },
         valueA: { type: 'text', label: 'A pool/weight (supports {{tokens}})' },
@@ -949,7 +949,7 @@ export const puckConfig = {
       },
     },
     OddsHighlightCard: {
-      label: 'Odds Card (live)',
+      label: 'Highlight Card (live)',
       fields: {
         outcomeName: { type: 'text' },
         multiplier: { type: 'text', label: 'Payout x (supports {{tokens}})' },
@@ -980,7 +980,7 @@ export const puckConfig = {
       },
     },
     PoolMeter: {
-      label: 'Pool Meter (live)',
+      label: 'Progress Meter (live)',
       fields: {
         label: { type: 'text' },
         value: { type: 'text', label: 'Current (supports {{tokens}})' },
@@ -1193,10 +1193,10 @@ export const puckConfig = {
         helper: { type: 'text' },
         action: { type: 'select', label: 'On click', options: [
           { label: 'Open interact panel', value: 'interact' },
-          { label: 'Place a bet (markets)', value: 'bet' },
+          { label: 'Back an outcome', value: 'bet' },
           { label: 'Lock funds / spend', value: 'spend' },
         ] },
-        outcome: { type: 'radio', label: 'Bet outcome', options: [{ label: 'YES', value: 'yes' }, { label: 'NO', value: 'no' }] },
+        outcome: { type: 'radio', label: 'Outcome', options: [{ label: 'YES', value: 'yes' }, { label: 'NO', value: 'no' }] },
         amount: { type: 'text', label: 'Suggested amount (KAS)' },
         variant: { type: 'select', label: 'Style', options: [{ label: 'Kaspa', value: 'kaspa' }, { label: 'Gold', value: 'gold' }, { label: 'Glass', value: 'glass' }] },
       },
@@ -1216,7 +1216,7 @@ export const puckConfig = {
     FeeNotice: {
       label: 'Fee Transparency',
       fields: { feeText: { type: 'textarea', label: 'Fee breakdown text' } },
-      defaultProps: { feeText: 'Winner receives 96% of the pot. Creator earns 2%. 2% returns to the covenant for the next round.' },
+      defaultProps: { feeText: 'Winner receives 96% of the pool. Creator earns 2%. 2% returns to the covenant for the next round.' },
       render: ({ feeText, puck }) => (
         <div className="cvx-fee mx-2 md:mx-4 mb-5 rounded-xl p-4">
           <p className="text-[10px] uppercase tracking-widest cvx-fee-label mb-1 font-bold">Fees, in plain words</p>
@@ -1451,40 +1451,40 @@ const ROOT = (over) => ({ props: { pageLogo: '', accentColor: '#49EACB', backgro
 export const STARTER_TEMPLATES = [
   {
     id: 'prediction-market',
-    name: 'Prediction Market',
+    name: 'Conditional Outcome',
     match: ['binary_oracle_select', 'prediction', 'market'],
-    desc: 'Two-sided pool with live odds, countdown, and an oracle-attested badge.',
+    desc: 'Two-sided pool with live shares, countdown, and an oracle-attested badge.',
     data: {
       root: ROOT({ backgroundPreset: 'aurora' }),
       content: [
-        blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.55', title: '{{name}}', subtitle: 'Stake YES or NO. {{total_locked}} in the pool on {{network}}.', ctaLabel: 'Place a bet', ctaAction: 'bet', accentColor: '#49EACB', alignment: 'center' }),
-        blk('EnforcementBadge', { note: 'How this market is enforced' }),
+        blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.55', title: '{{name}}', subtitle: 'Stake YES or NO. {{total_locked}} in the pool on {{network}}.', ctaLabel: 'Back an outcome', ctaAction: 'bet', accentColor: '#49EACB', alignment: 'center' }),
+        blk('EnforcementBadge', { note: 'How this covenant is enforced' }),
         blk('Marquee', { badge: 'LIVE', items: [{ text: '{{pool_yes}} on YES' }, { text: '{{pool_no}} on NO' }, { text: '{{tx_count}} on-chain actions' }] }),
         blk('OddsBar', { labelA: 'YES', valueA: '{{pool_yes}}', colorA: '#49EACB', labelB: 'NO', valueB: '{{pool_no}}', colorB: '#F472B6', showOdds: 'yes' }),
-        blk('Countdown', { title: 'Market closes in', targetDate: '{{kickoff}}', endedText: 'Betting is closed. Awaiting settlement.', accentColor: '#E8AF34' }),
+        blk('Countdown', { title: 'Outcome closes in', targetDate: '{{kickoff}}', endedText: 'Entries are closed. Awaiting settlement.', accentColor: '#E8AF34' }),
         blk('FeeNotice', { feeText: 'Creator fee {{fee_pct}}%. Loser rebate {{rebate_pct}}%. Winners split the rest of the pool.' }),
-        blk('Leaderboard', { title: 'Top stakers', rankBy: 'amount', maxRows: '5', emptyText: 'No stakes on-chain yet. The board fills as players join.', accentColor: '#E8AF34' }),
+        blk('Leaderboard', { title: 'Top stakers', rankBy: 'amount', maxRows: '5', emptyText: 'No stakes on-chain yet. The board fills as participants join.', accentColor: '#E8AF34' }),
         blk('Accordion', { title: 'Frequently asked', items: [{ q: 'How is the outcome decided?', a: 'An external resolver the deployer binds by pubkey at deploy attests the result; Covex never attests real-world facts. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk verified off-chain). Custody and payout are on-chain and verifiable on the explorer.' }, { q: 'Is this non-custodial?', a: 'Yes. You sign in your own wallet; keys never leave your device.' }] }),
-        blk('Footer', { text: '{{name}} · Oracle-attested prediction market on Kaspa', showNetwork: 'yes' }),
+        blk('Footer', { text: '{{name}} · Oracle-attested conditional-outcome covenant on Kaspa', showNetwork: 'yes' }),
       ],
     },
   },
   {
     id: 'chess-arena',
-    name: 'Chess Arena / Games',
+    name: 'Two-party covenant',
     premium: true,
     match: ['chess', 'game', 'arena', 'poker', 'blackjack'],
-    desc: 'Game-first hero, live pot, leaderboard, and an enforcement badge.',
+    desc: 'Match-first hero, live staked amount, leaderboard, and an enforcement badge.',
     data: {
       root: ROOT({ backgroundPreset: 'purple-mystic' }),
       content: [
-        blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.6', title: '{{name}}', subtitle: 'Winner takes the pot. {{total_locked}} locked on {{network}}.', ctaLabel: 'Enter the arena', ctaAction: 'interact', accentColor: '#A855F7', alignment: 'center' }),
-        blk('EnforcementBadge', { note: 'How this game is enforced' }),
-        blk('StatRow', { stats: [{ label: 'Pot', value: '{{total_locked}}' }, { label: 'Status', value: '{{status}}' }, { label: 'Games', value: '{{tx_count}}' }] }),
-        blk('FeatureGrid', { columns: '3', features: [{ icon: 'Swords', headline: 'Skill, not luck', description: 'Play it out on the board. On testnet, the pot settles when Covex re-derives the winner from the publicly replayable move log and co-signs the payout; the chain still requires the winning player to sign. See the enforcement badge on this page.' }, { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device.' }, { icon: 'Zap', headline: 'Kaspa speed', description: 'Settles on the BlockDAG at 10 blocks per second.' }] }),
-        blk('Leaderboard', { title: 'Top winners', rankBy: 'amount', maxRows: '5', emptyText: 'No games settled on-chain yet. Be the first to play.', accentColor: '#E8AF34' }),
-        blk('StakeCTA', { label: 'Stake and play', helper: 'Opens the arena. Non-custodial, signs in your wallet. See the enforcement badge on this page.', action: 'interact', outcome: 'yes', amount: '', variant: 'kaspa' }),
-        blk('Footer', { text: '{{name}} · Skill game on Kaspa, settled from a replayable move log', showNetwork: 'yes' }),
+        blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.6', title: '{{name}}', subtitle: 'The full stake goes to the winner. {{total_locked}} locked on {{network}}.', ctaLabel: 'Open the match', ctaAction: 'interact', accentColor: '#A855F7', alignment: 'center' }),
+        blk('EnforcementBadge', { note: 'How this covenant is enforced' }),
+        blk('StatRow', { stats: [{ label: 'Staked', value: '{{total_locked}}' }, { label: 'Status', value: '{{status}}' }, { label: 'Matches', value: '{{tx_count}}' }] }),
+        blk('FeatureGrid', { columns: '3', features: [{ icon: 'Swords', headline: 'Skill, not luck', description: 'Play it out on the board. On testnet, the covenant settles when Covex re-derives the winner from the publicly replayable move log and co-signs the payout; the chain still requires the winning player to sign. See the enforcement badge on this page.' }, { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device.' }, { icon: 'Zap', headline: 'Kaspa speed', description: 'Settles on the BlockDAG at 10 blocks per second.' }] }),
+        blk('Leaderboard', { title: 'Top winners', rankBy: 'amount', maxRows: '5', emptyText: 'No matches settled on-chain yet. Be the first to play.', accentColor: '#E8AF34' }),
+        blk('StakeCTA', { label: 'Stake and play', helper: 'Opens the match. Non-custodial, signs in your wallet. See the enforcement badge on this page.', action: 'interact', outcome: 'yes', amount: '', variant: 'kaspa' }),
+        blk('Footer', { text: '{{name}} · Skill-based covenant on Kaspa, settled from a replayable move log', showNetwork: 'yes' }),
       ],
     },
   },

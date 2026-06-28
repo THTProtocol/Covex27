@@ -5,7 +5,7 @@
 
 const REALITY_EXPLAIN = {
   'on-chain': 'Kaspa consensus enforces the spend directly. Your own wallet redeems by satisfying the published script, and no Covex key sits in the payout path. Trustless for custody and payout; metadata and labels are still computed by Covex.',
-  'full-zk': 'A real Groth16 proof is required and verified off-chain (by you, the counterparty, or any external verifier) before it gates the release through a 2-of-2 cosign plus a CSV timeout. The proof cannot be faked; Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain.',
+  'full-zk': 'A real Groth16 proof is required and verified off-chain (by you, the counterparty, or any external verifier) before it gates the release through a 2-of-2 cosign plus a CSV timeout. The proof cannot be faked; for the circom suite the proof is verified off-chain, not checked by the chain.',
   hybrid: 'A zero-knowledge property proof plus an external resolver attestation resolve it.',
   'oracle-attested': 'Resolved by an external resolver the deployer binds by pubkey at deploy: the resolver signs an attestation of the outcome, then it is paid out on-chain. Covex never attests real-world facts; the resolver is the one trusted component and it is always disclosed (these stay disabled for real value on mainnet until they can be made trustless).',
   decorative: 'A metadata marker. It carries information but does not itself gate a spend.',
@@ -20,9 +20,9 @@ const INTENTS = [
   { kw: ['age', 'over 18', '18+', '21+', 'kyc', 'birth', 'adult', 'old enough', 'minimum age'], find: ['age_verification'], lead: 'Age verification proves someone meets an age threshold without revealing their birth date.' },
   { kw: ['range', 'between', 'at least', 'at most', 'min ', 'max ', 'collateral', 'sufficient', 'within bounds'], find: ['range_proof', 'range'], lead: 'A range proof shows a hidden value lies within bounds without revealing it.' },
   { kw: ['multisig', 'multi-sig', 'multi sig', 'n of m', 'n-of-m', 'signers', 'approval', 'co-sign', 'quorum', 'committee'], find: ['multi_sig', 'multisig', 'threshold'], lead: 'A multi-signature threshold requires several keys to approve a spend.' },
-  { kw: ['prediction', 'bet', 'wager', 'market', 'outcome', 'odds', 'forecast'], find: ['prediction_market', 'prediction'], lead: 'A prediction market pays out based on a resolved real-world outcome.' },
+  { kw: ['prediction', 'bet', 'wager', 'market', 'outcome', 'odds', 'forecast'], find: ['prediction_market', 'prediction'], lead: 'A conditional-outcome covenant pays out based on a resolved real-world outcome.' },
   { kw: ['auction', 'bid', 'bidder', 'clearing', 'highest'], find: ['auction'], lead: 'An auction covenant clears bids and pays the winner.' },
-  { kw: ['random', 'dice', 'lottery', 'vrf', 'shuffle', 'fair draw', 'fairness', 'coin flip'], find: ['vrf', 'dice'], lead: 'A VRF gives provably fair randomness for draws and shuffles.' },
+  { kw: ['random', 'dice', 'lottery', 'vrf', 'shuffle', 'fair draw', 'fairness', 'coin flip'], find: ['vrf', 'dice'], lead: 'A VRF gives verifiable randomness for draws and shuffles.' },
   { kw: ['hash', 'preimage', 'secret', 'atomic swap', 'htlc', 'reveal'], find: ['hash_preimage', 'htlc', 'hash'], lead: 'A hashlock releases funds when the secret preimage is revealed (atomic-swap style).' },
   { kw: ['token gated', 'token-gated', 'gated', 'gate access', 'holders', 'hold token'], find: ['token_gated', 'gating', 'merkle'], lead: 'Token-gating restricts access or spend to qualifying holders.' },
   { kw: ['loan', 'lend', 'borrow', 'ltv', 'health factor', 'liquidation', 'collateralized'], find: ['loan', 'collateral_ltv', 'liquidation', 'ltv'], lead: 'A lending covenant tracks collateral health and triggers on an LTV threshold.' },

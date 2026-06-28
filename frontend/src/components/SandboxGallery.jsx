@@ -37,9 +37,9 @@ const rm = (r) => REALITY_META[r] || REALITY_META['oracle-attested'];
 // catch-all group sweeps up anything uncategorised so nothing is ever hidden.
 const GROUPS = [
   { key: 'zk', title: 'Zero-knowledge', icon: ShieldCheck, match: (c) => c.reality === 'full-zk' || c.category === 'crypto' || c.category === 'privacy' },
-  { key: 'oracle', title: 'Oracle & prediction markets', icon: Radio, match: (c) => c.category === 'oracle' },
+  { key: 'oracle', title: 'Oracle & conditional outcomes', icon: Radio, match: (c) => c.category === 'oracle' },
   { key: 'defi', title: 'DeFi & lending', icon: Coins, match: (c) => c.category === 'defi' },
-  { key: 'game', title: 'Games', icon: Gamepad2, match: (c) => c.category === 'game' },
+  { key: 'game', title: 'Two-party covenants', icon: Gamepad2, match: (c) => c.category === 'game' },
   { key: 'identity', title: 'Identity & gating', icon: Fingerprint, match: (c) => c.category === 'identity' || c.category === 'gating' },
   { key: 'compute', title: 'Verifiable compute', icon: Cpu, match: (c) => c.category === 'compute' },
   { key: 'other', title: 'Primitives & timelocks', icon: Lock, match: () => true },

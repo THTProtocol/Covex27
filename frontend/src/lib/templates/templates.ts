@@ -7,11 +7,12 @@
 
 import { CovenantConfigV1, createDefaultConfig } from '../covenant-config/covenant-config';
 
-export type TemplateCategory = 
-  | 'Games' 
-  | 'Escrow & Agreements' 
-  | 'Prediction & Markets' 
-  | 'Governance & DAOs' 
+export type TemplateCategory =
+  | 'Two-party covenants'
+  | 'Escrow & Agreements'
+  | 'Conditional Outcomes'
+  | 'Verifiable Randomness'
+  | 'Governance & DAOs'
   | 'Financial Tools';
 
 export interface CovenantTemplate {
@@ -92,20 +93,20 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     })
   },
 
-  // === PREDICTION & MARKETS ===
+  // === CONDITIONAL OUTCOMES ===
   {
     id: 'binary-prediction',
-    name: 'Binary Prediction Market',
-    description: 'Yes/No event. Traders buy shares. Oracle resolves at deadline.',
-    category: 'Prediction & Markets',
+    name: 'Binary Conditional Outcome',
+    description: 'Yes/No condition resolved at a deadline by an external resolver. Funds route to the named outcome.',
+    category: 'Conditional Outcomes',
     icon: '🔮',
     difficulty: 'Intermediate',
     estimatedTime: '7 min',
     recommendedTier: 'PRO',
-    tags: ['Prediction', 'Market', 'Oracle'],
+    tags: ['Conditional', 'Oracle'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr),
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Binary Prediction Market', description: 'Will X happen by date Y?' },
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Binary Conditional Outcome', description: 'Will X happen by date Y?' },
       resolution: { mode: 'oracle', circuit: { type: 'merkle_membership' }, oracle: { provider: 'covex' }, payoutModel: { type: 'proportional', feeBasisPoints: 150 } },
       ui: { templateId: 'prediction-binary-v1', theme: { primaryColor: '#EF4444' } }
     })
@@ -244,20 +245,20 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     })
   },
 
-  // === MORE: oracle-attested markets & pools (honest: oracle BIP340 signs the outcome) ===
+  // === MORE: oracle-attested conditional outcomes & pools (honest: oracle BIP340 signs the outcome) ===
   {
     id: 'binary-prediction-market',
-    name: 'Binary Prediction Market',
-    description: 'Yes/No event resolved at a deadline by an external resolver the deployer binds by pubkey at deploy. Stake on an outcome; the deployer-bound resolver attests the result. Covex never attests real-world facts.',
-    category: 'Prediction & Markets',
+    name: 'Binary Conditional Outcome',
+    description: 'Yes/No condition resolved at a deadline by an external resolver the deployer binds by pubkey at deploy. Stake on an outcome; the deployer-bound resolver attests the result. Covex never attests real-world facts.',
+    category: 'Conditional Outcomes',
     icon: '🔮',
     difficulty: 'Beginner',
     estimatedTime: '5 min',
     recommendedTier: 'BUILDER',
-    tags: ['Market', 'Oracle', 'Binary'],
+    tags: ['Conditional', 'Oracle', 'Binary'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr, 'escrow'),
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Prediction Market', description: 'Oracle-attested Yes/No market. Winners split the pool.' },
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Binary Conditional Outcome', description: 'Oracle-attested Yes/No outcome. Winners split the pool.' },
       resolution: { mode: 'oracle', circuit: { type: 'custom' }, oracle: { provider: 'covex' }, payoutModel: { type: 'proportional', feeBasisPoints: 100 } },
       ui: { templateId: 'binary-market-v1', theme: { primaryColor: '#F59E0B' } }
     })
@@ -266,7 +267,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     id: 'dutch-auction',
     name: 'Dutch Auction',
     description: 'Price descends over time; the first bidder wins at the current price. Oracle attests the clearing price.',
-    category: 'Prediction & Markets',
+    category: 'Conditional Outcomes',
     icon: '⏬',
     difficulty: 'Intermediate',
     estimatedTime: '7 min',
@@ -479,8 +480,8 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'chess-classic',
     name: 'Classic Chess Match',
-    description: 'Standard 8x8 chess with FIDE rules. Two players stake; the proven winner is paid the pot. Full legal play proven via ZK.',
-    category: 'Games',
+    description: 'Standard 8x8 chess with FIDE rules. Two players stake; the proven winner receives the staked amount. Full legal play proven via ZK.',
+    category: 'Two-party covenants',
     icon: '♟️',
     difficulty: 'Beginner',
     estimatedTime: '5 min',
@@ -491,7 +492,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
       covenant: {
         ...createDefaultConfig(addr, 'chess').covenant,
         name: 'Classic Chess Match',
-        description: 'FIDE rules chess. The proven winner is paid the pot minus a 2% fee.',
+        description: 'FIDE rules chess. The proven winner receives the staked amount minus a 2% fee.',
       },
       ui: {
         templateId: 'chess-classic-v1',
@@ -504,8 +505,8 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   {
     id: 'chess-blitz',
     name: 'Blitz Chess (10 min)',
-    description: 'Fast chess with time controls. Two players stake; the proven winner is paid the pot.',
-    category: 'Games',
+    description: 'Fast chess with time controls. Two players stake; the proven winner receives the staked amount.',
+    category: 'Two-party covenants',
     icon: '⚡',
     difficulty: 'Beginner',
     estimatedTime: '4 min',
@@ -522,60 +523,60 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
   },
   {
     id: 'poker-texas',
-    name: 'Texas Hold\'em Poker',
+    name: 'Texas Hold\'em',
     description: '6-max Texas Hold\'em. Hand ranking proven via ZK where possible.',
-    category: 'Games',
+    category: 'Two-party covenants',
     icon: '🃏',
     difficulty: 'Intermediate',
     estimatedTime: '8 min',
     recommendedTier: 'PRO',
-    tags: ['Poker', 'Multiplayer', 'Cards'],
+    tags: ['Cards', 'Multiplayer', 'ZK'],
     generateConfig: (addr) => ({
-      ...createDefaultConfig(addr, 'chess'), // placeholder until poker circuit
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Texas Hold\'em (6-max)', description: 'Standard poker. Best hand wins.' },
+      ...createDefaultConfig(addr, 'chess'), // placeholder until cards circuit
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Texas Hold\'em (6-max)', description: 'The best hand receives the staked amount.' },
       resolution: { ...createDefaultConfig(addr).resolution, circuit: { type: 'custom' } },
       ui: { templateId: 'poker-texas-v1', theme: { primaryColor: '#DC2626' } }
     })
   },
   {
     id: 'connect4-arena',
-    name: 'Connect Four Arena',
-    description: 'Head-to-head Connect Four for stakes. Server-authoritative engine; the oracle attests the winner. Two players stake; the proven winner is paid the pot.',
-    category: 'Games',
+    name: 'Connect Four',
+    description: 'Two-party Connect Four. Server-authoritative engine; the oracle attests the winner. Both parties stake; the proven winner receives the staked amount.',
+    category: 'Two-party covenants',
     icon: '🔴',
     difficulty: 'Beginner',
     estimatedTime: '4 min',
     recommendedTier: 'BUILDER',
-    tags: ['Game', '1v1', 'Oracle'],
+    tags: ['1v1', 'Oracle'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr, 'chess'),
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Connect Four Arena', description: 'Oracle-attested Connect Four. The proven winner is paid the pot minus the fee.' },
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Connect Four', description: 'Oracle-attested Connect Four. The proven winner receives the staked amount minus the fee.' },
       resolution: { mode: 'oracle', circuit: { type: 'custom' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 200 } },
       ui: { templateId: 'connect4-v1', theme: { primaryColor: '#EF4444' } }
     })
   },
   {
     id: 'vrf-lottery',
-    name: 'VRF Lottery (Provably Fair Draw)',
-    description: 'A winner forced by a committed random value so no one can cherry-pick the result. The draw is generated in your browser and verified on the vrf_random circuit (zero-knowledge).',
-    category: 'Games',
-    icon: '🎰',
+    name: 'Verifiable Random Draw (VRF)',
+    description: 'An outcome forced by a committed random value so no one can cherry-pick the result. The draw is generated in your browser and verified on the vrf_random circuit (zero-knowledge).',
+    category: 'Verifiable Randomness',
+    icon: '🎲',
     difficulty: 'Intermediate',
     estimatedTime: '6 min',
     recommendedTier: 'PRO',
-    tags: ['ZK', 'VRF', 'Lottery'],
+    tags: ['ZK', 'VRF', 'Randomness'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr, 'escrow'),
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'VRF Lottery', description: 'Provably fair draw forced by a committed random value (VRF).' },
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Verifiable Random Draw', description: 'Verifiable draw forced by a committed random value (VRF).' },
       resolution: { mode: 'zk', circuit: { type: 'vrf_random' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 100 } },
       ui: { templateId: 'vrf-lottery-v1', theme: { primaryColor: '#EC4899' } }
     })
   },
   {
     id: 'vrf-dice-draw',
-    name: 'Provably-Fair Dice Draw',
-    description: 'A dice result forced by Poseidon(secret, public seed) so the roll cannot be rigged. Generated in your browser and verified on the vrf_dice_roll circuit (zero-knowledge).',
-    category: 'Games',
+    name: 'Verifiable Dice Draw',
+    description: 'A dice result forced by Poseidon(secret, public seed) so the result cannot be rigged. Generated in your browser and verified on the vrf_dice_roll circuit (zero-knowledge).',
+    category: 'Verifiable Randomness',
     icon: '🎲',
     difficulty: 'Beginner',
     estimatedTime: '5 min',
@@ -583,7 +584,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     tags: ['ZK', 'VRF', 'Dice'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr, 'escrow'),
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Provably-Fair Dice', description: 'A dice roll forced by a committed secret and public seed (VRF).' },
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Verifiable Dice Draw', description: 'A dice result forced by a committed secret and public seed (VRF).' },
       resolution: { mode: 'zk', circuit: { type: 'vrf_dice_roll' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 100 } },
       ui: { templateId: 'vrf-dice-v1', theme: { primaryColor: '#F472B6' } }
     })
@@ -599,5 +600,5 @@ export function getTemplateById(id: string): CovenantTemplate | undefined {
 }
 
 export const TEMPLATE_CATEGORIES: TemplateCategory[] = [
-  'Escrow & Agreements', 'Financial Tools', 'Governance & DAOs', 'Prediction & Markets', 'Games'
+  'Escrow & Agreements', 'Financial Tools', 'Governance & DAOs', 'Conditional Outcomes', 'Verifiable Randomness', 'Two-party covenants'
 ];

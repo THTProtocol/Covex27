@@ -125,7 +125,7 @@ function releaseBranches(circuit) {
   };
   // Genuinely ZK-verified eligibility gates (real Groth16 proof, verified fail-closed OFF-CHAIN
   // by you, the counterparty, or any external verifier). Only these can honestly claim a proof
-  // gates the spend; a valid proof gates a 2-of-2 cosign (Kaspa has no on-chain pairing verifier).
+  // gates the spend; a valid proof gates a 2-of-2 cosign (the circom proof is verified off-chain).
   if (/merkle|member|whitelist|age|range/.test(c)) return {
     title: 'Proof-gated release',
     branches: [

@@ -16,9 +16,10 @@ import {
 // snarkjs.groth16.verify runs against the served verification key. Fully trustless.
 //
 // HONESTY ABSOLUTE: this is OFF-CHAIN verification (here in your browser, or by any counterparty /
-// external verifier - snarkjs against the audited vkey). Kaspa has NO on-chain pairing verifier, so a
-// proof is never checked on-chain. In production these same proofs gate a 2-of-2 covenant co-signature
-// plus a CSV timeout; nothing here is "chain-enforced" and no copy claims it is.
+// external verifier - snarkjs against the audited vkey). For this circom suite the proof is verified
+// off-chain, never checked on-chain. In production these same proofs gate a 2-of-2 covenant co-signature
+// plus a CSV timeout; nothing here is "chain-enforced" and no copy claims it is. Toccata's KIP-16
+// OpZkPrecompile is a separate on-chain ZK path, testnet-gated until proven live.
 
 // ── use-case groups for the full catalog ─────────────────────────────────────
 // Maps the catalog's raw `category` to a human use-case group + icon. The raw categories are:
@@ -311,7 +312,7 @@ function ZkStudioBody() {
           </div>
           <ul className="space-y-1.5 text-[12.5px] text-amber-100/90 light:text-amber-900 leading-relaxed list-disc pl-5">
             <li>Proofs are verified <strong>off-chain</strong>: here in your browser now, or by a counterparty or any external verifier later. The verification key is public.</li>
-            <li>Kaspa has <strong>no on-chain pairing verifier</strong>, so a proof is never checked on-chain. Nothing here is "chain-enforced" and no proof is trustless on its own.</li>
+            <li>For this circom suite the proof is <strong>verified off-chain</strong>, never checked on-chain. Nothing here is "chain-enforced" and no proof is trustless on its own. (Toccata's KIP-16 adds a separate on-chain ZK path, testnet-gated until proven live.)</li>
             <li>In production these same proofs gate a 2-of-2 covenant co-signature plus a CSV timeout (fail-closed). A valid proof is what unlocks the cosign; the only on-chain check is the resulting Schnorr co-signature, never the proof itself.</li>
             <li>The trusted setup is a single-contributor Covex dev ceremony, not a production multi-party MPC.</li>
             <li>Your private witness (birth year, balance, secret, blinding...) is computed and kept in your browser. Only the proof and its public signals are produced.</li>

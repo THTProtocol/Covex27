@@ -7,9 +7,10 @@
 //
 // Honesty is load-bearing here. The enforcement-reality vocabulary is exact:
 // on-chain (chain enforces, no Covex key in path), oracle-attested (a deployer-bound
-// external resolver co-signature required), full-zk (real Groth16 verified off-chain by
-// you/the counterparty/any external verifier, NOT on-chain ZK), metadata (display only).
-// No overclaims. Covex never attests real-world facts.
+// external resolver co-signature required), full-zk (real Groth16; the circom suite is
+// verified off-chain by you/the counterparty/any external resolver, while Toccata KIP-16
+// adds a separate on-chain ZK path that stays testnet-gated until proven live),
+// metadata (display only). No overclaims. Covex never attests real-world facts.
 //
 // The route (/about) and nav are wired by the orchestrator, not here.
 
@@ -41,7 +42,7 @@ const REALITY = {
   'full-zk': {
     label: 'full-zk',
     variant: 'full-zk',
-    note: 'A real Groth16 proof, verified off-chain by an external resolver you choose or run (not Covex). Not on-chain ZK. The four self-contained circuits reduce to pure on-chain primitives.',
+    note: 'A real Groth16 proof. The circom suite is verified off-chain by an external resolver you choose or run (not Covex); the four self-contained circuits reduce to pure on-chain primitives. Toccata KIP-16 adds a separate on-chain ZK path, testnet-gated until proven live.',
   },
   metadata: {
     label: 'metadata',
@@ -72,7 +73,7 @@ const PILLARS = [
   {
     icon: MousePointerClick,
     title: 'Interact',
-    body: 'Connect a Kaspa wallet and act on any covenant: stake, join, bet, deposit, claim, resolve. Even covenants not created on Covex can be redeemed by supplying their script.',
+    body: 'Connect a Kaspa wallet and act on any covenant: deposit, contribute, join, claim, resolve. Even covenants not created on Covex can be redeemed by supplying their script.',
     tag: 'Free forever',
   },
   {
@@ -84,13 +85,13 @@ const PILLARS = [
   {
     icon: ShieldCheck,
     title: 'Trust',
-    body: 'On-chain custody for every covenant. Engine-resolved games settle by replaying the signed move log (anyone can recompute) and the counterparty or a deployer-bound external resolver co-signs the release; ZK circuits are verified off-chain by you, the counterparty, or any external verifier; real-world covenants like markets bind to an external resolver the creator chooses, not Covex. The enforcement-reality badge says which on each page.',
+    body: 'On-chain custody for every covenant. Two-party covenants settle by replaying the signed log (anyone can recompute) and the counterparty or a deployer-bound external resolver co-signs the release; circom circuits are verified off-chain by you, the counterparty, or any external resolver; real-world-outcome covenants bind to an external resolver the creator chooses, not Covex. The enforcement-reality badge says which on each page.',
     tag: 'Always on',
   },
 ];
 
 // Worked covenant examples, each with its genuine enforcement reality.
-// Utility primitives lead; the staked games / market examples follow.
+// Utility primitives lead; the staked two-party / conditional-outcome examples follow.
 const EXAMPLES = [
   {
     icon: Lock,
@@ -108,19 +109,19 @@ const EXAMPLES = [
     icon: Sparkles,
     name: 'Fundraiser',
     kind: 'on-chain',
-    body: 'A pooled covenant with a target and a deadline. The website shows a live pool meter against the goal and a contribute button; the destination is always derived from the indexed covenant, never the button.',
+    body: 'A pooled covenant with a target and a deadline. The website shows a live progress meter against the goal and a contribute button; the destination is always derived from the indexed covenant, never the button.',
   },
   {
     icon: TrendingUp,
-    name: 'Prediction market',
+    name: 'Conditional outcome',
     kind: 'oracle-attested',
-    body: 'Funds sit in on-chain binary-select bundles, but a real-world fact must be attested off-chain by an external resolver the creator chooses (single key or k-of-n independent signers), never by Covex. Today the bundled market settles via a Covex-derived secret gated to the creator wallet, a trust-minimized step toward full external-resolver binding. The website shows live odds, pools, and a place-order panel.',
+    body: 'Funds sit in on-chain binary-select bundles, but a real-world fact must be attested off-chain by an external resolver the creator chooses (single key or k-of-n independent signers), never by Covex. Today the bundle settles via a Covex-derived secret gated to the creator wallet, a trust-minimized step toward full external-resolver binding. The website shows live pools, progress, and an order panel.',
   },
   {
     icon: Gamepad2,
-    name: 'Games arena',
+    name: 'Two-party covenant',
     kind: 'oracle-attested',
-    body: 'Two players stake into a covenant and play in a premium client. On testnet today, a pot settles when Covex re-derives the winner from the publicly-replayable signed move log and co-signs the payout; Covex does not decide the winner, and the chain still requires the winning player to add their own signature. The chain-enforced, no-Covex-key path is rolling out.',
+    body: 'Two parties stake into a covenant and the result is decided from a publicly-replayable signed log. On testnet today, settlement happens when Covex re-derives the result and co-signs the payout; Covex does not decide it, and the chain still requires the winning party to add their own signature. The chain-enforced, no-Covex-key path is rolling out.',
   },
   {
     icon: Boxes,
@@ -132,7 +133,7 @@ const EXAMPLES = [
 
 const BUILD_STEPS = [
   { icon: Hammer, title: 'Create the covenant', body: 'Pick a type, set its parameters (lock height, hash, signers, fee and payout, circuit), and deploy. On-chain primitives deploy non-custodially: your wallet signs, the chain enforces.' },
-  { icon: Palette, title: 'Design its website', body: 'Start from one of 7 templates so you never face a blank canvas. Drag in hero images, galleries, video, odds bars, pool meters, and an honest enforcement badge. Bind live on-chain data with tokens.' },
+  { icon: Palette, title: 'Design its website', body: 'Start from one of the templates so you never face a blank canvas. Drag in hero images, galleries, video, progress meters, data panels, and an honest enforcement badge. Bind live on-chain data with tokens.' },
   { icon: Smartphone, title: 'Preview dark, light, and mobile', body: 'Use the device-preview toggle and theme picker. Every block has light-mode parity and is built for 375px with zero horizontal overflow.' },
   { icon: Globe, title: 'Deploy the website', body: 'Saving requires a server-issued single-use nonce signature from the creator. The page serializes to validated JSON, rendered through an allow-listed component set. No raw HTML or JS reaches a visitor.' },
   { icon: MousePointerClick, title: 'Others interact', body: 'Anyone who opens the covenant page sees the full website and acts on it with their own wallet. Funds move on-chain; the enforcement-reality badge tells them exactly who enforces the outcome.' },
@@ -142,7 +143,7 @@ const TRUST_ROWS = [
   { icon: KeyRound, title: 'Keys never leave the browser', body: 'Wallet generation happens client-side; the private key is never transmitted to the server. On mainnet a key is never displayed or transmitted.' },
   { icon: Eye, title: 'Covex holds no funds', body: 'It reads UTXOs and verifies payments on-chain. Every value-moving action is signed by your own wallet. It cannot move your funds.' },
   { icon: Network, title: 'Destination derived on-chain', body: 'A creator-placed button derives its destination and script hash server-side from the indexed covenant record, never from the button payload. A creator cannot redirect your funds.' },
-  { icon: Cpu, title: 'The resolver fails closed', body: 'Attestation comes from an external resolver you choose or run, never a Covex key. A bad proof or a missing key means it refuses to sign. full-zk circuits verify a real Groth16 proof off-chain; that is honest cryptography, not on-chain ZK. Covex operates no oracle for real-money settlement.' },
+  { icon: Cpu, title: 'The resolver fails closed', body: 'Attestation comes from an external resolver you choose or run, never a Covex key. A bad proof or a missing key means it refuses to sign. full-zk circom circuits verify a real Groth16 proof off-chain; that is honest cryptography. Toccata KIP-16 adds a separate on-chain proof-checking path that stays testnet-gated until proven live. Covex operates no oracle for real-value settlement.' },
 ];
 
 export default function AboutPage() {
@@ -218,9 +219,9 @@ export default function AboutPage() {
         <Section title="What Covex is" kicker="The platform">
           <p className="text-gray-300 light:text-slate-600 leading-relaxed max-w-3xl mb-8">
             A covenant is a script program embedded in a Kaspa UTXO that constrains how that UTXO may
-            be spent: escrows, vaults, prediction markets, on-chain games, vesting, fundraisers, and
-            more. With Toccata they become a first-class L1 smart-contract surface. Covex gives that
-            surface a human layer.
+            be spent: escrows, vaults, vesting, fundraisers, multisig, atomic swaps, conditional
+            payments, custom logic, and more. With Toccata they become a first-class L1 smart-contract
+            surface. Covex gives that surface a human layer.
           </p>
           <motion.div
             initial="hidden"
@@ -258,13 +259,13 @@ export default function AboutPage() {
               <p className="text-gray-200 light:text-slate-700 leading-relaxed">
                 A covenant on Covex is not a raw row in an explorer. Its creator designs a full,
                 interactive website that renders directly on the covenant page, and other users
-                interact with that website: place a bet on a prediction market, join a chess match,
-                deposit into an escrow, contribute to a fundraiser.
+                interact with that website: deposit into an escrow, contribute to a fundraiser, claim
+                a payout, act on a conditional-outcome covenant.
               </p>
               <p className="text-gray-400 light:text-slate-600 leading-relaxed mt-4 text-sm">
                 The builder is a visual, drag-and-drop studio with light-mode parity, starter
-                templates, and rich blocks: hero images, galleries, video, odds bars, pool meters,
-                and an honest enforcement badge. No creator-authored HTML or JavaScript ever reaches
+                templates, and rich blocks: hero images, galleries, video, progress meters, data
+                panels, and an honest enforcement badge. No creator-authored HTML or JavaScript ever reaches
                 a visitor's DOM. Pages serialize to validated JSON rendered through an allow-listed
                 component set, which removes the phishing and XSS surface that plagues open page
                 builders on financial sites.

@@ -44,14 +44,14 @@ const MARKET_TEMPLATE_IDS = new Set(['binary-prediction-market', 'binary-predict
 
 // Honest enforcement-reality label for a template, derived from its real resolution mode.
 // Constitution: ZK and oracle outcomes are verified OFF-CHAIN by the external resolver,
-// NEVER trustless, NEVER "on-chain enforced". Games are server-authoritative + oracle-attested.
+// NEVER trustless, NEVER "on-chain enforced". Two-party covenants are server-authoritative + oracle-attested.
 function templateReality(template) {
   // Genuine on-chain primitives route to the enforced builder; show the emerald on-chain chip
   // (matches the catalog's on-chain treatment), since the destination is consensus-enforced.
   if (ON_CHAIN_TEMPLATE_IDS.has(template?.id)) {
     return { key: 'on-chain', label: 'on-chain', style: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' };
   }
-  if (template?.category === 'Games') {
+  if (template?.category === 'Two-party covenants') {
     return { key: 'oracle', label: 'oracle-attested', style: 'bg-amber-500/15 text-amber-300 border-amber-500/30' };
   }
   let mode;
@@ -69,11 +69,11 @@ function templateReality(template) {
 const TEMPLATE_REALITY_TO_CIRCUIT = { 'on-chain': 'on-chain', zk: 'full-zk', hybrid: 'hybrid', oracle: 'oracle-attested' };
 
 // Map a template category onto the circuit category SandboxCircuitPreview uses to
-// decide whether a competitive-pot payout simulation is meaningful (POT_CATEGORIES:
-// game / defi / oracle). Anything else falls through to a non-pot category.
+// decide whether a competitive-pool payout simulation is meaningful (POT_CATEGORIES:
+// game / defi / oracle). Anything else falls through to a non-pool category.
 function templateCircuitCategory(category) {
-  if (category === 'Games') return 'game';
-  if (category === 'Prediction & Markets') return 'oracle';
+  if (category === 'Two-party covenants') return 'game';
+  if (category === 'Conditional Outcomes') return 'oracle';
   if (category === 'Financial Tools' || category === 'Governance & DAOs') return 'defi';
   return 'other';
 }
@@ -95,12 +95,12 @@ function templateToCircuit(template) {
   };
 }
 
-// The `kind` SandboxCircuitPreview expects: 'game' for game templates, 'oracle' for
-// oracle/market templates, otherwise a neutral value. Drives both the simulator
+// The `kind` SandboxCircuitPreview expects: 'game' for two-party templates, 'oracle' for
+// conditional-outcome templates, otherwise a neutral value. Drives both the simulator
 // gating and the declared-logic resolutionMode inside the preview.
 function templatePreviewKind(template) {
-  if (template?.category === 'Games') return 'game';
-  if (template?.category === 'Prediction & Markets') return 'oracle';
+  if (template?.category === 'Two-party covenants') return 'game';
+  if (template?.category === 'Conditional Outcomes') return 'oracle';
   return 'covenant';
 }
 
@@ -112,7 +112,7 @@ function templatePreviewKind(template) {
  *               and skips the preview modal (host can wire its own).
  *   onUse     - optional. If provided, called as onUse(template) instead of the default
  *               route. If null/undefined, the standalone-page default routing is used
- *               (enforced builder / parimutuel market / sandbox / explorer for Games).
+ *               (enforced builder / conditional-outcome / sandbox / explorer for two-party).
  *   filter    - optional. Either a category string (matches TEMPLATE_CATEGORIES or 'All')
  *               or a function (template) => boolean. When omitted, defaults to showing all.
  */
@@ -172,12 +172,12 @@ export default function TemplateGrid({ embedded = false, onUse = null, filter = 
       return;
     }
 
-    // Games open the live arena explorer; everything else opens the public Sandbox with the
+    // Two-party covenants open the live Explorer; everything else opens the public Sandbox with the
     // matching circuit preloaded (consistent with the official catalog routing). No localStorage
     // tier check here: that was a self-grant hole, and the Sandbox is free to explore while the
     // builder enforces paid access against the backend.
-    if (template.category === 'Games') {
-      navigate('/'); // the Explorer (live game arenas) is the home route, not /explorer
+    if (template.category === 'Two-party covenants') {
+      navigate('/'); // the live Explorer is the home route, not /explorer
       return;
     }
     const res = config?.resolution || {};

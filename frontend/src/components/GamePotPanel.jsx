@@ -5,7 +5,7 @@ import { lockPot, settlePot, settlePotHashlock, settlePotZkOnchain, refundPotHas
 import { explorerTxUrl } from '../lib/explorer';
 
 /**
- * GamePotPanel: the real, non-custodial "winner takes all" money control for any arena game.
+ * GamePotPanel: the real, non-custodial winner-receives-the-stake money control for any staked match.
  *
  * Drop-in: render it next to the game with the live game object + this seat's token. It reads the
  * on-chain pot state (game.pot_tx / game.pot_payout_tx / game.settle_mode, server fields) and shows
@@ -186,10 +186,10 @@ export default function GamePotPanel({ covenantId, gameType = 'chess', game, sea
         <ShieldCheck size={14} className="text-kaspa-green light:text-emerald-700 mt-0.5 shrink-0" />
         <span>
           {zk
-            ? 'Pot locked on-chain. Winner takes all: when the result is decided, the winner proves the win and the chain verifies the proof (KIP-16 on-chain ZK, rolling out).'
+            ? 'Stake locked on-chain. The full stake goes to the winner: when the result is decided, the winner proves the win and the chain verifies the proof (KIP-16 on-chain ZK, rolling out).'
             : hashlock
-              ? 'Pot locked on-chain. Winner takes all: when the result is decided, the winner releases the pot to themselves with their own key.'
-              : 'Pot locked on-chain. Winner takes all: when the engine decides the result, the winner claims it (the counterparty or a deployer-bound resolver co-signs the payout).'}
+              ? 'Stake locked on-chain. The full stake goes to the winner: when the result is decided, the winner releases the staked amount to themselves with their own key.'
+              : 'Stake locked on-chain. The full stake goes to the winner: when the engine decides the result, the winner claims it (the counterparty or a deployer-bound resolver co-signs the payout).'}
         </span>
       </div>,
     );

@@ -35,10 +35,10 @@ const RESOLUTION_FLOW = {
     label: 'ZK proof verified off-chain',
     steps: [
       'The claimant generates a real Groth16 zero-knowledge proof for the statement.',
-      'The proof is verified OFF-CHAIN (by you, the counterparty, or any external verifier - snarkjs against the audited vkey); Kaspa has no on-chain pairing verifier, fail-closed.',
+      'The proof is verified OFF-CHAIN (by you, the counterparty, or any external verifier - snarkjs against the audited vkey), fail-closed.',
       'Only a valid proof gates the 2-of-2 cosign; an invalid or missing proof is rejected, and only the Schnorr co-signature is checked on-chain.',
     ],
-    note: 'The proof is real cryptography that anyone can re-verify off-chain. Kaspa has no on-chain pairing verifier, so a valid proof gates a 2-of-2 cosign + CSV timeout rather than being checked by the chain. The trusted setup is a single-contributor dev ceremony, not a production MPC.',
+    note: 'The proof is real cryptography that anyone can re-verify off-chain. For the circom suite the proof is verified off-chain, so a valid proof gates a 2-of-2 cosign + CSV timeout rather than being checked by the chain. The trusted setup is a single-contributor dev ceremony, not a production MPC.',
   },
   'hybrid': {
     label: 'ZK proof verified off-chain',
@@ -47,7 +47,7 @@ const RESOLUTION_FLOW = {
       'The proof is verified off-chain (by you, the counterparty, or any external verifier, fail-closed), and a deployer-bound resolver attests the rest with a real signature.',
       'The payout releases when the proof verifies and the cosign is collected; only the co-signature is checked on-chain.',
     ],
-    note: 'No part of the proof is verified on-chain (Kaspa has no on-chain pairing verifier); it is verifiable off-chain by anyone, and a valid proof gates a 2-of-2 cosign whose Schnorr co-signature is what the chain checks.',
+    note: 'For the circom suite no part of the proof is verified on-chain; it is verifiable off-chain by anyone, and a valid proof gates a 2-of-2 cosign whose Schnorr co-signature is what the chain checks.',
   },
   'oracle-attested': {
     label: 'Resolver-attested',
@@ -201,7 +201,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
                 <span>
                   This is the same prove + verify engine as the Build{' '}
                   <Link to="/sandbox?mode=prove" className="text-violet-300 light:text-violet-700 hover:underline font-semibold">Prove (ZK)</Link>{' '}
-                  view, which also lists every provable circuit. The proof is verified off-chain (here, by the counterparty, or any external verifier - snarkjs against the audited vkey, fail-closed); Kaspa has no on-chain pairing verifier.
+                  view, which also lists every provable circuit. The proof is verified off-chain (here, by the counterparty, or any external verifier - snarkjs against the audited vkey, fail-closed) for the circom suite.
                 </span>
               </p>
             </div>

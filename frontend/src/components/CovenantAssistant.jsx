@@ -29,7 +29,7 @@ const EXAMPLES = [
   'Lock these tokens and release them after a 1-year vesting date',
   'Only let addresses on my whitelist claim, without revealing the list',
   'Prove a user is over 18 without revealing their birth date',
-  'A prediction market that pays out on a real-world outcome',
+  'A conditional payment that pays out on a resolved real-world outcome',
 ];
 
 // One-tap goals. Each pre-fills a representative prompt and runs the deterministic suggester, so a
@@ -39,9 +39,9 @@ const INTENT_CHIPS = [
   { label: 'Vesting / timelock', icon: Clock, query: 'Lock these tokens and release them only after a vesting date' },
   { label: 'Whitelist', icon: ListChecks, query: 'Only let addresses on my whitelist claim, without revealing the list' },
   { label: 'Age proof', icon: Fingerprint, query: 'Prove a user is over 18 without revealing their birth date' },
-  { label: 'Prediction market', icon: TrendingUp, query: 'A prediction market that pays out on a real-world outcome' },
+  { label: 'Conditional outcome', icon: TrendingUp, query: 'A prediction market that pays out on a real-world outcome' },
   { label: 'Multisig', icon: KeyRound, query: 'A 2-of-3 multisig that needs two of three keys to release funds' },
-  { label: 'Game pot', icon: Gamepad2, query: 'A two-player game covenant with a staked pot for the winner' },
+  { label: 'Two-party covenant', icon: Gamepad2, query: 'A two-player game covenant with a staked pot for the winner' },
   { label: 'HTLC swap', icon: Repeat, query: 'Release on revealing a secret preimage, with a timelock refund' },
 ];
 

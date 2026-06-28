@@ -30,7 +30,7 @@ const NETWORK_COLOR = (slug) => (NETWORKS.find((n) => n.value === slug)?.color) 
 //   tier_upgraded        - payment_verifier confirmed an on-chain tier payment
 //   resolution_signed    - a deployer-bound external resolver signed an outcome
 //   covenant_reorged     - the discovery block left the selected chain
-//   game_finished        - a poker match decided a winner off-chain
+//   game_finished        - a two-party covenant settled a result off-chain
 // tier_upgraded sources its color from tierPalette so the Stats event chart
 // and the Pricing/Explorer PRO surfaces share one hex (#E8AF34, Kaspa-gold).
 // The remaining hues reuse the KPI accents (#49EACB / #A78BFA / #EF4444) so
@@ -39,11 +39,11 @@ const NETWORK_COLOR = (slug) => (NETWORKS.find((n) => n.value === slug)?.color) 
 // game_finished gets a distinct steel-blue so it does not collide visually
 // with discovered or resolutions.
 const EVENT_META = {
-  covenant_discovered: { label: 'Discovered',     color: '#49EACB' },
-  tier_upgraded:       { label: 'Tier upgrades',  color: TIER_PALETTE_COLOR.PRO },
-  resolution_signed:   { label: 'Resolutions',    color: '#A78BFA' },
-  covenant_reorged:    { label: 'Reorgs',         color: '#EF4444' },
-  game_finished:       { label: 'Games decided',  color: '#60A5FA' },
+  covenant_discovered: { label: 'Discovered',         color: '#49EACB' },
+  tier_upgraded:       { label: 'Tier upgrades',      color: TIER_PALETTE_COLOR.PRO },
+  resolution_signed:   { label: 'Resolutions',        color: '#A78BFA' },
+  covenant_reorged:    { label: 'Reorgs',             color: '#EF4444' },
+  game_finished:       { label: 'Two-party settled',  color: '#60A5FA' },
 };
 // Graceful fallback for any new event_type the backend may add before this
 // map catches up: split on underscores, capitalize each word. Returns

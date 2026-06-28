@@ -735,7 +735,7 @@ export default function CovenantInteractive() {
           <div class="fact-card"><div class="fact-label">Category</div><div class="fact-value">${cat}</div></div>
           <div class="fact-card"><div class="fact-label">TXID</div><div class="fact-value mono" style="font-size:12px;">${tx}</div></div>
           <div class="fact-card"><div class="fact-label">Deployed</div><div class="fact-value">${ts}</div></div>
-          ${addrs ? `<div class="fact-card"><div class="fact-label">Covenant / Pot Address</div><div class="fact-value mono" style="font-size:12px;">${addrs}</div></div>` : ''}
+          ${addrs ? `<div class="fact-card"><div class="fact-label">Covenant Address</div><div class="fact-value mono" style="font-size:12px;">${addrs}</div></div>` : ''}
           ${feeRecipient ? `<div class="fact-card"><div class="fact-label">Fee Recipient</div><div class="fact-value mono" style="font-size:12px;">${feeRecipient}</div></div>` : ''}
           <div class="fact-card"><div class="fact-label">Creator Cut Address</div><div class="fact-value mono" style="font-size:12px;">${creator}</div></div>
         </div>
@@ -865,9 +865,9 @@ export default function CovenantInteractive() {
     );
   }
 
-  // A prediction-market covenant IS its full betting website on its own covenant page
-  // (live odds, pools, place a bet, resolve), rendered here in the Explorer flow exactly
-  // like a game arena. Markets are covenants in the Explorer, never a separate section.
+  // A conditional-outcome covenant IS its full interactive website on its own covenant page
+  // (live pools, orders, resolve), rendered here in the Explorer flow exactly like any other
+  // interactive covenant. These are covenants in the Explorer, never a separate section.
   if (covenant.covenant_type === 'prediction-market') {
     return <MarketView marketId={id} />;
   }
@@ -1194,7 +1194,7 @@ export default function CovenantInteractive() {
                   { label: 'Indexed', done: true, sub: covenant.network },
                   { label: covenant.verified_tier !== 'FREE' ? `Verified ${covenant.verified_tier}` : 'Unverified', done: covenant.verified_tier !== 'FREE', sub: covenant.verified_tier !== 'FREE' ? 'on-chain payment' : 'free tier' },
                   (covenant.spent_tx_id || covenant.is_active === false)
-                    ? { label: 'Settled', done: true, sub: covenant.spent_tx_id ? 'spent on-chain' : 'pot distributed' }
+                    ? { label: 'Settled', done: true, sub: covenant.spent_tx_id ? 'spent on-chain' : 'funds distributed' }
                     : { label: 'Active', done: true, sub: `${covenant.amount_kaspa || 0} KAS locked` },
                 ].map((st, i, arr) => (
                   <Fragment key={st.label}>
@@ -1265,7 +1265,7 @@ export default function CovenantInteractive() {
                 <BadgeCheck size={20} className="text-emerald-400 shrink-0" />
                 <div>
                   <p className="text-sm font-semibold text-emerald-400">
-                    {isChess ? 'FULLY TRANSPARENT CHESS ARENA' : `VERIFIED COVENANT (${covenant.verified_tier} tier)`}
+                    {isChess ? 'FULLY TRANSPARENT CHESS COVENANT' : `VERIFIED COVENANT (${covenant.verified_tier} tier)`}
                   </p>
                   <p className="text-xs text-emerald-400/70">
                     {isChess ? 'All receiving addresses, fees, timers, the disclosed resolver, and full game logic are public by default. No hidden settings.' : 'All receiving addresses, covenant logic, parameters, and on-chain facts are public by default.'}
@@ -1326,11 +1326,11 @@ export default function CovenantInteractive() {
 
           <div className="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6 light:bg-slate-50 light:border-slate-200">
             <h3 className="text-xs font-mono text-gray-300 mb-3 uppercase tracking-widest light:text-slate-600">
-              {isChess ? 'CHESS ARENA RULES (FULLY TRANSPARENT)' : (verified ? 'Covenant Logic Summary (Full Disclosure)' : 'Protocol Description (Limited)')}
+              {isChess ? 'CHESS COVENANT RULES (FULLY TRANSPARENT)' : (verified ? 'Covenant Logic Summary (Full Disclosure)' : 'Protocol Description (Limited)')}
             </h3>
             <p className="text-gray-300 leading-relaxed light:text-slate-700">
               {isChess 
-                ? 'This is a 10 minute winner takes all chess arena. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full pot minus 2 percent. The 2 percent fee is sent to the creator address to sustain the arena for future games. All stakes are sent directly to the covenant address on the Kaspa blockchain. Custody is on-chain (P2SH locked, your wallet signs every spend). The game runs on a server-authoritative engine that replays the signed move log deterministically (anyone can recompute), and on testnet today the recomputable Covex engine co-signs the release alongside the winning player (BIP340 Schnorr): payout is on-chain enforced but not trustless. There is no zero knowledge proof of individual moves. All stakes, addresses and the final result are transparent and recorded on chain.'
+                ? 'This is a 10 minute chess covenant where the full stake goes to the winner. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full staked amount minus 2 percent. The 2 percent fee is sent to the creator address to sustain the service. All stakes are sent directly to the covenant address on the Kaspa blockchain. Custody is on-chain (P2SH locked, your wallet signs every spend). The game runs on a server-authoritative engine that replays the signed move log deterministically (anyone can recompute), and on testnet today the recomputable Covex engine co-signs the release alongside the winning player (BIP340 Schnorr): payout is on-chain enforced but not trustless. There is no zero knowledge proof of individual moves. All stakes, addresses and the final result are transparent and recorded on chain.'
                 : (verified
                 ? (covenant.description || covenant.desc || 'Verified covenant. Full disclosure enabled.')
                 : 'Limited information available. Only tx_id, script_hash, and amount are disclosed.')}
@@ -1344,7 +1344,7 @@ export default function CovenantInteractive() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
               <div className="p-4 bg-white/[0.02] border border-white/5 rounded-xl light:bg-slate-50 light:border-slate-200">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-gray-400 light:text-slate-500">Covenant / Pot Address</div>
+                  <div className="text-gray-400 light:text-slate-500">Covenant Address</div>
                   {(covenant.address || covenant.receiving_addresses) && (
                     <CopyButton value={covenant.address || covenant.receiving_addresses} label="Copy covenant address" size={12} stopPropagation={false} />
                   )}
@@ -1392,10 +1392,10 @@ export default function CovenantInteractive() {
             <div className="text-sm text-gray-200 bg-black/30 p-4 rounded-xl border border-white/5 leading-relaxed">
               {isChess ? (
                 <>
-                  <strong>Game:</strong> 10min per player winner-takes-all chess (FIDE rules).<br/>
+                  <strong>Game:</strong> 10min per player chess, full stake to the winner (FIDE rules).<br/>
                   <strong>Stake:</strong> Any equal amount (min/max per config). Second player matches or auto-refund in 5 min.<br/>
-                  <strong>Timers:</strong> 10 min clock per player (active player only). Resign, timeout, or checkmate ends game.<br/>
-                  <strong>Payout:</strong> Winner takes full pot minus 2% fee (fee to creator address to sustain future games).<br/>
+                  <strong>Timers:</strong> 10 min clock per player (active player only). Resign, timeout, or checkmate ends the game.<br/>
+                  <strong>Payout:</strong> Winner receives the full staked amount minus 2% fee (fee to creator address to sustain the service).<br/>
                   <strong>Verification:</strong> Server-authoritative engine (validates legal moves and terminal conditions, replaying the signed move log so anyone can recompute); on testnet today the release is co-signed (BIP340 Schnorr) by the recomputable Covex engine alongside the winning player, not trustless. No zero-knowledge proof of moves.<br/>
                   <strong>Non-custodial:</strong> Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the recomputable Covex engine's BIP340 co-signature on testnet (oracle-attested, not trustless).
                 </>
@@ -1524,7 +1524,7 @@ export default function CovenantInteractive() {
                 {isChess && (
                   <div className="flex flex-col items-center justify-center py-4">
                     <div className="text-center mb-4">
-                      <div className="text-emerald-400 text-sm tracking-[3px] font-bold">10 MIN WINNER TAKES ALL CHESS ARENA</div>
+                      <div className="text-emerald-400 text-sm tracking-[3px] font-bold">10 MIN STAKED CHESS COVENANT</div>
                       <div className="text-3xl font-semibold text-white mt-1">Full Screen Chess</div>
                     </div>
 
@@ -1564,7 +1564,7 @@ export default function CovenantInteractive() {
                               <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Game</td><td className="p-2">10 min per player (clock only on your turn)</td></tr>
                               <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Stake</td><td className="p-2">Any amount. Match exactly or auto return in 5 min</td></tr>
                               <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">End</td><td className="p-2">Resign, timeout or checkmate</td></tr>
-                              <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Payout</td><td className="p-2">Winner gets pot minus 2% to creator (sustains arena)</td></tr>
+                              <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Payout</td><td className="p-2">Winner gets the staked amount minus 2% to creator</td></tr>
                               <tr><td className="p-2 font-semibold">Verify</td><td className="p-2">Server-authoritative engine, outcome oracle-attested (BIP340 Schnorr)</td></tr>
                             </tbody>
                           </table>
@@ -1584,7 +1584,7 @@ export default function CovenantInteractive() {
                         onConnect={() => setWalletModalOpen(true)}
                         onStake={() => setShowChessArena(true)}
                       />
-                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive pro arena with real timers, moves, resign; result replayed deterministically, the recomputable Covex engine co-signs on testnet (not trustless).</div>
+                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive board with real timers, moves, resign; result replayed deterministically, the recomputable Covex engine co-signs on testnet (not trustless).</div>
                     </div>
                   </div>
                 )}
@@ -1593,10 +1593,10 @@ export default function CovenantInteractive() {
                 {isOtherGame && (
                   <div className="flex flex-col items-center justify-center py-6">
                     <div className="text-center mb-5">
-                      <div className="text-kaspa-green text-sm tracking-[3px] font-bold light:text-emerald-700">WINNER TAKES POT, {GAME_REGISTRY[gameType].label.toUpperCase()} ARENA</div>
+                      <div className="text-kaspa-green text-sm tracking-[3px] font-bold light:text-emerald-700">STAKED {GAME_REGISTRY[gameType].label.toUpperCase()} COVENANT</div>
                       <div className="text-3xl font-semibold text-white mt-1 light:text-slate-900">{GAME_REGISTRY[gameType].label}</div>
                       <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto leading-relaxed light:text-slate-600">
-                        Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine replays the signed move log (anyone can recompute); on testnet today the recomputable Covex engine co-signs the release (not trustless), winner takes the pot minus the creator fee. Non-custodial: stakes go directly to the covenant on Kaspa.
+                        Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine replays the signed move log (anyone can recompute); on testnet today the recomputable Covex engine co-signs the release (not trustless), and the winning party receives the staked amount minus the creator fee. Non-custodial: stakes go directly to the covenant on Kaspa.
                       </p>
                     </div>
                     <div className="flex flex-col items-center">
@@ -1609,7 +1609,7 @@ export default function CovenantInteractive() {
                         onConnect={() => setWalletModalOpen(true)}
                         onStake={() => setShowGameArena(true)}
                       />
-                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive arena with real moves; result replayed deterministically, the recomputable Covex engine co-signs on testnet (not trustless).</div>
+                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive board with real moves; result replayed deterministically, the recomputable Covex engine co-signs on testnet (not trustless).</div>
                     </div>
                   </div>
                 )}
@@ -1910,15 +1910,15 @@ export default function CovenantInteractive() {
                     aria-label="Stake amount in KAS per player"
                     className="w-full text-center text-6xl font-semibold tabular-nums tracking-[-2px] py-4 bg-transparent border border-white/10 rounded-2xl focus:outline-none focus:border-kaspa-green/40 mb-1 light:border-slate-200 light:text-slate-900 light:focus:border-emerald-500/50"
                   />
-                  <div className="text-center text-xs text-gray-500 mb-6">per player for this chess arena</div>
+                  <div className="text-center text-xs text-gray-500 mb-6">per player for this chess covenant</div>
 
                   {/* Clean rules paragraph, all in order, simplistic transparent */}
                   <div className="rounded-2xl bg-black/40 border border-white/10 p-5 text-sm text-gray-200 leading-relaxed mb-6 light:bg-slate-50 light:border-slate-200 light:text-slate-700">
-                    10 minute winner takes all chess.<br/><br/>
+                    10 minute chess, the full stake to the winner.<br/><br/>
                     Second player must match the stake within 5 minutes or the funds return automatically to the staker.<br/><br/>
                     Each player gets a 10 minute clock. Only the active player clock runs.<br/><br/>
                     Resign, timeout or checkmate ends the game.<br/><br/>
-                    Winner receives the pot minus 2 percent. The 2 percent goes to the creator address to keep the arena running for the next games.<br/><br/>
+                    Winner receives the staked amount minus 2 percent. The 2 percent goes to the creator address to keep the service running.<br/><br/>
                     Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the recomputable Covex engine's BIP340 co-signature on testnet (oracle-attested, not trustless).<br/><br/>
                     The game runs on a server authoritative engine that enforces legal moves and replays the signed move log deterministically (anyone can recompute); on testnet today the recomputable Covex engine co-signs the release alongside the winning player with a BIP340 Schnorr signature. There is no zero knowledge proof of individual moves.
                   </div>
@@ -1933,7 +1933,7 @@ export default function CovenantInteractive() {
                       // note when it really went live, never claim success on failure.
                       const ok = await publishCustomUI(false);
                       if (ok) {
-                        toast.success('Published! The public view and arena now reflect your settings. Refresh to see for visitors.');
+                        toast.success('Published! The public view now reflects your settings. Refresh to see for visitors.');
                       }
                     }}
                     className="w-full"
@@ -1947,7 +1947,7 @@ export default function CovenantInteractive() {
                 <div>
                   <div className="text-xs uppercase tracking-[1.5px] text-gray-500 mb-2 flex items-center gap-2"><Eye size={14}/> Live preview of what regular users will see</div>
                   <div className="rounded-3xl overflow-hidden border border-white/10 bg-black">
-                    <iframe srcDoc={buildTransparentCustomUI(covenant, { ...config, titleOverride: config.titleOverride || (isChess ? '10min Chess Arena' : undefined), publicAbout: config.publicAbout, publicRules: config.publicRules, publicHowTo: config.publicHowTo })} className="w-full h-[420px] bg-[#050507]" sandbox="allow-scripts" title="Fix preview" />
+                    <iframe srcDoc={buildTransparentCustomUI(covenant, { ...config, titleOverride: config.titleOverride || (isChess ? '10min Chess Covenant' : undefined), publicAbout: config.publicAbout, publicRules: config.publicRules, publicHowTo: config.publicHowTo })} className="w-full h-[420px] bg-[#050507]" sandbox="allow-scripts" title="Fix preview" />
                   </div>
                 </div>
               </div>

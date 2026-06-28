@@ -26,11 +26,12 @@ import { BUILD_STEPS } from '../lib/build-steps.js';
 // path inside CovexTerminal is untouched; tier gating via /api/paid-status stays intact; template
 // deep-links (?circuit=&kind=&name=&desc=) keep working and can land directly in Phase 2.
 
-// Honest enforcement realities. Kaspa has no on-chain pairing verifier, so a raw Groth16 proof is
-// never checked on-chain; every full-zk / hybrid circuit therefore renders as oracle-attested
-// (off-chain verify + on-chain Schnorr co-signature). All 19 verified ZK circuits are Groth16
-// verified OFF-CHAIN by anyone (you, the counterparty, or any external verifier); a valid proof
-// gates a 2-of-2 cosign + CSV timeout, and the only on-chain check is the Schnorr co-signature.
+// Honest enforcement realities. For the circom suite a raw Groth16 proof is verified off-chain, so
+// every full-zk / hybrid circuit renders as oracle-attested (off-chain verify + on-chain Schnorr
+// co-signature). All 19 verified circom circuits are Groth16 verified OFF-CHAIN by anyone (you, the
+// counterparty, or any external resolver); a valid proof gates a 2-of-2 cosign + CSV timeout, and
+// the only on-chain check is the Schnorr co-signature. Toccata's KIP-16 OpZkPrecompile is a separate
+// on-chain ZK path the settlement covenant targets, testnet-gated until proven live on mainnet.
 // on-chain means Kaspa P2SH consensus only. accent drives the Card identity bar; badgeVariant
 // drives the Badge. We never render a green "ZK on-chain" badge for a cosign-gated circuit.
 const REALITY = {
@@ -38,14 +39,14 @@ const REALITY = {
     label: 'On-chain enforced', accent: '#34d399', badgeVariant: 'on-chain', Icon: ShieldCheck,
     note: 'Consensus-enforced by the Kaspa P2SH commitment. The chain itself guarantees the rules.',
   },
-  // Every verified ZK circuit maps here: a real Groth16 proof verified fail-closed OFF-CHAIN by
-  // anyone (you, the counterparty, or any external verifier). Kaspa has no on-chain pairing
-  // verifier, so the proof is never checked on-chain; a valid proof gates a 2-of-2 cosign + CSV
-  // timeout, and the only on-chain check is the Schnorr co-signature. full-zk and hybrid both
-  // render honestly as oracle-attested, never as a green ZK on-chain badge.
+  // Every verified circom circuit maps here: a real Groth16 proof verified fail-closed OFF-CHAIN by
+  // anyone (you, the counterparty, or any external resolver). For the circom suite the proof is
+  // verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and the only on-chain
+  // check is the Schnorr co-signature. full-zk and hybrid both render honestly as oracle-attested,
+  // never as a green ZK on-chain badge. Toccata's KIP-16 on-chain path is testnet-gated.
   'full-zk': {
     label: 'Oracle-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
-    note: 'A real Groth16 proof is verified fail-closed OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and only the Schnorr co-signature is checked on-chain.',
+    note: 'A real Groth16 proof is verified fail-closed OFF-CHAIN by you, the counterparty, or any external resolver (snarkjs against the audited vkey). For the circom suite the proof is verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and only the Schnorr co-signature is checked on-chain. Toccata KIP-16 adds a separate on-chain ZK path, testnet-gated until proven live.',
   },
   hybrid: {
     label: 'Oracle-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
@@ -148,9 +149,9 @@ const CREATE_TABS = [
 ];
 
 // The curated 6-card Templates set. Hand-picked across honest realities so a newcomer sees one
-// of each kind they can actually start from: an oracle market, two real-Groth16 ZK circuits whose
-// proofs are verified fail-closed OFF-CHAIN by anyone, a parimutuel game, age-gating, and a
-// verifiable pot split. All six are present in ZK_CIRCUIT_TYPES and land in Phase 2 on click.
+// of each kind they can actually start from: an oracle-resolved covenant, two real-Groth16 ZK
+// circuits whose proofs are verified fail-closed OFF-CHAIN by anyone, a two-party covenant,
+// age-gating, and a verifiable payout split. All six are in ZK_CIRCUIT_TYPES and land in Phase 2 on click.
 const TEMPLATE_IDS = [
   'escrow_2party', 'merkle_membership', 'age_verification',
   'pot_distribution', 'prediction_market', 'chess_blitz',
@@ -580,7 +581,7 @@ export default function Sandbox() {
             <Badge variant="glass" dot>Free to explore</Badge>
           </div>
           <p className="text-sm sm:text-base text-gray-300 light:text-slate-700 max-w-2xl">
-            Build any Kaspa covenant - escrows, prediction markets, games, ZK-credential proofs, timelocks, multisig, or your own custom logic - then give it a full public website. Step by step, non-custodial. Exploring and simulating is free; deploying needs only your own wallet.
+            Build any Kaspa covenant - escrows, vesting, fundraisers, conditional payments, ZK-credential proofs, timelocks, multisig, or your own custom logic - then give it a full public website. Step by step, non-custodial. Exploring and simulating is free; deploying needs only your own wallet.
           </p>
           {/* Visible build-tour launcher. This is a BUILD tour, so the affordance
               belongs here, not only on the Explorer hero. */}
@@ -681,7 +682,7 @@ export default function Sandbox() {
                         <>
                           {categoryFilter === 'game' && catalogCircuits !== ZK_CIRCUIT_TYPES && (
                             <p className="mb-3 text-xs text-gray-300 light:text-slate-600">
-                              Showing game covenants. Pick one, set the stake on the next step, then deploy and share the link.{' '}
+                              Showing covenants in this category. Pick one, set the stake on the next step, then deploy and share the link.{' '}
                               <button type="button" onClick={() => setParams((p) => { const n = new URLSearchParams(p); n.delete('category'); return n; }, { replace: true })} className="text-kaspa-green light:text-emerald-700 hover:underline font-semibold">Show the full catalog</button>
                             </p>
                           )}
@@ -761,7 +762,7 @@ export default function Sandbox() {
                           <Cpu size={16} className="text-amber-300 light:text-amber-700 mt-0.5 shrink-0" />
                           <div className="text-xs">
                             <div className="font-bold text-white light:text-slate-900">This circuit deploys through the script terminal below.</div>
-                            <div className="text-gray-400 light:text-slate-700 mt-0.5">Live on-chain signing is available for the on-chain primitives (single-key, hashlock, timelock, market, escrow).</div>
+                            <div className="text-gray-400 light:text-slate-700 mt-0.5">Live on-chain signing is available for the on-chain primitives (single-key, hashlock, timelock, conditional payment, escrow).</div>
                           </div>
                         </div>
                         <CovexTerminal externalCircuit={selectedId} />

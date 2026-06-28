@@ -195,10 +195,38 @@ describe('network maps', () => {
   });
 });
 
-describe('signDeployWithWallet (fail-closed until prepare-deploy returns a signable funding tx)', () => {
-  it('throws an honest reason rather than returning a partial/unsafe signature', async () => {
+describe('signDeployWithWallet (fail-closed)', () => {
+  it('throws an honest reason when prepare-deploy returned no deploy_plan', async () => {
+    // No deploy_plan (e.g. an old backend): must fail closed, never return a partial signature.
     await expect(signDeployWithWallet({}, { signer_xonly: 'ab'.repeat(32) }, {})).rejects.toThrow(
-      /not available yet|wallet-signable funding transaction/i,
+      /deploy_plan|wallet-signable funding transaction/i,
     );
+  });
+
+  it('throws when a deploy_plan is present but the wallet exposes no signPskt/signTx', async () => {
+    // deploy_plan present + a provider with neither signing method: rebuild succeeds, but the
+    // wallet cannot sign, so it fails closed (steering to the in-browser key path). A minimal
+    // single-input plan is enough to exercise the rebuild -> no-signing-method path.
+    const plan = {
+      version: 0,
+      lock_time: 0,
+      gas: 0,
+      payload_hex: 'aa20' + '11'.repeat(32) + 'ac',
+      inputs: [
+        {
+          transaction_id: '00'.repeat(32),
+          index: 0,
+          amount_sompi: 100000000,
+          prev_script_public_key_hex: '0000' + '20' + 'ab'.repeat(32) + 'ac',
+          sig_op_count: 1,
+        },
+      ],
+      outputs: [
+        { value_sompi: 90000000, script_public_key_hex: '0000aa20' + 'cd'.repeat(32) + '87' },
+      ],
+    };
+    await expect(
+      signDeployWithWallet({}, { signer_xonly: 'ab'.repeat(32), deploy_plan: plan }, {}),
+    ).rejects.toThrow(/does not expose signPskt or signTx/i);
   });
 });

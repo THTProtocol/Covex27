@@ -354,19 +354,172 @@ export async function signWithKastle(provider, plan, opts = {}) {
 }
 
 // ── Deploy (funding-tx) signing ──────────────────────────────────────────────
-// The deploy funding tx spends the deployer's OWN standard-address UTXOs into the covenant
-// P2SH output. prepare-deploy returns per-input sighashes but NOT the full unsigned funding tx
-// JSON, so the browser cannot rebuild the EXACT funding tx a wallet must sign to make the
-// extracted signatures match the server's sighashes. Until prepare-deploy returns a
-// wallet-signable tx, the wallet-deploy path FAILS CLOSED with an honest message rather than
-// risk a doomed broadcast. The dev-key (in-browser schnorr) path still funds deploys today; a
-// wallet user funds via that recovery key tool or the dev key.
+// The deploy funding tx spends the deployer's OWN standard-address UTXOs into the covenant P2SH
+// output (plus an optional change output back to the deployer), carrying the aa20+blake2b(redeem)
+// +redeem deploy payload. prepare-deploy now returns a `deploy_plan` with every byte the browser
+// needs to rebuild THIS exact unsigned funding tx (the same tx the server computed the per-input
+// sighashes over), so a wallet (KasWare signPskt / Kastle signTx) can sign each input and the
+// extracted signatures match the server's sighashes byte for byte. submit-deploy re-verifies each
+// signature against the SAME stored unsigned tx, so a wallet that signs the wrong tx fails closed
+// at submit; here we ALSO fail closed by re-deriving each input's sighash locally and verifying
+// the wallet's extracted signature against the deployer's own x-only key before returning.
+
+// Turn a server `script_public_key_hex` (version_u16 big-endian || script) into a wasm
+// ScriptPublicKey. The server serializes SPKs exactly as ScriptPublicKey::from_bytes parses them
+// (u16 BE version prefix), so rebuilding here is byte-identical to the on-chain spk.
+function spkFromHex(ScriptPublicKey, spkHex) {
+  const bytes = hexToBytes(spkHex);
+  if (bytes.length < 2) throw new Error('deploy_plan: scriptPublicKey hex is too short');
+  const version = (bytes[0] << 8) | bytes[1]; // big-endian u16
+  const script = bytes.slice(2);
+  return new ScriptPublicKey(version, script);
+}
+
+// Rebuild the EXACT unsigned funding Transaction from a deploy_plan. Mirrors buildUnsignedSpend but
+// for the multi-input + payload + change-output funding shape. Each input carries its prev utxo
+// (amount + spk) so the wasm can compute the per-input sighash; the outputs + payload are taken
+// verbatim from the plan so the rebuilt tx is value-identical to the server's.
+export async function buildUnsignedDeploy(plan) {
+  if (!plan || !Array.isArray(plan.inputs) || plan.inputs.length === 0) {
+    throw new Error('buildUnsignedDeploy: deploy_plan.inputs is required');
+  }
+  if (!Array.isArray(plan.outputs) || plan.outputs.length === 0) {
+    throw new Error('buildUnsignedDeploy: deploy_plan.outputs is required');
+  }
+  const k = await loadWasmDeploy();
+  const { Transaction, ScriptPublicKey } = k;
+  const inputs = plan.inputs.map((inp) => {
+    if (!inp || inp.transaction_id === undefined || inp.index === undefined || inp.amount_sompi === undefined) {
+      throw new Error('buildUnsignedDeploy: each input needs {transaction_id, index, amount_sompi}');
+    }
+    const outpoint = { transactionId: inp.transaction_id, index: inp.index >>> 0 };
+    return {
+      previousOutpoint: outpoint,
+      signatureScript: new Uint8Array(0),
+      sequence: 0n,
+      sigOpCount: Number(inp.sig_op_count ?? 1),
+      utxo: {
+        outpoint,
+        address: undefined,
+        amount: BigInt(inp.amount_sompi),
+        scriptPublicKey: spkFromHex(ScriptPublicKey, inp.prev_script_public_key_hex),
+        blockDaaScore: 0n,
+        isCoinbase: false,
+      },
+    };
+  });
+  const outputs = plan.outputs.map((o) => ({
+    value: BigInt(o.value_sompi),
+    scriptPublicKey: spkFromHex(ScriptPublicKey, o.script_public_key_hex),
+  }));
+  const payload = plan.payload_hex ? hexToBytes(plan.payload_hex) : new Uint8Array(0);
+  return new Transaction({
+    version: Number(plan.version ?? 0),
+    inputs,
+    outputs,
+    lockTime: BigInt(plan.lock_time ?? 0),
+    subnetworkId: new Uint8Array(20),
+    gas: BigInt(plan.gas ?? 0),
+    payload,
+  });
+}
+
+// Lazy wasm import (kept local so the pure helpers above stay wasm-free for CI).
+async function loadWasmDeploy() {
+  return import('@onekeyfe/kaspa-wasm');
+}
+
+// Verify the wallet's extracted signature for funding input `idx` validates against the deployer's
+// own x-only key over the rebuilt tx's input-`idx` sighash. Fail-closed: if the wallet signed a
+// different tx (wrong outputs/payload) the signature will not verify and we refuse it.
+async function verifyDeployInputSig(tx, idx, signatureHex, signerXonlyHex) {
+  const k = await loadWasmDeploy();
+  const { verifyInputSignature, SighashType } = k;
+  if (typeof verifyInputSignature !== 'function') {
+    throw new Error('cannot verify the wallet deploy signature in this build (verifyInputSignature unavailable); use the in-browser key path');
+  }
+  const sig = normalizeSig64(hexToBytes(signatureHex));
+  const sighashAll = SighashType ? SighashType.All : undefined;
+  let ok;
+  try {
+    ok = verifyInputSignature(tx, idx, sig, hexToBytes(signerXonlyHex), sighashAll);
+  } catch (e) {
+    throw new Error(`wallet deploy signature verification threw for input ${idx} (${e && e.message ? e.message : e}); refusing to submit`, { cause: e });
+  }
+  if (!ok) {
+    throw new Error(`wallet deploy signature for input ${idx} does not verify against the funding tx; the wallet could not sign this deploy. Use the in-browser key path.`);
+  }
+  return true;
+}
+
+// Sign a covenant DEPLOY (funding tx) with a connected wallet. Rebuilds the funding tx from
+// prep.deploy_plan, hands it to the wallet (signing ALL inputs, since every input is the deployer's
+// own P2PK), extracts the per-input 64-byte signatures, re-verifies each against the deployer's
+// x-only key, and returns the { signatures: [{index, signature_hex}] } shape /submit-deploy expects.
+// Throws an honest error (steering to the in-browser key path) if deploy_plan is absent or the
+// wallet cannot sign; never returns a partial/unsafe signature.
 //
-// Kept as a named export so WalletContext.signCovenantDeploy can call it and surface the honest
-// reason; it never returns a partial/unsafe signature.
-// eslint-disable-next-line no-unused-vars
+// @param {object} provider - the connected wallet provider (window.kasware / window.kastle / OKX)
+// @param {object} prep     - the prepare-deploy response (must include deploy_plan, signer_xonly)
+// @param {object} opts     - { networkId, walletNetworkId? }
+// @returns {Promise<{ signatures: {index:number, signature_hex:string}[] }>}
 export async function signDeployWithWallet(provider, prep, opts = {}) {
-  throw new Error(
-    'Wallet-extension deploy signing is not available yet: the deploy prepare step does not return a wallet-signable funding transaction, so a wallet popup cannot produce signatures that match it. Fund this deploy with the in-browser key path, or redeem an existing covenant with your wallet. (Wallet-signed REDEEM is fully supported.)',
-  );
+  const plan = prep && prep.deploy_plan;
+  if (!plan) {
+    throw new Error(
+      'Wallet-extension deploy signing is unavailable: the deploy prepare step did not return a wallet-signable funding transaction (deploy_plan). Fund this deploy with the in-browser key path. (Wallet-signed REDEEM is fully supported.)',
+    );
+  }
+  const signerXonly = prep.signer_xonly;
+  if (!signerXonly) throw new Error('prepare-deploy did not return signer_xonly; cannot verify the wallet deploy signature');
+  // Capability check FIRST (before any wasm rebuild): fail fast + keep the no-wallet path wasm-free.
+  const hasPskt = !!(provider && typeof provider.signPskt === 'function');
+  const hasSignTx = !!(provider && typeof provider.signTx === 'function');
+  if (!hasPskt && !hasSignTx) {
+    throw new Error('This wallet does not expose signPskt or signTx and cannot sign a covenant deploy. Use the in-browser key path.');
+  }
+  const tx = await buildUnsignedDeploy(plan);
+  const indices = plan.inputs.map((_, i) => i);
+
+  let txJson;
+  try {
+    if (typeof tx.serializeToSafeJSON === 'function') txJson = tx.serializeToSafeJSON();
+    else if (typeof tx.toJSON === 'function') txJson = JSON.stringify(tx.toJSON());
+    else txJson = JSON.stringify(tx);
+  } catch {
+    txJson = JSON.stringify(tx);
+  }
+
+  const SIG_HASH_ALL_TYPE = 1; // SighashType::All
+  let signed;
+  if (hasPskt) {
+    // KasWare family (also OKX): sign EVERY input with SIG_HASH_ALL.
+    try {
+      signed = await provider.signPskt({
+        txJsonString: txJson,
+        options: { signInputs: indices.map((index) => ({ index, sighashType: SIG_HASH_ALL_TYPE })) },
+      });
+    } catch (e) {
+      throw new Error(`The wallet could not sign this covenant deploy (${e && e.message ? e.message : e}). Use the in-browser key path.`, { cause: e });
+    }
+  } else if (hasSignTx) {
+    // Kastle: the deploy inputs are standard P2PK (the deployer's own address), so no custom
+    // `scripts` entry is needed; Kastle signs them like an ordinary send.
+    const walletNet = opts.walletNetworkId;
+    if (!walletNet) {
+      throw new Error('Kastle cannot sign a deploy on this network. Use mainnet or testnet-10, or the in-browser key path.');
+    }
+    try {
+      signed = await provider.signTx(walletNet, txJson);
+    } catch (e) {
+      throw new Error(`The wallet could not sign this covenant deploy (${e && e.message ? e.message : e}). Use the in-browser key path.`, { cause: e });
+    }
+  }
+
+  const extracted = extractWalletSignatures(signed, indices);
+  // Fail-closed: every funding input must verify against the deployer's own key over the rebuilt tx.
+  for (const { index, signature_hex } of extracted) {
+    await verifyDeployInputSig(tx, index, signature_hex, signerXonly);
+  }
+  return { signatures: extracted };
 }

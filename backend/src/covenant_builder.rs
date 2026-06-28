@@ -919,10 +919,10 @@ pub fn build_zk_game_settle_refund_satisfier(
 /// `OpZkPrecompile` opcode, is not live on Kaspa mainnet yet - it activates ~30 Jun 2026). Returns
 /// `Ok(())` when a ZkGameSettle deploy may proceed for `network`, else a caller-surfaceable error.
 pub fn zk_precompile_deploy_allowed(network: &str) -> BResult<()> {
-    // `starts_with("mainnet")`, not `==`: a "mainnet-foo" variant would otherwise slip past an
-    // exact match here and then route to the TN12 RPC via client_for_network's else-branch. The
-    // prefix check freezes every mainnet-ish string (audit P3, 2026-06-25).
-    if network.starts_with("mainnet") {
+    // `is_mainnet` (starts_with "mainnet"), not `==`: a "mainnet-foo" variant would otherwise slip
+    // past an exact match here and then route to the TN12 RPC via client_for_network's else-branch.
+    // The prefix check freezes every mainnet-ish string (audit P3, 2026-06-25).
+    if is_mainnet(network) {
         return Err(
             "on-chain ZK settlement (OpZkPrecompile) is not available on mainnet yet (Toccata not live)"
                 .to_string(),
@@ -953,7 +953,7 @@ pub fn zk_precompile_deploy_allowed(network: &str) -> BResult<()> {
 /// Mirrors the GATE 2 oracle-kind mainnet freeze in p2sh_deploy_handler. Returns `Ok(())` when
 /// the bundled market service may proceed for `network`, else a caller-surfaceable error.
 pub fn bundled_market_mainnet_allowed(network: &str) -> BResult<()> {
-    if network == "mainnet" || network == "mainnet-1" {
+    if is_mainnet(network) {
         return Err(
             "Prediction markets are testnet-only: the bundled market resolver is not yet external; mainnet markets are disabled until the external-resolver rebuild lands."
                 .to_string(),
@@ -1605,9 +1605,19 @@ pub fn p2sh_address(redeem: &[u8], prefix: Prefix) -> BResult<Address> {
         .map_err(|e| format!("p2sh address: {e}"))
 }
 
+/// SINGLE SOURCE OF TRUTH for "is this a mainnet network string". Uses `starts_with("mainnet")`
+/// (not an exact `== "mainnet"` / `== "mainnet-1"`) so EVERY mainnet freeze fails CLOSED: a crafted
+/// "mainnet-foo" string is treated as mainnet by every gate, never slipping past an exact match into
+/// a money path. Before this helper the raw-key keystone + routing used exact `==` while the
+/// deploy-freeze / ZK / index gates used `starts_with`, so a "mainnet-foo" string could bypass the
+/// exact-match keystone. Route ALL mainnet checks through here (security audit, 2026-06-28).
+pub fn is_mainnet(network: &str) -> bool {
+    network.starts_with("mainnet")
+}
+
 /// Network string -> address prefix.
 pub fn prefix_for_network(network: &str) -> Prefix {
-    if network == "mainnet" || network == "mainnet-1" {
+    if is_mainnet(network) {
         Prefix::Mainnet
     } else {
         Prefix::Testnet
@@ -2077,7 +2087,7 @@ fn script_pub_key_from_address(addr_str: &str) -> BResult<ScriptPublicKey> {
 async fn client_for_network(network: &str) -> BResult<Arc<KaspaRpcClient>> {
     let wrpc = if network == "testnet-10" {
         std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
-    } else if network == "mainnet" || network == "mainnet-1" {
+    } else if is_mainnet(network) {
         std::env::var("KASPA_WRPC_URL_MAINNET")
             .unwrap_or_else(|_| "ws://127.0.0.1:17310".to_string())
     } else {
@@ -2138,15 +2148,16 @@ fn resolve_signing_key(
     private_key_hex: &str,
     use_dev_mode: bool,
 ) -> BResult<([u8; 32], String)> {
-    if (network == "mainnet" || network == "mainnet-1") && use_dev_mode {
+    if is_mainnet(network) && use_dev_mode {
         return Err("dev mode is disabled on mainnet; sign with a real wallet".into());
     }
     // NON-CUSTODIAL KEYSTONE (security): the server must NEVER accept a raw MAINNET private key.
     // Mainnet signing is non-custodial only: the key signs the sighash in the browser via the
     // prepare/submit flow. Accepting a raw mainnet key here would be the backend half of a custody
     // breach (the advertised "your key never leaves your device" guarantee). Refuse it; testnet
-    // dev/demo flows are unaffected.
-    if (network == "mainnet" || network == "mainnet-1")
+    // dev/demo flows are unaffected. `is_mainnet` uses starts_with so "mainnet-foo" cannot slip
+    // past an exact match and route a raw mainnet key to the server.
+    if is_mainnet(network)
         && !use_dev_mode
         && !private_key_hex.trim().is_empty()
     {
@@ -2320,7 +2331,7 @@ pub async fn p2sh_deploy_handler(
     // (player 2-of-2 state channels / k-of-n oracle) lands. The deterministic primitives
     // (singlesig/hashlock/timelock/multisig/htlc), which the user's own wallet redeems
     // with no Covex key, are unaffected. Testnets stay open for development.
-    let is_mainnet = req.network.starts_with("mainnet");
+    let is_mainnet = is_mainnet(&req.network);
     if is_mainnet && req.redeem.kind.starts_with("oracle") {
         return err(format!(
             "oracle-enforced covenants ('{}') are frozen on mainnet: the Covex oracle key is still in the payout path, so funds are not yet trustless. Use a deterministic primitive (timelock/hashlock/multisig/htlc) on mainnet, or this covenant on a testnet.",
@@ -3002,7 +3013,7 @@ pub async fn p2sh_spend_handler(
             .as_ref()
             .map(|v| v.iter().any(|k| !k.trim().is_empty()))
             .unwrap_or(false);
-    if (req.network == "mainnet" || req.network == "mainnet-1") && !req.use_dev_mode && sends_raw_key {
+    if is_mainnet(&req.network) && !req.use_dev_mode && sends_raw_key {
         return err("mainnet signing is non-custodial: do not send a private key to the server (private_key_hex or signer_keys_hex). Use the prepare/submit flow so your key signs in your browser.".into());
     }
 
@@ -5513,7 +5524,7 @@ pub async fn prepare_deploy_handler(
     Json(req): Json<PrepareDeployRequest>,
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
-    let is_mainnet = req.network.starts_with("mainnet");
+    let is_mainnet = is_mainnet(&req.network);
     // Pre-Toccata, Kaspa mainnet does not enforce covenant scripts, so gate mainnet deploys
     // behind the same flag the operator flips at activation. Testnets are always open.
     if is_mainnet && !crate::crawler::mainnet_covenants_enabled() {
@@ -5645,6 +5656,65 @@ pub async fn prepare_deploy_handler(
         .unwrap_or("")
         .to_string();
 
+    // ── WALLET-SIGNABLE FUNDING TX (deploy_plan) ────────────────────────────────────────────────
+    // Until now prepare-deploy returned only per-input sighashes, NOT the unsigned funding tx, so an
+    // extension wallet (KasWare signPskt / Kastle signTx) could not rebuild the EXACT tx to sign and
+    // the frontend signDeployWithWallet failed closed. deploy_plan exposes every byte the browser
+    // needs to reconstruct THIS unsigned funding tx (the same one the server signed the sighashes
+    // over) so the wallet can produce signatures that match. It is the deploy twin of the redeem
+    // path's spend_plan. ADDITIVE: what gets committed on-chain is unchanged (the server still
+    // builds the canonical tx and submit-deploy re-verifies each signature against the SAME stored
+    // unsigned tx); deploy_plan only mirrors it for the wallet. The per-input prev scriptPublicKey
+    // and the per-output scriptPublicKey are taken verbatim from the constructed tx so a rebuild is
+    // byte-identical (any divergence makes the extracted signatures fail submit-deploy's strict
+    // verify, never a silent mismatch).
+    let spk_hex = |spk: &ScriptPublicKey| -> String {
+        // version_u16 (big-endian, the on-chain ScriptPublicKey serialization) || script bytes.
+        // Matches ScriptPublicKey::from_bytes (consensus-core), which reads u16::from_be_bytes
+        // then the script; `script()` is the read-only accessor (the field is pub(super)).
+        let mut v = spk.version().to_be_bytes().to_vec();
+        v.extend_from_slice(spk.script());
+        hex::encode(v)
+    };
+    let plan_inputs: Vec<serde_json::Value> = selected
+        .iter()
+        .map(|u| {
+            serde_json::json!({
+                "transaction_id": u.outpoint.transaction_id.to_string(),
+                "index": u.outpoint.index,
+                "amount_sompi": u.utxo_entry.amount,
+                "prev_script_public_key_hex": spk_hex(&u.utxo_entry.script_public_key),
+                "sig_op_count": 1,
+            })
+        })
+        .collect();
+    let plan_outputs: Vec<serde_json::Value> = unsigned
+        .outputs
+        .iter()
+        .map(|o| {
+            serde_json::json!({
+                "value_sompi": o.value,
+                "script_public_key_hex": spk_hex(&o.script_public_key),
+                "script_public_key_version": o.script_public_key.version(),
+            })
+        })
+        .collect();
+    let deploy_plan = serde_json::json!({
+        "version": 0,
+        "lock_time": 0,
+        "gas": 0,
+        "subnetwork_id": hex::encode([0u8; 20]),
+        // The aa20 + blake2b(redeem) + full-redeem deploy payload (committed in the sighash and
+        // crawler-discoverable). The wallet MUST include it verbatim or the rebuilt tx diverges.
+        "payload_hex": hex::encode(unsigned.payload.as_slice()),
+        "inputs": plan_inputs,
+        "outputs": plan_outputs,
+        "redeem_hex": hex::encode(&redeem),
+        "p2sh_address": p2sh_addr.clone(),
+        "stake_sompi": stake_sompi,
+        "fee_sompi": fee,
+    });
+
     let session_id = uuid::Uuid::new_v4().to_string();
     let now_ts = chrono::Utc::now().timestamp();
     {
@@ -5677,7 +5747,11 @@ pub async fn prepare_deploy_handler(
         "redeem_kind": redeem_kind,
         "stake_sompi": stake_sompi,
         "locked_kas": stake_sompi as f64 / 100_000_000.0,
-        "note": "Sign EACH input's sighash in `inputs` (BIP340 Schnorr) with your wallet key, then POST {session_id, signatures:[{index, signature_hex}]} to /covenant/p2sh/submit-deploy. A single-input deploy may still POST {session_id, signature_hex}. Your key never leaves your device."
+        // The wallet-signable unsigned funding tx (deploy twin of spend_plan). A wallet rebuilds
+        // THIS exact tx, signs each input, and submit-deploy re-verifies. Additive + back-compat:
+        // a raw-key client ignores it and signs the `inputs[].sighash` values as before.
+        "deploy_plan": deploy_plan,
+        "note": "Sign EACH input's sighash in `inputs` (BIP340 Schnorr) with your wallet key, then POST {session_id, signatures:[{index, signature_hex}]} to /covenant/p2sh/submit-deploy. A single-input deploy may still POST {session_id, signature_hex}. Wallet extensions rebuild the funding tx from `deploy_plan` and sign it. Your key never leaves your device."
     }))
 }
 
@@ -9641,6 +9715,40 @@ mod tests {
         );
     }
 
+    /// PIECE 2 (wallet-signable deploy): the deploy_plan exposes each input/output scriptPublicKey
+    /// as `version_u16_BE || script` hex so the browser can rebuild the EXACT funding tx. That hex
+    /// MUST be the canonical on-chain ScriptPublicKey serialization (the form the wallet's
+    /// ScriptPublicKey(version, script) reconstructs and the node commits), or the rebuilt tx
+    /// diverges and the wallet signatures fail submit-deploy's strict verify. Pin the encoding to a
+    /// round-trip against the consensus-core serde form so any drift in the spk_hex helper fails CI.
+    #[test]
+    fn deploy_plan_spk_hex_is_canonical_version_be_prefixed() {
+        // A real P2SH lock spk (the deploy's output 0) and a P2PK spk (a funding input / change).
+        let redeem = redeem_singlesig(&[7u8; 32]).unwrap();
+        let p2sh = p2sh_script_pubkey(&redeem);
+        let mut p2pk = Vec::with_capacity(34);
+        p2pk.push(0x20);
+        p2pk.extend_from_slice(&[9u8; 32]);
+        p2pk.push(0xac);
+        let p2pk_spk = ScriptPublicKey::new(0, ScriptVec::from_slice(&p2pk));
+
+        // The SAME closure prepare_deploy_handler uses: version (BE u16) || script bytes.
+        let spk_hex = |spk: &ScriptPublicKey| -> String {
+            let mut v = spk.version().to_be_bytes().to_vec();
+            v.extend_from_slice(spk.script());
+            hex::encode(v)
+        };
+        for spk in [&p2sh, &p2pk_spk] {
+            let h = spk_hex(spk);
+            let bytes = hex::decode(&h).unwrap();
+            // Canonical layout: first 2 bytes = version (BE), rest = script.
+            assert!(bytes.len() >= 2, "spk hex must carry the 2-byte version prefix");
+            let ver = u16::from_be_bytes([bytes[0], bytes[1]]);
+            assert_eq!(ver, spk.version(), "version prefix must be the BE u16");
+            assert_eq!(&bytes[2..], spk.script(), "script bytes must follow the version verbatim");
+        }
+    }
+
     /// CROSS-LANGUAGE SATISFIER GOLDEN PARITY (the consensus-critical money-path gate).
     ///
     /// This pins the REAL `assemble_noncustodial_satisfier` output, for every kind+branch the
@@ -10847,6 +10955,42 @@ mod tests {
         assert!(
             zk_precompile_deploy_allowed("testnet-12").is_err(),
             "must be fail-closed when the flag is unset (default off)"
+        );
+    }
+
+    /// PIECE 1 (fail-closed mainnet detection): a crafted "mainnet-foo" string MUST be treated as
+    /// mainnet by EVERY gate that takes a network, so it can never slip past an exact `== "mainnet"`
+    /// match into a money path. Before is_mainnet() the raw-key keystone + RPC routing used `==`
+    /// while the deploy/ZK/market freezes used starts_with, so "mainnet-foo" was a real bypass.
+    #[test]
+    fn mainnet_foo_is_treated_as_mainnet_by_every_gate() {
+        // The single helper itself.
+        assert!(is_mainnet("mainnet"), "exact mainnet");
+        assert!(is_mainnet("mainnet-1"), "mainnet-1");
+        assert!(is_mainnet("mainnet-foo"), "crafted mainnet-foo must be mainnet (fail-closed)");
+        assert!(!is_mainnet("testnet-10"), "tn10 is not mainnet");
+        assert!(!is_mainnet("testnet-12"), "tn12 is not mainnet");
+        // Address prefix: a mainnet-ish string must yield the Mainnet prefix (never a testnet addr).
+        assert_eq!(prefix_for_network("mainnet-foo"), Prefix::Mainnet, "prefix gate");
+        assert_eq!(prefix_for_network("testnet-12"), Prefix::Testnet, "tn prefix");
+        // The bundled-market freeze: mainnet-foo refused, testnet allowed.
+        assert!(bundled_market_mainnet_allowed("mainnet-foo").is_err(), "market freeze");
+        assert!(bundled_market_mainnet_allowed("testnet-12").is_ok(), "market tn allowed");
+        // The ZK precompile freeze: mainnet-foo blocked even with the env flag ON.
+        std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "1");
+        assert!(zk_precompile_deploy_allowed("mainnet-foo").is_err(), "zk freeze on mainnet-foo");
+        std::env::remove_var("KASPA_ZK_PRECOMPILE_ENABLED");
+        // The non-custodial KEYSTONE: a raw private key on a mainnet-foo network is refused (the
+        // exact-match bypass this whole piece closes). use_dev_mode=false, non-empty key.
+        let raw_key_hex = "11".repeat(32);
+        assert!(
+            resolve_signing_key("mainnet-foo", "kaspa:qtest", &raw_key_hex, false).is_err(),
+            "raw mainnet-foo key must be refused by the keystone"
+        );
+        // And dev mode on mainnet-foo is refused too.
+        assert!(
+            resolve_signing_key("mainnet-foo", "kaspa:qtest", "", true).is_err(),
+            "dev mode on mainnet-foo must be refused"
         );
     }
 

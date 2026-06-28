@@ -1087,16 +1087,22 @@ function WalletBridge({ children, kf = KF_STUB }) {
     return signWithKasware(provider, plan, signOpts);
   }, [covenantSignCapability, appNetwork, ensureWalletNetwork]);
 
-  // Sign a covenant DEPLOY (funding tx) with the connected wallet. Currently FAILS CLOSED with an
-  // honest reason (prepare-deploy does not return a wallet-signable funding tx yet); kept wired so
-  // the gate + UX read correctly and a future backend change flips it on with no caller change.
+  // Sign a covenant DEPLOY (funding tx) with the connected wallet. prepare-deploy now returns a
+  // wallet-signable funding tx (prep.deploy_plan), so this rebuilds it, hands it to the wallet, and
+  // returns the { signatures:[{index, signature_hex}] } shape /submit-deploy expects. Fails closed
+  // (honest error, steering to the in-browser key path) if deploy_plan is absent or the wallet
+  // cannot sign the covenant funding inputs.
   const signCovenantDeploy = useCallback(async (prep, opts = {}) => {
     const cap = covenantSignCapability();
     if (!cap.ok) throw new Error(cap.reason || 'This wallet cannot sign covenants.');
     const provider = getActiveProvider();
     if (!provider) throw new Error('Wallet provider unavailable. Reconnect your wallet.');
-    await ensureWalletNetwork(provider, cap.family);
-    return signDeployWithWallet(provider, prep, { ...opts, networkId: normalizeNetworkId(appNetwork) });
+    const walletNetworkId = await ensureWalletNetwork(provider, cap.family);
+    return signDeployWithWallet(provider, prep, {
+      ...opts,
+      networkId: normalizeNetworkId(appNetwork),
+      walletNetworkId: walletNetworkId || COVEX_TO_KASTLE_NETWORK[appNetwork],
+    });
   }, [covenantSignCapability, appNetwork, ensureWalletNetwork]);
 
   // Honest reason string for the UI when canSignCovenant is false (null when it is true).

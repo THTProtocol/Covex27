@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- this module intentionally co-exports its component(s) with related constants/hooks/helpers (e.g. a Provider plus its useX hook). That only affects dev Fast Refresh granularity, never the production build or tests; splitting these into separate files is not warranted here. */
 import { useState, useMemo } from 'react';
 import { ShieldCheck, Cpu, Loader, CheckCircle2, XCircle, Lock, Info, Eye, EyeOff } from 'lucide-react';
 import { isVerifiedFullZk } from '../lib/zk/circuits';

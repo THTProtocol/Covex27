@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- this module intentionally co-exports its component(s) with related constants/hooks/helpers (e.g. a Provider plus its useX hook). That only affects dev Fast Refresh granularity, never the production build or tests; splitting these into separate files is not warranted here. */
 // ToastContext.jsx - one premium, app-wide notification system.
 //
 // Replaces native alert() everywhere. alert() is a blocking, unstyled OS popup;

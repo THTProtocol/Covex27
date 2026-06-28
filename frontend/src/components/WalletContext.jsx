@@ -933,14 +933,14 @@ function WalletBridge({ children, kf = KF_STUB }) {
         }
       } catch { /* best-effort; failure is non-fatal here */ }
     }
+    // Only auto-restore a wallet the user CONNECTED before (covex_connected_wallet). The old
+    // "find ANY detected wallet" fallback would silently connect whatever extension happened to be
+    // installed - which can be on a different network than the app and whose getNetwork we have not
+    // yet reconciled, an unexpected-wallet / fund-misdirection footgun. With no stored choice we now
+    // leave the app disconnected until the user picks a wallet explicitly.
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('covex_connected_wallet') : null;
     if (saved && ALL_WALLETS.find(w => w.id === saved && w.detect())) {
       connectWallet(saved).catch(() => {});
-    } else {
-      const autoWallet = ALL_WALLETS.find(w => w.detect());
-      if (autoWallet) {
-        connectWallet(autoWallet.id).catch(() => {});
-      }
     }
   }, []);
 
@@ -1066,6 +1066,35 @@ function WalletBridge({ children, kf = KF_STUB }) {
     return null;
   }, [appNetwork]);
 
+  // FAIL-CLOSED network guard, run at SIGN TIME. ensureWalletNetwork above only ATTEMPTS a switch
+  // (and silently no-ops on a wallet without switchNetwork, e.g. Kastle, or if the user declines).
+  // canSignCovenant / covenantSignCapability gate on appNetwork ALONE and never re-read the wallet's
+  // live network, so a wallet still pointed at the wrong chain would otherwise sign and MISDIRECT
+  // funds. Here we re-read the wallet's getNetwork() and compare it to the network the app is on; on
+  // any mismatch we throw a clear error BEFORE the wallet is asked to sign. If the wallet does not
+  // expose getNetwork at all we cannot verify, so (matching the prior best-effort posture) we let the
+  // signer's own validation be the guard rather than blocking a sign we cannot prove is wrong.
+  const assertWalletOnAppNetwork = useCallback(async (provider, family) => {
+    const expected =
+      family === 'kasware' ? COVEX_TO_KASWARE_NETWORK[appNetwork]
+      : family === 'kastle' ? COVEX_TO_KASTLE_NETWORK[appNetwork]
+      : null;
+    if (!expected) return; // unknown family/network mapping: nothing to compare against.
+    let live = null;
+    try {
+      if (typeof provider.getNetwork === 'function') live = await provider.getNetwork();
+      else if (typeof provider.request === 'function') live = await provider.request({ method: 'getNetwork' });
+    } catch { /* cannot read; fall through to "unverifiable" below */ }
+    if (live == null) return; // wallet does not report its network: leave it to the signer.
+    if (live !== expected) {
+      const appLabel = NETWORK_LABELS[appNetwork] || appNetwork;
+      throw new Error(
+        `Your wallet is on "${live}" but Covex is on ${appLabel} (${expected}). ` +
+        `Switch your wallet to ${appLabel} before signing so funds are not sent to the wrong network.`
+      );
+    }
+  }, [appNetwork]);
+
   // Sign a covenant SPEND (redeem) with the connected wallet. Dispatches by family, rebuilds the
   // exact tx, and FAIL-CLOSED verifies the wallet's signature before returning it. Returns the
   // exact { signatures:[{index, signature_hex}] } shape /submit-signed expects (single-input
@@ -1081,12 +1110,14 @@ function WalletBridge({ children, kf = KF_STUB }) {
     if (!provider) throw new Error('Wallet provider unavailable. Reconnect your wallet.');
     const networkId = normalizeNetworkId(appNetwork);
     const walletNetworkId = await ensureWalletNetwork(provider, cap.family);
+    // Re-read the wallet's live network and fail closed on a mismatch BEFORE asking it to sign.
+    await assertWalletOnAppNetwork(provider, cap.family);
     const signOpts = { ...opts, networkId, signerXonly: opts.signerXonly };
     if (cap.family === 'kastle') {
       return signWithKastle(provider, plan, { ...signOpts, walletNetworkId: walletNetworkId || COVEX_TO_KASTLE_NETWORK[appNetwork] });
     }
     return signWithKasware(provider, plan, signOpts);
-  }, [covenantSignCapability, appNetwork, ensureWalletNetwork]);
+  }, [covenantSignCapability, appNetwork, ensureWalletNetwork, assertWalletOnAppNetwork]);
 
   // Sign a covenant DEPLOY (funding tx) with the connected wallet. prepare-deploy now returns a
   // wallet-signable funding tx (prep.deploy_plan), so this rebuilds it, hands it to the wallet, and
@@ -1099,12 +1130,15 @@ function WalletBridge({ children, kf = KF_STUB }) {
     const provider = getActiveProvider();
     if (!provider) throw new Error('Wallet provider unavailable. Reconnect your wallet.');
     const walletNetworkId = await ensureWalletNetwork(provider, cap.family);
+    // Re-read the wallet's live network and fail closed on a mismatch BEFORE asking it to sign the
+    // funding tx (a wrong-network deploy would lock funds into a covenant on the wrong chain).
+    await assertWalletOnAppNetwork(provider, cap.family);
     return signDeployWithWallet(provider, prep, {
       ...opts,
       networkId: normalizeNetworkId(appNetwork),
       walletNetworkId: walletNetworkId || COVEX_TO_KASTLE_NETWORK[appNetwork],
     });
-  }, [covenantSignCapability, appNetwork, ensureWalletNetwork]);
+  }, [covenantSignCapability, appNetwork, ensureWalletNetwork, assertWalletOnAppNetwork]);
 
   // Honest reason string for the UI when canSignCovenant is false (null when it is true).
   const covenantSignReason = canSignCovenant ? null : covenantSignCapability().reason;

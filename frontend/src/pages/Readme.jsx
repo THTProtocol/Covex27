@@ -54,7 +54,7 @@ const REALITIES = [
     trust: 'Proof, verified off-chain', desc: `A real Groth16 zero-knowledge proof is verified fail-closed off-chain by you, the counterparty, or any external resolver (snarkjs against the audited vkey) before release. Four self-contained circuits (merkle_membership, age_verification, escrow_2party, range_proof) reduce to pure on-chain primitives and are trustless end-to-end; for the rest a valid proof gates an external resolver's 2-of-2 cosign plus a CSV timeout, where trust sits with the disclosed resolver you chose or run, not Covex. Live today for all ${ZK_TOTAL} circom circuits with served keys and a working in-browser prover (the canonical list lives in lib/zk/circuits.js as VERIFIED_FULL_ZK). For the circom suite the Groth16 check is off-chain: all ${ZK_TOTAL} are verified off-chain, and beyond the four self-contained circuits the only on-chain check is a deployer-bound resolver's BIP340 Schnorr co-signature that the proof result gates. Toccata's KIP-16 OpZkPrecompile adds a separate on-chain ZK path the settlement covenant targets, testnet-gated until proven live on mainnet.` },
   { name: 'Hybrid', icon: Layers, cls: 'text-sky-300 light:text-sky-700 border-sky-500/40 bg-sky-500/10',
     trust: 'Proof + named resolver', desc: 'The Groth16 proof is mandatory and verified fail-closed off-chain; a named external resolver only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
-  { name: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 light:text-amber-700 border-amber-500/40 bg-amber-500/10',
+  { name: 'Resolver-attested', icon: Radio, cls: 'text-amber-300 light:text-amber-700 border-amber-500/40 bg-amber-500/10',
     trust: 'Named resolver', desc: 'An off-chain outcome is attested by a named external resolver you choose or run (never a Covex key), bound by pubkey at deploy, whose co-signature the chain requires via the redeem script. For a real-world fact (an outside event, a price, a data feed) the covenant binds to that resolver, or a real-value covenant binds to its published hashlock the chain enforces; Covex never attests outside events. For a two-party result on testnet today, Covex re-derives the result from the publicly-replayable signed log (anyone can recompute it) and co-signs the payout, and the chain still requires the winning party to add their own signature; the chain-enforced, no-Covex-key path is rolling out. Either way the settlement itself is on-chain, and trust sits with the disclosed resolver, not Covex.' },
 ];
 
@@ -236,7 +236,7 @@ export default function Readme() {
       <Section kicker="The building blocks" title="Real, consensus-enforced primitives">
         <p className="text-sm text-gray-300 leading-relaxed max-w-3xl mb-6">
           These are the actual redeem scripts Covex builds and verifies against Kaspa’s <span className="text-white">TxScriptEngine</span>{' '}
-          before any value is locked. Nine are pure on-chain (the chain alone enforces them); two are oracle-attested (the
+          before any value is locked. Nine are pure on-chain (the chain alone enforces them); two are resolver-attested (the
           script still requires an external resolver's co-signature over the declared outcome, where that resolver is your
           choice, not Covex).
         </p>
@@ -393,7 +393,7 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
           {[
             [Eye, 'Explore', 'A live, real-time index of on-chain covenants, every one labelled with its true enforcement, searchable by TXID, creator or type.'],
             [Boxes, 'Build in the Sandbox', 'One window: a free circuit library drives a live preview (enforcement, resolution flow, an accurate payout simulator and example SilverScript), then the builder deploys it.'],
-            [FileCode2, 'Start from a template', 'An official catalog across primitives, ZK proofs, oracle-resolved covenants, DeFi, and identity. Each opens preconfigured in the sandbox.'],
+            [FileCode2, 'Start from a template', 'An official catalog across primitives, ZK proofs, resolver-attested covenants, DeFi, and identity. Each opens preconfigured in the sandbox.'],
             [Coins, 'Deploy non-custodially', 'Lock real funds into an enforced P2SH primitive; redeem them by satisfying the script with your own key. Covex never holds the money.'],
             [Hash, 'Prove with ZK', 'Generate a real Groth16 proof for membership, range or age claims; you, the counterparty, or any external resolver checks it fail-closed off-chain, then a deployer-bound resolver co-signs the 2-of-2 the chain requires to release the funds.'],
             [Sparkles, 'Settle two-party covenants', 'Both parties stake into a covenant; on testnet today Covex re-derives the result from the publicly-replayable signed log (anyone can recompute) and co-signs the release, while the chain still requires the winning party to add their own signature. The chain-enforced, no-Covex-key path is rolling out.'],

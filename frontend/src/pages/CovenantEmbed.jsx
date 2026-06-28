@@ -14,7 +14,7 @@ import { formatKas } from '../lib/format.js';
 const REALITY = {
   'on-chain': { label: 'On-chain enforced', icon: Lock, dot: '#34d399', text: 'text-emerald-300', bg: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.35)' },
   hybrid: { label: 'Hybrid proof', icon: Cpu, dot: '#60a5fa', text: 'text-blue-300', bg: 'rgba(96,165,250,0.12)', border: 'rgba(96,165,250,0.35)' },
-  'oracle-attested': { label: 'Oracle-attested', icon: Radio, dot: '#fbbf24', text: 'text-amber-300', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.35)' },
+  'oracle-attested': { label: 'Resolver-attested', icon: Radio, dot: '#fbbf24', text: 'text-amber-300', bg: 'rgba(251,191,36,0.12)', border: 'rgba(251,191,36,0.35)' },
   decorative: { label: 'Metadata', icon: FileText, dot: '#9ca3af', text: 'text-gray-300', bg: 'rgba(156,163,175,0.12)', border: 'rgba(156,163,175,0.30)' },
 };
 const realityOf = (r) => REALITY[r] || REALITY['oracle-attested'];

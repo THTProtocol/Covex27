@@ -223,7 +223,7 @@ function CatalogRow({ c }) {
             )}
             {!provable && !isGame && (
               <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/12 px-1.5 py-0.5 text-[9.5px] font-bold text-amber-300 light:text-amber-700 light:bg-amber-50 light:border-amber-300">
-                oracle-attested
+                resolver-attested
               </span>
             )}
           </div>

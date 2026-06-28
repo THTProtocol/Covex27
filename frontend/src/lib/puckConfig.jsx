@@ -351,7 +351,7 @@ export const puckConfig = {
         let desc = 'A descriptive label; not enforced by the protocol.';
         if (er === 'on-chain') { variant = 'on-chain'; label = 'On-chain enforced'; desc = 'Kaspa consensus enforces the script. Funds move only by satisfying it.'; }
         else if (er === 'full-zk') { variant = 'full-zk'; label = 'Full ZK verified'; desc = 'A real zero-knowledge proof, verified fail-closed off-chain by you, the counterparty, or any external verifier, gating a 2-of-2 cosign. For the circom suite the proof is verified off-chain.'; }
-        else if (er === 'hybrid' || er.includes('oracle')) { variant = 'oracle'; label = 'Oracle-attested'; desc = 'Custody and payout are on-chain; the outcome is attested by an external resolver the deployer binds by pubkey at deploy. Covex never attests real-world facts.'; }
+        else if (er === 'hybrid' || er.includes('oracle')) { variant = 'oracle'; label = 'Resolver-attested'; desc = 'Custody and payout are on-chain; the outcome is attested by an external resolver the deployer binds by pubkey at deploy. Covex never attests real-world facts.'; }
         return (
           <div className="mx-2 md:mx-4 mb-5 flex flex-col items-center text-center gap-2">
             <Badge variant={variant} dot className="text-sm px-3 py-1">{label}</Badge>
@@ -375,8 +375,8 @@ export const puckConfig = {
         columns: '3',
         features: [
           // NOTE: the "no oracle, no trust" line is qualified to a script-enforced
-          // covenant only, so an oracle-attested market can never ship it unqualified.
-          { icon: 'Lock', headline: 'On-chain enforced', description: 'When the covenant is script-enforced, funds move only by satisfying the script, no oracle, no trust in Covex. When it is oracle-resolved or oracle-attested instead, the deployer-bound resolver (bound by pubkey at deploy) is the trust assumption, not Covex. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk verified off-chain).' },
+          // covenant only, so a resolver-attested market can never ship it unqualified.
+          { icon: 'Lock', headline: 'On-chain enforced', description: 'When the covenant is script-enforced, funds move only by satisfying the script, no oracle, no trust in Covex. When it is resolver-resolved or resolver-attested instead, the deployer-bound resolver (bound by pubkey at deploy) is the trust assumption, not Covex. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk verified off-chain).' },
           { icon: 'Zap', headline: 'Kaspa speed', description: 'Settles on the BlockDAG at 10 blocks per second.' },
           { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device. The enforcement badge on this page shows whether the script, the oracle, or a verified ZK proof gates payout.' },
         ],
@@ -1453,7 +1453,7 @@ export const STARTER_TEMPLATES = [
     id: 'prediction-market',
     name: 'Conditional Outcome',
     match: ['binary_oracle_select', 'prediction', 'market'],
-    desc: 'Two-sided pool with live shares, countdown, and an oracle-attested badge.',
+    desc: 'Two-sided pool with live shares, countdown, and a resolver-attested badge.',
     data: {
       root: ROOT({ backgroundPreset: 'aurora' }),
       content: [
@@ -1465,7 +1465,7 @@ export const STARTER_TEMPLATES = [
         blk('FeeNotice', { feeText: 'Creator fee {{fee_pct}}%. Loser rebate {{rebate_pct}}%. Winners split the rest of the pool.' }),
         blk('Leaderboard', { title: 'Top stakers', rankBy: 'amount', maxRows: '5', emptyText: 'No stakes on-chain yet. The board fills as participants join.', accentColor: '#E8AF34' }),
         blk('Accordion', { title: 'Frequently asked', items: [{ q: 'How is the outcome decided?', a: 'An external resolver the deployer binds by pubkey at deploy attests the result; Covex never attests real-world facts. See the enforcement badge on this page (script-enforced, oracle-cosigned, or full-zk verified off-chain). Custody and payout are on-chain and verifiable on the explorer.' }, { q: 'Is this non-custodial?', a: 'Yes. You sign in your own wallet; keys never leave your device.' }] }),
-        blk('Footer', { text: '{{name}} · Oracle-attested conditional-outcome covenant on Kaspa', showNetwork: 'yes' }),
+        blk('Footer', { text: '{{name}} · Resolver-attested conditional-outcome covenant on Kaspa', showNetwork: 'yes' }),
       ],
     },
   },

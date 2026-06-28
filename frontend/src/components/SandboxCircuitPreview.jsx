@@ -136,7 +136,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
 
   if (!circuit) return null;
   const flow = RESOLUTION_FLOW[circuit.reality] || RESOLUTION_FLOW['oracle-attested'];
-  const realityLabel = { 'full-zk': 'Oracle-attested', 'on-chain': 'On-chain', hybrid: 'Oracle-attested', 'oracle-attested': 'Oracle-attested', decorative: 'Metadata' }[circuit.reality] || circuit.reality;
+  const realityLabel = { 'full-zk': 'Resolver-attested', 'on-chain': 'On-chain', hybrid: 'Resolver-attested', 'oracle-attested': 'Resolver-attested', decorative: 'Metadata' }[circuit.reality] || circuit.reality;
 
   return (
     <div className="mb-8 space-y-4">

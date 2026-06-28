@@ -51,12 +51,12 @@ describe('EnforcementBadge honesty', () => {
   it('on-chain reality reads "On-chain enforced", not oracle/zk', () => {
     const h = badgeOnly('on-chain');
     expect(h).toContain('On-chain enforced');
-    expect(h).not.toContain('Oracle-attested');
+    expect(h).not.toContain('Resolver-attested');
     expect(h).not.toContain('Full ZK verified');
   });
-  it('oracle/hybrid reality reads "Oracle-attested", never an on-chain-enforced claim', () => {
+  it('oracle/hybrid reality reads "Resolver-attested", never an on-chain-enforced claim', () => {
     const h = badgeOnly('hybrid');
-    expect(h).toContain('Oracle-attested');
+    expect(h).toContain('Resolver-attested');
     expect(h).not.toContain('On-chain enforced');
   });
   it('full-zk reality is verified fail-closed by the oracle, never labeled "on-chain"', () => {
@@ -69,7 +69,7 @@ describe('EnforcementBadge honesty', () => {
     const h = badgeOnly('decorative');
     expect(h).toContain('Metadata only');
     expect(h).not.toContain('On-chain enforced');
-    expect(h).not.toContain('Oracle-attested');
+    expect(h).not.toContain('Resolver-attested');
   });
 });
 

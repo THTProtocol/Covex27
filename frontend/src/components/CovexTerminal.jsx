@@ -2907,7 +2907,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-start gap-3">
             <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5 light:text-amber-600" />
             <div className="text-[11px] text-amber-300/90 leading-relaxed light:text-amber-800">
-              <strong className="text-amber-200 light:text-amber-900">Technical reality:</strong> Every circuit here is oracle-attested. For the circom suite a Groth16 proof is verified off-chain, never checked on-chain. Where a circuit has a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock, committed-random VRF, turn timer, script constraint, payout split) a real Groth16 proof is generated in your browser and verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey; fail-closed: a missing or invalid proof is rejected). The remaining circuits are attested by a deployer-bound external resolver without a proof. In all cases the trusted setup is a single-contributor dev ceremony, not a production multi-party MPC.
+              <strong className="text-amber-200 light:text-amber-900">Technical reality:</strong> Every circuit here is resolver-attested. For the circom suite a Groth16 proof is verified off-chain, never checked on-chain. Where a circuit has a working in-browser prover (merkle membership, age verification, 2-party escrow, range proof, VRF dice roll, nullifier set, UTXO note proof, hash preimage, absolute timelock, relative timelock, committed-random VRF, turn timer, script constraint, payout split) a real Groth16 proof is generated in your browser and verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey; fail-closed: a missing or invalid proof is rejected). The remaining circuits are attested by a deployer-bound external resolver without a proof. In all cases the trusted setup is a single-contributor dev ceremony, not a production multi-party MPC.
               <strong className="text-amber-200 light:text-amber-900"> Off-chain verification IS live:</strong> POST /api/oracle/verify-and-sign verifies any supplied proof off-chain and returns a real BIP340-signed outcome that a deployer-bound resolver can co-sign.
               The release gates on a 2-of-2 cosign + CSV timeout checked on-chain (Schnorr) at covenant unlock. There is no on-chain proof verification.
             </div>
@@ -3516,7 +3516,7 @@ ${gameMeta.outcomeBranches}
             </div>
             <div className="text-right flex flex-col items-end gap-1">
               <div className="text-[11px] text-[#49EACB] font-mono">{chessStake} KAS STAKE, {feePercent}% FEE, {potReturnPercent}% POT RETURN, {chessBaseMinutes}m+{chessIncrementSeconds}s</div>
-              <div className="text-[10px] text-gray-400 light:text-slate-500 -mt-0.5">Winner: {(100 - feePercent - potReturnPercent).toFixed(1)}%, Creator: {feePercent}%, Pot: {potReturnPercent}%, oracle-attested (server-authoritative)</div>
+              <div className="text-[10px] text-gray-400 light:text-slate-500 -mt-0.5">Winner: {(100 - feePercent - potReturnPercent).toFixed(1)}%, Creator: {feePercent}%, Pot: {potReturnPercent}%, resolver-attested (server-authoritative)</div>
               <div className="text-[9px] mt-0.5 flex items-center gap-1">
                 Proving Mode: 
                 <select value={chessProvingMode} onChange={e => setChessProvingMode(parseInt(e.target.value))} className="bg-black/50 border border-white/20 text-[9px] px-1 py-0.5 rounded text-white">
@@ -3537,7 +3537,7 @@ ${gameMeta.outcomeBranches}
           </div>
 
           <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed -mt-1">
-            Client-side chess.js validates all FIDE rules locally. After the game, the signed move log is submitted to a server-authoritative engine (POST /api/oracle/verify-and-sign) that replays it deterministically (anyone can recompute) and returns a real BIP340-signed outcome; the counterparty or a deployer-bound external resolver co-signs the release. The release gates on a 2-of-2 cosign + CSV timeout verified on-chain (Schnorr) at covenant unlock. This is oracle-attested, not an on-chain ZK proof: the move log is recomputed off-chain, not proven on-chain.
+            Client-side chess.js validates all FIDE rules locally. After the game, the signed move log is submitted to a server-authoritative engine (POST /api/oracle/verify-and-sign) that replays it deterministically (anyone can recompute) and returns a real BIP340-signed outcome; the counterparty or a deployer-bound external resolver co-signs the release. The release gates on a 2-of-2 cosign + CSV timeout verified on-chain (Schnorr) at covenant unlock. This is resolver-attested, not an on-chain ZK proof: the move log is recomputed off-chain, not proven on-chain.
           </p>
 
           {/* Stake + Pot Summary - requires equal stake from both sides before pro play */}
@@ -3712,7 +3712,7 @@ ${gameMeta.outcomeBranches}
                 Payout error: {payoutResult.error}
               </div>
             )}
-            {/* Pre-claim: oracle attested result display */}
+            {/* Pre-claim: resolver attested result display */}
             {chessZkVerified && chessResult && !payoutResult && (
               <div className="mt-3 p-4 rounded-xl bg-emerald-500/[0.06] border border-emerald-500/30 text-sm">
                 <div className="flex items-center gap-2 text-emerald-400 mb-2">
@@ -3861,7 +3861,7 @@ ${gameMeta.outcomeBranches}
         </div>
 
         <div className="text-[10px] text-gray-400 light:text-slate-500 px-1">
-          Commit-reveal deck cut, open hands, hit/stand on your own hand, oracle attested result. Real ZK verification coming.
+          Commit-reveal deck cut, open hands, hit/stand on your own hand, resolver attested result. Real ZK verification coming.
         </div>
       </section>
 
@@ -3917,7 +3917,7 @@ ${gameMeta.outcomeBranches}
             <input type="number" value={reversiStake} onChange={e=>setReversiStake(Math.max(5,parseInt(e.target.value||'40')))} className={INPUT + ' flex-1'} />
             <button onClick={launchFullScreenReversi} className="px-4 rounded-xl bg-[#49EACB] text-black text-xs font-bold">OPEN TABLE</button>
           </div>
-          <div className="text-[9px] text-gray-400 light:text-slate-500 mt-1">8×8 flips • legal only • 2.5min clocks • oracle attested + {potReturnPercent}% pot</div>
+          <div className="text-[9px] text-gray-400 light:text-slate-500 mt-1">8×8 flips • legal only • 2.5min clocks • resolver attested + {potReturnPercent}% pot</div>
         </section>
 
         {/* RPS */}
@@ -4434,7 +4434,7 @@ ${gameMeta.outcomeBranches}
                 </div>
                 <p className="text-[11px] text-gray-200 light:text-slate-700 leading-relaxed">
                   {zkCircuit === 'chess_v1' &&
-                    'Chess outcome is oracle-attested: the server replays the move log (shakmaty) to decide the winner and co-signs it. Not an on-chain ZK proof - no third-party audit is claimed.'}
+                    'Chess outcome is resolver-attested: the server replays the move log (shakmaty) to decide the winner and co-signs it. Not an on-chain ZK proof - no third-party audit is claimed.'}
                   {zkCircuit === 'merkle_generic' &&
                     'Proves a key/value pair exists in a committed Merkle tree. Used for whitelists, airdrop eligibility, DAO voting.'}
                   {zkCircuit === 'bulletproofs_v1' &&
@@ -4518,8 +4518,8 @@ ${gameMeta.outcomeBranches}
               : gameType === 'age_verification'
               ? 'Generate (or paste) a Groth16 proof for the Age Verification circuit. The MiMC7 birth-year commitment is computed locally and the proof is generated in-browser over the served wasm/zkey artifacts, so your birth year never leaves the device. Proves a birthdate meets an age threshold without revealing the exact date. The proof is verified off-chain by you, the counterparty, or any external verifier (snarkjs + vkey) and a deployer-bound resolver co-signs the outcome.'
               : gameType === 'verifiable'
-              ? 'Paste a proof for Verifiable Computation (RISC Zero or general). Proves correct execution of arbitrary computation. Oracle-attested - no client-side generator yet (program-dependent). Submit any valid JSON + public inputs for oracle signing.'
-              : 'Paste a proof for your Custom Circuit. Supply any audited circuit definition and verifier key. Oracle-attested - no client-side generator. Submit any valid JSON + public inputs for oracle signing.'}
+              ? 'Paste a proof for Verifiable Computation (RISC Zero or general). Proves correct execution of arbitrary computation. Resolver-attested - no client-side generator yet (program-dependent). Submit any valid JSON + public inputs for resolver signing.'
+              : 'Paste a proof for your Custom Circuit. Supply any audited circuit definition and verifier key. Resolver-attested - no client-side generator. Submit any valid JSON + public inputs for resolver signing.'}
           </p>
 
           {/* Honesty disclaimer */}
@@ -4565,7 +4565,7 @@ ${gameMeta.outcomeBranches}
                     setOraclePublicInputs('1,9200635592700100900023685259419851615264527311517926356835164316867165626887,2026,18');
                   } else {
                     // age_verification, verifiable, custom - demo attested proof
-                    setOracleProof(JSON.stringify({ proof: { protocol: 'groth16', note: 'oracle_attested_demo' }, publicSignals: ['1'] }));
+                    setOracleProof(JSON.stringify({ proof: { protocol: 'groth16', note: 'resolver_attested_demo' }, publicSignals: ['1'] }));
                     setOraclePublicInputs('1');
                   }
                 }}

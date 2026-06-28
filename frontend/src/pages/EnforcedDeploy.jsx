@@ -1256,8 +1256,8 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
         <div className="relative z-10 glass-panel p-6">
           <div className="text-white light:text-slate-900 font-semibold mb-3">What "on-chain enforced" means here</div>
           <p className="text-sm text-gray-300 light:text-slate-700 mb-4">
-            Unlike oracle-attested or metadata covenants, these resolve purely by Kaspa script. The platform labels every
-            covenant honestly - on-chain, oracle-attested, or metadata only - so trust is shown, never implied.
+            Unlike resolver-attested or metadata covenants, these resolve purely by Kaspa script. The platform labels every
+            covenant honestly - on-chain, resolver-attested, or metadata only - so trust is shown, never implied.
           </p>
           <div className="grid sm:grid-cols-2 gap-3">
             {onchainEntries.map((e) => (

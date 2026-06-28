@@ -20,12 +20,12 @@ suite('composer describe + honest labels', () => {
     expect(enforcementLabel(htlc)).not.toMatch(/trustless/i);
   });
 
-  it('an oracle leaf forces the honest oracle-attested label', () => {
+  it('an oracle leaf forces the honest resolver-attested label', () => {
     const withOracle = either(
       leaf('oracle', { oracle: 'o', winner: 'w' }),
       leaf('rcsv', { min_sequence: 10, pubkey: 'c', signer: 'deployer' }, 'backstop'),
     );
-    expect(enforcementLabel(withOracle)).toMatch(/Oracle-attested.*not trustless/);
+    expect(enforcementLabel(withOracle)).toMatch(/Resolver-attested.*not trustless/);
   });
 
   it('summarize lists the conditions + the honest tier', () => {

@@ -35,7 +35,7 @@ const REALITY = {
     note: 'The chain enforces it. Your wallet redeems. No Covex key in the path.',
   },
   'oracle-attested': {
-    label: 'oracle-attested',
+    label: 'resolver-attested',
     variant: 'oracle',
     note: 'A deployer-bound external resolver co-signs a verified result. Not trustless. Covex never attests real-world facts.',
   },
@@ -97,7 +97,7 @@ const EXAMPLES = [
     icon: Lock,
     name: 'Escrow',
     kind: 'on-chain',
-    body: 'Hashlock, HTLC, and multisig escrows where the chain itself enforces the release and your own wallet redeems. The two-party oracle escrow variant is oracle-attested until the state-channel rebuild lands.',
+    body: 'Hashlock, HTLC, and multisig escrows where the chain itself enforces the release and your own wallet redeems. The two-party oracle escrow variant is resolver-attested until the state-channel rebuild lands.',
   },
   {
     icon: CircleDashed,
@@ -289,7 +289,7 @@ export default function AboutPage() {
         <Section title="What people build" kicker="Examples, honestly labeled">
           <p className="text-gray-400 light:text-slate-600 text-sm leading-relaxed max-w-3xl mb-8">
             Each badge says who actually enforces the outcome. on-chain means the chain enforces it
-            and no Covex key is in the path. oracle-attested means a deployer-bound external resolver
+            and no Covex key is in the path. resolver-attested means a deployer-bound external resolver
             co-signs a verified result; Covex never attests real-world facts. We never inflate these.
           </p>
           <motion.div
@@ -376,7 +376,7 @@ export default function AboutPage() {
               If hightable.pro vanished tomorrow, could every user still recover or settle their
               funds using only their own wallet and the published script? Where the answer is yes,
               the covenant is on-chain and trustless. Where the answer is not yet, it is honestly
-              labeled oracle-attested, and the roadmap to trustlessness is to remove Covex from the
+              labeled resolver-attested, and the roadmap to trustlessness is to remove Covex from the
               money path, not to add more cryptography.
             </p>
           </Card>

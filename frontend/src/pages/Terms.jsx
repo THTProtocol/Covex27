@@ -69,7 +69,7 @@ export default function Terms() {
           <ul className="list-disc list-inside space-y-2 pl-2 text-gray-200 light:text-slate-700">
             <li>Does not create, modify, or control any on-chain covenant.</li>
             <li>Indexes covenant UTXOs via a direct connection to a Kaspa node.</li>
-            <li>Labels each covenant's enforcement reality honestly (on-chain script-enforced, oracle-attested, or metadata-only) and never implies more enforcement than the chain provides. Zero-knowledge proofs in the circom suite, where used, are verified off-chain by you, the counterparty, or any external resolver, and only that resolver's Schnorr co-signature is checked on-chain. Toccata's KIP-16 verification opcode adds a separate on-chain proof-checking path that stays testnet-gated until proven live on mainnet.</li>
+            <li>Labels each covenant's enforcement reality honestly (on-chain script-enforced, resolver-attested, or metadata-only) and never implies more enforcement than the chain provides. Zero-knowledge proofs in the circom suite, where used, are verified off-chain by you, the counterparty, or any external resolver, and only that resolver's Schnorr co-signature is checked on-chain. Toccata's KIP-16 verification opcode adds a separate on-chain proof-checking path that stays testnet-gated until proven live on mainnet.</li>
             <li>Generates optional interactive interfaces for paid users; these are display layers only and do not change on-chain logic.</li>
           </ul>
         </section>

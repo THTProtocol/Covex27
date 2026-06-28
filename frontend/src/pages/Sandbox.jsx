@@ -45,15 +45,15 @@ const REALITY = {
   // check is the Schnorr co-signature. full-zk and hybrid both render honestly as oracle-attested,
   // never as a green ZK on-chain badge. Toccata's KIP-16 on-chain path is testnet-gated.
   'full-zk': {
-    label: 'Oracle-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
+    label: 'Resolver-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
     note: 'A real Groth16 proof is verified fail-closed OFF-CHAIN by you, the counterparty, or any external resolver (snarkjs against the audited vkey). For the circom suite the proof is verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and only the Schnorr co-signature is checked on-chain. Toccata KIP-16 adds a separate on-chain ZK path, testnet-gated until proven live.',
   },
   hybrid: {
-    label: 'Oracle-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
+    label: 'Resolver-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
     note: 'A ZK property proof verified off-chain by you, the counterparty, or any external verifier; a valid proof gates the 2-of-2 cosign that releases the outcome. The only on-chain check is the Schnorr co-signature.',
   },
   'oracle-attested': {
-    label: 'Oracle-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
+    label: 'Resolver-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
     note: 'Resolved by a signed attestation from a deployer-bound external resolver (bound by pubkey at deploy) of an off-chain outcome. Covex never attests outcomes; trust is in that resolver, with the payout settled on-chain.',
   },
   decorative: {

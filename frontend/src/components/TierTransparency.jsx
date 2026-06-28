@@ -18,7 +18,7 @@ import { Check, Sparkles, ShieldCheck, ArrowUpRight } from 'lucide-react';
 
 const INCLUDED = [
   'Build and deploy any covenant - every ZK circuit, every game, every primitive',
-  'Pick any resolution - oracle-attested or a real in-browser ZK proof (Groth16)',
+  'Pick any resolution - resolver-attested or a real in-browser ZK proof (Groth16)',
   'Lock any amount of KAS - no cap on stakes, pots, or bets',
   'Build a full custom website in Covenant Studio, with the base template set',
   'Deploy non-custodially - your wallet signs; Covex never holds your keys',

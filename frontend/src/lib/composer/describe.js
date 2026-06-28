@@ -36,11 +36,11 @@ export function describe(node) {
 }
 
 // Honest enforcement label for a node: on-chain (Kaspa consensus enforces the spend rule) vs
-// oracle-attested (a deployer-bound external resolver is in the path). Never overclaims.
+// resolver-attested (a deployer-bound external resolver is in the path). Never overclaims.
 export function enforcementLabel(node) {
   const tier = compositionTier(node);
   return tier === 'oracle_gated'
-    ? 'Oracle-attested: a deployer-bound external resolver is in the spend path (not trustless).'
+    ? 'Resolver-attested: a deployer-bound external resolver is in the spend path (not trustless).'
     : 'On-chain: Kaspa consensus enforces the spend rule. No resolver, no custodian.';
 }
 

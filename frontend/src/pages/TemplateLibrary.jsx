@@ -142,7 +142,7 @@ export default function TemplateLibrary() {
             })}
           </div>
           )}
-          <p className="text-[10px] text-center text-gray-500 mt-4">Showing {shown.length} of {communityTemplates.length} official templates, each labeled with its real on-chain / hybrid / oracle-attested enforcement.</p>
+          <p className="text-[10px] text-center text-gray-500 mt-4">Showing {shown.length} of {communityTemplates.length} official templates, each labeled with its real on-chain / hybrid / resolver-attested enforcement.</p>
         </div>
         );
       })()}

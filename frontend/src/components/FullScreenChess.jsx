@@ -358,7 +358,7 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
           </div>
 
           <div className="text-[10px] text-gray-600 light:text-slate-500 px-1">
-            Moves persist on the match record and sync in real time. The pot settles on-chain with oracle verification.
+            Moves persist on the match record and sync in real time. The pot settles on-chain with resolver verification.
             <br />Creator: {creatorAddr?.slice(0, 16)}...
           </div>
         </div>

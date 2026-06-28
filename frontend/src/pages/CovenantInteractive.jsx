@@ -1400,7 +1400,7 @@ export default function CovenantInteractive() {
                   <strong>Timers:</strong> 10 min clock per player (active player only). Resign, timeout, or checkmate ends the game.<br/>
                   <strong>Payout:</strong> Winner receives the full staked amount minus 2% fee (fee to creator address to sustain the service).<br/>
                   <strong>Verification:</strong> Server-authoritative engine (validates legal moves and terminal conditions, replaying the signed move log so anyone can recompute); on testnet today the release is co-signed (BIP340 Schnorr) by the recomputable Covex engine alongside the winning player, not trustless. No zero-knowledge proof of moves.<br/>
-                  <strong>Non-custodial:</strong> Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the recomputable Covex engine's BIP340 co-signature on testnet (oracle-attested, not trustless).
+                  <strong>Non-custodial:</strong> Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the recomputable Covex engine's BIP340 co-signature on testnet (resolver-attested, not trustless).
                 </>
               ) : (
                 covenant.full_logic_summary || covenant.description || 'All parameters, fees, resolution method, circuits, oracles, and payout rules are fully disclosed on-chain and in the published view.'
@@ -1568,10 +1568,10 @@ export default function CovenantInteractive() {
                               <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Stake</td><td className="p-2">Any amount. Match exactly or auto return in 5 min</td></tr>
                               <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">End</td><td className="p-2">Resign, timeout or checkmate</td></tr>
                               <tr className="border-b border-emerald-500/20"><td className="p-2 font-semibold">Payout</td><td className="p-2">Winner gets the staked amount minus 2% to creator</td></tr>
-                              <tr><td className="p-2 font-semibold">Verify</td><td className="p-2">Server-authoritative engine, outcome oracle-attested (BIP340 Schnorr)</td></tr>
+                              <tr><td className="p-2 font-semibold">Verify</td><td className="p-2">Server-authoritative engine, outcome resolver-attested (BIP340 Schnorr)</td></tr>
                             </tbody>
                           </table>
-                          <div className="text-[11px] text-emerald-300/80 light:text-emerald-700 mt-1 text-center">Transparent · Custody on-chain · Outcome oracle-attested</div>
+                          <div className="text-[11px] text-emerald-300/80 light:text-emerald-700 mt-1 text-center">Transparent · Custody on-chain · Outcome resolver-attested</div>
                         </div>
                       </div>
                     </div>
@@ -1727,7 +1727,7 @@ export default function CovenantInteractive() {
                         {claimOpen && (
                           <div className="px-4 pb-4 space-y-3">
                             <p className="text-xs text-gray-300 leading-relaxed">
-                              This covenant was created elsewhere, so its logic is opaque on-chain. If you have its <strong>redeem script</strong>, paste it below. Covex verifies it hashes to this exact on-chain commitment (so only someone who genuinely knows the script can do this), then it becomes fully redeemable and richly displayed for everyone. The hash check is trustless; enforcement reality afterwards depends on kind: merkle_membership, age_verification, escrow_2party, and range_proof verify on-chain end-to-end, while oracle_escrow and oracle_enforced remain oracle-attested, gated by a deployer-bound resolver's BIP340 co-signature.
+                              This covenant was created elsewhere, so its logic is opaque on-chain. If you have its <strong>redeem script</strong>, paste it below. Covex verifies it hashes to this exact on-chain commitment (so only someone who genuinely knows the script can do this), then it becomes fully redeemable and richly displayed for everyone. The hash check is trustless; enforcement reality afterwards depends on kind: merkle_membership, age_verification, escrow_2party, and range_proof verify on-chain end-to-end, while oracle_escrow and oracle_enforced remain resolver-attested, gated by a deployer-bound resolver's BIP340 co-signature.
                             </p>
                             <textarea value={claimForm.redeem_script_hex} onChange={e => setClaimForm(f => ({ ...f, redeem_script_hex: e.target.value }))} placeholder="Redeem script (hex)" rows={3} className="w-full text-xs font-mono bg-black/50 border border-white/10 rounded-xl px-3 py-2 focus:border-blue-400/50 outline-none" spellCheck={false} />
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1924,7 +1924,7 @@ export default function CovenantInteractive() {
                     Each player gets a 10 minute clock. Only the active player clock runs.<br/><br/>
                     Resign, timeout or checkmate ends the game.<br/><br/>
                     Winner receives the staked amount minus 2 percent. The 2 percent goes to the creator address to keep the service running.<br/><br/>
-                    Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the recomputable Covex engine's BIP340 co-signature on testnet (oracle-attested, not trustless).<br/><br/>
+                    Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the recomputable Covex engine's BIP340 co-signature on testnet (resolver-attested, not trustless).<br/><br/>
                     The game runs on a server authoritative engine that enforces legal moves and replays the signed move log deterministically (anyone can recompute); on testnet today the recomputable Covex engine co-signs the release alongside the winning player with a BIP340 Schnorr signature. There is no zero knowledge proof of individual moves.
                   </div>
 

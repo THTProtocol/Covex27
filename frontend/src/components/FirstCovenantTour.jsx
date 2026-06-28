@@ -278,7 +278,7 @@ export default function FirstCovenantTour() {
 
     if (out.id === 'sandbox-create') {
       const s = enforcementSummary(sandboxReality);
-      out.body = `Pick a template. Each template discloses its enforcement reality so nothing is hidden: ${s.badge.toLowerCase()} (${s.headline.toLowerCase()}) is the baseline, and oracle-attested or full-zk templates make the deployer-bound resolver's role explicit (an external resolver the deployer chooses; Covex never attests real-world facts).`;
+      out.body = `Pick a template. Each template discloses its enforcement reality so nothing is hidden: ${s.badge.toLowerCase()} (${s.headline.toLowerCase()}) is the baseline, and resolver-attested or full-zk templates make the deployer-bound resolver's role explicit (an external resolver the deployer chooses; Covex never attests real-world facts).`;
     }
     if (out.id === 'sandbox-logic') {
       const s = enforcementSummary(sandboxReality);

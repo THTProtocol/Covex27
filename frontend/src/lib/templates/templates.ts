@@ -245,7 +245,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     })
   },
 
-  // === MORE: oracle-attested conditional outcomes & pools (honest: oracle BIP340 signs the outcome) ===
+  // === MORE: resolver-attested conditional outcomes & pools (honest: the resolver BIP340 signs the outcome) ===
   {
     id: 'binary-prediction-market',
     name: 'Binary Conditional Outcome',
@@ -258,7 +258,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     tags: ['Conditional', 'Oracle', 'Binary'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr, 'escrow'),
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Binary Conditional Outcome', description: 'Oracle-attested Yes/No outcome. Winners split the pool.' },
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Binary Conditional Outcome', description: 'Resolver-attested Yes/No outcome. Winners split the pool.' },
       resolution: { mode: 'oracle', circuit: { type: 'custom' }, oracle: { provider: 'covex' }, payoutModel: { type: 'proportional', feeBasisPoints: 100 } },
       ui: { templateId: 'binary-market-v1', theme: { primaryColor: '#F59E0B' } }
     })
@@ -275,7 +275,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     tags: ['Auction', 'Dutch', 'Oracle'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr, 'escrow'),
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Dutch Auction', description: 'Descending-price auction, oracle-attested clearing.' },
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Dutch Auction', description: 'Descending-price auction, resolver-attested clearing.' },
       resolution: { mode: 'oracle', circuit: { type: 'custom' }, oracle: { provider: 'covex' }, payoutModel: { type: 'custom', feeBasisPoints: 100 } },
       ui: { templateId: 'dutch-auction-v1', theme: { primaryColor: '#A78BFA' } }
     })
@@ -292,7 +292,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     tags: ['Revenue', 'Split', 'Oracle'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr, 'escrow'),
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Revenue Share Pool', description: 'Proportional payouts on oracle-attested distribution.' },
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Revenue Share Pool', description: 'Proportional payouts on resolver-attested distribution.' },
       resolution: { mode: 'oracle', circuit: { type: 'custom' }, oracle: { provider: 'covex' }, payoutModel: { type: 'proportional', feeBasisPoints: 100 } },
       ui: { templateId: 'revenue-share-v1', theme: { primaryColor: '#10B981' } }
     })
@@ -550,7 +550,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     tags: ['1v1', 'Oracle'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr, 'chess'),
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Connect Four', description: 'Oracle-attested Connect Four. The proven winner receives the staked amount minus the fee.' },
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Connect Four', description: 'Resolver-attested Connect Four. The proven winner receives the staked amount minus the fee.' },
       resolution: { mode: 'oracle', circuit: { type: 'custom' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 200 } },
       ui: { templateId: 'connect4-v1', theme: { primaryColor: '#EF4444' } }
     })

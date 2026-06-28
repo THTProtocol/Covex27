@@ -139,9 +139,9 @@ describe('Sandbox journey: create -> logic -> deploy', () => {
     expect(html).toContain('data-marker="sandbox-circuit-preview"');
     // Honesty labels: relative_timelock is reality: full-zk in the stub
     // catalog above, so the Sandbox REALITY map collapses it to the
-    // Oracle-attested chip. That is the truth Kaspa enforces (no on-chain
+    // Resolver-attested chip. That is the truth Kaspa enforces (no on-chain
     // pairing verifier), and it must not silently upgrade to "On-chain".
-    expect(html).toContain('Oracle-attested');
+    expect(html).toContain('Resolver-attested');
     expect(html).not.toContain('data-marker="enforced-deploy"');
   });
 

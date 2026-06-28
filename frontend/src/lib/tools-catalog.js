@@ -339,7 +339,7 @@ export const PAGE_BLOCKS = [
   {
     id: 'FeeNotice',
     name: 'Fee Transparency',
-    oneLiner: 'A small honest line stating the configured house fee and loser rebate.',
+    oneLiner: 'A small honest line stating the configured creator fee and loser rebate.',
     category: 'Actions',
     insertHint: INSERT_HINT,
   },

@@ -449,7 +449,7 @@ export default function CovenantInteractive() {
     };
 
     // Odds: the honest NET winner multiplier from current stakes, matching the canonical
-    // Markets math (1 - f) + (1 - f - r) * (opposing pool / your pool), where f is the house
+    // Markets math (1 - f) + (1 - f - r) * (opposing pool / your pool), where f is the pool
     // fee and r the loser rebate. This is what a winner actually receives, NOT the gross
     // pool ratio and NOT a probability. Only when both sides carry real liquidity. If the
     // fee/rebate are unknown we fall back to the gross multiple, labeled so it is not read

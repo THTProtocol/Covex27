@@ -60,7 +60,7 @@ function limitsFor({ reality, kind }) {
     // Parimutuel bundle: branches ARE enforced on-chain (hashlock + key sig), but the
     // OUTCOME assignment comes from which single secret a deployer-bound external resolver reveals.
     lines.push('Custody and payouts are on-chain (each leg is a P2SH covenant gated by a hashlock and the winner\'s key), but WHICH outcome wins is decided by which committed secret a deployer-bound external resolver reveals - the chain does not judge the real-world event, and Covex never attests real-world facts.');
-    lines.push('A correct prediction is not guaranteed to profit: the house fee and the loser rebate mean you can be right about the outcome and still lose KAS. See the economics warning above.');
+    lines.push('A correct prediction is not guaranteed to profit: the pool fee and the loser rebate mean you can be right about the outcome and still lose KAS. See the economics warning above.');
     lines.push('You are trusting the deployer-bound resolver (bound by pubkey at deploy) to reveal the secret for the true result. Once revealed, every funded leg settles through any Kaspa node with no further trust in the resolver.');
   } else {
     // Primitive / oracle / zk covenant - reality-driven copy.

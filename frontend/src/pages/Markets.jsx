@@ -445,7 +445,7 @@ function MarketDetail({ id }) {
           <p className="text-[12px] text-amber-200/90 light:text-amber-800 leading-relaxed">
             <span className="font-semibold text-amber-300 light:text-amber-700">You can be right and still lose.</span> The winner multiplier is
             {' '}<span className={num}>{(1 - f).toFixed(2)}</span> + <span className={num}>{(1 - f - r).toFixed(2)}</span>×(opposing pool ÷ your pool). A correct bet only profits when the opposing pool is more than
-            {' '}<span className={`font-semibold ${num}`}>{breakeven.toFixed(2)}×</span> your side, the house takes {feePct}% and losers get {rebatePct}% back.
+            {' '}<span className={`font-semibold ${num}`}>{breakeven.toFixed(2)}×</span> your side, the creator fee is {feePct}% and losers get {rebatePct}% back.
           </p>
         </div>
 
@@ -476,7 +476,7 @@ function MarketDetail({ id }) {
               ) : (
                 <>
                   <div className="flex items-end justify-between gap-3 mb-1"><span className="kicker">Total matched</span><span className={`text-2xl font-black leading-none text-right text-white light:text-slate-900 ${num}`}>{(book.funded_pool_a_kas + book.funded_pool_b_kas).toFixed(2)} <span className="text-sm text-gray-400 light:text-slate-500">KAS</span></span></div>
-                  <div className="flex items-center justify-between gap-3 text-[12px] mb-3"><span className="text-gray-400 light:text-slate-500">{feePct > 0 ? `House fee pool (${feePct}%)` : 'House fee'}</span><span className={`text-amber-300 light:text-amber-600 shrink-0 ${num}`}>{feePct > 0 ? `${(f * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS` : 'no fee'}</span></div>
+                  <div className="flex items-center justify-between gap-3 text-[12px] mb-3"><span className="text-gray-400 light:text-slate-500">{feePct > 0 ? `Pool fee (${feePct}%)` : 'Pool fee'}</span><span className={`text-amber-300 light:text-amber-600 shrink-0 ${num}`}>{feePct > 0 ? `${(f * (book.funded_pool_a_kas + book.funded_pool_b_kas)).toFixed(2)} KAS` : 'no fee'}</span></div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     {[[book.outcome_a, book.funded_pool_a_kas, book.funded_pool_b_kas, 0], [book.outcome_b, book.funded_pool_b_kas, book.funded_pool_a_kas, 1]].map(([lbl, mine, opp, oc]) => {
                       const isWinner = resolved && book.revealed_outcome === oc;

@@ -10,7 +10,7 @@ import React, { useMemo, useState, useRef, useCallback } from 'react';
  *   pot         winner-takes-all pots (games, 2-player escrow pots): EV vs win-rate curve,
  *               pot = stake*players, winner = whole pot (0 on-chain rake).
  *   parimutuel  YES/NO prediction markets: winner multiplier = (1-f)+(1-f-r)*(L/P),
- *               break-even L/P = f/(1-f-r); the house fee + loser rebate ARE on-chain.
+ *               break-even L/P = f/(1-f-r); the pool fee + loser rebate ARE on-chain.
  *   release     conditional-release primitives (HTLC, timelock, multisig, channel,
  *               dead-man, relative timelock, oracle escrow, proof-gated): no win-rate, a
  *               branch flow showing who can claim what, under which condition, and when.
@@ -344,13 +344,13 @@ function ParimutuelView({ initFee, loStake, hiStake }) {
           <div className="flex items-center justify-center text-[10px] font-black text-black transition-[width] duration-500" style={{ width: `${m.pctYes}%`, background: 'linear-gradient(90deg,#49EACB,#3bd1b4)' }}>{KAS(poolYes)}</div>
           <div className="flex items-center justify-center text-[10px] font-black text-black transition-[width] duration-500" style={{ width: `${100 - m.pctYes}%`, background: 'linear-gradient(90deg,#F472B6,#db5e9a)' }}>{KAS(poolNo)}</div>
         </div>
-        <div className="text-[9.5px] text-gray-500 light:text-slate-400 mt-1.5">House fee pool (on-chain via the bundle carve): <span className="text-amber-300">{KAS(m.feePool)} KAS</span> to treasury. Losers recover {rebate}% of their stake.</div>
+        <div className="text-[9.5px] text-gray-500 light:text-slate-400 mt-1.5">Pool fee (on-chain via the bundle carve): <span className="text-amber-300">{KAS(m.feePool)} KAS</span> to treasury. Losers recover {rebate}% of their stake.</div>
       </div>
 
       <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3 mb-4">
         <span className="text-amber-400 text-base leading-none mt-0.5">!</span>
         <p className="text-[11px] text-amber-200/90 leading-relaxed">
-          <span className="font-semibold text-amber-300">You can be right and still lose.</span> A side only profits when the opposing pool is more than <strong>{KAS(m.breakevenLP, 2)}×</strong> your side. The house takes {fee}% and losers get {rebate}% back, so settlement is fully on-chain via the conjoined covenants.
+          <span className="font-semibold text-amber-300">You can be right and still lose.</span> A side only profits when the opposing pool is more than <strong>{KAS(m.breakevenLP, 2)}×</strong> your side. The creator fee is {fee}% and losers get {rebate}% back, so settlement is fully on-chain via the conjoined covenants.
         </p>
       </div>
 
@@ -362,7 +362,7 @@ function ParimutuelView({ initFee, loStake, hiStake }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3.5">
         <Slider label="YES pool" value={poolYes} set={setPoolYes} min={0} max={hiStake} step={Math.max(1, hiStake / 200)} fmt={(v) => `${KAS(v)} KAS`} />
         <Slider label="NO pool" value={poolNo} set={setPoolNo} min={0} max={hiStake} step={Math.max(1, hiStake / 200)} fmt={(v) => `${KAS(v)} KAS`} accent="#F472B6" />
-        <Slider label="House fee" value={fee} set={setFee} min={0} max={99} step={1} fmt={(v) => `${v}%`} accent="#E8AF34" />
+        <Slider label="Pool fee" value={fee} set={setFee} min={0} max={99} step={1} fmt={(v) => `${v}%`} accent="#E8AF34" />
         <Slider label="Loser rebate" value={rebate} set={setRebate} min={0} max={Math.max(0, 99 - fee)} step={1} fmt={(v) => `${v}%`} accent="#E8AF34" />
         <div className="sm:col-span-2"><Slider label="Your bet" value={bet} set={setBet} min={1} max={hiStake} step={Math.max(1, hiStake / 200)} fmt={(v) => `${KAS(v)} KAS`} /></div>
       </div>

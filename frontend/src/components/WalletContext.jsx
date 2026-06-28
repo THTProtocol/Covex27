@@ -158,7 +158,7 @@ function looksLikeKaspaProvider(obj) {
 function getProvider(name) {
   if (typeof window === 'undefined') return null;
   const w = window;
-  let p = null;
+  let p;
   switch (name) {
     case 'KasWare':  p = w.kasware || w.kasWare; break;
     case 'Kastle':   p = w.kastle; break;
@@ -210,10 +210,10 @@ function mobileProviderProbe() {
   try {
     for (const key of Object.keys(w)) {
       if (!/kasp|kas|wallet|kspr/i.test(key)) continue;
-      let v; try { v = w[key]; } catch (_) { continue; }
+      let v; try { v = w[key]; } catch { continue; }
       if (looksLikeKaspaProvider(v)) return v;
     }
-  } catch (_) {}
+  } catch { /* best-effort; failure is non-fatal here */ }
   return null;
 }
 
@@ -312,8 +312,8 @@ function walletsForDevice() {
 //       | 'install' (open the store / install page)
 function walletPrimaryAction(wallet) {
   if (!wallet) return { kind: 'install', label: 'Install' };
-  let installed = false;
-  try { installed = wallet.detect ? wallet.detect() : false; } catch (_) { installed = false; }
+  let installed;
+  try { installed = wallet.detect ? wallet.detect() : false; } catch { installed = false; }
   if (installed) return { kind: 'connect', label: 'Connect' };
   if (isMobile() && wallet.deepLink) {
     return { kind: 'open', label: `Open in ${wallet.name.replace(/ Wallet$/, '')}` };
@@ -354,7 +354,7 @@ export async function loadKaspaWasm() {
         return _wasmModuleCtx;
       }
       throw new Error('kaspa-wasm initSync or binary URL unavailable');
-    } catch (e) {
+    } catch {
       // console.error('Failed to load kaspa-wasm:', e); // cleaned for prod
       _wasmInitPromise = null;
       return null;
@@ -607,7 +607,7 @@ function WalletBridge({ children, kf = KF_STUB }) {
           setActiveBalance(null);
           return;
         }
-      } catch (_) {}
+      } catch { /* best-effort; failure is non-fatal here */ }
     } else {
       // No saved dev for this network - clear any previous devMode so we don't show stale dev connection from another network
       if (devMode) {
@@ -678,12 +678,12 @@ function WalletBridge({ children, kf = KF_STUB }) {
       if (typeof provider.getNetwork === 'function') net = await provider.getNetwork();
       else if (typeof provider.request === 'function') net = await provider.request({ method: 'getNetwork' });
       setActiveWalletNetwork(net || null);
-    } catch (_) {}
+    } catch { /* best-effort; failure is non-fatal here */ }
 
     await refreshBalanceForProvider(provider);
 
     if (walletId === 'KasWare') {
-      try { await kf.connect('kasware'); } catch (_) {}
+      try { await kf.connect('kasware'); } catch { /* best-effort; failure is non-fatal here */ }
     }
   }, [kf]);
 
@@ -705,7 +705,7 @@ function WalletBridge({ children, kf = KF_STUB }) {
       window.removeEventListener('blur', onBlur);
     };
     // Use location assignment (not window.open) so a universal/app link can hand off to the OS.
-    try { window.location.href = deepLink; } catch (_) {}
+    try { window.location.href = deepLink; } catch { /* best-effort; failure is non-fatal here */ }
     setTimeout(() => {
       cleanup();
       // If we are still visible after the timeout, the app did not take over -> not installed.
@@ -824,7 +824,7 @@ function WalletBridge({ children, kf = KF_STUB }) {
           : null;
         if (available != null) { setActiveBalance(available); return true; }
       }
-    } catch (_) {}
+    } catch { /* best-effort; failure is non-fatal here */ }
     return false;
   }
 
@@ -842,7 +842,7 @@ function WalletBridge({ children, kf = KF_STUB }) {
       const sompi = (d && typeof d.balance === 'number') ? d.balance
         : (d && typeof d.balance_sompi === 'number') ? d.balance_sompi : null;
       if (sompi != null) setActiveBalance(sompi);
-    } catch (_) { /* node briefly unreachable; keep last known balance */ }
+    } catch { /* node briefly unreachable; keep last known balance */ }
   }
 
   // Unified balance refresh: extension provider first, backend fallback, dev-mode straight to backend.
@@ -876,9 +876,9 @@ function WalletBridge({ children, kf = KF_STUB }) {
       try {
         if (typeof provider.disconnect === 'function') await provider.disconnect();
         else if (typeof provider.close === 'function') await provider.close();
-      } catch (_) {}
+      } catch { /* best-effort; failure is non-fatal here */ }
     }
-    try { kf.disconnect(); } catch (_) {}
+    try { kf.disconnect(); } catch { /* best-effort; failure is non-fatal here */ }
 
     setActiveWalletId(null);
     setActiveAddress(null);
@@ -930,7 +930,7 @@ function WalletBridge({ children, kf = KF_STUB }) {
           localStorage.setItem('covex_connected_wallet', '__dev_mode__');
           return;
         }
-      } catch (_) {}
+      } catch { /* best-effort; failure is non-fatal here */ }
     }
     const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('covex_connected_wallet') : null;
     if (saved && ALL_WALLETS.find(w => w.id === saved && w.detect())) {
@@ -990,14 +990,14 @@ function WalletBridge({ children, kf = KF_STUB }) {
           txid = result.txId || result.txid;
         }
         if (txid) return { success: true, method: 'extension', txid };
-      } catch (_) {}
+      } catch { /* best-effort; failure is non-fatal here */ }
     }
     if (kf.connected && kf.address) {
       try {
         const amountSompi = kasToSompi(amountKas);
         const result = await kf.sendTransaction({ to: recipient, amount: amountSompi });
         return { success: true, method: 'kasflow', txid: result.txId };
-      } catch (_) {}
+      } catch { /* best-effort; failure is non-fatal here */ }
     }
     // No wallet available to sign (no dev mode, no extension, no kasflow connection). Do NOT
     // open a dead protocol tab: a kaspa: URI has no browser handler, so window.open
@@ -1049,7 +1049,7 @@ function WalletBridge({ children, kf = KF_STUB }) {
         const target = COVEX_TO_KASWARE_NETWORK[appNetwork];
         if (target && typeof provider.switchNetwork === 'function') {
           let current = null;
-          try { current = typeof provider.getNetwork === 'function' ? await provider.getNetwork() : null; } catch (_) {}
+          try { current = typeof provider.getNetwork === 'function' ? await provider.getNetwork() : null; } catch { /* best-effort; failure is non-fatal here */ }
           if (current !== target) await provider.switchNetwork(target);
         }
         return target || null;
@@ -1057,11 +1057,11 @@ function WalletBridge({ children, kf = KF_STUB }) {
       if (family === 'kastle') {
         const target = COVEX_TO_KASTLE_NETWORK[appNetwork];
         if (target && typeof provider.switchNetwork === 'function') {
-          try { await provider.switchNetwork(target); } catch (_) {}
+          try { await provider.switchNetwork(target); } catch { /* best-effort; failure is non-fatal here */ }
         }
         return target || null;
       }
-    } catch (_) { /* switch is best-effort; the sign step re-validates */ }
+    } catch { /* switch is best-effort; the sign step re-validates */ }
     return null;
   }, [appNetwork]);
 
@@ -1137,7 +1137,7 @@ function WalletBridge({ children, kf = KF_STUB }) {
           mux.setMaxListeners(0);
         }
       });
-    } catch (_) {}
+    } catch { /* best-effort; failure is non-fatal here */ }
   };
 
   // A safe disconnect the rest of the app should prefer: tears down the active wallet,

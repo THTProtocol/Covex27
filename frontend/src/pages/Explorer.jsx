@@ -466,7 +466,7 @@ export default function Explorer() {
         } catch { /* ignore non-JSON frames */ }
       };
     } catch { /* ws unavailable; the page-load fetch still shows recent covenants */ }
-    return () => { mounted = false; try { ws && ws.close(); } catch {} };
+    return () => { mounted = false; try { ws && ws.close(); } catch { /* best-effort; failure is non-fatal here */ } };
   }, [kaspaNetwork, activeCategory]);
 
   // Live matchmaking: waiting matches from the persistent games API.
@@ -1330,7 +1330,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
     const meta = c.custom_ui_config;
     if (meta && typeof meta === 'object' && meta.paid_token_hash) paidMetadata = meta;
     else if (meta && typeof meta === 'string') { const p = JSON.parse(meta); if (p.paid_token_hash) paidMetadata = p; }
-  } catch (_) {}
+  } catch { /* best-effort; failure is non-fatal here */ }
 
   const covenantName = paidMetadata?.name || c.name || c.covenant_type || 'Unnamed Covenant';
   const covenantDesc = paidMetadata?.description || c.description || c.full_logic_summary || 'On-chain Kaspa covenant. Transparent, verifiable, non-custodial.';

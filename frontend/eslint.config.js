@@ -18,4 +18,18 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  // Build/tooling configs run under Node (they legitimately use __dirname, process, etc.).
+  {
+    files: ['vite.config.js', 'vitest.config.{js,ts}', 'eslint.config.js', 'scripts/**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
+  // Test files run under Node + the Vitest test harness (they legitimately use `global`).
+  {
+    files: ['**/__tests__/**/*.{js,jsx}', '**/*.{test,spec}.{js,jsx}'],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
 ])

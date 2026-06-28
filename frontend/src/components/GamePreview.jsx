@@ -40,7 +40,7 @@ const detectGameType = (covenant) => {
       : covenant.custom_ui_config;
     const fromCfg = normalizeGameKey(cfg?.game_type);
     if (fromCfg) return fromCfg;
-  } catch (_) {}
+  } catch { /* best-effort; failure is non-fatal here */ }
 
   // Fallback: name / description / category sniffing.
   const name = (covenant.name || covenant.covenant_type || '').toLowerCase();
@@ -63,7 +63,7 @@ const isZkCircuitCovenant = (covenant) => {
       : covenant.custom_ui_config;
     const id = String(cfg?.zk_circuit || cfg?.circuit_type || '').toLowerCase();
     if (id && VERIFIED_FULL_ZK.has(id)) return true;
-  } catch (_) {}
+  } catch { /* best-effort; failure is non-fatal here */ }
   return false;
 };
 
@@ -189,7 +189,7 @@ const IframePreview = ({ covenant, visible, large = false }) => {
           );
           iframeRef.current.src = URL.createObjectURL(blob);
           setLoaded(true);
-        } catch (_) {}
+        } catch { /* best-effort; failure is non-fatal here */ }
       }
     }, 100);
     return () => clearTimeout(tm);

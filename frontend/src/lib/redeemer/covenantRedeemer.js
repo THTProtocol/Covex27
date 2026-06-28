@@ -617,7 +617,7 @@ export function assertSignerForBranch(redeemHex, kind, branch, signerXonlyHex) {
   try {
     signer = hexToBytes(signerXonlyHex);
   } catch (e) {
-    throw new Error(`assertSignerForBranch: signer pubkey is not valid hex (${e.message})`);
+    throw new Error(`assertSignerForBranch: signer pubkey is not valid hex (${e.message})`, { cause: e });
   }
   if (signer.length !== 32) {
     throw new Error(`assertSignerForBranch: signer x-only pubkey must be 32 bytes, got ${signer.length}`);
@@ -1095,7 +1095,7 @@ export async function broadcast(signedTx, networkId, opts = {}) {
       if (rpc) {
         try {
           await rpc.disconnect();
-        } catch (_) {
+        } catch {
           /* best effort */
         }
       }

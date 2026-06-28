@@ -102,7 +102,7 @@ function useFocusTrap(ref, active) {
     return () => {
       root.removeEventListener('keydown', onKey);
       if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
-        try { previouslyFocused.focus(); } catch (_) { /* no-op */ }
+        try { previouslyFocused.focus(); } catch { /* no-op */ }
       }
     };
   }, [ref, active]);
@@ -1167,7 +1167,7 @@ function TokenCheatSheet() {
     const text = `{{${tok}}}`;
     try {
       if (navigator.clipboard) navigator.clipboard.writeText(text);
-    } catch (_) { /* no-op */ }
+    } catch { /* no-op */ }
     setCopied(tok);
     setTimeout(() => setCopied((c) => (c === tok ? '' : c)), 1200);
   };
@@ -1208,7 +1208,7 @@ function TokenCheatSheetModal({ onClose }) {
     const text = `{{${tok}}}`;
     try {
       if (navigator.clipboard) navigator.clipboard.writeText(text);
-    } catch (_) { /* no-op */ }
+    } catch { /* no-op */ }
     setCopied(tok);
     setTimeout(() => setCopied((c) => (c === tok ? '' : c)), 1200);
   };
@@ -1258,7 +1258,7 @@ function MobileStudioInterstitial({ covenantId, data, liveData }) {
   }, [covenantId]);
   const [copied, setCopied] = useState(false);
   const copyLink = useCallback(() => {
-    try { if (navigator.clipboard) navigator.clipboard.writeText(studioUrl); } catch (_) { /* no-op */ }
+    try { if (navigator.clipboard) navigator.clipboard.writeText(studioUrl); } catch { /* no-op */ }
     setCopied(true);
     setTimeout(() => setCopied(false), 1400);
   }, [studioUrl]);

@@ -17,7 +17,7 @@ export function useCovenantConfig(initialCreatorAddress = '') {
         const validated = validateCovenantConfig(parsed);
         setConfig(validated);
         return validated;
-      } catch (e) {
+      } catch {
         // console.warn('Failed to load saved config'); // cleaned for prod
       }
     }

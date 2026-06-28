@@ -134,7 +134,7 @@ export default function MultiOracleConfigurator({ value, onChange }) {
             try {
               const parsed = JSON.parse(e.target.value);
               setCollectedSignatures(Array.isArray(parsed) ? parsed : []);
-            } catch (_) {}
+            } catch { /* best-effort; failure is non-fatal here */ }
           }}
         />
         <div className="text-[10px] text-gray-500 light:text-slate-500 mt-1">

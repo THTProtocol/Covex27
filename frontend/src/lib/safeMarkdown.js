@@ -69,8 +69,8 @@ export function sanitizeMarkdownHtml(html) {
 /** Markdown string -> sanitized, allowlisted HTML string. */
 export function renderSafeMarkdown(md) {
   if (typeof md !== 'string' || !md.trim()) return '';
-  let raw = '';
-  try { raw = snarkdown(md); } catch (_) { return ''; }
+  let raw;
+  try { raw = snarkdown(md); } catch { return ''; }
   return sanitizeMarkdownHtml(raw);
 }
 

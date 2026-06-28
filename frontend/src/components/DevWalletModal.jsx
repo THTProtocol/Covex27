@@ -413,7 +413,7 @@ function GenerateWalletSection({ connectDevMode, onConnected }) {
   }, []);
 
   const copy = async (text, which) => {
-    try { await navigator.clipboard.writeText(text); setCopied(which); setTimeout(() => setCopied(null), 1400); } catch (_) {}
+    try { await navigator.clipboard.writeText(text); setCopied(which); setTimeout(() => setCopied(null), 1400); } catch { /* best-effort; failure is non-fatal here */ }
   };
 
   const useThis = () => {
@@ -505,7 +505,7 @@ function MainnetWalletModal({ walletContext, onClose }) {
     try {
       await connect(wallet.id);
       if (action.kind === 'connect') onClose();
-    } catch (_) { /* error surfaces in the modal's error state; keep it open */ }
+    } catch { /* error surfaces in the modal's error state; keep it open */ }
   };
 
   const WalletRow = ({ wallet, primary }) => {

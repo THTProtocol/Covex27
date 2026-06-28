@@ -720,7 +720,7 @@ export function generateSilverScriptForConfig(cfg) {
     }
   })();
 
-  let resolveBlock = '';
+  let resolveBlock;
   // ZK resolution is FREE for everyone. Paid tiers buy only priority placement /
   // featured listing on Covex, never build capability, so resolution is never downgraded.
   let effectiveResolution = resolutionMode;
@@ -914,7 +914,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
         const jsonStr = atob(encodedConfig);
         loadFromJson(jsonStr);
         window.history.replaceState({}, '', window.location.pathname);
-      } catch (e) {
+      } catch {
         // console.warn('Failed to load config from URL'); // cleaned for prod
       }
     } else if (templateId) {
@@ -923,7 +923,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
       if (saved) {
         try {
           loadFromJson(saved);
-        } catch (e) {}
+        } catch { /* best-effort; failure is non-fatal here */ }
       }
       window.history.replaceState({}, '', window.location.pathname);
     }
@@ -1044,7 +1044,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     try {
       const raw = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('payment_broadcast_tx') : null;
       return raw ? JSON.parse(raw) : null;
-    } catch (_) { return null; }
+    } catch { return null; }
   });
   const [pendingTimedOut, setPendingTimedOut] = useState(false);
 
@@ -1052,7 +1052,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     if (!pendingBroadcast?.address || !pendingBroadcast?.txid) return;
     // Drop the banner the moment the existing paidStatus shows a real tier upgrade.
     if (paidStatus && paidStatus.highest_tier && paidStatus.highest_tier !== 'FREE') {
-      try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
+      try { sessionStorage.removeItem('payment_broadcast_tx'); } catch { /* best-effort; failure is non-fatal here */ }
       setPendingBroadcast(null);
       setPendingTimedOut(false);
       return;
@@ -1072,7 +1072,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
             if (connectedAddress && connectedAddress === storedAddress) {
               setPaidStatus(data);
             }
-            try { sessionStorage.removeItem('payment_broadcast_tx'); } catch (_) {}
+            try { sessionStorage.removeItem('payment_broadcast_tx'); } catch { /* best-effort; failure is non-fatal here */ }
             setPendingBroadcast(null);
             setPendingTimedOut(false);
           }
@@ -1120,7 +1120,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
           }, 400);
         }
       }
-    } catch (_) { /* ignore malformed params */ }
+    } catch { /* ignore malformed params */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1184,7 +1184,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
         // auto clear pay UI
         setPayingTier(null);
       }
-    } catch (e) {
+    } catch {
       // ignore
     } finally {
       setCheckingPaid(false);
@@ -1808,7 +1808,7 @@ ${gameMeta.outcomeBranches}
         chessIncrementSeconds,
         hasPaidAccess: true,
       });
-    } catch (_) {
+    } catch {
       return '';
     }
   }, [gameType, feePercent, potReturnPercent, reusable, allowTopups, chessBaseMinutes, chessIncrementSeconds]);
@@ -1819,7 +1819,7 @@ ${gameMeta.outcomeBranches}
       await navigator.clipboard.writeText(chessScriptLive);
       setChessScriptCopied(true);
       setTimeout(() => setChessScriptCopied(false), 1500);
-    } catch (_) { /* clipboard unavailable */ }
+    } catch { /* clipboard unavailable */ }
   }, [chessScriptLive]);
 
   // custom_ui_config persisted for chess covenants: carries game_type 'chess', the time
@@ -1947,7 +1947,7 @@ ${gameMeta.outcomeBranches}
         to: targetSquare,
         promotion: piece && piece[1] === 'P' ? 'q' : undefined,
       });
-    } catch (e) {
+    } catch {
       return false; // illegal
     }
 
@@ -2037,7 +2037,7 @@ ${gameMeta.outcomeBranches}
         setChessZkVerified(false);
         toast.error('Resolver verification failed' + (data && data.error ? ': ' + data.error : '') + '. Please try again.');
       }
-    } catch (e) {
+    } catch {
       // Network/parse error: never fabricate a signature. Keep verified=false.
       setChessZkVerified(false);
       toast.error('Network error submitting result to the resolver. Check your connection and try again.');
@@ -2402,7 +2402,7 @@ ${gameMeta.outcomeBranches}
             sig = await signMessage(messageToSign);
           }
         }
-      } catch (_) {
+      } catch {
         sig = '';
         nonce = '';
       }
@@ -4796,7 +4796,7 @@ ${gameMeta.outcomeBranches}
                 placeholder="1,20473339414381364284988912838485478706292217748325897174032535818078518775705"
                 className={`${INPUT} font-mono text-xs`}
               />
-              <p className="text-[10px] text-gray-200 light:text-slate-700">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : gameType === 'escrow_2party' ? 'Format: valid,deposit_daa,timeout_daa,current_daa,outcome. valid=1 means the outcome is consistent with the timeout (outcome 0 = refund authorized once current_daa >= deposit+timeout).' : gameType === 'age_verification' ? 'Format: valid,commitment,current_year,min_age. valid=1 proves the (hidden) birth year is at least min_age before current_year; commitment = MiMC7(birth_year) and the birth year never leaves your browser.' : gameType === 'vrf_dice_roll' ? 'Format: seed,roll. The roll is forced by Poseidon(secret, seed) - the secret stays in your browser, so the roll cannot be cherry-picked.' : gameType === 'nullifier_set' ? 'Format: spent,nullifier,merkle_root. The nullifier and set anchor both derive from one hidden secret; spent=0 is the circuit output.' : gameType === 'utxo_ownership' ? 'Format: valid,utxo_hash. valid=1 proves you know the Poseidon pre-image (pubkey+amount+sig parts) of the public utxo_hash; the note never leaves your browser.' : gameType === 'hash_preimage' ? 'Format: valid,commitment_hash. valid=1 proves you know the (hidden) MiMC7 pre-image of the public commitment_hash; the pre-image never leaves your browser.' : gameType === 'timelock_absolute' ? 'Format: valid,current_daa,lock_threshold. valid=1 (a public output) means current_daa >= lock_threshold.' : gameType === 'relative_timelock' ? 'Format: valid,current_daa,reference_daa,lock_duration. valid=1 (a public output) means current_daa >= reference_daa + lock_duration.' : gameType === 'vrf_random' ? 'Format: valid,seed,output_val,pub_vrf_key. output_val = Poseidon(hidden secret, seed, vrf_key) - the secret never leaves your browser, so the output cannot be cherry-picked.' : gameType === 'turn_timer' ? 'Format: on_time,current_daa,max_delta. on_time=1 proves the (hidden) last move was within max_delta DAA of current_daa.' : gameType === 'script_constraint' ? 'Format: ok,constraint_id,value,public_root. ok=1 proves you know the (hidden) script_hash whose Poseidon bundle equals public_root.' : gameType === 'pot_split_math' ? 'Format: valid,total_pot,fee_bps,pot_return_bps,winner_share. valid=1 proves winner_share + fee + return == total_pot at the given bps (a verifiable fair split).' : 'Public inputs for your circuit. For resolver attestation, use \"1\" to indicate valid/proven.'}</p>
+              <p className="text-[10px] text-gray-200 light:text-slate-700">{gameType === 'range_proof' ? 'Format: commitment,min,max,valid (valid=1 means value is in range and commitment matches).' : gameType === 'merkle_membership' ? 'Format: valid_flag,root_hash. valid_flag=1 means claimed membership is valid.' : gameType === 'escrow_2party' ? 'Format: valid,deposit_daa,timeout_daa,current_daa,outcome. valid=1 means the outcome is consistent with the timeout (outcome 0 = refund authorized once current_daa >= deposit+timeout).' : gameType === 'age_verification' ? 'Format: valid,commitment,current_year,min_age. valid=1 proves the (hidden) birth year is at least min_age before current_year; commitment = MiMC7(birth_year) and the birth year never leaves your browser.' : gameType === 'vrf_dice_roll' ? 'Format: seed,roll. The roll is forced by Poseidon(secret, seed) - the secret stays in your browser, so the roll cannot be cherry-picked.' : gameType === 'nullifier_set' ? 'Format: spent,nullifier,merkle_root. The nullifier and set anchor both derive from one hidden secret; spent=0 is the circuit output.' : gameType === 'utxo_ownership' ? 'Format: valid,utxo_hash. valid=1 proves you know the Poseidon pre-image (pubkey+amount+sig parts) of the public utxo_hash; the note never leaves your browser.' : gameType === 'hash_preimage' ? 'Format: valid,commitment_hash. valid=1 proves you know the (hidden) MiMC7 pre-image of the public commitment_hash; the pre-image never leaves your browser.' : gameType === 'timelock_absolute' ? 'Format: valid,current_daa,lock_threshold. valid=1 (a public output) means current_daa >= lock_threshold.' : gameType === 'relative_timelock' ? 'Format: valid,current_daa,reference_daa,lock_duration. valid=1 (a public output) means current_daa >= reference_daa + lock_duration.' : gameType === 'vrf_random' ? 'Format: valid,seed,output_val,pub_vrf_key. output_val = Poseidon(hidden secret, seed, vrf_key) - the secret never leaves your browser, so the output cannot be cherry-picked.' : gameType === 'turn_timer' ? 'Format: on_time,current_daa,max_delta. on_time=1 proves the (hidden) last move was within max_delta DAA of current_daa.' : gameType === 'script_constraint' ? 'Format: ok,constraint_id,value,public_root. ok=1 proves you know the (hidden) script_hash whose Poseidon bundle equals public_root.' : gameType === 'pot_split_math' ? 'Format: valid,total_pot,fee_bps,pot_return_bps,winner_share. valid=1 proves winner_share + fee + return == total_pot at the given bps (a verifiable fair split).' : 'Public inputs for your circuit. For resolver attestation, use "1" to indicate valid/proven.'}</p>
             </div>
 
             <button

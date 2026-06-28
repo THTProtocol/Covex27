@@ -40,7 +40,7 @@ export async function copyToClipboard(text) {
       await navigator.clipboard.writeText(value);
       return true;
     }
-  } catch (_) {
+  } catch {
     // fall through to legacy path
   }
   // Legacy fallback: hidden textarea + execCommand. Still required for
@@ -60,7 +60,7 @@ export async function copyToClipboard(text) {
     const ok = document.execCommand('copy');
     document.body.removeChild(ta);
     return !!ok;
-  } catch (_) {
+  } catch {
     return false;
   }
 }

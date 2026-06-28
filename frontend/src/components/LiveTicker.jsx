@@ -54,7 +54,7 @@ export default function LiveTicker({ network }) {
       };
     } catch { /* ws unavailable, polling covers it */ }
 
-    return () => { mounted = false; clearInterval(id); try { ws && ws.close(); } catch {} };
+    return () => { mounted = false; clearInterval(id); try { ws && ws.close(); } catch { /* best-effort; failure is non-fatal here */ } };
   }, [network]);
 
   if (events.length === 0) return null;

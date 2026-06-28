@@ -78,7 +78,7 @@ const resolveTokens = (str, live) => {
 // Parse a token-or-literal into a number (strips KAS, %, commas, etc.).
 const toNum = (v, live) => {
   const resolved = resolveTokens(String(v == null ? '' : v), live);
-  const n = parseFloat(resolved.replace(/[^0-9.\-]/g, ''));
+  const n = parseFloat(resolved.replace(/[^0-9.-]/g, ''));
   return Number.isFinite(n) ? n : 0;
 };
 
@@ -123,7 +123,7 @@ const ctaClick = (action, outcome, amount, live) => (e) => {
       outcome: outcome || 'yes',
       amountKas: amount != null ? (toNum(amount, live) || null) : null,
     }, '*');
-  } catch (_) { /* no-op */ }
+  } catch { /* no-op */ }
 };
 
 // Curated full-page background presets: pure CSS gradients (no external images,

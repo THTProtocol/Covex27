@@ -242,7 +242,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
       // Close only if we actually connected (provider path). Deep-link / install paths keep the
       // drawer open so the surfaced message is visible and the user can retry after returning.
       if (action.kind === 'connect') closeDrawer();
-    } catch (_) {
+    } catch {
       // connect surfaces the reason via the context `error` state shown in the drawer; keep the
       // drawer open on failure so the user sees what went wrong instead of a silent dead-end.
     } finally {

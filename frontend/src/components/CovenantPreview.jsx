@@ -217,16 +217,7 @@ export default function CovenantPreview({ config, covenant, children, className 
         </div>
       )}
 
-      {/* Widgets section, disabled (VisualDesigner removed) */}
-      {false && (config.widgets && config.widgets.length > 0) && (
-        <div className="space-y-2 mb-3">
-          {config.widgets.map((wid) => (
-            <div key={wid}>
-              {renderWidgetPreview(wid, null, pc, covenant)}
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Widgets section removed with VisualDesigner; no widget preview is rendered. */}
 
       {/* QR Code */}
       {config.showQR && (

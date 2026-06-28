@@ -63,7 +63,7 @@ function CopyBtn({ text }) {
       await navigator.clipboard.writeText(text);
       setDone(true);
       setTimeout(() => setDone(false), 1200);
-    } catch (e) {
+    } catch {
       toast.error('Could not copy to clipboard. Select the text and copy it manually.', { title: 'Copy failed' });
     }
   }

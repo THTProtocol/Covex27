@@ -176,7 +176,7 @@ function ItemRow({ kind, entry, onSeeExample, onAdd }) {
     try {
       e.dataTransfer.setData('text/plain', entry.name || entry.id || '');
       e.dataTransfer.effectAllowed = 'copy';
-    } catch (_) { /* no-op */ }
+    } catch { /* no-op */ }
   };
   return (
     <div

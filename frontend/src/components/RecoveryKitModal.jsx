@@ -53,7 +53,7 @@ export default function RecoveryKitModal({ open, onClose, covenant }) {
       window.removeEventListener('keydown', onKey);
       const prev = previouslyFocusedRef.current;
       if (prev && typeof prev.focus === 'function') {
-        try { prev.focus(); } catch (_) { /* no-op */ }
+        try { prev.focus(); } catch { /* no-op */ }
       }
     };
   }, [open, onClose]);

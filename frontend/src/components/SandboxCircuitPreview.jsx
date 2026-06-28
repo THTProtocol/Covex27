@@ -108,7 +108,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
           hasPaidAccess: true,
         });
         if (!cancelled) setExampleScript(text);
-      } catch (_) {
+      } catch {
         if (!cancelled) setExampleScript(null);
       }
     })();
@@ -131,7 +131,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
       await navigator.clipboard.writeText(exampleScript);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch (_) { /* clipboard unavailable */ }
+    } catch { /* clipboard unavailable */ }
   };
 
   if (!circuit) return null;

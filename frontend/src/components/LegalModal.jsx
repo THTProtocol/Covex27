@@ -5,6 +5,11 @@ export default function LegalModal({ onAccept }) {
   const [visible, setVisible] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
   const [checked, setChecked] = useState(false);
+  // Separate age / eligibility affirmation. Both must be checked before acceptance,
+  // so the user explicitly attests they are of legal age and responsible for their
+  // own jurisdictional eligibility (some covenants involve staking value).
+  const [ageOk, setAgeOk] = useState(false);
+  const canAccept = checked && ageOk;
 
   useEffect(() => {
     if (visible) {
@@ -71,17 +76,29 @@ export default function LegalModal({ onAccept }) {
               type="checkbox"
               checked={checked}
               onChange={(e) => setChecked(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-white/20 light:border-slate-300 bg-white/5 light:bg-white text-kaspa-green focus:ring-kaspa-green/30"
+              className="mt-1 h-4 w-4 rounded border-white/20 light:border-slate-300 bg-white/5 light:bg-white text-kaspa-green focus:ring-2 focus:ring-kaspa-green/40 focus:ring-offset-0"
             />
             <span className="text-xs text-gray-200 light:text-slate-700 leading-relaxed">
               I have read and agree to the Covex Terms and Conditions, including the non-custodial nature of the platform, immutable covenant deployments, on-chain payment terms, SaaS subscription terms, SilverScript compiler disclaimer, no liability for locked funds, and acceptable use policy.
             </span>
           </label>
 
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={ageOk}
+              onChange={(e) => setAgeOk(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-white/20 light:border-slate-300 bg-white/5 light:bg-white text-kaspa-green focus:ring-2 focus:ring-kaspa-green/40 focus:ring-offset-0"
+            />
+            <span className="text-xs text-gray-200 light:text-slate-700 leading-relaxed">
+              I am of legal age in my jurisdiction and am solely responsible for ensuring my own eligibility to use this platform, including any covenant, market, or game that involves staking value.
+            </span>
+          </label>
+
           <button
             onClick={handleAccept}
-            disabled={!checked}
-            className={`w-full px-6 py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 light:focus:ring-slate-400/40 ${checked ? 'bg-white light:bg-slate-900 text-black light:text-white hover:bg-gray-200 light:hover:bg-slate-800 active:scale-[0.97]' : 'bg-white/[0.05] light:bg-slate-100 text-gray-200 light:text-slate-400 cursor-not-allowed border border-white/5 light:border-slate-200'}`}
+            disabled={!canAccept}
+            className={`w-full px-6 py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 light:focus:ring-slate-400/40 ${canAccept ? 'bg-white light:bg-slate-900 text-black light:text-white hover:bg-gray-200 light:hover:bg-slate-800 active:scale-[0.97]' : 'bg-white/[0.05] light:bg-slate-100 text-gray-200 light:text-slate-400 cursor-not-allowed border border-white/5 light:border-slate-200'}`}
           >
             I Accept and Understand the Risks
           </button>

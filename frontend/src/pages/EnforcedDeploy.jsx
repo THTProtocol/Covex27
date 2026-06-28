@@ -24,7 +24,7 @@ const KINDS = [
   { id: 'timedecay', label: 'Time-decaying multisig', icon: Hourglass, blurb: 'A high quorum spends now, relaxing to a lower quorum after a deadline. Treasury recovery / inheritance. Demo uses the dev wallets.' },
   { id: 'oracle_enforced', label: 'Resolver-enforced', icon: Scale, blurb: 'A 2-of-2 of a deployer-bound resolver + winner: the chain requires the resolver co-signature, and the resolver co-signs only a verified outcome. On-chain-enforced resolver resolution; the deployer binds the resolver by pubkey at deploy.' },
   { id: 'oracle_escrow', label: 'Resolver escrow (2-player)', icon: Gavel, blurb: 'A 2-player pot the chain releases only to the resolver-declared winner: needs the deployer-bound resolver co-signature plus the winning player on their branch. Demo uses the dev wallets.' },
-  { id: 'market', label: 'Prediction Market', icon: TrendingUp, blurb: 'A parimutuel YES/NO market. Bettors stake on outcomes; the winning side is paid on-chain via conjoined oracle covenants and losers get a rebate. You set the house fee and rebate.' },
+  { id: 'market', label: 'Prediction Market', icon: TrendingUp, blurb: 'A parimutuel YES/NO market. Bettors stake on outcomes; the winning side is paid on-chain via conjoined oracle covenants and losers get a rebate. You set the creator fee and rebate.' },
   { id: 'binary_oracle_select', label: 'External-oracle market', icon: Scale, blurb: 'A 2-outcome covenant bound to an EXTERNAL resolver you choose: commit the two published hashlocks and the two winner keys. The chain pays whichever side whose secret the resolver reveals; if neither is revealed, the refund key reclaims after a relative timelock. Covex is not in the payout path and attests nothing.' },
 ];
 
@@ -295,7 +295,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
     const feePct = parseFloat(mfee);
     const rebatePct = parseFloat(mrebate);
     if (!(feePct >= 0) || !(rebatePct >= 0)) { setError('Fee and rebate must be zero or positive percentages.'); return; }
-    if (feePct + rebatePct >= 100) { setError('House fee + loser rebate must be under 100% (winners would be unfunded).'); return; }
+    if (feePct + rebatePct >= 100) { setError('Creator fee + loser rebate must be under 100% (winners would be unfunded).'); return; }
     setBusy(true);
     try {
       const res = await fetch('/api/covenant/market/create', {
@@ -849,6 +849,14 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
         )}
         {kind === 'market' && (
           <div className="space-y-3">
+            {/* Non-operator note at the point of building a market (condensed from the Terms
+                framing). Visually quiet: a small muted line, light/dark/mobile correct. */}
+            <p className="flex items-start gap-2 text-[11px] leading-snug text-gray-400 light:text-slate-500">
+              <ShieldCheck size={13} className="mt-0.5 shrink-0 text-gray-500 light:text-slate-400" aria-hidden="true" />
+              <span>
+                You deploy your own covenant. Covex is not a counterparty, bookmaker, or custodian, sets no odds, and runs no house. Resolution depends on an external resolver you choose.
+              </span>
+            </p>
             <label className="block">
               <span className="text-xs text-gray-300 light:text-slate-700">Question</span>
               <input value={mq} onChange={(e) => setMq(e.target.value)} placeholder='e.g. "Will Brazil beat Haiti?"'
@@ -868,7 +876,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
             </div>
             <div className="grid grid-cols-2 gap-3">
               <label className="block">
-                <span className="text-xs text-gray-300 light:text-slate-700">House fee %</span>
+                <span className="text-xs text-gray-300 light:text-slate-700">Creator fee %</span>
                 <input value={mfee} onChange={(e) => setMfee(e.target.value)} inputMode="numeric"
                   className="mt-1 w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm text-white font-mono light:bg-white light:border-slate-200 light:text-slate-900" />
               </label>

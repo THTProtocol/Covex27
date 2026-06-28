@@ -13,6 +13,7 @@
 // TrustBadge.jsx). Honesty palette is load-bearing brand: the same honesty word
 // must render the same color everywhere or readers stop trusting any of them.
 //   on-chain      = emerald  (consensus-enforced, the strongest signal)
+//   on-chain-zk   = teal     (KIP-16 zk_game_settle: Groth16 verified ON-CHAIN by consensus; testnet)
 //   hybrid        = sky      (script + external resolver input)
 //   oracle        = amber    (signed attestation only)
 //   full-zk       = violet   (real proof verified off-chain, not on-chain)
@@ -21,10 +22,13 @@
 // off-chain-verified proof read as MORE prominent than on-chain consensus. The
 // brand teal stays reserved for primary CTAs / consensus signals; violet keeps
 // full-zk honest as "verified off-chain by any external verifier, not by the chain".
-// All 19 verified ZK circuits are full-zk: a real Groth16 proof verified
-// OFF-CHAIN (by you, the counterparty, or any external verifier) gating a
-// 2-of-2 cosign + CSV timeout. Kaspa has no on-chain pairing verifier, so no
-// circuit's proof is checked on-chain and there is no chain-enforced ZK variant.
+// SCOPED to the OFF-CHAIN circom circuits: all 19 of those verified ZK circuits
+// are full-zk, a real Groth16 proof verified OFF-CHAIN (by you, the counterparty,
+// or any external verifier) gating a 2-of-2 cosign + CSV timeout. Kaspa has no
+// on-chain pairing verifier on that path, so no circom circuit's proof is checked
+// on-chain. The SEPARATE on-chain-zk variant is the KIP-16 zk_game_settle kind,
+// whose Groth16 proof IS verified on-chain by consensus (OpZkPrecompile); it is
+// testnet / Toccata gated, never a mainnet-live claim.
 
 import * as React from 'react';
 import { cva } from 'class-variance-authority';
@@ -52,6 +56,9 @@ export const badgeVariants = cva(
         // palette stays >= 4.5:1 against #ffffff. Without these, the full-zk
         // and metadata chips render at ~1.5:1 on the light glass surfaces.
         'on-chain': 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300 light:border-emerald-600/60 light:bg-emerald-50 light:text-emerald-700',
+        // on-chain-zk: teal, the KIP-16 consensus-verified ZK tier (testnet-gated). Distinct from
+        // emerald on-chain and from violet off-chain full-zk.
+        'on-chain-zk': 'border-teal-500/40 bg-teal-500/15 text-teal-300 light:border-teal-600/60 light:bg-teal-50 light:text-teal-700',
         hybrid:    'border-sky-500/40 bg-sky-500/15 text-sky-300 light:border-sky-600/60 light:bg-sky-50 light:text-sky-700',
         oracle:    'border-amber-500/40 bg-amber-500/15 text-amber-300 light:border-amber-600/60 light:bg-amber-50 light:text-amber-700',
         'full-zk': 'border-violet-500/40 bg-violet-500/15 text-violet-300 light:border-violet-600/60 light:bg-violet-50 light:text-violet-700',
@@ -73,6 +80,7 @@ export const badgeVariants = cva(
 // span) so light-mode weight matches dark.
 const DOT = {
   'on-chain': 'bg-emerald-400 light:bg-emerald-600',
+  'on-chain-zk': 'bg-teal-400 light:bg-teal-600',
   hybrid:     'bg-sky-400 light:bg-sky-600',
   oracle:     'bg-amber-400 light:bg-amber-600',
   'full-zk':  'bg-violet-400 light:bg-violet-600',

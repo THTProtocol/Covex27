@@ -98,11 +98,13 @@ describe('full-zk-chain removal honesty', () => {
     expect(KNOWN_REALITIES.has('full-zk-chain')).toBe(false);
   });
 
-  it('the canonical reality set is exactly on-chain / hybrid / oracle-attested / full-zk', () => {
-    // The four (and only four) honest tiers after the downgrade. full-zk is the strongest ZK
-    // label and it is oracle-verified OFF-CHAIN, never chain-enforced.
+  it('the canonical reality set is on-chain / hybrid / oracle-attested / full-zk / on-chain-zk', () => {
+    // The honest tiers: the four off-chain/oracle realities plus the distinct on-chain-zk tier
+    // (KIP-16 zk_game_settle, verified by Kaspa consensus). full-zk stays the strongest OFF-CHAIN
+    // ZK label (oracle-verified off-chain); on-chain-zk is a SEPARATE on-chain-verified tier and
+    // does NOT resurrect the retired full-zk-chain overclaim.
     expect(REALITY_KEYS.slice().sort()).toEqual(
-      ['full-zk', 'hybrid', 'on-chain', 'oracle-attested'],
+      ['full-zk', 'hybrid', 'on-chain', 'on-chain-zk', 'oracle-attested'],
     );
     for (const key of REALITY_KEYS) {
       expect(typeof REALITY_HEADLINE[key], `REALITY_HEADLINE missing ${key}`).toBe('string');
@@ -153,5 +155,46 @@ describe('full-zk-chain removal honesty', () => {
       /chain-enforced end-to-end/i.test(residue),
       'REALITY_BODY["full-zk"] claims "chain-enforced end-to-end" outside the "Not" carve-out',
     ).toBe(false);
+  });
+});
+
+describe('on-chain-zk tier honesty (KIP-16 zk_game_settle)', () => {
+  it('is a known reality with a full set of dictionary entries', () => {
+    expect(KNOWN_REALITIES.has('on-chain-zk')).toBe(true);
+    expect(typeof REALITY_HEADLINE['on-chain-zk']).toBe('string');
+    expect(typeof REALITY_BODY['on-chain-zk']).toBe('string');
+    expect(typeof REALITY_BADGE_LABEL['on-chain-zk']).toBe('string');
+    expect(typeof REALITY_VERB['on-chain-zk']).toBe('string');
+  });
+
+  it('body cites on-chain consensus verification and KIP-16, with no oracle/co-sign in payout', () => {
+    const body = REALITY_BODY['on-chain-zk'];
+    expect(/on-chain/i.test(body)).toBe(true);
+    expect(/consensus/i.test(body)).toBe(true);
+    expect(/KIP-16/.test(body)).toBe(true);
+    // The whole point of this tier: no oracle and no co-signature in the payout path.
+    expect(/no oracle/i.test(body)).toBe(true);
+  });
+
+  it('stays explicitly testnet / Toccata gated and never reads as mainnet-live', () => {
+    // The headline, badge, verb, and body must all keep the testnet gate so the tier can never
+    // be mistaken for a shipped mainnet capability (OpZkPrecompile is not live on Kaspa mainnet).
+    for (const dict of [REALITY_HEADLINE, REALITY_BADGE_LABEL, REALITY_VERB]) {
+      expect(/testnet/i.test(dict['on-chain-zk'])).toBe(true);
+    }
+    const body = REALITY_BODY['on-chain-zk'];
+    expect(/testnet|toccata/i.test(body)).toBe(true);
+    // Must NOT assert a POSITIVE mainnet-live guarantee. The honest NEGATION
+    // ("not live on Kaspa mainnet yet") is fine and is preserved, so strip any
+    // "not ... live on mainnet" carve-out before scanning for a bare claim.
+    const residue = body.replace(/not live on (kaspa )?mainnet[^.]*/gi, '');
+    expect(/live on (kaspa )?mainnet|mainnet-?live|on mainnet today/i.test(residue)).toBe(false);
+  });
+
+  it('enforcementSummary("on-chain-zk") has no oracle note (no oracle in the loop)', () => {
+    const s = enforcementSummary('on-chain-zk');
+    expect(s).toBeTruthy();
+    expect(s.oracleNote).toBe('');
+    expect(s.headline).toBe(REALITY_HEADLINE['on-chain-zk']);
   });
 });

@@ -15,6 +15,7 @@ import TransparencyModal from './TransparencyModal';
  * and these two primitives are the source of truth all other surfaces import
  * from (puckConfig's EnforcementBadge, Explorer cards, Sandbox panels).
  *   on-chain   = emerald  (Kaspa consensus enforces - strongest signal)
+ *   on-chain-zk= teal     (KIP-16 zk_game_settle: Groth16 verified ON-CHAIN by consensus; testnet-gated)
  *   hybrid     = sky      (script + external resolver input)
  *   oracle     = amber    (external resolver signature, not chain-gated)
  *   full-zk    = violet   (real Groth16 proof verified OFF-CHAIN, gating a 2-of-2 cosign + CSV timeout)
@@ -28,6 +29,15 @@ import TransparencyModal from './TransparencyModal';
 // the secret the deployer-bound resolver reveals. It must read as a market, never "no trust".
 const isMarketLeg = (covenant) => /binary_oracle_select/.test(covenant?.covenant_type || '');
 
+// Detect the KIP-16 on-chain-ZK kind from covenant data WITHOUT a new backend enum: the redeem
+// kind string is "zk_game_settle" (or "zk_game_settle:<min_sequence>"), and a live game pot may
+// also carry settle_mode === 'zk_game_settle'. Any of these marks the on-chain-zk tier, whose
+// Groth16 proof is verified by Kaspa consensus (OpZkPrecompile 0xa6), not an oracle.
+const isZkGameSettle = (covenant) =>
+  /(^|[^a-z])zk_game_settle/.test(
+    `${covenant?.redeem_kind || ''} ${covenant?.covenant_type || ''} ${covenant?.kind || ''} ${covenant?.settle_mode || ''}`,
+  );
+
 // Resolve the circuit id off a covenant (custom_ui_config.circuit is the canonical slot;
 // covenant.zk_circuit / covenant.circuit are tolerated for older callers).
 function circuitIdOf(covenant) {
@@ -39,16 +49,29 @@ function circuitIdOf(covenant) {
   return null;
 }
 
-// All 19 verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN
-// (by you, the counterparty, or any external verifier) gating a 2-of-2 cosign + CSV
-// timeout. No deployed circuit's proof is bound to a chain-checked hashlock, and
-// Kaspa has no on-chain pairing verifier, so there is no "chain-enforced ZK" tier -
-// the only on-chain check is the BIP340 Schnorr co-signature.
+// SCOPED to the OFF-CHAIN circom circuits: all 19 of those verified ZK circuits are full-zk, a
+// real Groth16 proof verified OFF-CHAIN (by you, the counterparty, or any external verifier)
+// gating a 2-of-2 cosign + CSV timeout. No circom circuit's proof is bound to a chain-checked
+// hashlock, and Kaspa has no on-chain pairing verifier on that path, so there is no
+// "chain-enforced ZK" tier for them; the only on-chain check is the BIP340 Schnorr co-signature.
+// The KIP-16 zk_game_settle kind is the SEPARATE on-chain-zk tier below, not a circom circuit.
 function fullZkInfo() {
   return {
     kind: 'fullzk',
     label: 'ZK proof, verified off-chain',
-    desc: 'A real Groth16 proof, verified off-chain by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier, so the proof gates a 2-of-2 cosign + CSV timeout. Not on-chain consensus and not trustless, but a stronger guarantee than a bare attestation.',
+    desc: 'A real Groth16 proof, verified off-chain by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier on this path, so the proof gates a 2-of-2 cosign + CSV timeout. Not on-chain consensus and not trustless, but a stronger guarantee than a bare attestation.',
+  };
+}
+
+// The KIP-16 on-chain-ZK tier (zk_game_settle). Distinct from full-zk: the Groth16 proof is
+// verified ON-CHAIN by Kaspa consensus via OpZkPrecompile (0xa6), with no oracle and no
+// co-signature in the payout, so a loser cannot forge a win. TESTNET / Toccata gated: the
+// opcode is not live on Kaspa mainnet yet, so the copy is always scoped to testnet.
+function onChainZkInfo() {
+  return {
+    kind: 'onchainzk',
+    label: 'On-chain ZK (KIP-16)',
+    desc: 'On-chain ZK (KIP-16): Groth16 verified by Kaspa consensus; no oracle or co-sign in payout. Testnet-gated until proven live.',
   };
 }
 
@@ -61,6 +84,14 @@ export function trustInfo(covenant, opts) {
   const explicitCircuit = opts && opts.circuitId;
   const reality = explicitReality || covenant?.enforcement_reality;
   const circuitId = explicitCircuit || circuitIdOf(covenant);
+
+  // On-chain-ZK (KIP-16 zk_game_settle) is its own distinct tier. Honor it whether the backend
+  // exposes enforcement_reality === 'on-chain-zk' OR the covenant data carries the zk_game_settle
+  // kind string (no new backend enum required). It outranks the other ZK/oracle branches because
+  // its proof is verified by consensus, not off-chain.
+  if (reality === 'on-chain-zk' || (!explicitReality && isZkGameSettle(covenant))) {
+    return onChainZkInfo();
+  }
 
   // Parimutuel markets are a hybrid: custody and every payout leg are on-chain
   // (P2SH, hashlock + winner key), but WHICH outcome wins is set by the single
@@ -135,6 +166,7 @@ export function trustInfo(covenant, opts) {
 // on one row at the narrowest supported viewport. Never aliases across kinds.
 const COMPACT_LABEL = {
   onchain: 'ON-CHAIN',
+  onchainzk: 'ON-CHAIN ZK',
   hybrid: 'HYBRID',
   oracle: 'ORACLE',
   fullzk: 'FULL-ZK',
@@ -148,6 +180,9 @@ export default function TrustBadge({ covenant, size = 'sm', showDesc = false, in
   const t = trustInfo(covenant, { reality, circuitId });
   const styles = {
     onchain: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 light:bg-emerald-50 light:text-emerald-700 light:border-emerald-600/60',
+    // on-chain-zk gets its own TEAL styling so the KIP-16 consensus-verified ZK tier reads as a
+    // distinct, on-chain-verified guarantee (not the off-chain violet full-zk, not emerald on-chain).
+    onchainzk: 'bg-teal-500/10 border-teal-500/30 text-teal-300 light:bg-teal-50 light:text-teal-700 light:border-teal-600/60',
     hybrid: 'bg-sky-500/10 border-sky-500/30 text-sky-300 light:bg-sky-50 light:text-sky-700 light:border-sky-600/60',
     oracle: 'bg-amber-500/10 border-amber-500/30 text-amber-300 light:bg-amber-50 light:text-amber-700 light:border-amber-600/60',
     // full-zk gets its own violet styling so the honesty hierarchy
@@ -156,7 +191,7 @@ export default function TrustBadge({ covenant, size = 'sm', showDesc = false, in
     fullzk: 'bg-violet-500/10 border-violet-500/30 text-violet-300 light:bg-violet-50 light:text-violet-700 light:border-violet-600/60',
     decorative: 'bg-white/[0.04] border-white/10 text-gray-300 light:bg-slate-100 light:border-slate-300 light:text-slate-600',
   }[t.kind];
-  const Icon = { onchain: ShieldCheck, hybrid: Link2, oracle: Radio, fullzk: ShieldCheck, decorative: ShieldQuestion }[t.kind];
+  const Icon = { onchain: ShieldCheck, onchainzk: ShieldCheck, hybrid: Link2, oracle: Radio, fullzk: ShieldCheck, decorative: ShieldQuestion }[t.kind];
   const pad = size === 'sm' ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1.5 text-xs';
   const label = compact ? COMPACT_LABEL[t.kind] : t.label;
   // Honest aria-label: screen readers get the full reality phrase (not "FULL-ZK"

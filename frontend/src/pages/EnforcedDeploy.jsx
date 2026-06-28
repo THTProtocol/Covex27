@@ -83,10 +83,21 @@ function CopyBtn({ text }) {
 const MAX_LOCK_FEE_HEADROOM_KAS = 0.001;
 
 export default function EnforcedDeploy({ embedded = false, onDeployed = null, initialKind: initialKindProp = null }) {
-  const { address, isDevMode, devMode, DevConnectPanel } = useWallet();
+  const {
+    address, isDevMode, devMode, DevConnectPanel,
+    canSignCovenant, covenantSignReason, signCovenantSpend, signCovenantDeploy,
+    activeWalletId, walletMeta,
+  } = useWallet();
   const net = getCurrentNetwork();
   const isMainnet = net === 'mainnet' || net === 'mainnet-1';
-  const canSign = isDevMode && devMode?.privateKeyHex;
+  // True when a raw in-browser key is available (dev path). The wallet-extension path
+  // (canSignCovenant) is a SEPARATE capability; canSign below is the OR of the two so the
+  // form unlocks for a connected sign-capable wallet too.
+  const hasDevKey = isDevMode && devMode?.privateKeyHex;
+  // The deploy/redeem CTA is enabled when EITHER a dev key is connected OR a sign-capable
+  // wallet extension is connected (KasWare / OKX / Kastle). The wallet path is the primary
+  // money path; the dev key is the recovery / testnet fallback.
+  const canSign = hasDevKey || canSignCovenant;
   // The external-spend handoff is a full-page UX (wallet non-custody invariant: the redeem
   // path must not be wrapped or constrained inside a host UI). If the handoff is queued,
   // force standalone behavior even when the caller requested embedded.
@@ -414,26 +425,43 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       // sighash HERE - the private key never leaves the device. prepare-deploy builds the
       // unsigned funding tx and returns the sighash; we sign it; submit-deploy broadcasts.
       if (!usesDevWallets && canSign) {
-        const myKey = devMode.privateKeyHex;
         const prep = await fetch('/api/covenant/p2sh/prepare-deploy', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ network: net, deployer_addr: address, stake_kas: stakeKas, redeem }),
         }).then((r) => r.json());
         if (!prep.success) { setError(prep.error || 'Could not prepare the deploy.'); return; }
-        const myXonly = bytesToHex(schnorr.getPublicKey(myKey));
-        if (prep.signer_xonly && prep.signer_xonly !== myXonly) {
-          setError('The connected key does not match the funding address. Reconnect the wallet that owns the funds.');
-          return;
+        let submitBody;
+        if (hasDevKey) {
+          // DEV-KEY STRATEGY: the in-browser key signs each funding input's sighash with @noble
+          // schnorr. The private key never leaves the device.
+          const myKey = devMode.privateKeyHex;
+          const myXonly = bytesToHex(schnorr.getPublicKey(myKey));
+          if (prep.signer_xonly && prep.signer_xonly !== myXonly) {
+            setError('The connected key does not match the funding address. Reconnect the wallet that owns the funds.');
+            return;
+          }
+          // Sign EVERY funding input. A "lock any amount" deploy may pull together N of the
+          // deployer's UTXOs, so prep.inputs carries one entry per input, each with its OWN
+          // sighash (same outputs, different outpoint). The SAME in-browser key signs them all
+          // (every funding UTXO is the deployer's) and we POST signatures:[{index, signature_hex}].
+          // The lone signature_hex path stays as a back-compat fallback only if inputs is absent.
+          const inputs = Array.isArray(prep.inputs) ? prep.inputs : [];
+          submitBody = inputs.length
+            ? { session_id: prep.session_id, signatures: buildDeploySignatures(inputs, (sh) => schnorr.sign(sh, myKey)) }
+            : { session_id: prep.session_id, signature_hex: bytesToHex(schnorr.sign(prep.sighash, myKey)) }; // BIP340 over the funding sighash
+        } else {
+          // WALLET STRATEGY: a connected sign-capable wallet (KasWare / OKX / Kastle) funds the
+          // deploy via a popup. signCovenantDeploy returns { signatures:[{index, signature_hex}] }
+          // and FAILS CLOSED (it throws an honest error if the wallet cannot sign the funding tx),
+          // so we never blind-submit. Surface that reason and stop rather than risk a doomed tx.
+          try {
+            const walletRes = await signCovenantDeploy(prep, { signerXonly: prep.signer_xonly });
+            submitBody = { session_id: prep.session_id, signatures: walletRes.signatures };
+          } catch (e) {
+            setError(`Wallet could not sign this deploy: ${e && e.message ? e.message : e}`);
+            return;
+          }
         }
-        // Sign EVERY funding input. A "lock any amount" deploy may pull together N of the
-        // deployer's UTXOs, so prep.inputs carries one entry per input, each with its OWN
-        // sighash (same outputs, different outpoint). The SAME in-browser key signs them all
-        // (every funding UTXO is the deployer's) and we POST signatures:[{index, signature_hex}].
-        // The lone signature_hex path stays as a back-compat fallback only if inputs is absent.
-        const inputs = Array.isArray(prep.inputs) ? prep.inputs : [];
-        const submitBody = inputs.length
-          ? { session_id: prep.session_id, signatures: buildDeploySignatures(inputs, (sh) => schnorr.sign(sh, myKey)) }
-          : { session_id: prep.session_id, signature_hex: bytesToHex(schnorr.sign(prep.sighash, myKey)) }; // BIP340 over the funding sighash
         const sub = await fetch('/api/covenant/p2sh/submit-deploy', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(submitBody),
@@ -496,6 +524,43 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       // (plus a preimage for hashlock / HTLC claim). No private key ever leaves the device,
       // so funds are spendable even if Covex is fully removed (reproducible with the
       // published redeem + recover-covenant.mjs).
+      // WALLET STRATEGY (the primary money path): no in-browser key, but a sign-capable wallet
+      // (KasWare / OKX / Kastle) is connected. Prepare the spend, then have the wallet popup sign
+      // input 0; signCovenantSpend rebuilds the exact tx, hands it to the wallet, EXTRACTS the
+      // 64-byte BIP340 signature, and FAIL-CLOSED verifies it against the local output-checked tx
+      // before returning. We submit ONLY the verified signature, never a blind wallet blob. This
+      // covers the single-signer non-custodial kinds (singlesig / hashlock / timelock); multi-party
+      // kinds keep the dev-key co-sign path below.
+      const SINGLE_SIGNER = ['singlesig', 'hashlock', 'timelock'];
+      if (!myKey && canSignCovenant && SINGLE_SIGNER.includes(kindBase)) {
+        const prep = await fetch('/api/covenant/p2sh/prepare-spend', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ network: net, deploy_tx_id: c.tx, destination_addr: dest, branch: c.branch || undefined, ...external }),
+        }).then((r) => r.json());
+        if (!prep.success) { setError(prep.error || 'Could not prepare the spend.'); return; }
+        const signerXonly = (prep.signer_xonly || (prep.required_signers && prep.required_signers[0] && prep.required_signers[0].xonly) || '').toLowerCase();
+        if (!signerXonly) { setError('The spend plan did not name a signer key. Use the recovery key tool.'); return; }
+        let walletRes;
+        try {
+          // signCovenantSpend rebuilds the tx, asserts output == input - fee paying `dest`,
+          // signs input 0 via the wallet popup, and verifies the signature fail-closed. It throws
+          // an honest error (steering to the recovery key tool) if the wallet cannot sign this
+          // covenant input, so we never submit an unverified signature.
+          walletRes = await signCovenantSpend(prep.spend_plan, { intendedDest: dest, signerXonly });
+        } catch (e) {
+          setError(`Wallet could not sign this covenant spend: ${e && e.message ? e.message : e}`);
+          return;
+        }
+        const subBody = { session_id: prep.session_id, signature_hex: walletRes.signatures[0].signature_hex };
+        if (prep.needs_preimage) subBody.preimage_hex = c.preimage;
+        const sub = await fetch('/api/covenant/p2sh/submit-signed', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subBody),
+        }).then((r) => r.json());
+        if (!sub.success) { setError(sub.error || 'Submit failed.'); return; }
+        setMine((m) => m.map((x) => (x.tx === c.tx ? { ...x, spent: sub.spend_tx_id, nonCustodial: true } : x)));
+        return;
+      }
       if (NONCUSTODIAL.includes(kindBase) && myKey) {
         const prep = await fetch('/api/covenant/p2sh/prepare-spend', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1075,11 +1140,30 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
             {busy ? <Loader2 size={16} className="animate-spin" /> : <TrendingUp size={16} />} Create conditional-outcome covenant
           </button>
         ) : !usesDevWallets && !canSign ? (
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4 light:border-slate-200 light:bg-slate-50/60">
-            <p className="text-sm text-gray-300 light:text-slate-700 mb-3">
-              Connect the key that holds the funds to sign the deploy. It signs the funding transaction in your browser - the key is never sent to the server (non-custodial).
+          <div className="rounded-xl border border-white/10 bg-black/20 p-4 light:border-slate-200 light:bg-slate-50/60 space-y-3">
+            <p className="text-sm text-gray-300 light:text-slate-700">
+              Connect a wallet to sign the deploy. With KasWare, OKX, or Kastle, the funding transaction is signed in the wallet popup - your key never leaves the wallet (non-custodial). This is the primary path.
             </p>
-            <DevConnectPanel compact />
+            {covenantSignReason && activeWalletId && activeWalletId !== '__dev_mode__' && (
+              <p className="text-[11px] text-amber-300 light:text-amber-700 leading-snug border border-amber-500/30 bg-amber-500/[0.06] rounded-lg px-3 py-2">
+                {walletMeta?.name || 'This wallet'} is connected but cannot sign this covenant here: {covenantSignReason}
+              </p>
+            )}
+            {/* Advanced (testnet): the raw-key dev path is a fallback for testnet covenant
+                testing and offline recovery. Tucked behind a disclosure so the wallet popup is
+                the obvious primary path. */}
+            <details className="group rounded-lg border border-white/[0.06] bg-black/20 light:border-slate-200 light:bg-white">
+              <summary className="cursor-pointer list-none px-3 py-2 text-[12px] font-semibold text-gray-400 light:text-slate-600 flex items-center justify-between">
+                <span>Advanced (testnet): sign with a raw key</span>
+                <span className="text-gray-600 light:text-slate-400 group-open:rotate-180 transition-transform">▾</span>
+              </summary>
+              <div className="px-3 pb-3">
+                <p className="text-[11px] text-gray-500 light:text-slate-500 mb-2 leading-snug">
+                  Derive a key locally from a mnemonic or hex key for testnet covenant testing and offline recovery. The key never leaves your browser. Prefer a wallet popup above for real funds.
+                </p>
+                <DevConnectPanel compact />
+              </div>
+            </details>
           </div>
         ) : (
           <button onClick={deploy} disabled={busy}

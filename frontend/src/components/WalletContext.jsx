@@ -1,4 +1,12 @@
 import { createContext, useContext, useCallback, useState, useEffect, useRef, Suspense, lazy } from 'react';
+import {
+  signWithKasware,
+  signWithKastle,
+  signDeployWithWallet,
+  COVEX_TO_KASWARE_NETWORK,
+  COVEX_TO_KASTLE_NETWORK,
+  normalizeNetworkId,
+} from '../lib/redeemer/walletSigner';
 // NOTE: kaspa-wasm (the ~15.6MB @onekeyfe/kaspa-wasm module + its ~11.5MB binary) is loaded
 // LAZILY inside loadKaspaWasm() below, never at module-eval time. WalletProvider wraps the
 // whole app (App.jsx), so any STATIC import of the wasm here (the module OR its `?url` binary)
@@ -209,6 +217,22 @@ function mobileProviderProbe() {
   return null;
 }
 
+// ── Wallet covenant-signing capability map ──
+// Which connected wallets can sign a covenant deploy/redeem (the BIP340-Schnorr-over-each-
+// input-sighash primitive) via a popup, and which signer family they belong to.
+//   'kasware' => signPskt path (KasWare + OKX, which is KasWare-compatible)
+//   'kastle'  => signTx(networkId, txJson, scripts) path
+// The mobile in-app provider ('InApp') is resolved through the same probe; we treat it as the
+// kasware family because the in-app wallets that inject a signing provider (KasWare/OKX) expose
+// signPskt. A wallet whose live provider lacks the family's signing method still fails closed at
+// sign time (signWithKasware/signWithKastle throw an honest error).
+const COVENANT_SIGNER_FAMILY = Object.freeze({
+  KasWare: 'kasware',
+  OKX: 'kasware',
+  Kastle: 'kastle',
+  InApp: 'kasware',
+});
+
 // ── KAS → sompi conversion (BigInt-safe, no float precision loss) ──
 function kasToSompi(amountKas) {
   const [whole = '0', frac = ''] = String(amountKas).split('.');
@@ -238,12 +262,20 @@ function isMobile() { return typeof navigator !== 'undefined' && /Mobi|Android|i
 // Wallets without a confirmed dApp provider (Kasperia extension, Tangem mobile-native) were
 // removed rather than shown as broken. Add a wallet here only once its injected global + dApp
 // connect (or, for mobile, its in-app browser deep link) are verified.
+// `canSignCovenants` flags a wallet whose injected provider exposes the covenant-signing
+// primitive (signPskt for the KasWare family, signTx for Kastle), so the picker can show a
+// "Can sign covenants" badge. It is a CAPABILITY ADVERTISEMENT, not a proof: the actual sign
+// path is fail-closed (walletSigner verifies the returned signature), and Kastle's covenant
+// signing is network-limited (mainnet + TN10 only), surfaced honestly at sign time.
 const ALL_WALLETS = [
-  { id: 'KasWare', name: 'KasWare Wallet', url: WALLET_INSTALL_URLS.KasWare, logo: WALLET_LOGOS.KasWare, sub: 'Chrome · Firefox', platform: 'desktop', detect: () => detectWallet('KasWare'), provider: () => getProvider('KasWare'), recommended: true },
+  { id: 'KasWare', name: 'KasWare Wallet', url: WALLET_INSTALL_URLS.KasWare, logo: WALLET_LOGOS.KasWare, sub: 'Chrome · Firefox', platform: 'desktop', detect: () => detectWallet('KasWare'), provider: () => getProvider('KasWare'), recommended: true, canSignCovenants: true },
   // Kastle injects window.kastle in its desktop extension. Mobile in-app browser is "coming
   // soon" (docs.kastle.cc FAQ), so we do NOT advertise a mobile dApp connect or a deep link;
   // desktop platform keeps it honest. `sub` reflects the desktop extension only.
-  { id: 'Kastle', name: 'Kastle', url: WALLET_INSTALL_URLS.Kastle, logo: WALLET_LOGOS.Kastle, sub: 'Chrome extension', platform: 'desktop', detect: () => detectWallet('Kastle'), provider: () => getProvider('Kastle') },
+  { id: 'Kastle', name: 'Kastle', url: WALLET_INSTALL_URLS.Kastle, logo: WALLET_LOGOS.Kastle, sub: 'Chrome extension', platform: 'desktop', detect: () => detectWallet('Kastle'), provider: () => getProvider('Kastle'), canSignCovenants: true },
+  // OKX is KasWare-compatible (window.okxwallet.kaspa exposes signPskt), so it can sign covenant
+  // deploy/redeem the same way. Desktop extension + a mobile in-app dApp browser (deep link).
+  { id: 'OKX', name: 'OKX Wallet', url: WALLET_INSTALL_URLS.OKX, logo: WALLET_LOGOS.OKX, sub: 'Chrome · iOS · Android', platform: 'desktop', deepLink: WALLET_DEEP_LINKS.OKX, detect: () => detectWallet('OKX'), provider: () => getProvider('OKX'), canSignCovenants: true },
   // Mobile-app wallets with an in-app dApp browser. On mobile these show "Open in <app>" (a
   // universal link that launches the app to Covex); once you are inside that app's browser, the
   // injected provider is detected and the synthetic "Your Kaspa wallet" entry (added in
@@ -268,7 +300,7 @@ function walletsForDevice() {
   // On mobile, if we are already inside a wallet app's in-app browser (a provider is injected),
   // surface a one-tap "Connect" for whichever wallet that is. Safe on mobile (single provider).
   if (mobile && mobileProviderProbe()) {
-    list.unshift({ id: 'InApp', name: 'Your Kaspa wallet', sub: 'In-app browser', logo: '', platform: 'mobile', recommended: true, detect: () => true, provider: () => mobileProviderProbe() });
+    list.unshift({ id: 'InApp', name: 'Your Kaspa wallet', sub: 'In-app browser', logo: '', platform: 'mobile', recommended: true, detect: () => true, provider: () => mobileProviderProbe(), canSignCovenants: true });
   }
   return list;
 }
@@ -986,6 +1018,90 @@ function WalletBridge({ children, kf = KF_STUB }) {
     throw new Error('signMessage not available on this wallet');
   }, [activeAddress, activeWalletId, devMode, devSignMessage]);
 
+  // ── Covenant-signing capability + reason ──
+  // Resolve, for the CURRENTLY connected wallet, whether it can sign a covenant deploy/redeem
+  // with a popup, and (if not) an honest reason. Dev mode is NOT covered here: the dev-key path
+  // signs covenants via the in-browser @noble schnorr / verifyAndSignSpend route (EnforcedDeploy
+  // keeps that as its own strategy), so canSignCovenant is specifically about a connected wallet
+  // extension. Returns { ok, family, reason }.
+  const covenantSignCapability = useCallback(() => {
+    if (devMode) return { ok: false, family: null, reason: 'A generated/imported dev wallet signs covenants with its in-browser key, not a popup.' };
+    if (!activeWalletId || !activeAddress) return { ok: false, family: null, reason: 'No wallet connected.' };
+    const family = COVENANT_SIGNER_FAMILY[activeWalletId];
+    if (!family) return { ok: false, family: null, reason: `${walletMeta?.name || activeWalletId} cannot sign covenant transactions here. Use KasWare, OKX, or Kastle, or the recovery key tool.` };
+    // Kastle supports mainnet + TN10 ONLY (no TN12). If the app is on a network Kastle cannot do,
+    // report it honestly so the gate stays false rather than letting a doomed sign attempt run.
+    if (family === 'kastle' && !COVEX_TO_KASTLE_NETWORK[appNetwork]) {
+      return { ok: false, family, reason: 'Kastle supports mainnet and testnet-10 only (not testnet-12). Switch networks, use KasWare/OKX, or the recovery key tool.' };
+    }
+    return { ok: true, family, reason: null };
+  }, [devMode, activeWalletId, activeAddress, appNetwork, walletMeta]);
+
+  const canSignCovenant = covenantSignCapability().ok;
+
+  // Best-effort: ask the wallet to switch to the app's network before signing. KasWare exposes
+  // switchNetwork(kaspa_*); Kastle switches via its own UI (no programmatic switch here). Never
+  // throws on a wallet without switchNetwork; the subsequent getNetwork mismatch (if any) is the
+  // real guard. Returns the wallet network string we targeted (or null).
+  const ensureWalletNetwork = useCallback(async (provider, family) => {
+    try {
+      if (family === 'kasware') {
+        const target = COVEX_TO_KASWARE_NETWORK[appNetwork];
+        if (target && typeof provider.switchNetwork === 'function') {
+          let current = null;
+          try { current = typeof provider.getNetwork === 'function' ? await provider.getNetwork() : null; } catch (_) {}
+          if (current !== target) await provider.switchNetwork(target);
+        }
+        return target || null;
+      }
+      if (family === 'kastle') {
+        const target = COVEX_TO_KASTLE_NETWORK[appNetwork];
+        if (target && typeof provider.switchNetwork === 'function') {
+          try { await provider.switchNetwork(target); } catch (_) {}
+        }
+        return target || null;
+      }
+    } catch (_) { /* switch is best-effort; the sign step re-validates */ }
+    return null;
+  }, [appNetwork]);
+
+  // Sign a covenant SPEND (redeem) with the connected wallet. Dispatches by family, rebuilds the
+  // exact tx, and FAIL-CLOSED verifies the wallet's signature before returning it. Returns the
+  // exact { signatures:[{index, signature_hex}] } shape /submit-signed expects (single-input
+  // spend -> index 0). Throws an honest error (steering to the recovery key tool) if the wallet
+  // cannot sign this covenant input; the caller never blind-submits.
+  //
+  // @param {object} plan - the spend_plan from prepare-spend
+  // @param {object} opts - { intendedDest, signerXonly }  (networkId derived from appNetwork)
+  const signCovenantSpend = useCallback(async (plan, opts = {}) => {
+    const cap = covenantSignCapability();
+    if (!cap.ok) throw new Error(cap.reason || 'This wallet cannot sign covenants.');
+    const provider = getActiveProvider();
+    if (!provider) throw new Error('Wallet provider unavailable. Reconnect your wallet.');
+    const networkId = normalizeNetworkId(appNetwork);
+    const walletNetworkId = await ensureWalletNetwork(provider, cap.family);
+    const signOpts = { ...opts, networkId, signerXonly: opts.signerXonly };
+    if (cap.family === 'kastle') {
+      return signWithKastle(provider, plan, { ...signOpts, walletNetworkId: walletNetworkId || COVEX_TO_KASTLE_NETWORK[appNetwork] });
+    }
+    return signWithKasware(provider, plan, signOpts);
+  }, [covenantSignCapability, appNetwork, ensureWalletNetwork]);
+
+  // Sign a covenant DEPLOY (funding tx) with the connected wallet. Currently FAILS CLOSED with an
+  // honest reason (prepare-deploy does not return a wallet-signable funding tx yet); kept wired so
+  // the gate + UX read correctly and a future backend change flips it on with no caller change.
+  const signCovenantDeploy = useCallback(async (prep, opts = {}) => {
+    const cap = covenantSignCapability();
+    if (!cap.ok) throw new Error(cap.reason || 'This wallet cannot sign covenants.');
+    const provider = getActiveProvider();
+    if (!provider) throw new Error('Wallet provider unavailable. Reconnect your wallet.');
+    await ensureWalletNetwork(provider, cap.family);
+    return signDeployWithWallet(provider, prep, { ...opts, networkId: normalizeNetworkId(appNetwork) });
+  }, [covenantSignCapability, appNetwork, ensureWalletNetwork]);
+
+  // Honest reason string for the UI when canSignCovenant is false (null when it is true).
+  const covenantSignReason = canSignCovenant ? null : covenantSignCapability().reason;
+
   // Every wallet is shown; platform is a priority sort, not an exclusion (so an installed
   // desktop wallet still appears on mobile and vice versa, and detection can surface it).
   const activeWallets = walletsForDevice();
@@ -1051,6 +1167,14 @@ function WalletBridge({ children, kf = KF_STUB }) {
     disconnect: disconnectWalletWithCleanup,
     sendPayment,
     signMessage,
+    // Covenant deploy/redeem signing via the connected wallet popup (the PRIMARY money path).
+    // canSignCovenant is true for a connected KasWare / OKX / Kastle (Kastle only on a network it
+    // supports); covenantSignReason gives the honest "why not" when false. signCovenantSpend /
+    // signCovenantDeploy return { signatures:[{index, signature_hex}] } and FAIL CLOSED.
+    canSignCovenant,
+    covenantSignReason,
+    signCovenantSpend,
+    signCovenantDeploy,
     sendKaspa: async (recipient, amountSompi) => {
       // A generated/imported dev wallet's private key NEVER leaves this browser, so
       // there is no dev-mode send path here: the removed dev branch built an empty-UTXO

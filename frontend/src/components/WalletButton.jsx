@@ -59,8 +59,9 @@ function MobileConnectHelp({ openWallets, onOpen, pendingId, pageUrl }) {
         <span className="text-xs font-bold uppercase tracking-wider text-[#49EACB]/90">Connecting on mobile</span>
       </div>
       <p className="text-[12px] text-gray-300 light:text-slate-600 leading-relaxed">
-        Mobile browsers cannot run wallet extensions. Open Covex inside your Kaspa wallet's
-        built-in browser, or use a key-based flow that needs no extension.
+        Kaspa has no WalletConnect and no mobile browser extension. On a phone, signing a covenant
+        works inside a wallet's in-app browser (KasWare / OKX): open Covex there with one of the
+        buttons below, then sign in the wallet popup. Or use a key-based flow that needs no extension.
       </p>
 
       {/* Per-wallet "Open in <app>" deep links (only wallets that actually expose one). */}
@@ -447,9 +448,12 @@ export default function WalletButton({ fullLabel = false } = {}) {
                         >
                           <WalletLogo wallet={wallet} />
                           <div className="flex-1 min-w-0">
-                            <div className="text-white light:text-slate-900 font-semibold text-sm flex items-center gap-2">
+                            <div className="text-white light:text-slate-900 font-semibold text-sm flex items-center gap-2 flex-wrap">
                               <span className="truncate">{wallet.name}</span>
                               <span className="text-[9px] uppercase tracking-wider bg-[#49EACB]/15 text-[#49EACB] light:text-[#0d9488] px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><Check size={9} /> Installed</span>
+                              {wallet.canSignCovenants && (
+                                <span title="Can sign covenant deploy and redeem in the wallet popup (the primary money path). A recovery key tool is the backup." className="text-[9px] uppercase tracking-wider bg-emerald-500/15 text-emerald-300 light:text-emerald-700 border border-emerald-500/30 px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><ShieldCheck size={9} /> Signs covenants</span>
+                              )}
                             </div>
                             <div className="text-[11px] text-gray-500 truncate">{wallet.sub}</div>
                           </div>
@@ -483,10 +487,13 @@ export default function WalletButton({ fullLabel = false } = {}) {
                       >
                         <WalletLogo wallet={wallet} />
                         <div className="text-left flex-1 min-w-0">
-                          <div className="text-white light:text-slate-900 font-medium text-sm flex items-center gap-2">
+                          <div className="text-white light:text-slate-900 font-medium text-sm flex items-center gap-2 flex-wrap">
                             <span className="truncate">{wallet.name}</span>
                             {wallet.recommended && (
                               <span className="text-[9px] uppercase tracking-wider bg-[#E8AF34]/10 text-[#E8AF34] px-1.5 py-0.5 rounded-sm shrink-0">Recommended</span>
+                            )}
+                            {wallet.canSignCovenants && (
+                              <span title="Can sign covenant deploy and redeem in the wallet popup (the primary money path). A recovery key tool is the backup." className="text-[9px] uppercase tracking-wider bg-emerald-500/10 text-emerald-300 light:text-emerald-700 border border-emerald-500/25 px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><ShieldCheck size={9} /> Signs covenants</span>
                             )}
                           </div>
                           <div className="text-[11px] text-gray-500 truncate">{isOpen ? action.label : wallet.sub}</div>

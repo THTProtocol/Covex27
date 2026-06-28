@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Database, Search, Sparkles, Play, Coins, Layers, Gamepad2, TrendingUp, ShieldCheck, Zap, ChevronDown, Compass, Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes, ArrowRight } from 'lucide-react';
+import { Database, Search, Sparkles, Play, Coins, Layers, Gamepad2, TrendingUp, ShieldCheck, Zap, ChevronDown, Compass, Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes, ArrowRight, AlertTriangle } from 'lucide-react';
 import Spinner from '../components/ui/Spinner';
 import CovenantCardSkeleton from '../components/ui/CovenantCardSkeleton';
 import { Button } from '../components/ui/Button';
@@ -714,14 +714,16 @@ export default function Explorer() {
                   then a quiet "How It Works" link. "Deploy on-chain enforced" is demoted
                   out of the hero into the page body below. */}
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.1s_both]">
-                <Link
-                  data-tour="build-cta"
-                  to="/sandbox"
-                  className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
-                >
-                  <Sparkles size={16} className="transition-transform duration-300 group-hover:rotate-12" />
-                  Build a Covenant
-                </Link>
+                <Button asChild variant="kaspa" size="lg">
+                  <Link
+                    data-tour="build-cta"
+                    to="/sandbox"
+                    className="group px-6 font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0"
+                  >
+                    <Sparkles size={16} className="transition-transform duration-300 group-hover:rotate-12" />
+                    Build a Covenant
+                  </Link>
+                </Button>
                 {/* Promoted secondary CTA: launches the FirstCovenantTour overlay. */}
                 <Button
                   variant="glass"
@@ -1034,10 +1036,16 @@ export default function Explorer() {
             </div>
             {/* Non-operator note at the point of play (condensed from the Terms framing).
                 Light/dark/mobile correct. Visually quiet: a small muted line, not a scary block. */}
-            <p className="mb-5 flex items-start gap-2 text-[11px] leading-snug text-gray-400 light:text-slate-500">
+            <p className="mb-2 flex items-start gap-2 text-[11px] leading-snug text-gray-400 light:text-slate-500">
               <ShieldCheck size={13} className="mt-0.5 shrink-0 text-gray-500 light:text-slate-600" aria-hidden="true" />
               <span>
                 You deploy your own covenant. Covex is not a counterparty, bookmaker, or custodian, sets no odds, and runs no house. Resolution depends on an external resolver you choose.
+              </span>
+            </p>
+            <p className="mb-5 flex items-start gap-2 text-[11px] leading-snug text-amber-300/80 light:text-amber-700">
+              <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+              <span>
+                Staking real KAS carries risk; you are responsible for compliance in your jurisdiction.
               </span>
             </p>
             {/* Create-a-game entry point: a game is a covenant you deploy. Routes into the
@@ -1160,7 +1168,12 @@ export default function Explorer() {
                 ))}
               </div>
             )}
-            {error && <p className="text-red-500 text-center py-10">{error}</p>}
+            {error && (
+              <div className="glass-panel rounded-2xl p-8 text-center border border-red-500/20">
+                <AlertTriangle size={32} className="mx-auto mb-3 text-red-400 light:text-red-600" aria-hidden="true" />
+                <p className="text-sm font-semibold text-red-400 light:text-red-600">{error}</p>
+              </div>
+            )}
             {/* Mainnet is genuinely pre-launch: it indexes ZERO covenants until the Toccata launch.
                 Show an HONEST banner that says so and offers a one-tap switch to the live testnet,
                 instead of a generic "Be the first" that implies the network is simply new. We never

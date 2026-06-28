@@ -149,7 +149,7 @@ export default function ApiDocs() {
           <select
             value={exampleReality}
             onChange={(e) => setExampleReality(e.target.value)}
-            className="text-[11px] font-mono bg-black/40 border border-white/[0.08] rounded-md px-2 py-1 text-white focus:outline-none focus:border-kaspa-green/50"
+            className="text-[11px] font-mono bg-black/40 border border-white/[0.08] rounded-md px-2 py-1 text-white focus:outline-none focus:border-kaspa-green/50 light:bg-white light:border-slate-300 light:text-slate-900"
             aria-label="enforcement_reality example value"
           >
             {REALITY_VALUES.map((v) => (
@@ -157,7 +157,7 @@ export default function ApiDocs() {
             ))}
           </select>
         </div>
-        <pre className="text-[11px] font-mono text-gray-300 bg-black/40 border border-white/[0.06] rounded-xl p-3 overflow-x-auto whitespace-pre">{buildExampleResponse(exampleReality)}</pre>
+        <pre className="text-[11px] font-mono text-gray-300 bg-black/40 border border-white/[0.06] rounded-xl p-3 overflow-x-auto whitespace-pre light:bg-slate-50 light:text-slate-700 light:border-slate-200">{buildExampleResponse(exampleReality)}</pre>
       </div>
 
       {!spec ? (
@@ -188,7 +188,7 @@ export default function ApiDocs() {
                     </div>
                   )}
                   <div className="relative">
-                    <pre className="text-[11px] font-mono text-gray-300 bg-black/40 border border-white/[0.06] rounded-xl p-3 overflow-x-auto whitespace-pre">{curl}</pre>
+                    <pre className="text-[11px] font-mono text-gray-300 bg-black/40 border border-white/[0.06] rounded-xl p-3 overflow-x-auto whitespace-pre light:bg-slate-50 light:text-slate-700 light:border-slate-200">{curl}</pre>
                     <button
                       onClick={() => copy(method + path, curl)}
                       className="absolute top-2 right-2 p-1.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.12] text-gray-300"
@@ -208,7 +208,7 @@ export default function ApiDocs() {
                             value={params.query || ''}
                             onChange={(e) => setTryParams((p) => ({ ...p, [key]: { ...p[key], query: e.target.value } }))}
                             placeholder="network=mainnet&limit=10"
-                            className="mt-1 w-full text-[11px] font-mono bg-black/40 border border-white/[0.08] rounded-lg p-2 text-white placeholder-slate-500 focus:outline-none focus:border-kaspa-green/50"
+                            className="mt-1 w-full text-[11px] font-mono bg-black/40 border border-white/[0.08] rounded-lg p-2 text-white placeholder-slate-500 focus:outline-none focus:border-kaspa-green/50 light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400"
                             spellCheck={false}
                           />
                         </label>
@@ -221,7 +221,7 @@ export default function ApiDocs() {
                             value={params.covenant_id || ''}
                             onChange={(e) => setTryParams((p) => ({ ...p, [key]: { ...p[key], covenant_id: e.target.value } }))}
                             placeholder="covenant txid"
-                            className="mt-1 w-full text-[11px] font-mono bg-black/40 border border-white/[0.08] rounded-lg p-2 text-white placeholder-slate-500 focus:outline-none focus:border-kaspa-green/50"
+                            className="mt-1 w-full text-[11px] font-mono bg-black/40 border border-white/[0.08] rounded-lg p-2 text-white placeholder-slate-500 focus:outline-none focus:border-kaspa-green/50 light:bg-white light:border-slate-300 light:text-slate-900 light:placeholder-slate-400"
                             spellCheck={false}
                           />
                         </label>
@@ -248,7 +248,7 @@ export default function ApiDocs() {
                               <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${result.ok ? 'text-kaspa-green' : 'text-amber-300'}`}>
                                 {result.ok ? 'HTTP' : 'HTTP error'} {result.status}
                               </p>
-                              <pre className="text-[11px] font-mono text-gray-300 bg-black/40 border border-white/[0.06] rounded-xl p-3 overflow-x-auto whitespace-pre max-h-72">{result.body}</pre>
+                              <pre className="text-[11px] font-mono text-gray-300 bg-black/40 border border-white/[0.06] rounded-xl p-3 overflow-x-auto whitespace-pre max-h-72 light:bg-slate-50 light:text-slate-700 light:border-slate-200">{result.body}</pre>
                             </>
                           )}
                         </div>

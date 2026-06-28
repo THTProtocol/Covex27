@@ -89,7 +89,7 @@ pub const TREASURY_ADDRESS: &str = TREASURY_ADDRESS_TN12;
 pub fn treasury_address_for_network(network: &str) -> &'static str {
     if network == "testnet-10" {
         TREASURY_ADDRESS_TN10
-    } else if network == "mainnet" || network == "mainnet-1" {
+    } else if crate::covenant_builder::is_mainnet(network) {
         TREASURY_ADDRESS_MAINNET
     } else {
         TREASURY_ADDRESS_TN12
@@ -112,7 +112,7 @@ pub fn treasury_address_for_network(network: &str) -> &'static str {
 ///   - the env var is unset/blank - so a dev-mode flow fails LOUDLY instead of
 ///     silently signing with a phantom or stale key.
 pub fn dev_private_key(wallet: u8, network: &str) -> Result<String, String> {
-    if network == "mainnet" || network == "mainnet-1" {
+    if crate::covenant_builder::is_mainnet(network) {
         return Err(
             "dev-deployer keys are testnet-only and are never available on mainnet; \
              sign with a real wallet extension"

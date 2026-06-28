@@ -73,7 +73,7 @@ const DEFAULT_KASPA_NETWORK: &str = "testnet-12";
 /// gate: it does not validate cryptographic well-formedness, only blocks obviously
 /// wrong addresses from being used as the mainnet treasury.
 fn validate_mainnet_env(network: &str, treasury_addr: &str) -> Result<(), String> {
-    if network != "mainnet" && network != "mainnet-1" {
+    if !covenant_builder::is_mainnet(network) {
         return Ok(());
     }
     let addr = treasury_addr.trim();
@@ -201,7 +201,7 @@ async fn main() {
     // Read network BEFORE treasury so we can branch on mainnet vs testnet
     let network = env::var("KASPA_NETWORK").unwrap_or_else(|_| DEFAULT_KASPA_NETWORK.to_string());
     let treasury = env::var("COVENANT_TREASURY_ADDRESS").unwrap_or_else(|_| {
-        if network == "mainnet" || network == "mainnet-1" {
+        if covenant_builder::is_mainnet(&network) {
             dev_wallets::TREASURY_ADDRESS_MAINNET.to_string()
         } else {
             "kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m".to_string()
@@ -239,7 +239,7 @@ async fn main() {
     // Log mainnet readiness status
     if std::env::var("KASPA_WRPC_URL_MAINNET").is_ok() {
         info!("Toccata mainnet indexer ready -- will index when a mainnet wRPC is available via KASPA_WRPC_URL_MAINNET or KASPA_NETWORK=mainnet");
-    } else if network == "mainnet" || network == "mainnet-1" {
+    } else if covenant_builder::is_mainnet(&network) {
         info!("Toccata mainnet mode active -- indexer will start syncing mainnet covenants when wRPC connects");
     } else {
         info!("Toccata mainnet indexer: not configured. Set KASPA_WRPC_URL_MAINNET or KASPA_NETWORK=mainnet to enable mainnet indexing when Toccata mainnet launches.");
@@ -300,15 +300,14 @@ async fn main() {
     let mut extra_networks: Vec<&str> = Vec::new();
     // Mainnet-only deployment (KASPA_NETWORK=mainnet): index ONLY mainnet, with no
     // testnet crawlers at all. Otherwise index the testnets alongside the primary.
-    let mainnet_only = primary_network == "mainnet" || primary_network == "mainnet-1";
+    let mainnet_only = covenant_builder::is_mainnet(&primary_network);
     if !mainnet_only && primary_network != "testnet-10" {
         extra_networks.push("testnet-10");
     }
     if !mainnet_only && primary_network != "testnet-12" {
         extra_networks.push("testnet-12");
     }
-    if primary_network != "mainnet"
-        && primary_network != "mainnet-1"
+    if !covenant_builder::is_mainnet(&primary_network)
         && std::env::var("KASPA_WRPC_URL_MAINNET").is_ok()
     {
         extra_networks.push("mainnet");
@@ -3088,6 +3087,27 @@ mod mainnet_preflight_tests {
     fn mainnet_rejects_placeholder() {
         assert!(validate_mainnet_env("mainnet", "kaspa:placeholder").is_err());
         assert!(validate_mainnet_env("mainnet", "kaspa:your_address_here").is_err());
+    }
+
+    #[test]
+    fn mainnet_prefix_spoof_is_treated_as_mainnet_everywhere() {
+        // P1/P2 hardening: every mainnet-prefixed network string (not just the exact
+        // "mainnet" / "mainnet-1") now routes through covenant_builder::is_mainnet, so a
+        // crafted "mainnet-foo" / "mainnet-2" cannot slip past a money-path gate. The
+        // startup treasury validator must reject a testnet/empty/placeholder treasury on
+        // ANY mainnet-prefixed network, not only the two exact spellings.
+        assert!(validate_mainnet_env("mainnet-foo", "kaspatest:foo").is_err());
+        assert!(validate_mainnet_env("mainnet-2", "").is_err());
+        assert!(validate_mainnet_env("mainnet-anything", "kaspa:placeholder").is_err());
+        // The single-source-of-truth classifier: mainnet-prefixed => true, testnets => false.
+        assert!(crate::covenant_builder::is_mainnet("mainnet-foo"));
+        assert!(crate::covenant_builder::is_mainnet("mainnet-1"));
+        assert!(!crate::covenant_builder::is_mainnet("testnet-12"));
+        assert!(!crate::covenant_builder::is_mainnet("testnet-10"));
+        // Custodial dev-deployer keys must NEVER be handed out for a mainnet-prefixed spoof:
+        // exact-match used to fall through and return a testnet key for "mainnet-foo".
+        assert!(crate::dev_wallets::dev_private_key(1, "mainnet-foo").is_err());
+        assert!(crate::dev_wallets::dev_private_key(2, "mainnet-2").is_err());
     }
 }
 

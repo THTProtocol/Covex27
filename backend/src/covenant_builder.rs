@@ -5818,6 +5818,9 @@ fn build_redeem_from_spec(spec: &RedeemSpec, owner_xonly: &[u8; 32]) -> BResult<
                 _ => *owner_xonly,
             };
             let fee = spec.fee_sompi.unwrap_or(TX_FEE);
+            if fee >= i64::MAX as u64 {
+                return Err("fee_sompi exceeds the signed-amount range".into());
+            }
             let require_sig = spec.require_sig.unwrap_or(true);
             Ok((
                 redeem_winner_takes_all_bound(&winner, fee, require_sig)?,
@@ -5836,6 +5839,9 @@ fn build_redeem_from_spec(spec: &RedeemSpec, owner_xonly: &[u8; 32]) -> BResult<
             let party_a = decode_xonly_hex(&pks[0])?;
             let party_b = decode_xonly_hex(&pks[1])?;
             let fee = spec.fee_sompi.unwrap_or(TX_FEE);
+            if fee >= i64::MAX as u64 {
+                return Err("fee_sompi exceeds the signed-amount range".into());
+            }
             let min_sequence = spec
                 .lock_daa
                 .ok_or("escrow_bound requires lock_daa (the CSV refund min_sequence)")?;

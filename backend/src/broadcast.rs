@@ -30,7 +30,7 @@ const RPC_TIMEOUT: Duration = Duration::from_secs(8);
 async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String> {
     let wrpc = if network == "testnet-10" {
         std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
-    } else if network == "mainnet" || network == "mainnet-1" {
+    } else if crate::covenant_builder::is_mainnet(network) {
         std::env::var("KASPA_WRPC_URL_MAINNET")
             .unwrap_or_else(|_| "ws://127.0.0.1:17310".to_string())
     } else {

@@ -171,7 +171,7 @@ pub(crate) fn is_pure_tier_payment(req: &SignAndBroadcastRequest) -> bool {
 /// payments are exempt because they are plain treasury transfers, not a
 /// covenant deploy. Testnets are never blocked.
 pub(crate) fn decorative_mainnet_blocked(req: &SignAndBroadcastRequest) -> bool {
-    (req.network == "mainnet" || req.network == "mainnet-1")
+    crate::covenant_builder::is_mainnet(&req.network)
         && !is_pure_tier_payment(req)
         && !req.acknowledge_unenforced
 }
@@ -241,7 +241,7 @@ fn to_utxo_entry(entry: &RpcUtxosByAddressesEntry) -> UtxoEntry {
 async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String> {
     let wrpc = if network == "testnet-10" {
         std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
-    } else if network == "mainnet" || network == "mainnet-1" {
+    } else if crate::covenant_builder::is_mainnet(network) {
         std::env::var("KASPA_WRPC_URL_MAINNET")
             .unwrap_or_else(|_| "ws://127.0.0.1:17310".to_string())
     } else {
@@ -275,7 +275,7 @@ pub async fn sign_and_broadcast_handler(
     let network = &payload.network;
 
     // MAINNET SECURITY: never allow hardcoded dev wallets / private keys from source.
-    if (network == "mainnet" || network == "mainnet-1") && payload.use_dev_mode {
+    if crate::covenant_builder::is_mainnet(network) && payload.use_dev_mode {
         return Json(serde_json::json!(SignAndBroadcastResponse {
             success: false,
             tx_id: None,
@@ -286,7 +286,7 @@ pub async fn sign_and_broadcast_handler(
     // NON-CUSTODIAL KEYSTONE: never accept a raw MAINNET private key. Mainnet signing is
     // non-custodial (the key signs the sighash in the browser via prepare/submit). A raw mainnet
     // key here would be the backend half of a custody breach. Refuse it; testnet is unaffected.
-    if (network == "mainnet" || network == "mainnet-1")
+    if crate::covenant_builder::is_mainnet(network)
         && !payload.use_dev_mode
         && !payload.private_key_hex.trim().is_empty()
     {

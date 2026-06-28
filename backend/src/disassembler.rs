@@ -669,13 +669,22 @@ mod tests {
             let t = &dis.tokens[0];
             assert!(t.introspection, "{b:#x} should be flagged introspection");
             assert_eq!(t.kip, Some("KIP-10"), "{b:#x} should be tagged KIP-10");
-            assert!(t.mainnet_live, "{b:#x} (KIP-10) is mainnet-live since Crescendo");
-            assert!(!t.reserved_unknown, "{b:#x} no longer reserved under the overlay");
+            assert!(
+                t.mainnet_live,
+                "{b:#x} (KIP-10) is mainnet-live since Crescendo"
+            );
+            assert!(
+                !t.reserved_unknown,
+                "{b:#x} no longer reserved under the overlay"
+            );
         }
         // KIP-16 ZK precompile: Toccata-gated, NOT mainnet-live.
         let zk = &disassemble(&[0xa6], true).tokens[0];
         assert_eq!(zk.kip, Some("KIP-16"));
-        assert!(!zk.mainnet_live, "OpZkPrecompile is gated on Toccata, not live today");
+        assert!(
+            !zk.mainnet_live,
+            "OpZkPrecompile is gated on Toccata, not live today"
+        );
         // KIP-20 covenant ID: Toccata-gated.
         let cov = &disassemble(&[0xcf], true).tokens[0];
         assert_eq!(cov.kip, Some("KIP-20"));

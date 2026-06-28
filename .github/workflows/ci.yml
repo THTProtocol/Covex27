@@ -99,14 +99,12 @@ jobs:
       # advisory until a dedicated `cargo fmt --all` sweep lands (coordinated, so it does not
       # clobber concurrent backend work), after which this returns to blocking.
       - name: cargo fmt --check
-        continue-on-error: true
         run: cargo fmt --all -- --check
 
       # GATE: clippy must pass. No -D warnings (so it fails only on hard errors / deny-level
       # lints), and the tree is clean today, so this blocks a clippy regression without
       # demanding a noisy warning sweep.
       - name: cargo clippy
-        continue-on-error: true  # 2 pre-existing clippy errors to clean up, then re-enable blocking
         run: cargo clippy --release
 
       # Advisory: known-vulnerable Rust dependencies (RustSec advisory DB). Surfaces

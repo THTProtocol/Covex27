@@ -112,9 +112,7 @@ fn prover_timeout() -> Duration {
 /// POST the `GameInput` to the prover service and return the on-chain settle material. Errors with a
 /// caller-surfaceable message on any failure (no prover configured, network error, non-2xx, the
 /// service reporting an unprovable game, or a malformed response). NEVER returns a fabricated proof.
-pub async fn request_settle_spend(
-    input: &ProverGameInput,
-) -> Result<ProverSettleSpend, String> {
+pub async fn request_settle_spend(input: &ProverGameInput) -> Result<ProverSettleSpend, String> {
     let base = prover_url().ok_or_else(|| {
         "on-chain ZK settlement needs a prover service: COVEX_PROVER_URL is not set (the backend host cannot prove RISC0->Groth16; run prover-service on a Docker + >=12GB RAM box). See prover-service/README.md".to_string()
     })?;
@@ -145,7 +143,11 @@ pub async fn request_settle_spend(
         // Surface the service's own error body when present (it reports unprovable games honestly).
         let detail = serde_json::from_str::<serde_json::Value>(&body)
             .ok()
-            .and_then(|v| v.get("error").and_then(|e| e.as_str()).map(|s| s.to_string()))
+            .and_then(|v| {
+                v.get("error")
+                    .and_then(|e| e.as_str())
+                    .map(|s| s.to_string())
+            })
             .unwrap_or_else(|| body.chars().take(400).collect());
         return Err(format!(
             "the prover service returned status {} ({}): {detail}",
@@ -154,8 +156,9 @@ pub async fn request_settle_spend(
         ));
     }
 
-    let parsed: ProverSettleSpend = serde_json::from_str(&body)
-        .map_err(|e| format!("the prover service response was not the expected settle JSON: {e}"))?;
+    let parsed: ProverSettleSpend = serde_json::from_str(&body).map_err(|e| {
+        format!("the prover service response was not the expected settle JSON: {e}")
+    })?;
 
     if parsed.proof_hex.trim().is_empty() || parsed.public_inputs.len() != 5 {
         return Err(

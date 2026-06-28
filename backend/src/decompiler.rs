@@ -786,9 +786,13 @@ fn label_for(kind: &RedeemKind) -> String {
         RedeemKind::BinaryOracleSelect { .. } => "Binary outcome selector (market leg)".into(),
         RedeemKind::OracleEnforcedRefundable { .. } => "Oracle-enforced payout, refundable".into(),
         RedeemKind::OracleEscrowRefundable { .. } => "Oracle-enforced escrow, refundable".into(),
-        RedeemKind::ZkGameSettle { .. } => "On-chain ZK game settlement (KIP-16 OpZkPrecompile)".into(),
+        RedeemKind::ZkGameSettle { .. } => {
+            "On-chain ZK game settlement (KIP-16 OpZkPrecompile)".into()
+        }
         RedeemKind::WinnerTakesAllBound { .. } => "Winner-takes-all, output-bound (KIP-10)".into(),
-        RedeemKind::EscrowBound { .. } => "2-party escrow, output-bound + CSV refund (KIP-10)".into(),
+        RedeemKind::EscrowBound { .. } => {
+            "2-party escrow, output-bound + CSV refund (KIP-10)".into()
+        }
     }
 }
 

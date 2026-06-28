@@ -406,11 +406,10 @@ async fn lock_pot(
     // p2sh_deploy_handler oracle freeze, so we freeze the legacy game lock here: on mainnet only
     // the de-oracle paths (hashlock / zk_game_settle, no Covex key in the redeem) may lock a new
     // game pot.
-    if net.starts_with("mainnet")
-        && settle_mode != "hashlock"
-        && settle_mode != "zk_game_settle"
-    {
-        return Json(json!({ "success": false, "error": "on mainnet a game pot must use the de-oracle hashlock settlement (no Covex key in the redeem); the legacy oracle_escrow co-sign path is frozen on mainnet" }));
+    if net.starts_with("mainnet") && settle_mode != "hashlock" && settle_mode != "zk_game_settle" {
+        return Json(
+            json!({ "success": false, "error": "on mainnet a game pot must use the de-oracle hashlock settlement (no Covex key in the redeem); the legacy oracle_escrow co-sign path is frozen on mainnet" }),
+        );
     }
     // ON-CHAIN ZK GATE (security review C1/C2): lock_pot routes through prepare_deploy_handler,
     // which does NOT carry the p2sh_deploy_handler ZK gate. So gate the zk_game_settle lock here
@@ -448,7 +447,9 @@ async fn lock_pot(
         let refund_after_daa = match req.get("refund_after_daa").and_then(|v| v.as_u64()) {
             Some(d) if d > 0 => d,
             _ => {
-                return Json(json!({ "success": false, "error": "zk_game_settle lock requires refund_after_daa (current node DAA + a refund window for the channel escrow's CLTV refund branch)" }));
+                return Json(
+                    json!({ "success": false, "error": "zk_game_settle lock requires refund_after_daa (current node DAA + a refund window for the channel escrow's CLTV refund branch)" }),
+                );
             }
         };
         // GRIEFING GUARD (audit P2, 2026-06-25): refund_after_daa was only checked for `> 0`,
@@ -460,7 +461,9 @@ async fn lock_pot(
         let current_daa = match crate::covenant_builder::current_virtual_daa(&net).await {
             Ok(d) => d,
             Err(e) => {
-                return Json(json!({ "success": false, "error": format!("cannot validate the zk_game_settle refund window: {e}") }));
+                return Json(
+                    json!({ "success": false, "error": format!("cannot validate the zk_game_settle refund window: {e}") }),
+                );
             }
         };
         if let Err(e) = check_zk_refund_window(refund_after_daa, current_daa) {
@@ -519,15 +522,16 @@ async fn lock_pot(
     // wallet to sign. No use_dev_mode, so the server never holds player1's key. The funder signs
     // `sighash` and POSTs {session_id, signature_hex, token} to /games/:id/submit-pot, which
     // broadcasts and links pot_tx (+ settle_mode + match_id for the hashlock path) to this match.
-    let preq: crate::covenant_builder::PrepareDeployRequest =
-        match serde_json::from_value(preq_json) {
-            Ok(r) => r,
-            Err(e) => {
-                return Json(
-                    json!({ "success": false, "error": format!("build prepare-deploy request: {e}") }),
-                )
-            }
-        };
+    let preq: crate::covenant_builder::PrepareDeployRequest = match serde_json::from_value(
+        preq_json,
+    ) {
+        Ok(r) => r,
+        Err(e) => {
+            return Json(
+                json!({ "success": false, "error": format!("build prepare-deploy request: {e}") }),
+            )
+        }
+    };
     let mut v = crate::covenant_builder::prepare_deploy_handler(Extension(db.clone()), Json(preq))
         .await
         .0;
@@ -544,10 +548,14 @@ async fn lock_pot(
                 let referee_x = crate::referee::referee_xonly_pubkey_hex(&net);
                 let lower = redeem_hex.to_lowercase();
                 if lower.contains(&oracle_x.to_lowercase()) {
-                    return Json(json!({ "success": false, "error": "internal error: de-oracle pot redeem unexpectedly embeds the Covex oracle key; refusing to lock a non-de-oracled pot" }));
+                    return Json(
+                        json!({ "success": false, "error": "internal error: de-oracle pot redeem unexpectedly embeds the Covex oracle key; refusing to lock a non-de-oracled pot" }),
+                    );
                 }
                 if lower.contains(&referee_x.to_lowercase()) {
-                    return Json(json!({ "success": false, "error": "internal error: de-oracle pot redeem unexpectedly embeds the referee key; the referee must never be a covenant signer" }));
+                    return Json(
+                        json!({ "success": false, "error": "internal error: de-oracle pot redeem unexpectedly embeds the referee key; the referee must never be a covenant signer" }),
+                    );
                 }
             }
         }
@@ -880,7 +888,9 @@ fn load_hashlock_pot(
     }
     // The referee hashlock domain bound at lock time. We default to the match covenant_id (the
     // domain lock-pot used) if an older row somehow lacks it, so re-derivation stays consistent.
-    let domain = match_id.filter(|s| !s.is_empty()).unwrap_or_else(|| covenant_id.to_string());
+    let domain = match_id
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| covenant_id.to_string());
     let net: String = conn
         .query_row(
             "SELECT network FROM p2sh_covenants WHERE tx_id = ?1",
@@ -948,7 +958,9 @@ async fn settle_pot_hashlock(
             return Json(json!({ "success": false, "error": format!("pot settle refused: {msg}") }))
         }
         crate::covenant_builder::GamePot::NotAGamePot => {
-            return Json(json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to settle" }))
+            return Json(
+                json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to settle" }),
+            )
         }
     };
 
@@ -966,15 +978,26 @@ async fn settle_pot_hashlock(
     // fallback (env flag decides).
     let receipt = match crate::referee_zk::decode_receipt_param(&req) {
         Ok(r) => r,
-        Err(e) => return Json(json!({ "success": false, "error": format!("invalid receipt param: {e}") })),
+        Err(e) => {
+            return Json(
+                json!({ "success": false, "error": format!("invalid receipt param: {e}") }),
+            )
+        }
     };
-    let moves: Vec<String> = serde_json::from_str(game["moves"].as_str().unwrap_or("[]"))
-        .unwrap_or_default();
-    let zk_note: String = match crate::referee_zk::run_gate_for_network(receipt.as_deref(), &net, outcome, &moves) {
+    let moves: Vec<String> =
+        serde_json::from_str(game["moves"].as_str().unwrap_or("[]")).unwrap_or_default();
+    let zk_note: String = match crate::referee_zk::run_gate_for_network(
+        receipt.as_deref(),
+        &net,
+        outcome,
+        &moves,
+    ) {
         crate::referee_zk::ZkGate::Verified(note) => note,
         crate::referee_zk::ZkGate::SkippedAllowed(note) => note,
         crate::referee_zk::ZkGate::Refused(msg) => {
-            return Json(json!({ "success": false, "error": format!("ZK winner-proof gate refused: {msg}") }))
+            return Json(
+                json!({ "success": false, "error": format!("ZK winner-proof gate refused: {msg}") }),
+            )
         }
     };
 
@@ -984,7 +1007,9 @@ async fn settle_pot_hashlock(
         (&p2, "reveal_b")
     };
     if winner.is_empty() {
-        return Json(json!({ "success": false, "error": "winner address missing for the verified outcome" }));
+        return Json(
+            json!({ "success": false, "error": "winner address missing for the verified outcome" }),
+        );
     }
 
     // THE REFEREE REVEAL: re-derive the winning outcome's secret. This is deterministic from
@@ -1006,7 +1031,9 @@ async fn settle_pot_hashlock(
     })) {
         Ok(r) => r,
         Err(e) => {
-            return Json(json!({ "success": false, "error": format!("build prepare-spend request: {e}") }))
+            return Json(
+                json!({ "success": false, "error": format!("build prepare-spend request: {e}") }),
+            )
         }
     };
     let mut v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq))
@@ -1043,7 +1070,9 @@ async fn refund_pot_hashlock(
     match authorize_money_caller(&db, &covenant_id, auth.token.as_deref().unwrap_or("")) {
         Ok(Seat::Player1) => {}
         Ok(Seat::Player2) => {
-            return Json(json!({ "success": false, "error": "only the funder (player1) may reclaim the pot via the refund branch" }))
+            return Json(
+                json!({ "success": false, "error": "only the funder (player1) may reclaim the pot via the refund branch" }),
+            )
         }
         Err(e) => return Json(json!({ "success": false, "error": e })),
     }
@@ -1071,7 +1100,9 @@ async fn refund_pot_hashlock(
     })) {
         Ok(r) => r,
         Err(e) => {
-            return Json(json!({ "success": false, "error": format!("build prepare-spend request: {e}") }))
+            return Json(
+                json!({ "success": false, "error": format!("build prepare-spend request: {e}") }),
+            )
         }
     };
     let mut v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq))
@@ -1091,10 +1122,7 @@ async fn refund_pot_hashlock(
 /// two PHASES of a zk_game_settle match: while the stake sits in the neutral escrow, pot_tx is a
 /// `channel` covenant; once /deploy-zk-settlement re-links it, pot_tx is a `zk_game_settle` covenant
 /// (only then is the on-chain winner-proof spend buildable). settle_zk requires the settlement phase.
-fn load_zk_pot(
-    db: &crate::db::Db,
-    covenant_id: &str,
-) -> Result<(String, String, String), String> {
+fn load_zk_pot(db: &crate::db::Db, covenant_id: &str) -> Result<(String, String, String), String> {
     let conn = db.lock().unwrap();
     let (pot_tx, settle_mode): (Option<String>, Option<String>) = conn
         .query_row(
@@ -1176,7 +1204,9 @@ async fn settle_zk(
     // is no winner branch to spend, so refuse with an honest next step rather than failing deep in
     // prepare_spend with a confusing message.
     if !pot_redeem_kind.starts_with("zk_game_settle") {
-        return Json(json!({ "success": false, "error": format!("the stake is still in the neutral escrow ('{pot_redeem_kind}'); deploy the on-chain ZK settlement covenant via /games/{covenant_id}/deploy-zk-settlement first, then settle") }));
+        return Json(
+            json!({ "success": false, "error": format!("the stake is still in the neutral escrow ('{pot_redeem_kind}'); deploy the on-chain ZK settlement covenant via /games/{covenant_id}/deploy-zk-settlement first, then settle") }),
+        );
     }
 
     // GATE 0 (env/net): the on-chain ZK kind is OFF by default and rejected on mainnet. This is the
@@ -1194,7 +1224,9 @@ async fn settle_zk(
             return Json(json!({ "success": false, "error": format!("pot settle refused: {msg}") }))
         }
         crate::covenant_builder::GamePot::NotAGamePot => {
-            return Json(json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to settle" }))
+            return Json(
+                json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to settle" }),
+            )
         }
     };
     let (winner_addr, winner_seat) = if outcome == 0 {
@@ -1203,11 +1235,15 @@ async fn settle_zk(
         (p2.clone(), Seat::Player2)
     };
     if winner_addr.is_empty() {
-        return Json(json!({ "success": false, "error": "winner address missing for the verified outcome" }));
+        return Json(
+            json!({ "success": false, "error": "winner address missing for the verified outcome" }),
+        );
     }
     // Only the WINNER may claim the winner branch (their key is the only one that can sign it).
     if std::mem::discriminant(&seat) != std::mem::discriminant(&winner_seat) {
-        return Json(json!({ "success": false, "error": "only the verified winner may claim the on-chain ZK payout (the loser cannot spend the winner branch)" }));
+        return Json(
+            json!({ "success": false, "error": "only the verified winner may claim the on-chain ZK payout (the loser cannot spend the winner branch)" }),
+        );
     }
 
     // Reconstruct the match's GameInput for the prover. The players are the two x-only keys (so the
@@ -1250,12 +1286,18 @@ async fn settle_zk(
     // fabricated proof is ever returned). The chain re-verifies the proof at spend time regardless.
     let spend = match crate::zk_prover_client::request_settle_spend(&prover_input).await {
         Ok(s) => s,
-        Err(e) => return Json(json!({ "success": false, "error": format!("could not obtain the on-chain ZK proof: {e}") })),
+        Err(e) => {
+            return Json(
+                json!({ "success": false, "error": format!("could not obtain the on-chain ZK proof: {e}") }),
+            )
+        }
     };
     // Sanity: the prover's winner_code must agree with the server money gate. If they disagree the
     // proof would not pay the server-verified winner, so refuse rather than hand over a mismatch.
     if spend.winner_code as u32 != outcome {
-        return Json(json!({ "success": false, "error": format!("prover winner_code {} disagrees with the server-verified outcome {outcome}; refusing to settle", spend.winner_code) }));
+        return Json(
+            json!({ "success": false, "error": format!("prover winner_code {} disagrees with the server-verified outcome {outcome}; refusing to settle", spend.winner_code) }),
+        );
     }
     // Defense-in-depth parity on the prover's returned binding fields. The chain is the final verifier
     // (it pins the VK + image id + journal binding and rejects a bad proof), so a mismatch here is not
@@ -1305,7 +1347,9 @@ async fn settle_zk(
     })) {
         Ok(r) => r,
         Err(e) => {
-            return Json(json!({ "success": false, "error": format!("build prepare-spend request: {e}") }))
+            return Json(
+                json!({ "success": false, "error": format!("build prepare-spend request: {e}") }),
+            )
         }
     };
     let mut v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq))
@@ -1374,7 +1418,9 @@ async fn deploy_zk_settlement(
     // ONE-SHOT (security review C4): refuse if pot_tx ALREADY points at a ZkGameSettle covenant (the
     // settlement was already deployed and re-linked) so the settlement covenant can never be swapped.
     if pot_redeem_kind.starts_with("zk_game_settle") {
-        return Json(json!({ "success": false, "error": "the on-chain ZK settlement covenant is already deployed and linked for this match (use /settle-zk to claim, or /refund-pot-zk to reclaim)" }));
+        return Json(
+            json!({ "success": false, "error": "the on-chain ZK settlement covenant is already deployed and linked for this match (use /settle-zk to claim, or /refund-pot-zk to reclaim)" }),
+        );
     }
 
     // GATE 0 (env/net): off by default, mainnet-rejected.
@@ -1387,15 +1433,21 @@ async fn deploy_zk_settlement(
     let outcome: u32 = match crate::covenant_builder::game_pot_outcome(&db, &pot_tx) {
         crate::covenant_builder::GamePot::Verified(o) => o,
         crate::covenant_builder::GamePot::Rejected(msg) => {
-            return Json(json!({ "success": false, "error": format!("settlement deploy refused: {msg}") }))
+            return Json(
+                json!({ "success": false, "error": format!("settlement deploy refused: {msg}") }),
+            )
         }
         crate::covenant_builder::GamePot::NotAGamePot => {
-            return Json(json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to deploy a settlement covenant" }))
+            return Json(
+                json!({ "success": false, "error": "this pot is not linked to a server-verified match; refusing to deploy a settlement covenant" }),
+            )
         }
     };
     let winner_addr = if outcome == 0 { p1.clone() } else { p2.clone() };
     if winner_addr.is_empty() {
-        return Json(json!({ "success": false, "error": "winner address missing for the verified outcome" }));
+        return Json(
+            json!({ "success": false, "error": "winner address missing for the verified outcome" }),
+        );
     }
 
     // GATE 3 (prover): obtain the receipt-derived settlement material. The 5 public inputs + winner
@@ -1442,7 +1494,9 @@ async fn deploy_zk_settlement(
         }
     };
     if spend.winner_code as u32 != outcome {
-        return Json(json!({ "success": false, "error": format!("prover winner_code {} disagrees with the server-verified outcome {outcome}; refusing", spend.winner_code) }));
+        return Json(
+            json!({ "success": false, "error": format!("prover winner_code {} disagrees with the server-verified outcome {outcome}; refusing", spend.winner_code) }),
+        );
     }
     // We have real settlement material but the sweep + C4-safe re-link are the documented residual.
     // Return it honestly rather than half-wiring a pot_tx overwrite (which would be a swap surface).
@@ -1494,7 +1548,9 @@ async fn settle_pot_draw(
     let p1 = game["player1"].as_str().unwrap_or("").to_string();
     let p2 = game["player2"].as_str().unwrap_or("").to_string();
     if p1.is_empty() || p2.is_empty() {
-        return Json(json!({ "success": false, "error": "a draw split needs both player addresses" }));
+        return Json(
+            json!({ "success": false, "error": "a draw split needs both player addresses" }),
+        );
     }
 
     let (pot_tx, net, pot_redeem_kind) = match load_zk_pot(&db, &covenant_id) {
@@ -1505,7 +1561,9 @@ async fn settle_pot_draw(
     // pot has been re-linked to a single-winner ZkGameSettle covenant there is no 2-output draw
     // branch, so refuse (a draw should be settled before the winner-settlement covenant is deployed).
     if !pot_redeem_kind.starts_with("channel") {
-        return Json(json!({ "success": false, "error": format!("the draw split needs the neutral 2-of-2 escrow, but the pot is a '{pot_redeem_kind}' covenant; a draw must be settled from the channel escrow") }));
+        return Json(
+            json!({ "success": false, "error": format!("the draw split needs the neutral 2-of-2 escrow, but the pot is a '{pot_redeem_kind}' covenant; a draw must be settled from the channel escrow") }),
+        );
     }
 
     // GATE 0 (env/net): off by default, mainnet-rejected (same gate as the rest of the ZK path).
@@ -1517,7 +1575,9 @@ async fn settle_pot_draw(
     // on anything else (not finished, no engine, unfinished, a decisive winner, a client-claimed
     // draw). game_pot_is_draw recomputes the result from the move log, not a stored field.
     if !crate::covenant_builder::game_pot_is_draw(&db, &pot_tx) {
-        return Json(json!({ "success": false, "error": "draw split refused: the server-authoritative engine replay does not show a draw (a draw must be a real engine-decided draw; a decisive game settles via /settle-zk)" }));
+        return Json(
+            json!({ "success": false, "error": "draw split refused: the server-authoritative engine replay does not show a draw (a draw must be a real engine-decided draw; a decisive game settles via /settle-zk)" }),
+        );
     }
 
     // Build the UNSIGNED cooperative-close split: two outputs, ~50% to each player, via the existing
@@ -1532,7 +1592,9 @@ async fn settle_pot_draw(
     })) {
         Ok(r) => r,
         Err(e) => {
-            return Json(json!({ "success": false, "error": format!("build draw-split request: {e}") }))
+            return Json(
+                json!({ "success": false, "error": format!("build draw-split request: {e}") }),
+            )
         }
     };
     let mut v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq))
@@ -1562,7 +1624,9 @@ async fn refund_pot_zk(
     match authorize_money_caller(&db, &covenant_id, auth.token.as_deref().unwrap_or("")) {
         Ok(Seat::Player1) => {}
         Ok(Seat::Player2) => {
-            return Json(json!({ "success": false, "error": "only the funder (player1) may reclaim the pot via the refund branch" }))
+            return Json(
+                json!({ "success": false, "error": "only the funder (player1) may reclaim the pot via the refund branch" }),
+            )
         }
         Err(e) => return Json(json!({ "success": false, "error": e })),
     }
@@ -1582,7 +1646,9 @@ async fn refund_pot_zk(
     // CLTV branch; a re-linked ZkGameSettle covenant refunds via its CSV branch. Both are the same
     // non-custodial "refund" branch in prepare-spend, which reads the kind from the on-chain covenant.
     if !(pot_redeem_kind.starts_with("channel") || pot_redeem_kind.starts_with("zk_game_settle")) {
-        return Json(json!({ "success": false, "error": format!("this pot ('{pot_redeem_kind}') is not a zk_game_settle escrow or settlement covenant") }));
+        return Json(
+            json!({ "success": false, "error": format!("this pot ('{pot_redeem_kind}') is not a zk_game_settle escrow or settlement covenant") }),
+        );
     }
     let preq: crate::covenant_builder::WalletPrepareRequest = match serde_json::from_value(json!({
         "network": net,
@@ -1592,7 +1658,9 @@ async fn refund_pot_zk(
     })) {
         Ok(r) => r,
         Err(e) => {
-            return Json(json!({ "success": false, "error": format!("build prepare-spend request: {e}") }))
+            return Json(
+                json!({ "success": false, "error": format!("build prepare-spend request: {e}") }),
+            )
         }
     };
     let mut v = crate::covenant_builder::prepare_spend_handler(Extension(db.clone()), Json(preq))
@@ -2772,10 +2840,9 @@ mod tests {
         let p1x = to32(&p1x_hex);
         let p2x = to32(&p2x_hex);
         // refund = funder = player1.
-        let redeem = crate::covenant_builder::redeem_binary_oracle_select(
-            &h_a, &p1x, &h_b, &p2x, 720, &p1x,
-        )
-        .expect("build binary_oracle_select redeem");
+        let redeem =
+            crate::covenant_builder::redeem_binary_oracle_select(&h_a, &p1x, &h_b, &p2x, 720, &p1x)
+                .expect("build binary_oracle_select redeem");
         let redeem_hex = hex::encode(&redeem).to_lowercase();
 
         let oracle_x = crate::oracle::oracle_xonly_pubkey_hex().to_lowercase();
@@ -2797,8 +2864,14 @@ mod tests {
             redeem_hex.contains(&hex::encode(h_b)),
             "redeem must embed referee hashlock B"
         );
-        assert!(redeem_hex.contains(&p1x_hex.to_lowercase()), "redeem embeds player1 key");
-        assert!(redeem_hex.contains(&p2x_hex.to_lowercase()), "redeem embeds player2 key");
+        assert!(
+            redeem_hex.contains(&p1x_hex.to_lowercase()),
+            "redeem embeds player1 key"
+        );
+        assert!(
+            redeem_hex.contains(&p2x_hex.to_lowercase()),
+            "redeem embeds player2 key"
+        );
     }
 
     /// The hashlock settle MONEY GATE fails closed when game_pot_outcome cannot
@@ -2841,18 +2914,11 @@ mod tests {
     async fn settle_pot_hashlock_rejects_missing_seat_token() {
         let db = fresh_db();
         seed_hashlock_pot(&db, "cov-hl-2", "pot-hl-2", "active", None, None);
-        let resp = settle_pot_hashlock(
-            Extension(db),
-            Path("cov-hl-2".into()),
-            Json(json!({})),
-        )
-        .await
-        .0;
+        let resp = settle_pot_hashlock(Extension(db), Path("cov-hl-2".into()), Json(json!({})))
+            .await
+            .0;
         assert_eq!(resp["success"], json!(false));
-        assert!(resp["error"]
-            .as_str()
-            .unwrap_or("")
-            .contains("seat token"));
+        assert!(resp["error"].as_str().unwrap_or("").contains("seat token"));
     }
 
     /// The hashlock refund is restricted to the FUNDER (player1): a player2 seat
@@ -2944,7 +3010,10 @@ mod tests {
             "a supplied proof with no verifier must refuse, not accept"
         );
         assert!(
-            resp["error"].as_str().unwrap_or("").contains("ZK winner-proof gate"),
+            resp["error"]
+                .as_str()
+                .unwrap_or("")
+                .contains("ZK winner-proof gate"),
             "the refusal must come from the ZK gate, got: {}",
             resp["error"]
         );
@@ -3167,25 +3236,65 @@ mod tests {
     fn game_pot_is_draw_only_for_genuine_engine_draw() {
         let db = fresh_db();
         // (a) genuine finished tic-tac-toe draw -> true.
-        seed_zk_pot(&db, "cov-d1", "pot-d1", "channel", "testnet-12", "finished", Some("draw"), "tictactoe", TTT_DRAW_MOVES);
+        seed_zk_pot(
+            &db,
+            "cov-d1",
+            "pot-d1",
+            "channel",
+            "testnet-12",
+            "finished",
+            Some("draw"),
+            "tictactoe",
+            TTT_DRAW_MOVES,
+        );
         assert!(
             crate::covenant_builder::game_pot_is_draw(&db, "pot-d1"),
             "a real engine-decided draw must authorize the split"
         );
         // (b) a decisive X win -> false (even if the row's winner field lied as draw).
-        seed_zk_pot(&db, "cov-d2", "pot-d2", "channel", "testnet-12", "finished", Some("draw"), "tictactoe", TTT_X_WIN_MOVES);
+        seed_zk_pot(
+            &db,
+            "cov-d2",
+            "pot-d2",
+            "channel",
+            "testnet-12",
+            "finished",
+            Some("draw"),
+            "tictactoe",
+            TTT_X_WIN_MOVES,
+        );
         assert!(
             !crate::covenant_builder::game_pot_is_draw(&db, "pot-d2"),
             "a decisive game must NOT be treated as a draw, even if winner says draw"
         );
         // (c) unfinished board -> false.
-        seed_zk_pot(&db, "cov-d3", "pot-d3", "channel", "testnet-12", "finished", None, "tictactoe", r#"["X0","O1"]"#);
+        seed_zk_pot(
+            &db,
+            "cov-d3",
+            "pot-d3",
+            "channel",
+            "testnet-12",
+            "finished",
+            None,
+            "tictactoe",
+            r#"["X0","O1"]"#,
+        );
         assert!(
             !crate::covenant_builder::game_pot_is_draw(&db, "pot-d3"),
             "an unfinished board is not a draw"
         );
         // (d) not finished status -> false (even with a draw move log).
-        seed_zk_pot(&db, "cov-d4", "pot-d4", "channel", "testnet-12", "active", None, "tictactoe", TTT_DRAW_MOVES);
+        seed_zk_pot(
+            &db,
+            "cov-d4",
+            "pot-d4",
+            "channel",
+            "testnet-12",
+            "active",
+            None,
+            "tictactoe",
+            TTT_DRAW_MOVES,
+        );
         assert!(
             !crate::covenant_builder::game_pot_is_draw(&db, "pot-d4"),
             "a non-finished match cannot authorize a draw split"
@@ -3196,7 +3305,17 @@ mod tests {
             "a missing pot must fail closed"
         );
         // (f) unsupported engine (no result_from_moves) -> false.
-        seed_zk_pot(&db, "cov-d5", "pot-d5", "channel", "testnet-12", "finished", Some("draw"), "blackjack", r#"["whatever"]"#);
+        seed_zk_pot(
+            &db,
+            "cov-d5",
+            "pot-d5",
+            "channel",
+            "testnet-12",
+            "finished",
+            Some("draw"),
+            "blackjack",
+            r#"["whatever"]"#,
+        );
         assert!(
             !crate::covenant_builder::game_pot_is_draw(&db, "pot-d5"),
             "an engine with no server-authoritative replay must fail closed"
@@ -3208,7 +3327,17 @@ mod tests {
     #[tokio::test]
     async fn settle_pot_draw_rejects_missing_seat_token() {
         let db = fresh_db();
-        seed_zk_pot(&db, "cov-dr", "pot-dr", "channel", "testnet-12", "finished", Some("draw"), "tictactoe", TTT_DRAW_MOVES);
+        seed_zk_pot(
+            &db,
+            "cov-dr",
+            "pot-dr",
+            "channel",
+            "testnet-12",
+            "finished",
+            Some("draw"),
+            "tictactoe",
+            TTT_DRAW_MOVES,
+        );
         let resp = settle_pot_draw(Extension(db), Path("cov-dr".into()), Json(json!({})))
             .await
             .0;
@@ -3225,7 +3354,17 @@ mod tests {
     #[tokio::test]
     async fn settle_zk_rejects_missing_seat_token() {
         let db = fresh_db();
-        seed_zk_pot(&db, "cov-sz", "pot-sz", "zk_game_settle", "testnet-12", "finished", Some("white"), "chess", "[]");
+        seed_zk_pot(
+            &db,
+            "cov-sz",
+            "pot-sz",
+            "zk_game_settle",
+            "testnet-12",
+            "finished",
+            Some("white"),
+            "chess",
+            "[]",
+        );
         let resp = settle_zk(Extension(db), Path("cov-sz".into()), Json(json!({})))
             .await
             .0;
@@ -3244,10 +3383,24 @@ mod tests {
     async fn settle_zk_refuses_while_in_neutral_escrow() {
         let db = fresh_db();
         // pot is linked but its on-chain covenant is still the neutral CHANNEL escrow.
-        seed_zk_pot(&db, "cov-esc", "pot-esc", "channel", "testnet-12", "finished", Some("white"), "chess", "[]");
-        let resp = settle_zk(Extension(db), Path("cov-esc".into()), Json(json!({ "token": "tok-p1" })))
-            .await
-            .0;
+        seed_zk_pot(
+            &db,
+            "cov-esc",
+            "pot-esc",
+            "channel",
+            "testnet-12",
+            "finished",
+            Some("white"),
+            "chess",
+            "[]",
+        );
+        let resp = settle_zk(
+            Extension(db),
+            Path("cov-esc".into()),
+            Json(json!({ "token": "tok-p1" })),
+        )
+        .await
+        .0;
         assert_eq!(resp["success"], json!(false));
         let err = resp["error"].as_str().unwrap_or("");
         assert!(
@@ -3262,7 +3415,17 @@ mod tests {
     #[tokio::test]
     async fn deploy_zk_settlement_refuses_when_already_settled() {
         let db = fresh_db();
-        seed_zk_pot(&db, "cov-os", "pot-os", "zk_game_settle", "testnet-12", "finished", Some("white"), "chess", "[]");
+        seed_zk_pot(
+            &db,
+            "cov-os",
+            "pot-os",
+            "zk_game_settle",
+            "testnet-12",
+            "finished",
+            Some("white"),
+            "chess",
+            "[]",
+        );
         let resp = deploy_zk_settlement(
             Extension(db),
             Path("cov-os".into()),
@@ -3282,14 +3445,20 @@ mod tests {
     #[tokio::test]
     async fn deploy_zk_settlement_rejects_missing_seat_token() {
         let db = fresh_db();
-        seed_zk_pot(&db, "cov-da", "pot-da", "channel", "testnet-12", "finished", Some("white"), "chess", "[]");
-        let resp = deploy_zk_settlement(
-            Extension(db),
-            Path("cov-da".into()),
-            Json(json!({})),
-        )
-        .await
-        .0;
+        seed_zk_pot(
+            &db,
+            "cov-da",
+            "pot-da",
+            "channel",
+            "testnet-12",
+            "finished",
+            Some("white"),
+            "chess",
+            "[]",
+        );
+        let resp = deploy_zk_settlement(Extension(db), Path("cov-da".into()), Json(json!({})))
+            .await
+            .0;
         assert_eq!(resp["success"], json!(false));
         let err = resp["error"].as_str().unwrap_or("");
         assert!(
@@ -3304,7 +3473,17 @@ mod tests {
     #[tokio::test]
     async fn refund_pot_zk_only_funder() {
         let db = fresh_db();
-        seed_zk_pot(&db, "cov-rf", "pot-rf", "channel", "testnet-12", "finished", None, "chess", "[]");
+        seed_zk_pot(
+            &db,
+            "cov-rf",
+            "pot-rf",
+            "channel",
+            "testnet-12",
+            "finished",
+            None,
+            "chess",
+            "[]",
+        );
         // player2's token must be refused.
         let resp = refund_pot_zk(
             Extension(db.clone()),

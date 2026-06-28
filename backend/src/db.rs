@@ -2818,7 +2818,15 @@ mod generated_ui_masking_tests {
         conn
     }
 
-    fn insert_row(conn: &Connection, cid: &str, tier: &str, html: &str, cfg: &str, slug: &str, gen_at: i64) {
+    fn insert_row(
+        conn: &Connection,
+        cid: &str,
+        tier: &str,
+        html: &str,
+        cfg: &str,
+        slug: &str,
+        gen_at: i64,
+    ) {
         conn.execute(
             "INSERT INTO generated_uis (covenant_id, owner_address, tier, ui_html, ui_config, slug, ui_generated_at)
              VALUES (?1, 'kaspatest:owner', ?2, ?3, ?4, ?5, ?6)",
@@ -2847,23 +2855,61 @@ mod generated_ui_masking_tests {
         let conn = seed_conn();
         let cid = "13feadc6:0";
         // Creator publishes a website (tier TERMINAL) at t=100.
-        insert_row(&conn, cid, "TERMINAL", "<html>event site</html>", "{\"x\":1}", "site-13feadc6", 100);
+        insert_row(
+            &conn,
+            cid,
+            "TERMINAL",
+            "<html>event site</html>",
+            "{\"x\":1}",
+            "site-13feadc6",
+            100,
+        );
         // Then features the covenant: an EMPTY tier-METADATA row lands NEWER, at t=200.
-        insert_row(&conn, cid, "METADATA", "", "{\"name\":\"WC final\"}", "meta-13feadc6", 200);
+        insert_row(
+            &conn,
+            cid,
+            "METADATA",
+            "",
+            "{\"name\":\"WC final\"}",
+            "meta-13feadc6",
+            200,
+        );
 
         let (html, _cfg, tier) = read_ui(&conn, cid).expect("a row must be returned");
-        assert_eq!(html, "<html>event site</html>", "the published website must survive featuring");
-        assert_eq!(tier, "TERMINAL", "source tier must stay TERMINAL so the iframe renders as a creator UI");
+        assert_eq!(
+            html, "<html>event site</html>",
+            "the published website must survive featuring"
+        );
+        assert_eq!(
+            tier, "TERMINAL",
+            "source tier must stay TERMINAL so the iframe renders as a creator UI"
+        );
     }
 
     #[test]
     fn newer_empty_trusted_row_still_excluded_and_website_wins() {
         let conn = seed_conn();
         let cid = "abc123:0";
-        insert_row(&conn, cid, "TERMINAL", "<html>site</html>", "{}", "site-abc", 100);
+        insert_row(
+            &conn,
+            cid,
+            "TERMINAL",
+            "<html>site</html>",
+            "{}",
+            "site-abc",
+            100,
+        );
         insert_row(&conn, cid, "METADATA", "", "{}", "meta-abc", 200);
         // Even an EVEN-newer empty TRUSTED config row must not win.
-        insert_row(&conn, cid, "TRUSTED", "", "{\"verified_source_url\":\"u\"}", "trust-abc", 300);
+        insert_row(
+            &conn,
+            cid,
+            "TRUSTED",
+            "",
+            "{\"verified_source_url\":\"u\"}",
+            "trust-abc",
+            300,
+        );
 
         let (html, _cfg, tier) = read_ui(&conn, cid).expect("a row must be returned");
         assert_eq!(html, "<html>site</html>");
@@ -2876,12 +2922,31 @@ mod generated_ui_masking_tests {
         // is a tie-break only against empty rows; it must not freeze the displayed UI).
         let conn = seed_conn();
         let cid = "def456:0";
-        insert_row(&conn, cid, "TERMINAL", "<html>old</html>", "{}", "site-def-old", 100);
-        insert_row(&conn, cid, "TERMINAL", "<html>new</html>", "{}", "site-def-new", 300);
+        insert_row(
+            &conn,
+            cid,
+            "TERMINAL",
+            "<html>old</html>",
+            "{}",
+            "site-def-old",
+            100,
+        );
+        insert_row(
+            &conn,
+            cid,
+            "TERMINAL",
+            "<html>new</html>",
+            "{}",
+            "site-def-new",
+            300,
+        );
         insert_row(&conn, cid, "METADATA", "", "{}", "meta-def", 200);
 
         let (html, _cfg, _tier) = read_ui(&conn, cid).expect("a row must be returned");
-        assert_eq!(html, "<html>new</html>", "a newer republished UI must replace the older one");
+        assert_eq!(
+            html, "<html>new</html>",
+            "a newer republished UI must replace the older one"
+        );
     }
 
     #[test]
@@ -2891,7 +2956,15 @@ mod generated_ui_masking_tests {
         // UI"), so featuring a UI-less covenant is still fine.
         let conn = seed_conn();
         let cid = "ghi789:0";
-        insert_row(&conn, cid, "METADATA", "", "{\"name\":\"n\"}", "meta-ghi", 100);
+        insert_row(
+            &conn,
+            cid,
+            "METADATA",
+            "",
+            "{\"name\":\"n\"}",
+            "meta-ghi",
+            100,
+        );
 
         let (html, _cfg, tier) = read_ui(&conn, cid).expect("the metadata row is returned");
         assert_eq!(html, "", "no published html exists");

@@ -106,12 +106,9 @@ pub fn snapshot() -> serde_json::Value {
         // long-unchanged tip is a genuine freeze, not low activity.
         let (stalled, stall_reason) = if !connected {
             (true, "disconnected")
-        } else if tip_age >= 0 && tip_age > NODE_STALL_SECS {
+        } else if tip_age > NODE_STALL_SECS {
             (true, "node_tip_frozen")
-        } else if scanned_age >= 0
-            && scanned_age > INDEXER_STALL_SECS
-            && behind > INDEXER_STALL_BEHIND
-        {
+        } else if scanned_age > INDEXER_STALL_SECS && behind > INDEXER_STALL_BEHIND {
             (true, "indexer_frozen")
         } else {
             (false, "")

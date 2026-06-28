@@ -240,11 +240,7 @@ pub fn run_gate_for_network(
 /// Network-agnostic gate (env flag only). Kept for callers/tests that do not carry a
 /// network label; delegates to `run_gate_for_network` with a non-mainnet network so the
 /// env flag alone decides. The live money path uses `run_gate_for_network`.
-pub fn run_gate(
-    receipt: Option<&[u8]>,
-    expected_outcome: u32,
-    moves: &[String],
-) -> ZkGate {
+pub fn run_gate(receipt: Option<&[u8]>, expected_outcome: u32, moves: &[String]) -> ZkGate {
     run_gate_for_network(receipt, "testnet", expected_outcome, moves)
 }
 
@@ -267,10 +263,7 @@ fn verify_receipt(
         .ok_or_else(|| "COVEX_GAMES_PROVER_BIN not set".to_string())?;
 
     // Write the receipt to a temp file for the CLI (which reads a path).
-    let tmp = std::env::temp_dir().join(format!(
-        "covex-game-receipt-{}.bin",
-        uuid::Uuid::new_v4()
-    ));
+    let tmp = std::env::temp_dir().join(format!("covex-game-receipt-{}.bin", uuid::Uuid::new_v4()));
     std::fs::write(&tmp, receipt_bytes)
         .map_err(|e| format!("could not stage receipt for verification: {e}"))?;
 
@@ -283,9 +276,7 @@ fn verify_receipt(
         .output();
     let _ = std::fs::remove_file(&tmp);
 
-    let output = output.map_err(|e| {
-        format!("could not run the zkVM verifier ({bin}): {e}")
-    })?;
+    let output = output.map_err(|e| format!("could not run the zkVM verifier ({bin}): {e}"))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -462,7 +453,10 @@ mod tests {
         let moves = vec!["e2e4".to_string(), "resign".to_string()];
 
         // Flag-agnostic predicate: mainnet is always required, testnet is not (flag off).
-        assert!(zk_required_for_network("mainnet"), "mainnet must force require");
+        assert!(
+            zk_required_for_network("mainnet"),
+            "mainnet must force require"
+        );
         assert!(
             zk_required_for_network("mainnet-11"),
             "any mainnet* label must force require"

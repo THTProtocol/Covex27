@@ -640,9 +640,7 @@ impl SpendKind {
     /// high) is rejected by the node as WrongSigOpCount.
     pub fn sig_op_count(&self) -> u8 {
         match self {
-            SpendKind::SingleSig
-            | SpendKind::HashLock
-            | SpendKind::Timelock { .. } => 1,
+            SpendKind::SingleSig | SpendKind::HashLock | SpendKind::Timelock { .. } => 1,
             // IF <hash> CheckSig (claim) ELSE CLTV <sender> CheckSig (refund) ENDIF = 2 static
             // sig ops (one CheckSig per branch). Declaring 1 made EVERY HTLC spend fail
             // WrongSigOpCount(1, 2) on a covenant node and permanently locked the funds.
@@ -923,7 +921,10 @@ pub fn redeem_zk_precompile_verify_core_witness_proof(
 /// Build the witness (signature_script) for `redeem_zk_precompile_verify_core_witness_proof`: it
 /// pushes ONLY the proof (no signature, no selector - the redeem has no branch). The on-chain
 /// OpZkPrecompile leaves the truthy result that satisfies the spend.
-pub fn build_zk_verify_core_witness_proof_satisfier(proof: &[u8], redeem: &[u8]) -> BResult<Vec<u8>> {
+pub fn build_zk_verify_core_witness_proof_satisfier(
+    proof: &[u8],
+    redeem: &[u8],
+) -> BResult<Vec<u8>> {
     if proof.is_empty() {
         return Err("zk verify-core witness: empty proof".into());
     }
@@ -1072,7 +1073,8 @@ pub fn build_zk_game_settle_refund_satisfier(
 /// identical to every other number push.
 fn push_index0(out: &mut Vec<u8>) -> BResult<()> {
     let mut b = ScriptBuilder::new();
-    b.add_i64(0).map_err(|e| format!("kip10 push index 0: {e}"))?;
+    b.add_i64(0)
+        .map_err(|e| format!("kip10 push index 0: {e}"))?;
     out.extend_from_slice(&b.drain());
     Ok(())
 }
@@ -1086,7 +1088,12 @@ fn push_index0(out: &mut Vec<u8>) -> BResult<()> {
 /// The leading exactly-one-output bind is the change/skim defense (spec R2) and is NEVER dropped.
 /// `eq_op` is OP_EQUAL (0x87) for the trailing-result A1 form, or OP_EQUAL_VERIFY (0x88) when a
 /// signature check follows (A2 / escrow branches).
-fn emit_output_binding(out: &mut Vec<u8>, fee_sompi: u64, recipient: &[u8; 32], eq_op: u8) -> BResult<()> {
+fn emit_output_binding(
+    out: &mut Vec<u8>,
+    fee_sompi: u64,
+    recipient: &[u8; 32],
+    eq_op: u8,
+) -> BResult<()> {
     // OpTxOutputCount NUM(1) OpNumEqualVerify  (exactly one output - the skim defense).
     out.push(OP_TX_OUTPUT_COUNT);
     {
@@ -1980,7 +1987,9 @@ fn parse_zk_game_settle_keys(redeem: &[u8]) -> Option<([u8; 32], [u8; 32])> {
     while i + 1 < redeem.len() {
         if redeem[i] == OP_ZK_PRECOMPILE && redeem[i + 1] == OP_DROP_BYTE {
             let p = i + 2;
-            if p + 33 <= redeem.len() && redeem[p] == 0x20 && redeem.get(p + 33) == Some(&OpCheckSig)
+            if p + 33 <= redeem.len()
+                && redeem[p] == 0x20
+                && redeem.get(p + 33) == Some(&OpCheckSig)
             {
                 let mut w = [0u8; 32];
                 w.copy_from_slice(&redeem[p + 1..p + 33]);
@@ -2338,7 +2347,8 @@ fn assemble_noncustodial_satisfier(
                     members.get(idx).and_then(|p| sig_for(p))
                 })
                 .ok_or_else(|| {
-                    "escrow_bound spend needs the claiming party's signature (signature_hex)".to_string()
+                    "escrow_bound spend needs the claiming party's signature (signature_hex)"
+                        .to_string()
                 })?;
             satisfier.extend(push65(&s));
             if branch_refund {
@@ -2472,10 +2482,7 @@ fn resolve_signing_key(
     // breach (the advertised "your key never leaves your device" guarantee). Refuse it; testnet
     // dev/demo flows are unaffected. `is_mainnet` uses starts_with so "mainnet-foo" cannot slip
     // past an exact match and route a raw mainnet key to the server.
-    if is_mainnet(network)
-        && !use_dev_mode
-        && !private_key_hex.trim().is_empty()
-    {
+    if is_mainnet(network) && !use_dev_mode && !private_key_hex.trim().is_empty() {
         return Err(
             "mainnet signing is non-custodial: do not send a private key to the server. Use the prepare/submit flow so your key signs in your browser.".into(),
         );
@@ -5222,7 +5229,10 @@ pub async fn prepare_spend_handler(
                 Some(hex::encode(if branch_refund { refund } else { winner }))
             }
             None => {
-                return err("zk_game_settle redeem is malformed (cannot parse the winner/refund keys)".into())
+                return err(
+                    "zk_game_settle redeem is malformed (cannot parse the winner/refund keys)"
+                        .into(),
+                )
             }
         }
     } else {
@@ -5366,8 +5376,14 @@ pub async fn prepare_spend_handler(
             ));
         }
         vec![
-            TransactionOutput { value: half_a, script_public_key: dest_script },
-            TransactionOutput { value: half_b, script_public_key: split_script },
+            TransactionOutput {
+                value: half_a,
+                script_public_key: dest_script,
+            },
+            TransactionOutput {
+                value: half_b,
+                script_public_key: split_script,
+            },
         ]
     } else {
         vec![TransactionOutput {
@@ -5637,7 +5653,9 @@ pub async fn submit_signed_handler(
             {
                 Some(h) => match hex::decode(h) {
                     Ok(b) => b,
-                    Err(e) => return err(format!("zk_game_settle winner spend: bad proof_hex: {e}")),
+                    Err(e) => {
+                        return err(format!("zk_game_settle winner spend: bad proof_hex: {e}"))
+                    }
                 },
                 None => {
                     return err(
@@ -10115,10 +10133,17 @@ mod tests {
             let h = spk_hex(spk);
             let bytes = hex::decode(&h).unwrap();
             // Canonical layout: first 2 bytes = version (BE), rest = script.
-            assert!(bytes.len() >= 2, "spk hex must carry the 2-byte version prefix");
+            assert!(
+                bytes.len() >= 2,
+                "spk hex must carry the 2-byte version prefix"
+            );
             let ver = u16::from_be_bytes([bytes[0], bytes[1]]);
             assert_eq!(ver, spk.version(), "version prefix must be the BE u16");
-            assert_eq!(&bytes[2..], spk.script(), "script bytes must follow the version verbatim");
+            assert_eq!(
+                &bytes[2..],
+                spk.script(),
+                "script bytes must follow the version verbatim"
+            );
         }
     }
 
@@ -10607,7 +10632,6 @@ mod tests {
         );
     }
 
-
     /// CROSS-LANGUAGE REDEEM (LOCK) GOLDEN PARITY (the consensus-critical lock-path gate).
     ///
     /// Sibling of satisfier_golden_cross_language_parity, but for the LOCK side. The redeem
@@ -10917,9 +10941,17 @@ mod tests {
         let s = redeem_zk_precompile_verify_core(&vk, &proof, &inputs).unwrap();
 
         // The script MUST end with: OpData1 0x20 (tag) then the raw 0xa6 opcode.
-        assert_eq!(s[s.len() - 1], OP_ZK_PRECOMPILE, "last byte must be 0xa6 OpZkPrecompile");
+        assert_eq!(
+            s[s.len() - 1],
+            OP_ZK_PRECOMPILE,
+            "last byte must be 0xa6 OpZkPrecompile"
+        );
         assert_eq!(s[s.len() - 3], 0x01, "tag must be an OpData1 push");
-        assert_eq!(s[s.len() - 2], ZK_TAG_GROTH16, "tag value must be 0x20 (Groth16)");
+        assert_eq!(
+            s[s.len() - 2],
+            ZK_TAG_GROTH16,
+            "tag value must be 0x20 (Groth16)"
+        );
 
         // Walk the pushes from the start: inputs in REVERSE (in4..in0), then n, then proof, then VK.
         let mut i = 0usize;
@@ -10940,7 +10972,11 @@ mod tests {
         assert_eq!(k, vk, "vk push mismatch");
         i = ki;
         // Then exactly tag + opcode.
-        assert_eq!(&s[i..], &[0x01, ZK_TAG_GROTH16, OP_ZK_PRECOMPILE], "trailer must be OpData1 0x20 0xa6");
+        assert_eq!(
+            &s[i..],
+            &[0x01, ZK_TAG_GROTH16, OP_ZK_PRECOMPILE],
+            "trailer must be OpData1 0x20 0xa6"
+        );
     }
 
     #[test]
@@ -11020,25 +11056,53 @@ mod tests {
             .expect("tag,0xa6,OpDrop must be contiguous (tag is OpData1's payload)");
         // After OpDrop: OpData32 winner OpCheckSig.
         let after = zk_at + 3;
-        assert_eq!(s[after], 0x20, "winner must be an OpData32 push after OpDrop");
+        assert_eq!(
+            s[after], 0x20,
+            "winner must be an OpData32 push after OpDrop"
+        );
         assert_eq!(&s[after + 1..after + 33], &winner, "winner pubkey bytes");
-        assert_eq!(s[after + 33], OpCheckSig, "winner branch ends in OpCheckSig");
+        assert_eq!(
+            s[after + 33],
+            OpCheckSig,
+            "winner branch ends in OpCheckSig"
+        );
         // An OP_ELSE and an OpCheckSequenceVerify (CSV refund) must follow.
-        assert!(s[after + 34..].contains(&OpElse), "must have an OP_ELSE refund branch");
+        assert!(
+            s[after + 34..].contains(&OpElse),
+            "must have an OP_ELSE refund branch"
+        );
         assert!(
             s[after + 34..].contains(&OpCheckSequenceVerify),
             "refund branch must use OpCheckSequenceVerify (CSV)"
         );
-        assert!(s[after + 34..].windows(32).any(|w| w == refund), "refund key must be present");
+        assert!(
+            s[after + 34..].windows(32).any(|w| w == refund),
+            "refund key must be present"
+        );
 
         // The witness-proof choreography: OpToAltStack (0x6b) must immediately follow OP_IF, and
         // OpFromAltStack (0x6c) must appear before the tag/opcode so the proof lands in its slot.
-        assert_eq!(s[1], OP_TO_ALT_STACK, "OpToAltStack (0x6b) must immediately follow OP_IF");
-        let from_alt = s.iter().position(|&b| b == OP_FROM_ALT_STACK).expect("OpFromAltStack present");
-        let tag_at = s.windows(2).position(|w| w == [ZK_TAG_GROTH16, OP_ZK_PRECOMPILE]).unwrap();
-        assert!(from_alt < tag_at, "OpFromAltStack must precede the tag/0xa6 (restore proof first)");
+        assert_eq!(
+            s[1], OP_TO_ALT_STACK,
+            "OpToAltStack (0x6b) must immediately follow OP_IF"
+        );
+        let from_alt = s
+            .iter()
+            .position(|&b| b == OP_FROM_ALT_STACK)
+            .expect("OpFromAltStack present");
+        let tag_at = s
+            .windows(2)
+            .position(|w| w == [ZK_TAG_GROTH16, OP_ZK_PRECOMPILE])
+            .unwrap();
+        assert!(
+            from_alt < tag_at,
+            "OpFromAltStack must precede the tag/0xa6 (restore proof first)"
+        );
         // OpFromAltStack must sit AFTER the n push (the inputs are baked under the restored proof).
-        assert!(s[..from_alt].windows(2).any(|w| w == [0x01, 0x05]), "n=5 push must precede OpFromAltStack");
+        assert!(
+            s[..from_alt].windows(2).any(|w| w == [0x01, 0x05]),
+            "n=5 push must precede OpFromAltStack"
+        );
     }
 
     #[test]
@@ -11074,7 +11138,11 @@ mod tests {
         let a1 = p2sh_address(&r1, Prefix::Testnet).unwrap().to_string();
         let a2 = p2sh_address(&r2, Prefix::Testnet).unwrap().to_string();
         assert_eq!(a1, a2, "p2sh address must be deterministic");
-        assert_eq!(kind.kind_str(), "zk_game_settle:720", "kind string carries the CSV min_sequence");
+        assert_eq!(
+            kind.kind_str(),
+            "zk_game_settle:720",
+            "kind string carries the CSV min_sequence"
+        );
         assert_eq!(kind.catalog_id(), "p2sh_zk_game_settle");
         // The two CHECKSIG-bound keys are exactly the winner + refund I supplied - no co-sign key is
         // baked (the trustless property: consensus verifies the proof, not a Covex signature). The VK
@@ -11082,7 +11150,11 @@ mod tests {
         // it; the robust per-branch recovery uses the anchored parse_zk_game_settle_keys below. We do
         // NOT derive the live oracle key (it is env-gated fail-closed), only assert what IS baked.
         let checksig_keys = parse_redeem_pubkeys(&r1, true);
-        assert_eq!(checksig_keys, vec![winner, refund], "only the winner + refund keys are checksig-bound");
+        assert_eq!(
+            checksig_keys,
+            vec![winner, refund],
+            "only the winner + refund keys are checksig-bound"
+        );
         // The structural (anchored) parser recovers them in the right roles even for a real VK.
         let (pw, pr) = parse_zk_game_settle_keys(&r1).expect("parse winner/refund keys");
         assert_eq!(pw, winner, "parser must recover the winner key");
@@ -11111,9 +11183,15 @@ mod tests {
         let (got_proof, after_proof) = read_push(&script, 66);
         assert_eq!(got_proof, proof, "proof must be the second witness push");
         // 3. OP_TRUE selector (the IF branch).
-        assert_eq!(script[after_proof], OpTrue, "the IF selector (OP_TRUE) must follow the proof");
+        assert_eq!(
+            script[after_proof], OpTrue,
+            "the IF selector (OP_TRUE) must follow the proof"
+        );
         // After the selector, the rest is the redeem-script push (pay_to_script_hash framing).
-        assert!(script.len() > after_proof + 1, "redeem script push must follow the witness");
+        assert!(
+            script.len() > after_proof + 1,
+            "redeem script push must follow the witness"
+        );
         // An empty proof is rejected.
         assert!(build_zk_game_settle_winner_satisfier(&sig, &[], &redeem).is_err());
     }
@@ -11131,7 +11209,10 @@ mod tests {
         assert_eq!(script[0], 65, "refund sig must be an OpData65 push");
         assert_eq!(&script[1..65], &sig, "refund sig bytes");
         assert_eq!(script[65], SIG_HASH_ALL.to_u8(), "sig hash type byte");
-        assert_eq!(script[66], OpFalse, "OP_FALSE selector (the ELSE refund branch) must follow the sig");
+        assert_eq!(
+            script[66], OpFalse,
+            "OP_FALSE selector (the ELSE refund branch) must follow the sig"
+        );
     }
 
     /// STAGE 3 DECISIVE on-chain proof (ignored by default; run on the Hetzner TN12 box with
@@ -11153,7 +11234,10 @@ mod tests {
             }
         };
         let network = "testnet-12";
-        let sk: [u8; 32] = hex::decode(&key_hex).unwrap().try_into().expect("32-byte key");
+        let sk: [u8; 32] = hex::decode(&key_hex)
+            .unwrap()
+            .try_into()
+            .expect("32-byte key");
         // Sanity: the key derives the expected dev address (P2PK), else the funding inputs won't sign.
         let dev_addr = crate::dev_wallets::DEV_WALLET_1_ADDRESS_TN12;
 
@@ -11191,9 +11275,15 @@ mod tests {
             let total: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
             let dev_script = selected[0].utxo_entry.script_public_key.clone();
             let change = total - stake - fee;
-            let mut outputs = vec![TransactionOutput { value: stake, script_public_key: p2sh_spk.clone() }];
+            let mut outputs = vec![TransactionOutput {
+                value: stake,
+                script_public_key: p2sh_spk.clone(),
+            }];
             if change >= 10_000 {
-                outputs.push(TransactionOutput { value: change, script_public_key: dev_script });
+                outputs.push(TransactionOutput {
+                    value: change,
+                    script_public_key: dev_script,
+                });
             }
             let tx_inputs: Vec<TransactionInput> = selected
                 .iter()
@@ -11211,7 +11301,13 @@ mod tests {
             payload.extend_from_slice(&blake2b256(redeem));
             payload.extend_from_slice(redeem);
             let unsigned = Transaction::new_non_finalized(
-                0, tx_inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, payload,
+                0,
+                tx_inputs,
+                outputs,
+                0,
+                SubnetworkId::from_bytes([0u8; 20]),
+                0,
+                payload,
             );
             let entries: Vec<UtxoEntry> = selected
                 .iter()
@@ -11223,9 +11319,14 @@ mod tests {
                 })
                 .collect();
             let signable = SignableTransaction::with_entries(unsigned, entries);
-            let mut signed = sign_with_multiple_v2(signable, &[*dev_sk]).fully_signed().unwrap();
+            let mut signed = sign_with_multiple_v2(signable, &[*dev_sk])
+                .fully_signed()
+                .unwrap();
             signed.tx.finalize();
-            let txid = client.submit_transaction(RpcTransaction::from(&signed.tx), false).await.unwrap();
+            let txid = client
+                .submit_transaction(RpcTransaction::from(&signed.tx), false)
+                .await
+                .unwrap();
             (txid, p2sh_spk)
         }
 
@@ -11237,12 +11338,19 @@ mod tests {
         ) -> (u64, u64, bool) {
             let addr = p2sh_address(redeem, Prefix::Testnet).unwrap();
             for _ in 0..60 {
-                let utxos = client.get_utxos_by_addresses(vec![addr.clone()]).await.unwrap();
+                let utxos = client
+                    .get_utxos_by_addresses(vec![addr.clone()])
+                    .await
+                    .unwrap();
                 if let Some(u) = utxos
                     .iter()
                     .find(|u| &u.outpoint.transaction_id == deploy_txid && u.outpoint.index == 0)
                 {
-                    return (u.utxo_entry.amount, u.utxo_entry.block_daa_score, u.utxo_entry.is_coinbase);
+                    return (
+                        u.utxo_entry.amount,
+                        u.utxo_entry.block_daa_score,
+                        u.utxo_entry.is_coinbase,
+                    );
                 }
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             }
@@ -11263,20 +11371,38 @@ mod tests {
             let p2sh_spk = p2sh_script_pubkey(redeem);
             let dest = script_pub_key_from_address(dev_addr).unwrap();
             let inputs = vec![TransactionInput {
-                previous_outpoint: TransactionOutpoint { transaction_id: deploy_txid, index: 0 },
+                previous_outpoint: TransactionOutpoint {
+                    transaction_id: deploy_txid,
+                    index: 0,
+                },
                 signature_script: vec![],
                 sequence: 0,
                 sig_op_count: 0, // verify-core has no OpCheckSig
             }];
-            let outputs = vec![TransactionOutput { value: amount - fee, script_public_key: dest }];
+            let outputs = vec![TransactionOutput {
+                value: amount - fee,
+                script_public_key: dest,
+            }];
             let unsigned = Transaction::new_non_finalized(
-                0, inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, b"covex-zk-spend".to_vec(),
+                0,
+                inputs,
+                outputs,
+                0,
+                SubnetworkId::from_bytes([0u8; 20]),
+                0,
+                b"covex-zk-spend".to_vec(),
             );
-            let entries = vec![UtxoEntry { amount, script_public_key: p2sh_spk, block_daa_score: daa, is_coinbase: is_cb }];
+            let entries = vec![UtxoEntry {
+                amount,
+                script_public_key: p2sh_spk,
+                block_daa_score: daa,
+                is_coinbase: is_cb,
+            }];
             let mut signable = SignableTransaction::with_entries(unsigned, entries);
             // P2SH satisfier is EMPTY: the redeem itself yields the truthy OpZkPrecompile result.
-            let sig_script = kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), vec![])
-                .map_err(|e| format!("sig script: {e}"))?;
+            let sig_script =
+                kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), vec![])
+                    .map_err(|e| format!("sig script: {e}"))?;
             signable.tx.inputs[0].signature_script = sig_script;
             signable.tx.finalize();
             client
@@ -11291,9 +11417,20 @@ mod tests {
         let (deploy_good, _) = fund_p2sh(&client, &sk, dev_addr, &good_redeem, stake).await;
         eprintln!("GOOD deploy_tx = {deploy_good}");
         let (amt, daa, cb) = await_utxo(&client, &good_redeem, &deploy_good).await;
-        let spend_good = try_spend(&client, &good_redeem, deploy_good, amt, daa, cb, dev_addr, spend_fee).await;
+        let spend_good = try_spend(
+            &client,
+            &good_redeem,
+            deploy_good,
+            amt,
+            daa,
+            cb,
+            dev_addr,
+            spend_fee,
+        )
+        .await;
         eprintln!("GOOD spend result = {spend_good:?}");
-        let good_spend_id = spend_good.expect("known-good ZK proof spend MUST be accepted on-chain");
+        let good_spend_id =
+            spend_good.expect("known-good ZK proof spend MUST be accepted on-chain");
         eprintln!("ACCEPT: known-good Groth16 verified on-chain, spend_tx = {good_spend_id}");
 
         // ---- (b) FORGED proof (flip one byte): the node must REJECT the spend. ----
@@ -11302,23 +11439,45 @@ mod tests {
         let (deploy_bad, _) = fund_p2sh(&client, &sk, dev_addr, &bad_redeem, stake).await;
         eprintln!("FORGED deploy_tx = {deploy_bad}");
         let (amt2, daa2, cb2) = await_utxo(&client, &bad_redeem, &deploy_bad).await;
-        let spend_bad = try_spend(&client, &bad_redeem, deploy_bad, amt2, daa2, cb2, dev_addr, spend_fee).await;
+        let spend_bad = try_spend(
+            &client,
+            &bad_redeem,
+            deploy_bad,
+            amt2,
+            daa2,
+            cb2,
+            dev_addr,
+            spend_fee,
+        )
+        .await;
         eprintln!("FORGED spend result = {spend_bad:?}");
         assert!(
             spend_bad.is_err(),
             "a FORGED Groth16 proof MUST be rejected by consensus, but the spend was accepted: {spend_bad:?}"
         );
-        eprintln!("REJECT: forged Groth16 proof rejected on-chain: {}", spend_bad.unwrap_err());
+        eprintln!(
+            "REJECT: forged Groth16 proof rejected on-chain: {}",
+            spend_bad.unwrap_err()
+        );
     }
 
     #[test]
     fn zk_precompile_deploy_gate_is_fail_closed_and_mainnet_blocked() {
         // Mainnet always rejected regardless of the env flag.
         std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "1");
-        assert!(zk_precompile_deploy_allowed("mainnet").is_err(), "mainnet must be blocked");
-        assert!(zk_precompile_deploy_allowed("mainnet-1").is_err(), "mainnet-1 must be blocked");
+        assert!(
+            zk_precompile_deploy_allowed("mainnet").is_err(),
+            "mainnet must be blocked"
+        );
+        assert!(
+            zk_precompile_deploy_allowed("mainnet-1").is_err(),
+            "mainnet-1 must be blocked"
+        );
         // Testnet allowed only when explicitly enabled.
-        assert!(zk_precompile_deploy_allowed("testnet-12").is_ok(), "tn12 allowed when enabled");
+        assert!(
+            zk_precompile_deploy_allowed("testnet-12").is_ok(),
+            "tn12 allowed when enabled"
+        );
         std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "0");
         assert!(
             zk_precompile_deploy_allowed("testnet-12").is_err(),
@@ -11340,18 +11499,38 @@ mod tests {
         // The single helper itself.
         assert!(is_mainnet("mainnet"), "exact mainnet");
         assert!(is_mainnet("mainnet-1"), "mainnet-1");
-        assert!(is_mainnet("mainnet-foo"), "crafted mainnet-foo must be mainnet (fail-closed)");
+        assert!(
+            is_mainnet("mainnet-foo"),
+            "crafted mainnet-foo must be mainnet (fail-closed)"
+        );
         assert!(!is_mainnet("testnet-10"), "tn10 is not mainnet");
         assert!(!is_mainnet("testnet-12"), "tn12 is not mainnet");
         // Address prefix: a mainnet-ish string must yield the Mainnet prefix (never a testnet addr).
-        assert_eq!(prefix_for_network("mainnet-foo"), Prefix::Mainnet, "prefix gate");
-        assert_eq!(prefix_for_network("testnet-12"), Prefix::Testnet, "tn prefix");
+        assert_eq!(
+            prefix_for_network("mainnet-foo"),
+            Prefix::Mainnet,
+            "prefix gate"
+        );
+        assert_eq!(
+            prefix_for_network("testnet-12"),
+            Prefix::Testnet,
+            "tn prefix"
+        );
         // The bundled-market freeze: mainnet-foo refused, testnet allowed.
-        assert!(bundled_market_mainnet_allowed("mainnet-foo").is_err(), "market freeze");
-        assert!(bundled_market_mainnet_allowed("testnet-12").is_ok(), "market tn allowed");
+        assert!(
+            bundled_market_mainnet_allowed("mainnet-foo").is_err(),
+            "market freeze"
+        );
+        assert!(
+            bundled_market_mainnet_allowed("testnet-12").is_ok(),
+            "market tn allowed"
+        );
         // The ZK precompile freeze: mainnet-foo blocked even with the env flag ON.
         std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "1");
-        assert!(zk_precompile_deploy_allowed("mainnet-foo").is_err(), "zk freeze on mainnet-foo");
+        assert!(
+            zk_precompile_deploy_allowed("mainnet-foo").is_err(),
+            "zk freeze on mainnet-foo"
+        );
         std::env::remove_var("KASPA_ZK_PRECOMPILE_ENABLED");
         // The non-custodial KEYSTONE: a raw private key on a mainnet-foo network is refused (the
         // exact-match bypass this whole piece closes). use_dev_mode=false, non-empty key.
@@ -11379,18 +11558,41 @@ mod tests {
         let redeem = redeem_zk_precompile_verify_core_witness_proof(&vk, &inputs).unwrap();
         // Redeem starts with OpToAltStack and ends with the tag + 0xa6; OpFromAltStack sits between
         // the n push and the VK push.
-        assert_eq!(redeem[0], OP_TO_ALT_STACK, "redeem must open with OpToAltStack (0x6b)");
-        assert_eq!(redeem[redeem.len() - 1], OP_ZK_PRECOMPILE, "redeem must end with 0xa6");
-        assert_eq!(redeem[redeem.len() - 3], 0x01, "tag must be an OpData1 push");
+        assert_eq!(
+            redeem[0], OP_TO_ALT_STACK,
+            "redeem must open with OpToAltStack (0x6b)"
+        );
+        assert_eq!(
+            redeem[redeem.len() - 1],
+            OP_ZK_PRECOMPILE,
+            "redeem must end with 0xa6"
+        );
+        assert_eq!(
+            redeem[redeem.len() - 3],
+            0x01,
+            "tag must be an OpData1 push"
+        );
         assert_eq!(redeem[redeem.len() - 2], ZK_TAG_GROTH16, "tag value 0x20");
-        let from_alt = redeem.iter().position(|&b| b == OP_FROM_ALT_STACK).expect("OpFromAltStack");
-        assert!(redeem[..from_alt].windows(2).any(|w| w == [0x01, 0x05]), "n=5 push before OpFromAltStack");
+        let from_alt = redeem
+            .iter()
+            .position(|&b| b == OP_FROM_ALT_STACK)
+            .expect("OpFromAltStack");
+        assert!(
+            redeem[..from_alt].windows(2).any(|w| w == [0x01, 0x05]),
+            "n=5 push before OpFromAltStack"
+        );
         // The satisfier pushes only the proof (then the redeem-script push).
         let proof = vec![0x9Cu8; 128];
         let script = build_zk_verify_core_witness_proof_satisfier(&proof, &redeem).unwrap();
         let (got, _) = read_push(&script, 0);
-        assert_eq!(got, proof, "the only leading witness push must be the proof");
-        assert!(build_zk_verify_core_witness_proof_satisfier(&[], &redeem).is_err(), "empty proof rejected");
+        assert_eq!(
+            got, proof,
+            "the only leading witness push must be the proof"
+        );
+        assert!(
+            build_zk_verify_core_witness_proof_satisfier(&[], &redeem).is_err(),
+            "empty proof rejected"
+        );
         // n must be exactly 5 (RISC0 schema).
         assert!(redeem_zk_precompile_verify_core_witness_proof(&vk, &inputs[..4]).is_err());
     }
@@ -11416,7 +11618,10 @@ mod tests {
             }
         };
         let network = "testnet-12";
-        let sk: [u8; 32] = hex::decode(&key_hex).unwrap().try_into().expect("32-byte key");
+        let sk: [u8; 32] = hex::decode(&key_hex)
+            .unwrap()
+            .try_into()
+            .expect("32-byte key");
         let dev_addr = crate::dev_wallets::DEV_WALLET_1_ADDRESS_TN12;
 
         // Node known-good Groth16 (tag 0x20) vector (docs/zk_precompile_abi.md).
@@ -11437,40 +11642,93 @@ mod tests {
 
         // Re-use the same fund + await helpers as the verify-core e2e, inlined here for the witness form.
         async fn fund(
-            client: &KaspaRpcClient, dev_sk: &[u8; 32], dev_addr: &str, redeem: &[u8], stake: u64,
+            client: &KaspaRpcClient,
+            dev_sk: &[u8; 32],
+            dev_addr: &str,
+            redeem: &[u8],
+            stake: u64,
         ) -> kaspa_consensus_core::tx::TransactionId {
             let p2sh_spk = p2sh_script_pubkey(redeem);
             let addr = Address::try_from(dev_addr).unwrap();
             let utxos = client.get_utxos_by_addresses(vec![addr]).await.unwrap();
-            let (selected, fee) = select_utxos_with_fee(&utxos, stake, 1, |u| u.utxo_entry.amount).unwrap();
+            let (selected, fee) =
+                select_utxos_with_fee(&utxos, stake, 1, |u| u.utxo_entry.amount).unwrap();
             let total: u64 = selected.iter().map(|u| u.utxo_entry.amount).sum();
             let dev_script = selected[0].utxo_entry.script_public_key.clone();
             let change = total - stake - fee;
-            let mut outputs = vec![TransactionOutput { value: stake, script_public_key: p2sh_spk }];
-            if change >= 10_000 { outputs.push(TransactionOutput { value: change, script_public_key: dev_script }); }
-            let tx_inputs: Vec<TransactionInput> = selected.iter().map(|u| TransactionInput {
-                previous_outpoint: TransactionOutpoint { transaction_id: u.outpoint.transaction_id, index: u.outpoint.index },
-                signature_script: vec![], sequence: 0, sig_op_count: 1,
-            }).collect();
+            let mut outputs = vec![TransactionOutput {
+                value: stake,
+                script_public_key: p2sh_spk,
+            }];
+            if change >= 10_000 {
+                outputs.push(TransactionOutput {
+                    value: change,
+                    script_public_key: dev_script,
+                });
+            }
+            let tx_inputs: Vec<TransactionInput> = selected
+                .iter()
+                .map(|u| TransactionInput {
+                    previous_outpoint: TransactionOutpoint {
+                        transaction_id: u.outpoint.transaction_id,
+                        index: u.outpoint.index,
+                    },
+                    signature_script: vec![],
+                    sequence: 0,
+                    sig_op_count: 1,
+                })
+                .collect();
             let mut payload = vec![0xaa, 0x20];
             payload.extend_from_slice(&blake2b256(redeem));
             payload.extend_from_slice(redeem);
-            let unsigned = Transaction::new_non_finalized(0, tx_inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, payload);
-            let entries: Vec<UtxoEntry> = selected.iter().map(|u| UtxoEntry {
-                amount: u.utxo_entry.amount, script_public_key: u.utxo_entry.script_public_key.clone(),
-                block_daa_score: u.utxo_entry.block_daa_score, is_coinbase: u.utxo_entry.is_coinbase,
-            }).collect();
+            let unsigned = Transaction::new_non_finalized(
+                0,
+                tx_inputs,
+                outputs,
+                0,
+                SubnetworkId::from_bytes([0u8; 20]),
+                0,
+                payload,
+            );
+            let entries: Vec<UtxoEntry> = selected
+                .iter()
+                .map(|u| UtxoEntry {
+                    amount: u.utxo_entry.amount,
+                    script_public_key: u.utxo_entry.script_public_key.clone(),
+                    block_daa_score: u.utxo_entry.block_daa_score,
+                    is_coinbase: u.utxo_entry.is_coinbase,
+                })
+                .collect();
             let signable = SignableTransaction::with_entries(unsigned, entries);
-            let mut signed = sign_with_multiple_v2(signable, &[*dev_sk]).fully_signed().unwrap();
+            let mut signed = sign_with_multiple_v2(signable, &[*dev_sk])
+                .fully_signed()
+                .unwrap();
             signed.tx.finalize();
-            client.submit_transaction(RpcTransaction::from(&signed.tx), false).await.unwrap()
+            client
+                .submit_transaction(RpcTransaction::from(&signed.tx), false)
+                .await
+                .unwrap()
         }
-        async fn await_utxo2(client: &KaspaRpcClient, redeem: &[u8], deploy: &kaspa_consensus_core::tx::TransactionId) -> (u64, u64, bool) {
+        async fn await_utxo2(
+            client: &KaspaRpcClient,
+            redeem: &[u8],
+            deploy: &kaspa_consensus_core::tx::TransactionId,
+        ) -> (u64, u64, bool) {
             let addr = p2sh_address(redeem, Prefix::Testnet).unwrap();
             for _ in 0..60 {
-                let utxos = client.get_utxos_by_addresses(vec![addr.clone()]).await.unwrap();
-                if let Some(u) = utxos.iter().find(|u| &u.outpoint.transaction_id == deploy && u.outpoint.index == 0) {
-                    return (u.utxo_entry.amount, u.utxo_entry.block_daa_score, u.utxo_entry.is_coinbase);
+                let utxos = client
+                    .get_utxos_by_addresses(vec![addr.clone()])
+                    .await
+                    .unwrap();
+                if let Some(u) = utxos
+                    .iter()
+                    .find(|u| &u.outpoint.transaction_id == deploy && u.outpoint.index == 0)
+                {
+                    return (
+                        u.utxo_entry.amount,
+                        u.utxo_entry.block_daa_score,
+                        u.utxo_entry.is_coinbase,
+                    );
                 }
                 tokio::time::sleep(std::time::Duration::from_secs(2)).await;
             }
@@ -11478,23 +11736,55 @@ mod tests {
         }
         // Spend with the proof in the WITNESS (alt-stack reorder; no signature).
         async fn try_spend_witness(
-            client: &KaspaRpcClient, redeem: &[u8], proof: &[u8], deploy: kaspa_consensus_core::tx::TransactionId,
-            amount: u64, daa: u64, is_cb: bool, dev_addr: &str, fee: u64,
+            client: &KaspaRpcClient,
+            redeem: &[u8],
+            proof: &[u8],
+            deploy: kaspa_consensus_core::tx::TransactionId,
+            amount: u64,
+            daa: u64,
+            is_cb: bool,
+            dev_addr: &str,
+            fee: u64,
         ) -> Result<kaspa_consensus_core::tx::TransactionId, String> {
             let p2sh_spk = p2sh_script_pubkey(redeem);
             let dest = script_pub_key_from_address(dev_addr).unwrap();
             let inputs = vec![TransactionInput {
-                previous_outpoint: TransactionOutpoint { transaction_id: deploy, index: 0 },
-                signature_script: vec![], sequence: 0, sig_op_count: 0, // verify-core has no OpCheckSig
+                previous_outpoint: TransactionOutpoint {
+                    transaction_id: deploy,
+                    index: 0,
+                },
+                signature_script: vec![],
+                sequence: 0,
+                sig_op_count: 0, // verify-core has no OpCheckSig
             }];
-            let outputs = vec![TransactionOutput { value: amount - fee, script_public_key: dest }];
-            let unsigned = Transaction::new_non_finalized(0, inputs, outputs, 0, SubnetworkId::from_bytes([0u8; 20]), 0, b"covex-zk-witness-spend".to_vec());
-            let entries = vec![UtxoEntry { amount, script_public_key: p2sh_spk, block_daa_score: daa, is_coinbase: is_cb }];
+            let outputs = vec![TransactionOutput {
+                value: amount - fee,
+                script_public_key: dest,
+            }];
+            let unsigned = Transaction::new_non_finalized(
+                0,
+                inputs,
+                outputs,
+                0,
+                SubnetworkId::from_bytes([0u8; 20]),
+                0,
+                b"covex-zk-witness-spend".to_vec(),
+            );
+            let entries = vec![UtxoEntry {
+                amount,
+                script_public_key: p2sh_spk,
+                block_daa_score: daa,
+                is_coinbase: is_cb,
+            }];
             let mut signable = SignableTransaction::with_entries(unsigned, entries);
-            let sig_script = build_zk_verify_core_witness_proof_satisfier(proof, redeem).map_err(|e| e)?;
+            let sig_script =
+                build_zk_verify_core_witness_proof_satisfier(proof, redeem).map_err(|e| e)?;
             signable.tx.inputs[0].signature_script = sig_script;
             signable.tx.finalize();
-            client.submit_transaction(RpcTransaction::from(&signable.tx), false).await.map_err(|e| format!("{e}"))
+            client
+                .submit_transaction(RpcTransaction::from(&signable.tx), false)
+                .await
+                .map_err(|e| format!("{e}"))
         }
 
         // (a) KNOWN-GOOD witness proof -> ACCEPT.
@@ -11502,9 +11792,21 @@ mod tests {
         let deploy_good = fund(&client, &sk, dev_addr, &redeem, stake).await;
         eprintln!("WITNESS-GOOD deploy_tx = {deploy_good}");
         let (amt, daa, cb) = await_utxo2(&client, &redeem, &deploy_good).await;
-        let spend_good = try_spend_witness(&client, &redeem, &proof, deploy_good, amt, daa, cb, dev_addr, spend_fee).await;
+        let spend_good = try_spend_witness(
+            &client,
+            &redeem,
+            &proof,
+            deploy_good,
+            amt,
+            daa,
+            cb,
+            dev_addr,
+            spend_fee,
+        )
+        .await;
         eprintln!("WITNESS-GOOD spend = {spend_good:?}");
-        let good_id = spend_good.expect("witness-supplied known-good proof MUST be accepted (alt-stack reorder works)");
+        let good_id = spend_good
+            .expect("witness-supplied known-good proof MUST be accepted (alt-stack reorder works)");
         eprintln!("ACCEPT: alt-stack witness proof verified on-chain, spend_tx = {good_id}");
 
         // (b) FORGED witness proof (flip one byte) -> REJECT.
@@ -11513,10 +11815,19 @@ mod tests {
         let deploy_bad = fund(&client, &sk, dev_addr, &redeem, stake).await;
         eprintln!("WITNESS-FORGED deploy_tx = {deploy_bad}");
         let (amt2, daa2, cb2) = await_utxo2(&client, &redeem, &deploy_bad).await;
-        let spend_bad = try_spend_witness(&client, &redeem, &proof, deploy_bad, amt2, daa2, cb2, dev_addr, spend_fee).await;
+        let spend_bad = try_spend_witness(
+            &client, &redeem, &proof, deploy_bad, amt2, daa2, cb2, dev_addr, spend_fee,
+        )
+        .await;
         eprintln!("WITNESS-FORGED spend = {spend_bad:?}");
-        assert!(spend_bad.is_err(), "a FORGED witness proof MUST be rejected by consensus: {spend_bad:?}");
-        eprintln!("REJECT: forged witness proof rejected on-chain: {}", spend_bad.unwrap_err());
+        assert!(
+            spend_bad.is_err(),
+            "a FORGED witness proof MUST be rejected by consensus: {spend_bad:?}"
+        );
+        eprintln!(
+            "REJECT: forged witness proof rejected on-chain: {}",
+            spend_bad.unwrap_err()
+        );
     }
 
     /// STAGE 4 FULL WINNER-BRANCH SETTLEMENT (ignored; AWAITING THE REAL GAME SEAL):
@@ -11543,7 +11854,13 @@ mod tests {
         let winner = xonly_from_seckey(&test_keypair(51).secret_key().secret_bytes()).unwrap();
         let refund = xonly_from_seckey(&test_keypair(52).secret_key().secret_bytes()).unwrap();
         let redeem = redeem_zk_game_settle(&vk, &inputs, &winner, 720, &refund).unwrap();
-        assert_eq!(p2sh_address(&redeem, Prefix::Testnet).unwrap().to_string().is_empty(), false);
+        assert_eq!(
+            p2sh_address(&redeem, Prefix::Testnet)
+                .unwrap()
+                .to_string()
+                .is_empty(),
+            false
+        );
         let sig = [0x22u8; 64];
         let proof = vec![0xBBu8; 128]; // placeholder; the real run uses the receipt's proof.
         let _winner_witness = build_zk_game_settle_winner_satisfier(&sig, &proof, &redeem).unwrap();
@@ -11595,9 +11912,8 @@ mod tests {
     /// other way, mis-bound). The push includes the canonical OpData36 (0x24) length prefix.
     #[test]
     fn push_p2pk_spk_matches_onchain_golden_vector() {
-        let xonly =
-            hex::decode("d83d04fa71379caea93eb11ebb6ba62f629ac05384a4c5bc7a7e165ff9b1d02d")
-                .unwrap();
+        let xonly = hex::decode("d83d04fa71379caea93eb11ebb6ba62f629ac05384a4c5bc7a7e165ff9b1d02d")
+            .unwrap();
         let mut x = [0u8; 32];
         x.copy_from_slice(&xonly);
         let mut out = Vec::new();
@@ -11608,8 +11924,15 @@ mod tests {
                 .unwrap();
         assert_eq!(expected_spk.len(), 36, "golden spk must be 36 bytes");
         // push_p2pk_spk emits a CANONICAL data push of those 36 bytes: OpData36 (0x24) then the spk.
-        assert_eq!(out[0], 0x24, "must be an OpData36 canonical push (36 = 0x24)");
-        assert_eq!(&out[1..], &expected_spk[..], "pushed spk must equal the on-chain golden vector");
+        assert_eq!(
+            out[0], 0x24,
+            "must be an OpData36 canonical push (36 = 0x24)"
+        );
+        assert_eq!(
+            &out[1..],
+            &expected_spk[..],
+            "pushed spk must equal the on-chain golden vector"
+        );
     }
 
     /// The winner-bound A2 redeem must contain, IN ORDER, the KIP-10 output-binding opcode sequence
@@ -11624,9 +11947,15 @@ mod tests {
         let r = redeem_winner_takes_all_bound(&winner, fee, true).unwrap();
 
         // Output-count skim defense FIRST (the most important byte; spec R2).
-        assert_eq!(r[0], OP_TX_OUTPUT_COUNT, "must open with OpTxOutputCount (0xb4)");
+        assert_eq!(
+            r[0], OP_TX_OUTPUT_COUNT,
+            "must open with OpTxOutputCount (0xb4)"
+        );
         assert_eq!(r[1], 0x51, "NUM(1) is OP_1 (0x51)");
-        assert_eq!(r[2], OP_NUM_EQUAL_VERIFY, "exactly-one-output bind via OpNumEqualVerify");
+        assert_eq!(
+            r[2], OP_NUM_EQUAL_VERIFY,
+            "exactly-one-output bind via OpNumEqualVerify"
+        );
         // Then the amount + spk introspection opcodes must all be present in order.
         let idx = |op: u8| r.iter().position(|&b| b == op).expect("opcode present");
         let p_in_idx = idx(OP_TX_INPUT_INDEX);
@@ -11635,7 +11964,10 @@ mod tests {
         let p_out_amt = idx(OP_TX_OUTPUT_AMOUNT);
         let p_out_spk = idx(OP_TX_OUTPUT_SPK);
         assert!(p_in_idx < p_in_amt, "OpTxInputIndex before OpTxInputAmount");
-        assert!(p_in_amt < p_sub, "OpTxInputAmount before OpSub (amount - fee)");
+        assert!(
+            p_in_amt < p_sub,
+            "OpTxInputAmount before OpSub (amount - fee)"
+        );
         assert!(p_sub < p_out_amt, "OpSub before OpTxOutputAmount");
         assert!(p_out_amt < p_out_spk, "amount bind before the spk bind");
         // The winner P2PK spk bytes must be embedded (so the recipient is BOUND).
@@ -11647,7 +11979,11 @@ mod tests {
             "the winner P2PK spk must be embedded so OpEqual binds the recipient"
         );
         // A2 ends in the winner OpCheckSig.
-        assert_eq!(*r.last().unwrap(), OpCheckSig, "A2 winner_bound ends in OpCheckSig");
+        assert_eq!(
+            *r.last().unwrap(),
+            OpCheckSig,
+            "A2 winner_bound ends in OpCheckSig"
+        );
         // sig_op_count parity: winner_bound:1 -> 1.
         assert_eq!(
             SpendKind::parse("winner_bound:1").unwrap().sig_op_count(),
@@ -11656,7 +11992,11 @@ mod tests {
         );
         // A1 (pure binding) ends in OpEqual and has ZERO sig ops.
         let a1 = redeem_winner_takes_all_bound(&winner, fee, false).unwrap();
-        assert_eq!(*a1.last().unwrap(), OP_EQUAL_BYTE, "A1 winner_bound ends in OpEqual");
+        assert_eq!(
+            *a1.last().unwrap(),
+            OP_EQUAL_BYTE,
+            "A1 winner_bound ends in OpEqual"
+        );
         assert_eq!(
             SpendKind::parse("winner_bound:0").unwrap().sig_op_count(),
             0,
@@ -11696,7 +12036,11 @@ mod tests {
             .map(|(i, _)| i)
             .collect();
         // The recipient appears twice (the bound spk's 32 key bytes + the checksig 32 key bytes).
-        assert_eq!(diffs.len(), 64, "exactly the 2x32 recipient key bytes differ, nothing else");
+        assert_eq!(
+            diffs.len(),
+            64,
+            "exactly the 2x32 recipient key bytes differ, nothing else"
+        );
 
         // The bound spk in ra is winner_a's (NOT winner_b's), so an output paying winner_b yields a
         // different OpTxOutputSpk value and the baked OpEqualVerify against winner_a's spk fails.
@@ -11706,8 +12050,14 @@ mod tests {
         push_p2pk_spk(&mut spk_b, &winner_b).unwrap();
         let pa = &spk_a[1..];
         let pb = &spk_b[1..];
-        assert!(ra.windows(pa.len()).any(|w| w == pa), "ra binds winner_a's spk");
-        assert!(!ra.windows(pb.len()).any(|w| w == pb), "ra must NOT contain winner_b's spk (no skim path)");
+        assert!(
+            ra.windows(pa.len()).any(|w| w == pa),
+            "ra binds winner_a's spk"
+        );
+        assert!(
+            !ra.windows(pb.len()).any(|w| w == pb),
+            "ra must NOT contain winner_b's spk (no skim path)"
+        );
     }
 
     /// The escrow-bound redeem must be the IF/IF/ELSE choreography (each payout branch output-bound)
@@ -11726,14 +12076,26 @@ mod tests {
             let mut spk = Vec::new();
             push_p2pk_spk(&mut spk, key).unwrap();
             let p = &spk[1..];
-            assert!(r.windows(p.len()).any(|w| w == p), "{label} spk must be bound");
+            assert!(
+                r.windows(p.len()).any(|w| w == p),
+                "{label} spk must be bound"
+            );
         }
-        assert!(r.windows(32).any(|w| w == refund), "refund key must be present");
-        assert!(r.contains(&OpCheckSequenceVerify), "refund branch must use CSV");
+        assert!(
+            r.windows(32).any(|w| w == refund),
+            "refund key must be present"
+        );
+        assert!(
+            r.contains(&OpCheckSequenceVerify),
+            "refund branch must use CSV"
+        );
         assert!(r.contains(&OpElse), "must have ELSE branches");
         // Two OpTxOutputCount binds (one per payout branch), each a skim defense.
         let count_binds = r.iter().filter(|&&b| b == OP_TX_OUTPUT_COUNT).count();
-        assert_eq!(count_binds, 2, "each payout branch must carry the exactly-one-output skim defense");
+        assert_eq!(
+            count_binds, 2,
+            "each payout branch must carry the exactly-one-output skim defense"
+        );
         assert_eq!(
             SpendKind::parse("escrow_bound:144").unwrap().sig_op_count(),
             3,

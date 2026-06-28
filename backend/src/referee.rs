@@ -72,8 +72,8 @@ fn referee_secret_bytes(network: &str) -> [u8; 32] {
                      non-secret value. Provide a real 64-hex referee key."
                 );
             }
-            let bytes = hex::decode(&raw)
-                .expect("REFEREE_KEY must be valid hex (64 hex chars / 32 bytes)");
+            let bytes =
+                hex::decode(&raw).expect("REFEREE_KEY must be valid hex (64 hex chars / 32 bytes)");
             assert_eq!(
                 bytes.len(),
                 32,

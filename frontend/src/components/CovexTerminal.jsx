@@ -51,7 +51,6 @@ import FullScreenRPS from './FullScreenRPS';
 import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
 import { explorerTxUrl } from '../lib/explorer';
-import MultiOracleConfigurator from '../lib/multi-oracle/MultiOracleConfigurator';
 import { HEADLINE_GAME_CIRCUITS, HEADLINE_GAME_CIRCUIT_SET } from '../lib/playableGames';
 
 // loadSnarkjs + the in-browser provers now live in lib/zk/provers.js (single source of truth,
@@ -2784,7 +2783,11 @@ ${gameMeta.outcomeBranches}
           <span>Live SilverScript Editor</span>
           <span className="ml-auto text-[10px] px-2 py-0.5 rounded bg-[#49EACB]/10 text-[#49EACB] border border-[#49EACB]/30">FREE</span>
         </div>
-        <p className="text-xs text-gray-300 mb-4 light:text-slate-600">Side add-ons instantly rewrite the live SilverScript. Use for your covenant logic. The public appearance designer is in the Custom UI section below. Free for every tier.</p>
+        <p className="text-xs text-gray-300 mb-2 light:text-slate-600">Side add-ons instantly rewrite the live SilverScript so you can sketch your covenant logic. The public appearance designer is in the Custom UI section below. Free for every tier.</p>
+        <p className="text-[11px] text-amber-300/90 light:text-amber-700 mb-4 flex items-start gap-1.5">
+          <AlertTriangle size={12} className="mt-px shrink-0" aria-hidden="true" />
+          <span>Illustrative only. This SilverScript is a readable sketch of your intent; it is not compiled or deployed. Deploys lock funds into one of the fixed on-chain RedeemKinds you select below, and only that selected RedeemKind is enforced on Kaspa.</span>
+        </p>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
           {/* Add-ons (left, organized) */}
@@ -2891,7 +2894,7 @@ ${gameMeta.outcomeBranches}
           <div className="lg:col-span-7">
             <div className="flex items-center justify-between mb-1.5 px-1">
               <div className="text-[11px] font-semibold text-gray-200 light:text-slate-700">Live SilverScript (updates instantly from add-ons on left)</div>
-              <button onClick={() => navigator.clipboard.writeText(liveSilverScript)} className="text-[10px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 light:bg-slate-100 light:hover:bg-slate-200 light:border-slate-300 light:text-slate-700">Copy script</button>
+              <button onClick={() => navigator.clipboard.writeText(liveSilverScript)} className="text-[10px] px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 border border-white/10 light:bg-slate-100 light:hover:bg-slate-200 light:border-slate-300 light:text-slate-700">Copy illustrative spec</button>
             </div>
             <textarea
               value={liveSilverScript}
@@ -2899,7 +2902,7 @@ ${gameMeta.outcomeBranches}
               className="w-full h-[280px] font-mono text-[12px] leading-relaxed bg-black/70 border border-white/10 rounded-2xl p-4 focus:border-[#49EACB]/40 outline-none resize-y light:bg-slate-50 light:border-slate-300 light:text-slate-900"
               spellCheck={false}
             />
-            <div className="text-[10px] text-gray-500 mt-1.5 px-1 light:text-slate-500">This is the covenant logic (use in deploys below). Public UI designer for how visitors see it is in the Custom UI section.</div>
+            <div className="text-[10px] text-gray-500 mt-1.5 px-1 light:text-slate-500">An illustrative sketch of your intent, not the deployed script. The on-chain RedeemKind you pick below is what actually enforces the deploy. Public UI designer for how visitors see it is in the Custom UI section.</div>
           </div>
         </div>
       </section>
@@ -3947,7 +3950,7 @@ ${gameMeta.outcomeBranches}
 
       {/* PROFESSIONAL FULL-SCREEN CHESS ARENA (chess.com quality) - mobile-first responsive */}
       {showFullScreenChess && gameType === 'chess_v1' && (
-        <div className="fixed inset-0 z-[999] bg-[#050505] flex flex-col" style={{ background: 'radial-gradient(circle at 50% 20%, #0a0f0d 0%, #050505 70%)' }}>
+        <div className="fixed inset-0 z-[999] flex flex-col bg-[#050505] bg-[radial-gradient(circle_at_50%_20%,#0a0f0d_0%,#050505_70%)] light:bg-slate-100 light:bg-[radial-gradient(circle_at_50%_20%,#e7edf2_0%,#f1f5f9_70%)]">
           {/* Pro top bar - compact on mobile */}
           <div className="h-10 sm:h-14 border-b border-white/10 flex items-center justify-between px-2 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur-xl shrink-0">
             <div className="flex items-center gap-1 sm:gap-3">
@@ -5007,15 +5010,6 @@ ${gameMeta.outcomeBranches}
         >
           Open Advanced Primitives Composer
         </button>
-
-        <div className="mt-4">
-          <MultiOracleConfigurator
-            value={{}}
-            onChange={() => {
-              // Multi-oracle config is captured by the composer; no merge wired here yet.
-            }}
-          />
-        </div>
       </section>
 
       {/* ─── Section D: Generated SilverScript ─── */}
@@ -5031,7 +5025,7 @@ ${gameMeta.outcomeBranches}
             {GAME_TYPES.find(g => g.id === gameType)?.name || gameType}
           </code>{' '}
           SilverScript
-          based on your current configuration. Copy it to use in your covenant deployment.
+          based on your current configuration. This is an illustrative spec (not the deployed script). Deploys lock funds into the fixed on-chain RedeemKind you selected, and only that RedeemKind is enforced on Kaspa.
         </p>
 
         <button

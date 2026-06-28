@@ -1,7 +1,7 @@
-// Extracted from CovexTerminal for maintainability (audit fix)
-// 207+ entries, honest reality labels.
-export const ZK_CIRCUIT_TYPES = [ /* full list would be copied here, but for brevity in this step we keep reference */ ];
-// In real: move the entire array here and import in CovexTerminal.
+// The canonical ZK circuit catalog lives in components/CovexTerminal.jsx
+// (exported as ZK_CIRCUIT_TYPES). Every consumer imports it from there; there is no
+// duplicate copy here. This module owns the served-artifact path helpers and the
+// canonical enforcement-reality sets (VERIFIED_FULL_ZK below) only.
 
 // Served-artifact directory aliases: a few circuit ids are served under a different
 // directory name than the catalog id. The vkey/wasm/zkey live under the ALIAS, so any

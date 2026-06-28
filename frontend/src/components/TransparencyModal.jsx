@@ -51,6 +51,24 @@ const isZkGameSettle = (covenant) =>
     `${covenant?.redeem_kind || ''} ${covenant?.covenant_type || ''} ${covenant?.kind || ''} ${covenant?.settle_mode || ''}`,
   );
 
+// redeem_kind values whose redeem script literally commits the resolver's x-only pubkey as the
+// FIRST 32-byte data push, so it is hashed into the on-chain P2SH commitment (mirrors
+// OnChainLockSection.ORACLE_BOUND_KINDS): oracle:2 (OracleEnforced 2-of-2 [resolver, winner]) and
+// oracle_escrow (<resolver> OpCheckSigVerify ...).
+const ORACLE_BOUND_KINDS = new Set(['oracle:2', 'oracle_escrow']);
+
+// Extract the first 32-byte data push (0x20 + 32 bytes) from a redeem script hex (mirrors
+// OnChainLockSection.firstPush32). Returns { pubkey, snippet } or null.
+function firstPush32(redeemHex) {
+  const h = String(redeemHex || '').toLowerCase().replace(/[^0-9a-f]/g, '');
+  for (let p = 0; p < h.length - 1; p += 2) {
+    if (h.slice(p, p + 2) === '20' && p + 2 + 64 <= h.length) {
+      return { pubkey: h.slice(p + 2, p + 2 + 64), snippet: h.slice(p, p + 2 + 64) };
+    }
+  }
+  return null;
+}
+
 function realityFromCovenant(covenant) {
   // On-chain-ZK (KIP-16 zk_game_settle) is its own tier: honor the explicit reality or the kind
   // string. Verified by Kaspa consensus, no oracle in the loop, so it precedes the market/oracle paths.
@@ -112,6 +130,14 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
 
   const scriptHex = String(covenant?.script_hex || '').toLowerCase();
   const p2shStructural = /^aa20[0-9a-f]{64}87$/.test(scriptHex);
+
+  // The resolver x-only pubkey COMMITTED into THIS covenant's redeem script (when the kind binds
+  // it). The match indicator below compares it against the live disclosed resolver key so a
+  // verifier can confirm, from the Explorer card, that the chain binds spend to exactly that key.
+  const redeemKind = String(covenant?.redeem_kind || '').toLowerCase();
+  const boundOracle = ORACLE_BOUND_KINDS.has(redeemKind)
+    ? firstPush32(covenant?.redeem_script_hex)
+    : null;
 
   const [oracle, setOracle] = useState({ loading: involvesOracle, pubkey: null, liveness: null, error: null });
 
@@ -190,7 +216,7 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
           </Section>
 
           {/* Source you can inspect */}
-          {(vkeyPath || (involvesOracle && oracle.pubkey?.xonly_pubkey) || (covenant && scriptHex)) && (
+          {(vkeyPath || boundOracle || (involvesOracle && oracle.pubkey?.xonly_pubkey) || (covenant && scriptHex)) && (
             <Section icon={FileKey} title="Source you can inspect" accent={ui.accent}>
               {vkeyPath && (
                 <div>
@@ -208,6 +234,32 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
                   {oracle.pubkey.message_format && <div className="text-[11px] text-gray-500 light:text-slate-500 mt-1.5">Signs: <span className="font-mono text-gray-300 light:text-slate-600">{oracle.pubkey.message_format}</span></div>}
                 </div>
               )}
+              {boundOracle && (() => {
+                // The key committed on-chain in THIS covenant's redeem script vs the live disclosed
+                // resolver key. matches=null while the disclosed key is still loading. Mirrors the
+                // OnChainLockSection indicator so the same proof is reachable from the Explorer card.
+                const disclosed = oracle.pubkey?.xonly_pubkey ? String(oracle.pubkey.xonly_pubkey).toLowerCase() : null;
+                const matches = disclosed ? boundOracle.pubkey === disclosed : null;
+                return (
+                  <div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-500 mb-1">Resolver bound on-chain ({redeemKind})</div>
+                    <CopyChip text={boundOracle.pubkey} />
+                    <div className="text-[11px] text-gray-500 light:text-slate-500 mt-1.5">
+                      Committed in this covenant&apos;s redeem script as <span className="font-mono text-gray-300 light:text-slate-600 break-all">{boundOracle.snippet}</span>, so the on-chain P2SH hash binds spend to exactly this key.
+                    </div>
+                    {matches === true && (
+                      <div className="text-[11px] mt-1 inline-flex items-center gap-1.5 text-kaspa-green">
+                        <Check size={12} /> Verified: matches the disclosed resolver public key above.
+                      </div>
+                    )}
+                    {matches === false && (
+                      <div className="text-[11px] mt-1 inline-flex items-center gap-1.5 text-amber-300">
+                        <AlertTriangle size={12} /> This covenant commits a DIFFERENT key than the live disclosed resolver. The key may have rotated, or this covenant trusts another signer. Verify before sending funds.
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
               {covenant && scriptHex && (
                 <div>
                   <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-500 mb-1">On-chain lock script</div>

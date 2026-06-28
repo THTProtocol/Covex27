@@ -47,6 +47,21 @@ jobs:
       - name: No forbidden project/product names
         run: bash scripts/check-forbidden-names.sh
 
+      # Setup node so the ZK registry honesty gate (pure node, no snarkjs) can run.
+      - name: Setup Node (for zk registry gate)
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # GATE: the ZK circuit registry must be HONEST. zk/circuit_registry.json must be freshly
+      # generated from the committed served artifacts, every circuit it marks provable must ship a
+      # real served _final.zkey + wasm + vkey (no over-claim), every frontend VERIFIED_FULL_ZK id
+      # must resolve to a served proving key, and no served _final.zkey may be silently omitted.
+      # This blocks any change that claims a circuit "works" without a key that can actually
+      # generate a verifiable proof. See scripts/check-zk-registry.sh.
+      - name: ZK circuit registry is honest vs served keys
+        run: bash scripts/check-zk-registry.sh
+
   backend:
     name: Backend (build + test + lint)
     runs-on: ubuntu-latest

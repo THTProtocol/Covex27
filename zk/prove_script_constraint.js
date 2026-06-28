@@ -13,6 +13,10 @@ async function main() {
     const scriptHash = process.argv[2] || "111111";
     const constraintId = process.argv[3] || "2";
     const value = process.argv[4] || "30";
+    // covenantId binds the proof to a covenant. The served script_constraint.circom declares it
+    // as a 5th public input (public_root, constraint_id, value, covenantId). An older version of
+    // this script omitted it and no longer satisfied the served circuit; it is required.
+    const covenantId = (process.argv[5] || "7").toString();
     const publicRoot = await hash([scriptHash, constraintId, value]);
 
     const input = {
@@ -20,6 +24,7 @@ async function main() {
         constraint_id: constraintId,
         value,
         public_root: publicRoot,
+        covenantId,
     };
     const wtns = path.join(__dirname, ".wtns.tmp");
     await snarkjs.wtns.calculate(input, WASM, wtns);

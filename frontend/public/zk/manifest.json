@@ -4,170 +4,364 @@
       "id": "age_verification",
       "vkey": "/zk/age_verification/age_verification_vkey.json",
       "demo_proof": "/zk/age_verification/demo_proof.json",
-      "artifacts": true
+      "provable": true
     },
     {
       "id": "anon_credential",
       "vkey": "/zk/anon_credential/anon_credential_vkey.json",
       "demo_proof": "/zk/anon_credential/demo_proof.json",
-      "artifacts": true
+      "provable": false
+    },
+    {
+      "id": "anon_membership_nullifier",
+      "vkey": "/zk/anon_membership_nullifier/anon_membership_nullifier_vkey.json",
+      "demo_proof": "/zk/anon_membership_nullifier/demo_proof.json",
+      "provable": true
+    },
+    {
+      "id": "anonymous_vote",
+      "vkey": "/zk/anonymous_vote/anonymous_vote_vkey.json",
+      "demo_proof": "/zk/anonymous_vote/demo_proof.json",
+      "provable": false
     },
     {
       "id": "auction_clearing",
       "vkey": "/zk/auction_clearing/auction_clearing_vkey.json",
       "demo_proof": "/zk/auction_clearing/demo_proof.json",
-      "artifacts": true
+      "provable": false
+    },
+    {
+      "id": "balance_threshold",
+      "vkey": "/zk/balance_threshold/balance_threshold_vkey.json",
+      "demo_proof": "/zk/balance_threshold/demo_proof.json",
+      "provable": true
     },
     {
       "id": "basic_utxo_ownership",
       "vkey": "/zk/basic_utxo_ownership/basic_utxo_ownership_vkey.json",
       "demo_proof": "/zk/basic_utxo_ownership/demo_proof.json",
-      "artifacts": true
+      "provable": true
+    },
+    {
+      "id": "black_scholes_approx",
+      "vkey": "/zk/black_scholes_approx/black_scholes_approx_vkey.json",
+      "demo_proof": "/zk/black_scholes_approx/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "chess_ai_move",
+      "vkey": "/zk/chess_ai_move/chess_ai_move_vkey.json",
+      "demo_proof": "/zk/chess_ai_move/demo_proof.json",
+      "provable": false
     },
     {
       "id": "collateral_liquidation",
       "vkey": "/zk/collateral_liquidation/collateral_liquidation_vkey.json",
       "demo_proof": "/zk/collateral_liquidation/demo_proof.json",
-      "artifacts": true
+      "provable": false
     },
     {
       "id": "collateral_ltv",
       "vkey": "/zk/collateral_ltv/collateral_ltv_vkey.json",
       "demo_proof": "/zk/collateral_ltv/demo_proof.json",
-      "artifacts": true
+      "provable": false
+    },
+    {
+      "id": "commit_reveal_timed",
+      "vkey": "/zk/commit_reveal_timed/commit_reveal_timed_vkey.json",
+      "demo_proof": "/zk/commit_reveal_timed/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "commitment_open",
+      "vkey": "/zk/commitment_open/commitment_open_vkey.json",
+      "demo_proof": "/zk/commitment_open/demo_proof.json",
+      "provable": true
+    },
+    {
+      "id": "confidential_transfer",
+      "vkey": "/zk/confidential_transfer/confidential_transfer_vkey.json",
+      "demo_proof": "/zk/confidential_transfer/demo_proof.json",
+      "provable": false
     },
     {
       "id": "connect4_v1",
       "vkey": "/zk/connect4_v1/connect4_v1_vkey.json",
       "demo_proof": "/zk/connect4_v1/demo_proof.json",
-      "artifacts": true
+      "provable": false
+    },
+    {
+      "id": "credential_nullifier",
+      "vkey": "/zk/credential_nullifier/credential_nullifier_vkey.json",
+      "demo_proof": "/zk/credential_nullifier/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "eddsa_doc_signature",
+      "vkey": "/zk/eddsa_doc_signature/eddsa_doc_signature_vkey.json",
+      "demo_proof": "/zk/eddsa_doc_signature/demo_proof.json",
+      "provable": false
     },
     {
       "id": "election_feed",
       "vkey": "/zk/election_feed/election_feed_vkey.json",
       "demo_proof": "/zk/election_feed/demo_proof.json",
-      "artifacts": true
+      "provable": false
+    },
+    {
+      "id": "equality_of_commitments",
+      "vkey": "/zk/equality_of_commitments/equality_of_commitments_vkey.json",
+      "demo_proof": "/zk/equality_of_commitments/demo_proof.json",
+      "provable": true
     },
     {
       "id": "escrow_2party",
       "vkey": "/zk/escrow_2party/escrow_2party_vkey.json",
       "demo_proof": "/zk/escrow_2party/demo_proof.json",
-      "artifacts": true
+      "provable": true
     },
     {
       "id": "financial_formula",
       "vkey": "/zk/financial_formula/financial_formula_vkey.json",
       "demo_proof": "/zk/financial_formula/demo_proof.json",
-      "artifacts": true
+      "provable": false
     },
     {
       "id": "hash_preimage",
       "vkey": "/zk/hash_preimage/hash_preimage_vkey.json",
       "demo_proof": "/zk/hash_preimage/demo_proof.json",
-      "artifacts": true
+      "provable": true
+    },
+    {
+      "id": "loan_health",
+      "vkey": "/zk/loan_health/loan_health_vkey.json",
+      "demo_proof": "/zk/loan_health/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "merkle_leaf_threshold",
+      "vkey": "/zk/merkle_leaf_threshold/merkle_leaf_threshold_vkey.json",
+      "demo_proof": "/zk/merkle_leaf_threshold/demo_proof.json",
+      "provable": false
     },
     {
       "id": "merkle_membership",
       "vkey": "/zk/merkle_membership/merkle_membership_vkey.json",
       "demo_proof": null,
-      "artifacts": true
+      "provable": true
+    },
+    {
+      "id": "merkle_range_membership",
+      "vkey": "/zk/merkle_range_membership/merkle_range_membership_vkey.json",
+      "demo_proof": "/zk/merkle_range_membership/demo_proof.json",
+      "provable": true
+    },
+    {
+      "id": "ml_inference_stub",
+      "vkey": "/zk/ml_inference_stub/ml_inference_stub_vkey.json",
+      "demo_proof": "/zk/ml_inference_stub/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "multi_sig_gating",
+      "vkey": "/zk/multi_sig_gating/multi_sig_gating_vkey.json",
+      "demo_proof": "/zk/multi_sig_gating/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "nft_trait_reveal",
+      "vkey": "/zk/nft_trait_reveal/nft_trait_reveal_vkey.json",
+      "demo_proof": "/zk/nft_trait_reveal/demo_proof.json",
+      "provable": false
     },
     {
       "id": "nullifier_set",
       "vkey": "/zk/nullifier_set/nullifier_set_vkey.json",
       "demo_proof": "/zk/nullifier_set/demo_proof.json",
-      "artifacts": true
+      "provable": true
     },
     {
       "id": "nullifier_v1",
       "vkey": "/zk/nullifier_v1/nullifier_v1_vkey.json",
       "demo_proof": "/zk/nullifier_v1/demo_proof.json",
-      "artifacts": true
+      "provable": false
     },
     {
       "id": "onchain_sig_verify",
       "vkey": "/zk/onchain_sig_verify/onchain_sig_verify_vkey.json",
       "demo_proof": "/zk/onchain_sig_verify/demo_proof.json",
-      "artifacts": true
+      "provable": false
+    },
+    {
+      "id": "poker_equity",
+      "vkey": "/zk/poker_equity/poker_equity_vkey.json",
+      "demo_proof": "/zk/poker_equity/demo_proof.json",
+      "provable": false
     },
     {
       "id": "poker_vrf_deal",
       "vkey": "/zk/poker_vrf_deal/poker_vrf_deal_vkey.json",
       "demo_proof": "/zk/poker_vrf_deal/demo_proof.json",
-      "artifacts": true
+      "provable": false
     },
     {
       "id": "pot_split_math",
       "vkey": "/zk/pot_split_math/pot_split_math_vkey.json",
       "demo_proof": "/zk/pot_split_math/demo_proof.json",
-      "artifacts": true
+      "provable": true
     },
     {
       "id": "privacy_mixer_v1",
       "vkey": "/zk/privacy_mixer_v1/privacy_mixer_v1_vkey.json",
       "demo_proof": "/zk/privacy_mixer_v1/demo_proof.json",
-      "artifacts": true
+      "provable": false
     },
     {
-      "id": "private_transfer_nullifier",
-      "vkey": "/zk/private_transfer_nullifier/private_transfer_nullifier_vkey.json",
-      "demo_proof": "/zk/private_transfer_nullifier/demo_proof.json",
-      "artifacts": true
+      "id": "proof_of_personhood",
+      "vkey": "/zk/proof_of_personhood/proof_of_personhood_vkey.json",
+      "demo_proof": "/zk/proof_of_personhood/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "proof_of_reserves",
+      "vkey": "/zk/proof_of_reserves/proof_of_reserves_vkey.json",
+      "demo_proof": "/zk/proof_of_reserves/demo_proof.json",
+      "provable": false
     },
     {
       "id": "range_proof",
       "vkey": "/zk/range_proof/range_proof_vkey.json",
       "demo_proof": "/zk/range_proof/demo_proof.json",
-      "artifacts": true
+      "provable": true
     },
     {
       "id": "relative_timelock",
       "vkey": "/zk/relative_timelock/relative_timelock_vkey.json",
       "demo_proof": "/zk/relative_timelock/demo_proof.json",
-      "artifacts": true
+      "provable": true
+    },
+    {
+      "id": "ring_membership",
+      "vkey": "/zk/ring_membership/ring_membership_vkey.json",
+      "demo_proof": "/zk/ring_membership/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "sanctions_non_membership",
+      "vkey": "/zk/sanctions_non_membership/sanctions_non_membership_vkey.json",
+      "demo_proof": "/zk/sanctions_non_membership/demo_proof.json",
+      "provable": false
     },
     {
       "id": "script_constraint",
       "vkey": "/zk/script_constraint/script_constraint_vkey.json",
       "demo_proof": "/zk/script_constraint/demo_proof.json",
-      "artifacts": true
+      "provable": true
+    },
+    {
+      "id": "set_non_membership",
+      "vkey": "/zk/set_non_membership/set_non_membership_vkey.json",
+      "demo_proof": "/zk/set_non_membership/demo_proof.json",
+      "provable": true
+    },
+    {
+      "id": "signed_attribute_threshold",
+      "vkey": "/zk/signed_attribute_threshold/signed_attribute_threshold_vkey.json",
+      "demo_proof": "/zk/signed_attribute_threshold/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "solvency_ratio",
+      "vkey": "/zk/solvency_ratio/solvency_ratio_vkey.json",
+      "demo_proof": "/zk/solvency_ratio/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "solvency_sum",
+      "vkey": "/zk/solvency_sum/solvency_sum_vkey.json",
+      "demo_proof": "/zk/solvency_sum/demo_proof.json",
+      "provable": true
     },
     {
       "id": "sorting_proof",
       "vkey": "/zk/sorting_proof/sorting_proof_vkey.json",
       "demo_proof": "/zk/sorting_proof/demo_proof.json",
-      "artifacts": true
+      "provable": false
+    },
+    {
+      "id": "stealth_address_ownership",
+      "vkey": "/zk/stealth_address_ownership/stealth_address_ownership_vkey.json",
+      "demo_proof": "/zk/stealth_address_ownership/demo_proof.json",
+      "provable": false
     },
     {
       "id": "tictactoe_v1",
       "vkey": "/zk/tictactoe_v1/tictactoe_v1_vkey.json",
       "demo_proof": "/zk/tictactoe_v1/demo_proof.json",
-      "artifacts": true
+      "provable": false
     },
     {
       "id": "timelock_absolute",
       "vkey": "/zk/timelock_absolute/timelock_absolute_vkey.json",
       "demo_proof": "/zk/timelock_absolute/demo_proof.json",
-      "artifacts": true
+      "provable": true
     },
     {
       "id": "turn_timer",
       "vkey": "/zk/turn_timer/turn_timer_vkey.json",
       "demo_proof": "/zk/turn_timer/demo_proof.json",
-      "artifacts": true
+      "provable": true
+    },
+    {
+      "id": "twap_bound",
+      "vkey": "/zk/twap_bound/twap_bound_vkey.json",
+      "demo_proof": "/zk/twap_bound/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "velocity_limit",
+      "vkey": "/zk/velocity_limit/velocity_limit_vkey.json",
+      "demo_proof": "/zk/velocity_limit/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "verifiable_poker_solver",
+      "vkey": "/zk/verifiable_poker_solver/verifiable_poker_solver_vkey.json",
+      "demo_proof": "/zk/verifiable_poker_solver/demo_proof.json",
+      "provable": false
     },
     {
       "id": "vrf_dice_roll",
       "vkey": "/zk/vrf_dice_roll/vrf_dice_roll_vkey.json",
       "demo_proof": "/zk/vrf_dice_roll/demo_proof.json",
-      "artifacts": true
+      "provable": true
     },
     {
       "id": "vrf_random",
       "vkey": "/zk/vrf_random/vrf_random_vkey.json",
       "demo_proof": "/zk/vrf_random/demo_proof.json",
-      "artifacts": true
+      "provable": true
+    },
+    {
+      "id": "vrf_winner_select",
+      "vkey": "/zk/vrf_winner_select/vrf_winner_select_vkey.json",
+      "demo_proof": "/zk/vrf_winner_select/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "weather_feed",
+      "vkey": "/zk/weather_feed/weather_feed_vkey.json",
+      "demo_proof": "/zk/weather_feed/demo_proof.json",
+      "provable": false
+    },
+    {
+      "id": "weighted_multisig",
+      "vkey": "/zk/weighted_multisig/weighted_multisig_vkey.json",
+      "demo_proof": "/zk/weighted_multisig/demo_proof.json",
+      "provable": false
     }
   ],
-  "count": 28
+  "count": 60,
+  "provable_count": 21,
+  "note": "provable == served _final.zkey present (an in-browser prover can generate a real proof). Generated from served artifacts; see zk/circuit_registry.json."
 }

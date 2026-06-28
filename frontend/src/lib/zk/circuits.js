@@ -41,14 +41,21 @@ export function vkeyPathFor(circuitId) {
 // The trusted setup is a single-contributor Covex dev ceremony, NOT a production multi-party MPC.
 // This set therefore drives the genuine "in-browser prover" capability + off-chain-verified note; it
 // is NEVER rendered as a 'full-zk' / trustless / on-chain-ZK badge (every ZK reality renders as
-// oracle-attested - see ZK_CIRCUIT_TYPES post-processing in CovexTerminal). NINETEEN qualify today
-// (the original 14 plus 5 new privacy/identity/solvency circuits node-verified accept+tamper+replay).
+// oracle-attested - see ZK_CIRCUIT_TYPES post-processing in CovexTerminal). TWENTY-ONE qualify today
+// (the original 14, plus 5 privacy/identity/solvency circuits, plus merkle_range_membership +
+// equality_of_commitments (zkwave 2026-06-28) - each node-verified accept + tamper-reject +
+// false-predicate valid==0).
 export const VERIFIED_FULL_ZK = new Set([
   'merkle_membership', 'age_verification', 'escrow_2party', 'range_proof', 'vrf_dice_roll',
   'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock',
   'vrf_random', 'turn_timer', 'script_constraint', 'pot_split_math',
   'commitment_open', 'balance_threshold', 'solvency_sum', 'set_non_membership',
   'anon_membership_nullifier',
+  // Two new self-contained primitives (zkwave 2026-06-28), node-verified accept + tamper-reject
+  // + negative-predicate (out-of-band / different-value -> valid==0) against the served vkey:
+  //   merkle_range_membership : Merkle-set membership AND a two-sided value band [lo,hi].
+  //   equality_of_commitments : two public Poseidon commitments open to one hidden value.
+  'merkle_range_membership', 'equality_of_commitments',
 ]);
 
 // Circuits with a WORKING in-browser Groth16 prover (real fullProve over served artifacts).
@@ -57,15 +64,19 @@ export const VERIFIED_FULL_ZK = new Set([
 // commitment via poseidon-lite (byte-identical to circomlib, no wasm); timelock_absolute +
 // relative_timelock + turn_timer + pot_split_math are plain-numeric (the wasm derives the
 // public valid/on_time/ok output). All fullProve the served wasm+zkey, node-verified accept +
-// tamper-reject. Kept identical to VERIFIED_FULL_ZK (same 19 ids). commitment_open / balance_threshold
-// / solvency_sum / set_non_membership / anon_membership_nullifier compute their Poseidon commitments
-// + Merkle paths via poseidon-lite (byte-identical to circomlib, no wasm) before fullProve.
+// tamper-reject. Kept identical to VERIFIED_FULL_ZK (same 21 ids). commitment_open / balance_threshold
+// / solvency_sum / set_non_membership / anon_membership_nullifier / merkle_range_membership /
+// equality_of_commitments compute their Poseidon commitments + Merkle paths via poseidon-lite
+// (byte-identical to circomlib, no wasm) before fullProve.
 export const IN_BROWSER_PROVERS = new Set([
   'merkle_membership', 'escrow_2party', 'age_verification', 'range_proof', 'vrf_dice_roll',
   'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock',
   'vrf_random', 'turn_timer', 'script_constraint', 'pot_split_math',
   'commitment_open', 'balance_threshold', 'solvency_sum', 'set_non_membership',
   'anon_membership_nullifier',
+  // New primitives (zkwave 2026-06-28): both fullProve the served wasm+zkey and compute their
+  // Poseidon commitments / Merkle path via the same poseidon path the other privacy circuits use.
+  'merkle_range_membership', 'equality_of_commitments',
 ]);
 
 // Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):
@@ -81,6 +92,10 @@ export const STRICT_GROTH16 = new Set([
   'script_constraint', 'pot_split_math', 'turn_timer', 'nullifier_set',
   'commitment_open', 'balance_threshold', 'solvency_sum', 'set_non_membership',
   'anon_membership_nullifier',
+  // New StrictGroth16 circuits (zkwave 2026-06-28), node-verified before registration: real proof
+  // verifies, tampered proof + valid==0 negative-predicate rejected. Kept in sync with
+  // build_registry() in backend/src/oracle_verifier.rs.
+  'merkle_range_membership', 'equality_of_commitments',
 ]);
 
 // Convenience: a circuit id has a genuine in-browser Groth16 prove path the public panel can run,

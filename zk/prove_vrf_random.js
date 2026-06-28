@@ -13,10 +13,15 @@ async function main() {
     const vrf_secret = process.argv[2] || "424242";
     const seed = process.argv[3] || "987654321";
     const pub_vrf_key = process.argv[4] || "333";
+    // covenantId binds the proof to a covenant. The served vrf_random.circom declares it as a
+    // 5th public input (output_val, pub_vrf_key, seed, covenantId). An older version of this
+    // script omitted it and no longer satisfied the served circuit; it is required.
+    const covenantId = (process.argv[5] || "7").toString();
     const output_val = await hash([vrf_secret, seed, pub_vrf_key]);
 
     const input = {
         vrf_secret,
+        covenantId,
         seed,
         output_val,
         pub_vrf_key,

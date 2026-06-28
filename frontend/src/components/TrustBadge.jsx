@@ -117,7 +117,7 @@ export function trustInfo(covenant, opts) {
       desc: 'An on-chain script gates release but checks an input supplied by the deployer-bound external resolver (never Covex). No Covex trust, and not trustless: trust sits with that resolver.',
     };
   }
-  // All 19 verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN
+  // All 21 verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN
   // (by you, the counterparty, or any external verifier) gating a 2-of-2 cosign + CSV
   // timeout. No circuit reduces to a chain-checked hashlock, and Kaspa has no on-chain
   // pairing verifier, so there is no chain-enforced ZK reality - full-zk is the strongest ZK pill.

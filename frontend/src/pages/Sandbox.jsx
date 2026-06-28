@@ -28,7 +28,7 @@ import { BUILD_STEPS } from '../lib/build-steps.js';
 
 // Honest enforcement realities. For the circom suite a raw Groth16 proof is verified off-chain, so
 // every full-zk / hybrid circuit renders as oracle-attested (off-chain verify + on-chain Schnorr
-// co-signature). All 19 verified circom circuits are Groth16 verified OFF-CHAIN by anyone (you, the
+// co-signature). All 21 verified circom circuits are Groth16 verified OFF-CHAIN by anyone (you, the
 // counterparty, or any external resolver); a valid proof gates a 2-of-2 cosign + CSV timeout, and
 // the only on-chain check is the Schnorr co-signature. Toccata's KIP-16 OpZkPrecompile is a separate
 // on-chain ZK path the settlement covenant targets, testnet-gated until proven live on mainnet.

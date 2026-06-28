@@ -118,3 +118,9 @@ zk/node_modules/
 !frontend/public/zk/solvency_sum/solvency_sum_final.zkey
 !frontend/public/zk/set_non_membership/set_non_membership_final.zkey
 !frontend/public/zk/anon_membership_nullifier/anon_membership_nullifier_final.zkey
+
+# New self-contained primitives (zkwave 2026-06-28, dev pot10/pot12 ceremony, node-verified
+# accept + tamper-reject + false-predicate valid==0 before registration). _final.zkey otherwise
+# caught by **/*key*; the served key is the source of truth an in-browser prover uses.
+!frontend/public/zk/merkle_range_membership/merkle_range_membership_final.zkey
+!frontend/public/zk/equality_of_commitments/equality_of_commitments_final.zkey

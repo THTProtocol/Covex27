@@ -78,7 +78,7 @@ impl EnforcementReality {
 // binds a circuit's public output to a consensus-checked hashlock and a tampered proof is
 // provably rejected on-chain.
 
-/// Server-side mirror of frontend lib/zk/circuits.js `VERIFIED_FULL_ZK`: the 19
+/// Server-side mirror of frontend lib/zk/circuits.js `VERIFIED_FULL_ZK`: the 21
 /// circuits whose Groth16 proof is end-to-end verified (real accept + tamper-reject)
 /// OFF-CHAIN by the disclosed oracle. Used at the JSON boundary to upgrade their script
 /// reality to FullZk, so the violet "Full ZK" pill reaches the badge instead of being
@@ -103,6 +103,11 @@ pub const VERIFIED_FULL_ZK_CIRCUITS: &[&str] = &[
     "solvency_sum",
     "set_non_membership",
     "anon_membership_nullifier",
+    // New self-contained primitives (zkwave 2026-06-28), node-verified accept + tamper-reject +
+    // negative-predicate (valid==0) against the served vkey before being added here. Must stay
+    // in sync with frontend VERIFIED_FULL_ZK (enforced by zk-set-backend-parity.test.js).
+    "merkle_range_membership",
+    "equality_of_commitments",
 ];
 
 /// Returns the full-zk reality for `circuit_id` if it is a verified circuit, else None.
@@ -551,14 +556,16 @@ mod tests {
         assert_eq!(zk_reality_for_circuit("not_a_circuit"), None);
     }
 
-    /// All 19 verified circuits are FullZk (oracle-verified off-chain); ZERO are
+    /// All 21 verified circuits are FullZk (oracle-verified off-chain); ZERO are
     /// chain-enforced, because no circuit-output -> hashlock binding is implemented and
     /// the chain-enforced ZK tier has been retired entirely (no const exists for it). The
     /// cross-language parity test (frontend zk-set-backend-parity.test.js) guards against the
     /// retired const being reintroduced on either side of the language boundary.
+    /// (19 original + 2 new zkwave 2026-06-28 primitives: merkle_range_membership,
+    /// equality_of_commitments, each node-verified accept + tamper + valid==0 before listing.)
     #[test]
-    fn zk_reality_counts_19_verified() {
-        assert_eq!(VERIFIED_FULL_ZK_CIRCUITS.len(), 19);
+    fn zk_reality_counts_21_verified() {
+        assert_eq!(VERIFIED_FULL_ZK_CIRCUITS.len(), 21);
     }
 
     /// String stability: the wire labels must be exactly what TrustBadge.jsx +

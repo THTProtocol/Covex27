@@ -37,16 +37,30 @@ node -e "..." # fullProve a known witness -> frontend/public/zk/<name>/demo_proo
 
 ---
 
-## TIER 0 - DONE (19 real circuits, in-browser prover works, validity is a CONSTRAINED output)
+## TIER 0 - DONE (21 real circuits, in-browser prover works, validity is a CONSTRAINED output)
 
 No circuit work needed. These compute `output valid`/`output spent` from real constraints and
-node-verify accept + tamper-reject:
+node-verify accept + tamper-reject (and, where a false predicate is possible, the false case
+produces a verifying proof with valid==0 - never a `valid<==1` stub):
 
 `merkle_membership`, `age_verification`, `escrow_2party`, `range_proof`, `vrf_dice_roll`,
 `nullifier_set`, `basic_utxo_ownership` (alias `utxo_ownership`), `hash_preimage`,
 `timelock_absolute`, `relative_timelock`, `vrf_random`, `turn_timer`, `script_constraint`,
 `pot_split_math`, `commitment_open`, `balance_threshold`, `solvency_sum`, `set_non_membership`,
-`anon_membership_nullifier`.
+`anon_membership_nullifier`, `merkle_range_membership`, `equality_of_commitments`.
+
+The last two are new (zkwave 2026-06-28), built with a pot10/pot12 single-contributor dev
+ceremony and registered StrictGroth16 only after a real proof verified, a tampered proof was
+rejected, and a false-predicate witness (out-of-band value / mismatched commitment) produced a
+verifying proof with valid==0:
+- `merkle_range_membership` - prove a private (account, value) leaf is in a Poseidon Merkle set
+  AND value is inside a public two-sided band [lo, hi]. Two-sided variant of merkle_leaf_threshold.
+- `equality_of_commitments` - prove two public Poseidon commitments open to ONE hidden value
+  (cross-context linking without disclosing the value).
+
+The whole set is verified by `bash zk/scripts/zk_roundtrip_harness.sh` (prove from the SERVED
+wasm+zkey, verify against the SERVED vkey, then tamper-reject) and gated in CI by
+`scripts/check-zk-registry.sh` (the registry may not claim a circuit without a served key).
 
 Chores (not circuit-building):
 - **Regenerate stale sample proofs.** 14 of these ship a `demo_proof.json` that no longer

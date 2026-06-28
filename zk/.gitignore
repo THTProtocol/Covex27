@@ -15,3 +15,11 @@ _setup_local.cjs
 _verify_local.cjs
 _zkcount.cjs
 _zkdiag.cjs
+# transient harness / build artifacts (zk_roundtrip_harness.sh, build_new_circuit.sh, served_prove)
+.harness_tmp/
+.harness*.log
+.neg_test.log
+.build_*.log
+.ptau*.log
+build_new/
+node_modules

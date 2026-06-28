@@ -728,6 +728,29 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
             prefix: "covex_anm",
         },
     );
+    // === New self-contained primitives (zkwave 2026-06-28) ===
+    // Each verified end-to-end with the SERVED wasm + _final.zkey + vkey BEFORE registration:
+    // a real proof verifies true, a tampered proof verifies false, and a false predicate
+    // (out-of-band value for merkle_range_membership, mismatched value for
+    // equality_of_commitments) produces a VERIFYING proof whose computed valid==0 (so a
+    // non-satisfying claim fails the gate). `valid` is a CONSTRAINED OUTPUT, not a `valid<==1`
+    // stub. Verify scripts are STRICT fail-closed (real snarkjs.groth16.verify vs the served
+    // vkey, {valid:false} on any failure, NO attested fallback). Keys are a single-contributor
+    // Covex dev ceremony (pot10 / pot12), NOT a production MPC.
+    m.insert(
+        "merkle_range_membership",
+        VerifierSpec::StrictGroth16 {
+            script: "verify_merkle_range_membership.js",
+            prefix: "covex_mrm",
+        },
+    );
+    m.insert(
+        "equality_of_commitments",
+        VerifierSpec::StrictGroth16 {
+            script: "verify_equality_of_commitments.js",
+            prefix: "covex_eoc",
+        },
+    );
     // Re-assert as StrictGroth16 AFTER the attested loops above. age_verification and
     // escrow_2party were inserted Strict early (lines ~128/131) but the later
     // gating_attested / defi_attested loops overwrote them with Attested (HashMap: last
@@ -1227,6 +1250,12 @@ pub(crate) fn determine_outcome_for_circuit(
             // proof-presence branch below and a valid==0 proof drained the pot.
             | "commitment_open" | "balance_threshold" | "solvency_sum"
             | "set_non_membership" | "anon_membership_nullifier"
+            // New 2026-06-28 primitives also EXPOSE the computed validity at publicSignals[0]:
+            // merkle_range_membership = member * (value>=lo) * (value<=hi);
+            // equality_of_commitments = (A opens to value) * (B opens to same value). A verifying
+            // proof can carry valid==0 (out-of-band value / mismatched commitment), which MUST
+            // fail the gate, so we read [0] rather than treating proof presence as success.
+            | "merkle_range_membership" | "equality_of_commitments"
     ) || circuit_type.contains("timelock")
     {
         // These circuits EXPOSE their gating result as publicSignals[0]
@@ -1365,6 +1394,10 @@ mod tests {
             "solvency_sum",
             "set_non_membership",
             "anon_membership_nullifier",
+            // New self-contained primitives (zkwave 2026-06-28), node-verified accept + tamper +
+            // negative-predicate (valid==0) before registration.
+            "merkle_range_membership",
+            "equality_of_commitments",
         ] {
             assert!(
                 matches!(r.get(*id), Some(VerifierSpec::StrictGroth16 { .. })),

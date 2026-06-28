@@ -72,21 +72,32 @@ python3 - <<'PY' "$PUB/manifest.json"
 import json, sys, os, glob
 pub = os.path.dirname(sys.argv[1])
 entries = []
+prov = 0
 for d in sorted(glob.glob(os.path.join(pub, "*/"))):
     cid = os.path.basename(d.rstrip("/"))
     vkey = os.path.join(d, f"{cid}_vkey.json")
+    if not (os.path.isfile(vkey) or os.path.isfile(os.path.join(d, "verification_key.json"))):
+        continue
     demo = os.path.join(d, "demo_proof.json")
-    if os.path.isfile(vkey):
-        entries.append({
-            "id": cid,
-            "vkey": f"/zk/{cid}/{cid}_vkey.json",
-            "demo_proof": f"/zk/{cid}/demo_proof.json" if os.path.isfile(demo) else None,
-            "artifacts": True,
-        })
+    # HONEST: provable == a served _final.zkey + wasm exist, so an in-browser prover can generate
+    # a REAL proof. vkey-only / source+vkey circuits get provable=false (compiled but NOT
+    # claimable yet). The old blanket "artifacts": true was set even with no proving key, which
+    # over-claimed. Kept in sync with zk/circuit_registry.json + scripts/check-zk-registry.sh.
+    zkey = os.path.isfile(os.path.join(d, f"{cid}_final.zkey"))
+    wasm = os.path.isfile(os.path.join(d, f"{cid}.wasm"))
+    if zkey and wasm:
+        prov += 1
+    entries.append({
+        "id": cid,
+        "vkey": f"/zk/{cid}/{cid}_vkey.json",
+        "demo_proof": f"/zk/{cid}/demo_proof.json" if os.path.isfile(demo) else None,
+        "provable": bool(zkey and wasm),
+    })
 with open(sys.argv[1], "w") as f:
-    json.dump({"circuits": entries, "count": len(entries)}, f, indent=2)
+    json.dump({"circuits": entries, "count": len(entries), "provable_count": prov,
+               "note": "provable == served _final.zkey present (an in-browser prover can generate a real proof). See zk/circuit_registry.json + scripts/check-zk-registry.sh."}, f, indent=2)
     f.write("\n")
-print(f"manifest: {len(entries)} circuits")
+print(f"manifest: {len(entries)} circuits, {prov} provable")
 PY
 
 echo "synced $(find "$PUB" -name '*_vkey.json' | wc -l) vkeys to $PUB"

@@ -134,9 +134,12 @@ export default function Readme() {
             How <span className="text-kaspa-green">Covex</span> Works
           </h1>
           <p className="text-base sm:text-lg text-gray-200 leading-relaxed mb-6">
-            Covex builds real, self-enforcing money on the Kaspa BlockDAG. Funds lock into a script the chain
-            itself verifies, with no custodian, no middleman. This page is the honest, end-to-end blueprint of exactly
-            how that works, from the 35 bytes of the lock to the zero-knowledge proofs that gate it.
+            Covex builds real money on the Kaspa BlockDAG. For the deterministic on-chain primitives
+            (hashlock, CLTV/CSV timelocks, HTLC, multisig), funds lock into a script the chain itself
+            verifies, with no custodian and no middleman. The oracle-attested and full-zk kinds settle
+            on-chain too, but their outcome is verified off-chain by an external resolver you choose or run
+            (never Covex), so those are not trustless. This page is the honest, end-to-end blueprint of
+            exactly how each works, from the 35 bytes of the lock to the zero-knowledge proofs that gate it.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Link to="/sandbox" className="btn-shimmer inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black light:bg-emerald-800 light:text-white font-bold hover:brightness-110 transition">

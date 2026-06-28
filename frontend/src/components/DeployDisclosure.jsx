@@ -44,8 +44,8 @@ export default function DeployDisclosure({ reality = 'on-chain', className = '' 
         {isOnChain && <li className="flex gap-2"><span className="text-gray-500">•</span> The chain enforces the rules - no oracle, no trust in Covex. Save your redeem script to spend even if Covex is gone.</li>}
         {isHybrid && <li className="flex gap-2"><span className="text-gray-500">•</span> Custody and payout settle on-chain, but which branch releases is decided by an external resolver (a revealed market outcome, or a proof it verifies). This is NOT trustless.</li>}
         {isOracle && <li className="flex gap-2"><span className="text-gray-500">•</span> The outcome is co-signed by an external resolver (checked off-chain), not by Kaspa consensus alone. This is NOT trustless.</li>}
-        {isFullZk && <li className="flex gap-2"><span className="text-gray-500">•</span> A real Groth16 proof is verified off-chain by an external resolver, then co-signed on-chain. Payout still needs that oracle co-signature, so it is NOT trustless end-to-end.</li>}
-        {!trustless && <li className="flex gap-2"><AlertTriangle size={13} className="text-amber-400/80 light:text-amber-600 mt-px shrink-0" /> The oracle cannot take your funds, but it can withhold the co-signature, so settlement depends on it staying live and honest.</li>}
+        {isFullZk && <li className="flex gap-2"><span className="text-gray-500">•</span> A real Groth16 proof is verified off-chain by an external resolver, then co-signed on-chain. Payout still needs that external resolver's co-signature, so it is NOT trustless end-to-end.</li>}
+        {!trustless && <li className="flex gap-2"><AlertTriangle size={13} className="text-amber-400/80 light:text-amber-600 mt-px shrink-0" /> The external resolver cannot take your funds, but it can withhold the co-signature, so settlement depends on it staying live and honest.</li>}
       </ul>
     </div>
   );

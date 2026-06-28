@@ -124,3 +124,13 @@ zk/node_modules/
 # caught by **/*key*; the served key is the source of truth an in-browser prover uses.
 !frontend/public/zk/merkle_range_membership/merkle_range_membership_final.zkey
 !frontend/public/zk/equality_of_commitments/equality_of_commitments_final.zkey
+
+# circomwave 2026-06-28 primitives (dev pot10/pot12 ceremony, each proven end-to-end against the
+# SERVED wasm+zkey+vkey: accept + tamper-reject + false-predicate valid==0 before registration).
+# The _final.zkey is otherwise caught by **/*key*; it is the source of truth the in-browser prover
+# + the oracle's strict verify both pair against, so it MUST be committed.
+!frontend/public/zk/merkle_multi_membership/merkle_multi_membership_final.zkey
+!frontend/public/zk/nullifier_uniqueness/nullifier_uniqueness_final.zkey
+!frontend/public/zk/threshold_sig_knowledge/threshold_sig_knowledge_final.zkey
+!frontend/public/zk/pedersen_open_equals/pedersen_open_equals_final.zkey
+!frontend/public/zk/sorted_merkle_range/sorted_merkle_range_final.zkey

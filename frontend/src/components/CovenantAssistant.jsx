@@ -17,9 +17,9 @@ const REALITY_PILL = {
   // Every ZK reality is collapsed to oracle-attested (off-chain oracle verify, no on-chain pairing
   // verifier). full-zk / hybrid render as oracle-attested defensively so the honest collapse holds
   // even if a raw reality ever leaks through.
-  'full-zk': { label: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 bg-amber-500/12 border-amber-500/35' },
-  hybrid: { label: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 bg-amber-500/12 border-amber-500/35' },
-  'oracle-attested': { label: 'Oracle-attested', icon: Radio, cls: 'text-amber-300 bg-amber-500/12 border-amber-500/35' },
+  'full-zk': { label: 'Resolver-attested', icon: Radio, cls: 'text-amber-300 bg-amber-500/12 border-amber-500/35' },
+  hybrid: { label: 'Resolver-attested', icon: Radio, cls: 'text-amber-300 bg-amber-500/12 border-amber-500/35' },
+  'oracle-attested': { label: 'Resolver-attested', icon: Radio, cls: 'text-amber-300 bg-amber-500/12 border-amber-500/35' },
   decorative: { label: 'Metadata', icon: Lock, cls: 'text-gray-300 bg-white/[0.06] border-white/15' },
 };
 const pill = (r) => REALITY_PILL[r] || REALITY_PILL['oracle-attested'];
@@ -49,7 +49,7 @@ const INTENT_CHIPS = [
 const REALITY_FILTERS = [
   { key: 'all', label: 'All' },
   { key: 'on-chain', label: 'On-chain' },
-  { key: 'oracle', label: 'Oracle-attested' },
+  { key: 'oracle', label: 'Resolver-attested' },
 ];
 const matchesFilter = (reality, f) =>
   f === 'all' || reality === f ||

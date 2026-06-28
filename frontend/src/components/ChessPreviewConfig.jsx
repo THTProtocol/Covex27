@@ -241,7 +241,7 @@ export default function ChessPreviewConfig({
           <FileSearch size={15} className="text-kaspa-green" />
           <span className="text-[11px] uppercase tracking-wider text-gray-300 light:text-slate-600 font-semibold">How this covenant resolves</span>
           <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] px-2 py-0.5 rounded-full border border-amber-400/30 text-amber-300 light:text-amber-600 light:border-amber-400/40">
-            oracle-attested <Info size={11} className="opacity-70" />
+            resolver-attested <Info size={11} className="opacity-70" />
           </span>
         </div>
         <p className="text-sm text-gray-300 light:text-slate-700 leading-relaxed">
@@ -312,9 +312,9 @@ export default function ChessPreviewConfig({
             <div className="flex items-start justify-between gap-3 flex-wrap">
               <div>
                 <div className="text-sm font-bold text-white light:text-slate-900">{variantLabel || 'Chess Duel'}</div>
-                <div className="text-[10px] text-gray-400 light:text-slate-500 font-mono">FIDE rules - oracle-attested - {tc}</div>
+                <div className="text-[10px] text-gray-400 light:text-slate-500 font-mono">FIDE rules - resolver-attested - {tc}</div>
               </div>
-              <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border border-amber-400/30 text-amber-300 light:text-amber-600">oracle-attested</span>
+              <span className="text-[9px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full border border-amber-400/30 text-amber-300 light:text-amber-600">resolver-attested</span>
             </div>
 
             {/* Clocks + board + stake panel */}

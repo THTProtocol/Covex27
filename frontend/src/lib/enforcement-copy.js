@@ -60,7 +60,7 @@ export const REALITY_BODY = {
 export const REALITY_BADGE_LABEL = {
   'on-chain':        'On-chain enforced',
   'hybrid':          'Hybrid',
-  'oracle-attested': 'Oracle-attested',
+  'oracle-attested': 'Resolver-attested',
   'full-zk':         'Full ZK',
   'on-chain-zk':     'On-chain ZK (testnet)',
 };

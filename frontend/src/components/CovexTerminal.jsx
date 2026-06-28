@@ -368,9 +368,9 @@ const ZK_CIRCUIT_TYPES_RAW = [
 // / on-chain ZK. Circuits with a real in-browser Groth16 prover keep their separate "in-browser prover"
 // chip (a true capability), but the proof is still verified off-chain, not on-chain.
 const REALITY_META = {
-  'full-zk':         { label: 'Oracle-attested', short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
-  'hybrid':          { label: 'Oracle-attested', short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
-  'oracle-attested': { label: 'Oracle-attested', short: 'Oracle', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
+  'full-zk':         { label: 'Resolver-attested', short: 'Resolver', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
+  'hybrid':          { label: 'Resolver-attested', short: 'Resolver', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
+  'oracle-attested': { label: 'Resolver-attested', short: 'Resolver', accent: '#fbbf24', text: 'text-amber-300', bg: 'bg-amber-500/12', border: 'border-amber-500/35' },
   'decorative':      { label: 'Metadata',       short: 'Meta',   accent: '#9ca3af', text: 'text-gray-300 light:text-slate-600',    bg: 'bg-white/[0.06]',   border: 'border-white/15' },
 };
 const realityMeta = (r) => REALITY_META[r] || REALITY_META['oracle-attested'];

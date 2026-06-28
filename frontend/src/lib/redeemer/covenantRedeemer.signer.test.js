@@ -244,6 +244,16 @@ describe('claimability honesty matrix', () => {
     expect(claimability('oracle_escrow_refundable', 'revealA').offline).toBe(false);
   });
 
+  it('zk_game_settle is fully offline-claimable (winner proves on-chain; funder refunds after CSV)', () => {
+    // KIP-16 on-chain ZK: the winner branch needs only the winner key + the Groth16 proof (consensus
+    // verifies on-chain, no resolver), and the refund branch is a CSV timelock spendable by the funder.
+    expect(KIND_CLAIM_MATRIX.zk_game_settle.offlineClaimable).toBe(true);
+    expect(claimability('zk_game_settle', 'claim').offline).toBe(true);
+    expect(claimability('zk_game_settle', 'refund').offline).toBe(true);
+    // Honest disclosure: the liveness note keeps the testnet gate so it never reads as mainnet-live.
+    expect(/testnet/i.test(claimability('zk_game_settle', 'claim').liveness)).toBe(true);
+  });
+
   it('unknown kind -> null (caller falls back conservatively)', () => {
     expect(claimability('totally_unknown', 'claim')).toBe(null);
   });

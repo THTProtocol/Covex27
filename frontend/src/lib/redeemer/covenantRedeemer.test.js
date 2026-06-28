@@ -357,6 +357,12 @@ describe('sigOpCount', () => {
     expect(sigOpCount('deadman')).toBe(2);
   });
 
+  // zk_game_settle redeem has TWO OpCheckSig (winner branch + CSV refund branch); the node sums
+  // both statically => 2 (mirrors the Rust SpendKind::ZkGameSettle sig_op_count of 2).
+  it('2 for zk_game_settle (winner CheckSig + refund CheckSig)', () => {
+    expect(sigOpCount('zk_game_settle')).toBe(2);
+  });
+
   it('3 for channel/oracle_escrow/binary_oracle_select', () => {
     for (const k of ['channel', 'oracle_escrow', 'binary_oracle_select']) {
       expect(sigOpCount(k)).toBe(3);

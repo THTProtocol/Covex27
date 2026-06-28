@@ -253,6 +253,11 @@ export function sigOpCount(kind, opts = {}) {
       return 2;
     case 'deadman':
       return 2;
+    // zk_game_settle redeem has TWO OpCheckSig (winner branch + CSV refund branch); Kaspa
+    // statically sums sig-ops across BOTH IF/ELSE arms => 2. (Mirrors the Rust
+    // SpendKind::ZkGameSettle sig_op_count of 2.)
+    case 'zk_game_settle':
+      return 2;
     case 'channel':
     case 'oracle_escrow':
     case 'binary_oracle_select':
@@ -456,6 +461,26 @@ export function buildSatisfier(args) {
       }
       break;
 
+    // zk_game_settle (KIP-16 on-chain ZK settlement). Byte-mirrors the Rust
+    // build_zk_game_settle_winner_satisfier / build_zk_game_settle_refund_satisfier
+    // (backend/src/covenant_builder.rs:882-915). The VK + 5 public inputs + winner pubkey are
+    // BAKED in the redeem, so the witness carries only the signature, the proof, and the selector.
+    // Stack bottom->top:
+    //   winner = <winner_sig> <proof> OP_TRUE   (push65, then canonical add_data of the proof, then OP_TRUE)
+    //   refund = <refund_sig> OP_FALSE          (push65, then OP_FALSE to select the ELSE/CSV branch)
+    // The proof uses pushData (the same canonical add_data the Rust push_data_raw splices, which is
+    // ScriptBuilder::add_data), NOT push65: it is arbitrary-length data, not a signature.
+    case 'zk_game_settle':
+      if (branchRefund) {
+        parts.push(push65(need(refundSig || solo, 'zk_game_settle refund needs the refund key signature')));
+        parts.push([OPCODES.OpFalse]);
+      } else {
+        parts.push(push65(need(winnerSig || solo, 'zk_game_settle winner spend needs the winner key signature')));
+        parts.push(pushData(need(preimageBytes, 'zk_game_settle winner spend requires the Groth16 proof bytes (preimageBytes)')));
+        parts.push([OPCODES.OpTrue]);
+      }
+      break;
+
     // binary_oracle_select (the parimutuel-bundle leg), winner-only NON-CUSTODIAL.
     // (Rust @1166-1224). Stack bottom->top:
     //   RevealA = <sig_a> <preimage> OP_TRUE
@@ -506,6 +531,15 @@ export function buildSatisfier(args) {
  *     oracle_escrow_refundable         -> [oracle, a, b, refund]
  *     oracle_enforced (checksigOnly=false) -> [oracle, winner]
  *     oracle_enforced_refundable (checksigOnly=false) -> [oracle, winner, refund]
+ *
+ * DELIBERATELY ABSENT: zk_game_settle. Its redeem bakes a long arbitrary VK, so the generic
+ * parseRedeemPubkeys heuristic could mis-align inside those bytes (a 0x20 byte followed 33 bytes
+ * later by a 0xac could be mistaken for a key+checksig). The Rust side uses a dedicated structural
+ * parser (parse_zk_game_settle_keys) for exactly this reason. Rather than port that here and risk a
+ * mis-bind, zk_game_settle has NO entry: assertSignerForBranch throws "unsupported kind" for it
+ * (fail-closed, the safe direction), and claimability() still works off KIND_CLAIM_MATRIX. The
+ * consensus-critical buildSatisfier IS supported and byte-exact; only the pre-sign key-binding
+ * convenience is omitted until a structural parser is ported and tested.
  *
  * A value is either a single number (the index the named signer's key sits at) or, for a
  * cooperative-close branch with two required signers, an array of indices (both expected).
@@ -675,6 +709,20 @@ export const KIND_CLAIM_MATRIX = Object.freeze({
       revealB: { offline: false, role: 'winning-player key + an external resolver co-signature' },
     },
     liveness: 'NOT offline-claimable: the winning payout requires the deployer-bound resolver co-signature. There is no refund branch on this kind, so it depends on resolver liveness. Prefer the *_refundable variant for a self-claimable fallback.',
+  },
+  // zk_game_settle (KIP-16 on-chain ZK). Fully offline-claimable: the WINNER branch needs only the
+  // winner key signature + the Groth16 proof (consensus verifies the proof on-chain via
+  // OpZkPrecompile; no oracle, no co-signature), and the funder REFUND branch is a plain CSV
+  // relative timelock spendable with the refund key after the delay. The proof itself is produced
+  // off-device (a RISC0->Groth16 wrap needs x86_64, not the browser); the claimer supplies the
+  // finished proof bytes. Testnet-gated: the opcode is not live on Kaspa mainnet yet.
+  zk_game_settle: {
+    offlineClaimable: true,
+    branches: {
+      claim: { offline: true, role: 'winner key + the Groth16 proof (verified on-chain by consensus)' },
+      refund: { offline: true, role: 'funder/refund key (after the CSV delay)' },
+    },
+    liveness: 'Offline-claimable with no resolver: the WINNER branch releases on the winner key signature plus a Groth16 proof that Kaspa consensus verifies on-chain (KIP-16 OpZkPrecompile); the REFUND branch is offline-claimable with the funder key after the CSV delay. Testnet-gated: the on-chain ZK opcode is not live on Kaspa mainnet yet.',
   },
   oracle_enforced: {
     offlineClaimable: false,

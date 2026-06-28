@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Zap, Gamepad2, X, Play } from 'lucide-react';
 import ChessMini from './chess/ChessMini';
 import { VERIFIED_FULL_ZK } from '../lib/zk/circuits';

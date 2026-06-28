@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Clock, FileSearch, Code2, Globe, Info, Copy, Check, Palette } from 'lucide-react';
 import { BOARD_THEMES, PIECE_SETS, resolveBoardTheme, resolvePieceSet, DEFAULT_BOARD_THEME, DEFAULT_PIECE_SET } from '../lib/chessTheme';
 

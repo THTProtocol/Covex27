@@ -1,8 +1,5 @@
 import { useState } from 'react';
-import {
-  Sparkles, Send, ArrowRight, ShieldCheck, Radio, Cpu, Lock, Wand2,
-  Handshake, Clock, ListChecks, Fingerprint, TrendingUp, KeyRound, Gamepad2, Repeat,
-} from 'lucide-react';
+import { Sparkles, Send, ArrowRight, ShieldCheck, Radio, Lock, Wand2, Handshake, Clock, ListChecks, Fingerprint, TrendingUp, KeyRound, Gamepad2, Repeat } from 'lucide-react';
 import { suggestCovenants } from '../lib/covenantAssistant';
 import { Card } from './ui/Card';
 import { Button } from './ui/Button';

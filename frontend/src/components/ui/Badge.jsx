@@ -30,7 +30,6 @@
 // whose Groth16 proof IS verified on-chain by consensus (OpZkPrecompile); it is
 // testnet / Toccata gated, never a mainnet-live claim.
 
-import * as React from 'react';
 import { cva } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 

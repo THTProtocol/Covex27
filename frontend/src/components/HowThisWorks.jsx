@@ -1,4 +1,3 @@
-import React from 'react';
 import { Info, ArrowRight, ChevronDown } from 'lucide-react';
 import { Link } from 'react-router-dom';
 

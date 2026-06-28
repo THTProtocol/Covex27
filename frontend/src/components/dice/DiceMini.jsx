@@ -1,4 +1,3 @@
-import React from 'react';
 import { Dices } from 'lucide-react';
 
 const DiceMini = ({ compact = false }) => {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef, useCallback } from 'react';
+import { useMemo, useState, useRef, useCallback } from 'react';
 
 /**
  * ResolutionSimulator  -  a payout / resolution preview that ADAPTS to the covenant.

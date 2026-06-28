@@ -12,7 +12,6 @@
 // Honesty: this only signals "data is loading". The whole block is aria-hidden; the
 // grid container owns the single role="status" / aria-busy announcement.
 
-import * as React from 'react';
 import { Skeleton } from './Skeleton';
 
 export default function CovenantCardSkeleton() {

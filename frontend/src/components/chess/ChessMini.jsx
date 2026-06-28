@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 // chess.com exact colors + premium pro look
 const LIGHT = '#f0d9b5';

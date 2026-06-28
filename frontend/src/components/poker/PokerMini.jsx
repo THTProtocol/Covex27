@@ -1,4 +1,3 @@
-import React from 'react';
 
 // Enhanced mini for preview. Full pro full-screen Texas Hold'em (smooth like top poker apps) lives in
 // Covenant Studio generated UIs + Covex Terminal for paid covenants (stake match → full screen table → oracle/ZK resolution).

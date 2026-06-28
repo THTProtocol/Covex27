@@ -11,7 +11,6 @@
 //
 // Honesty: this only signals "data is loading" while we fetch the covenant from the BlockDAG.
 
-import * as React from 'react';
 import { Skeleton } from './Skeleton';
 
 function PanelSkeleton({ lines = 4 }) {

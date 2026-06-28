@@ -1,12 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import {
-  Database, Search, Sparkles, Play,
-  Coins, Layers, Crown, Star, Gamepad2, TrendingUp,
-  ShieldCheck, Zap, ChevronDown, Compass,
-  Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes, ArrowRight
-} from 'lucide-react';
+import { Database, Search, Sparkles, Play, Coins, Layers, Gamepad2, TrendingUp, ShieldCheck, Zap, ChevronDown, Compass, Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes, ArrowRight } from 'lucide-react';
 import Spinner from '../components/ui/Spinner';
 import CovenantCardSkeleton from '../components/ui/CovenantCardSkeleton';
 import { Button } from '../components/ui/Button';
@@ -34,7 +29,7 @@ import LiveTicker from '../components/LiveTicker';
 import TrustBadge from '../components/TrustBadge';
 import { GoldenGrid } from '../components/GoldenGrid';
 import CopyButton from '../components/CopyButton';
-import { Badge } from '../components/ui/Badge';
+
 import { TIER_PALETTE, TIER_COLOR } from '../lib/tierPalette';
 import { formatKas, formatCount, truncateMiddle as truncMiddle } from '../lib/format.js';
 

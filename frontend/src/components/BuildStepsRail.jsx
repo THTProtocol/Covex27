@@ -1,4 +1,3 @@
-import React from 'react';
 import { useLocation } from 'react-router-dom';
 import { Check } from 'lucide-react';
 import { useBuildStep, BUILD_STEPS } from '../lib/build-steps.js';

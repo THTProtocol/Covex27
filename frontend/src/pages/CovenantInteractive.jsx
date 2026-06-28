@@ -41,7 +41,7 @@ const GAME_REGISTRY = {
 assertGamesInSync(Object.keys(GAME_REGISTRY), 'GAME_REGISTRY');
 import { Chessboard } from 'react-chessboard';
 import { gameLookFromConfig } from '../lib/gameTheme';
-import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, Type, Ruler, Save, Share2, Clock, Wallet } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, Code2, Check, Save, Share2, Clock, Wallet } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import CopyButton from '../components/CopyButton';
 import RecoveryKitModal from '../components/RecoveryKitModal';

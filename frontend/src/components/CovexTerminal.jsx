@@ -1,14 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from './ToastContext';
 import { useNavigate } from 'react-router-dom';
-import {
-  Terminal, Settings, Code2, Gavel, Save, ExternalLink,
-  ToggleLeft, ToggleRight, Sliders, Radio, Shield, Cpu,
-  Zap, AlertTriangle, CheckCircle2, Info, Key, Palette,
-  Upload, Eye, EyeOff, Play, Clipboard, Check, ArrowLeft,
-  Loader, Loader2, Server, XCircle, Clock, BadgeCheck, Globe, Rocket,
-  Download, RefreshCw,
-} from 'lucide-react';
+import { Terminal, Settings, Code2, Gavel, Save, ExternalLink, ToggleLeft, ToggleRight, Radio, Shield, Cpu, Zap, AlertTriangle, CheckCircle2, Info, Key, Palette, Upload, Eye, EyeOff, Play, Clipboard, Check, ArrowLeft, Loader, Loader2, Server, XCircle, Clock, BadgeCheck, Globe, Rocket } from 'lucide-react';
 import { copyWithFeedback } from '../lib/copy';
 import { Chess } from 'chess.js';
 import { CovexMark } from './CovexLogo';
@@ -18,7 +11,7 @@ import TransparencyModal from './TransparencyModal';
 // (VERIFIED_FULL_ZK / IN_BROWSER_PROVERS / STRICT_GROTH16 used to be duplicated here and in
 // TransparencyModal.jsx / OnChainLockSection.jsx; they now live in lib/zk/circuits.js.)
 import { VERIFIED_FULL_ZK, IN_BROWSER_PROVERS, STRICT_GROTH16 } from '../lib/zk/circuits';
-import { loadSnarkjs, makeFullProveBound, PROVERS } from '../lib/zk/provers';
+import { makeFullProveBound, PROVERS } from '../lib/zk/provers';
 import { Chessboard } from 'react-chessboard';
 import ChessPreviewConfig, { defaultTimeControlFor } from './ChessPreviewConfig';
 import { DEFAULT_BOARD_THEME, DEFAULT_PIECE_SET } from '../lib/chessTheme';

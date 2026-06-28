@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Palette } from 'lucide-react';
 import { POKER_FELTS, POKER_CARD_BACKS, POKER_CHIPS, resolvePokerFelt, resolvePokerCardBack } from '../lib/pokerTheme';
 import { BLACKJACK_FELTS, BLACKJACK_CARD_BACKS, resolveBlackjackFelt, resolveBlackjackCardBack } from '../lib/blackjackTheme';

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Scale, Clock, Users, Shuffle, X } from 'lucide-react';
 import { Card } from '@/components/ui/Card';
 

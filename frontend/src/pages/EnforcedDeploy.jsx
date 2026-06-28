@@ -11,20 +11,20 @@ import { toast } from '../components/ToastContext';
 import { enforcementSummary } from '../lib/enforcement-copy';
 
 // The on-chain-enforced covenant primitives (covenant_builder), plus the parimutuel
-// prediction market, which is itself settled on-chain by conjoined oracle covenants.
+// conditional-outcome covenant, which is itself settled on-chain by conjoined oracle covenants.
 const KINDS = [
   { id: 'singlesig', label: 'Single-key', icon: KeyRound, blurb: 'Funds lock to a script hash, spendable only by your key. The minimal real covenant.' },
   { id: 'hashlock', label: 'Hashlock', icon: Lock, blurb: 'Release requires revealing a secret preimage plus a signature. The HTLC building block.' },
   { id: 'timelock', label: 'Timelock', icon: Clock, blurb: 'Funds are spendable only once the chain DAA score reaches the unlock point. Vesting, dispute windows.' },
   { id: 'multisig', label: 'Multisig (2-of-2 demo)', icon: Users, blurb: 'Release requires 2 of 2 dev-wallet keys. DAO treasuries, 2-of-3 escrow. Demo uses the server-assisted dev wallets.' },
   { id: 'htlc', label: 'HTLC (atomic swap)', icon: ArrowLeftRight, blurb: 'Receiver claims by revealing a secret; sender refunds after a timelock. The cross-party / cross-chain swap building block. Demo uses the dev wallets.' },
-  { id: 'channel', label: 'State-channel pot', icon: Network, blurb: 'A 2-of-2 cooperative-close pot with a funder refund after a timelock. The chain pays the agreed winner, no oracle. Demo uses the dev wallets.' },
+  { id: 'channel', label: 'State channel', icon: Network, blurb: 'A 2-of-2 cooperative-close balance with a funder refund after a timelock. The chain pays the agreed recipient, no oracle. Demo uses the dev wallets.' },
   { id: 'deadman', label: "Dead-man's switch", icon: HeartPulse, blurb: 'The owner spends or refreshes any time; the heir can claim only after the timelock, so funds pass on if the owner goes silent. Demo uses the dev wallets.' },
   { id: 'relative_timelock', label: 'Relative timelock (CSV)', icon: Timer, blurb: 'Spendable only after the funds have aged a relative number of blocks (OpCheckSequenceVerify, BIP68). Node-enforced: an early spend is rejected.' },
   { id: 'timedecay', label: 'Time-decaying multisig', icon: Hourglass, blurb: 'A high quorum spends now, relaxing to a lower quorum after a deadline. Treasury recovery / inheritance. Demo uses the dev wallets.' },
   { id: 'oracle_enforced', label: 'Resolver-enforced', icon: Scale, blurb: 'A 2-of-2 of a deployer-bound resolver + winner: the chain requires the resolver co-signature, and the resolver co-signs only a verified outcome. On-chain-enforced resolver resolution; the deployer binds the resolver by pubkey at deploy.' },
   { id: 'oracle_escrow', label: 'Resolver escrow (2-player)', icon: Gavel, blurb: 'A 2-player pot the chain releases only to the resolver-declared winner: needs the deployer-bound resolver co-signature plus the winning player on their branch. Demo uses the dev wallets.' },
-  { id: 'market', label: 'Prediction Market', icon: TrendingUp, blurb: 'A parimutuel YES/NO market. Bettors stake on outcomes; the winning side is paid on-chain via conjoined oracle covenants and losers get a rebate. You set the creator fee and rebate.' },
+  { id: 'market', label: 'Conditional outcome', icon: TrendingUp, blurb: 'A parimutuel YES/NO covenant. Participants stake on an outcome; the winning side is paid on-chain via conjoined oracle covenants and the other side gets a rebate. You set the creator fee and rebate.' },
   { id: 'binary_oracle_select', label: 'External-oracle market', icon: Scale, blurb: 'A 2-outcome covenant bound to an EXTERNAL resolver you choose: commit the two published hashlocks and the two winner keys. The chain pays whichever side whose secret the resolver reveals; if neither is revealed, the refund key reclaims after a relative timelock. Covex is not in the payout path and attests nothing.' },
 ];
 
@@ -288,10 +288,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
     // MAINNET DEAD-END GUARD: a parimutuel market can be created as a DB anchor on mainnet but
     // can never be funded (matching + payout run on a testnet-only dev-escrow), so refuse up
     // front rather than create a market that silently never funds. Honest, fail-closed.
-    if (isMainnet) { setError('Prediction markets are testnet-only for now: matching and payout run on a testnet escrow, so a mainnet market would never fund. Switch to a testnet to create one. Non-custodial mainnet markets are coming.'); return; }
+    if (isMainnet) { setError('Conditional-outcome covenants are testnet-only for now: matching and payout run on a testnet escrow, so a mainnet one would never fund. Switch to a testnet to create one. Non-custodial mainnet support is coming.'); return; }
     const question = mq.trim();
-    if (!question) { setError('Enter a question for the market.'); return; }
-    if (!address) { setError('Connect a wallet first - it becomes the authorized resolver for this market (the settlement reveal is gated to your wallet signature).'); return; }
+    if (!question) { setError('Enter a question for the covenant.'); return; }
+    if (!address) { setError('Connect a wallet first - it becomes the authorized resolver for this covenant (the settlement reveal is gated to your wallet signature).'); return; }
     const feePct = parseFloat(mfee);
     const rebatePct = parseFloat(mrebate);
     if (!(feePct >= 0) || !(rebatePct >= 0)) { setError('Fee and rebate must be zero or positive percentages.'); return; }
@@ -311,7 +311,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
         }),
       });
       const j = await res.json();
-      if (!j.success || !j.market_id) { setError(j.error || 'Could not create the market.'); return; }
+      if (!j.success || !j.market_id) { setError(j.error || 'Could not create the covenant.'); return; }
       if (onDeployed) { onDeployed(j.market_id); return; }
       navigate(`/covenant/${j.market_id}`);
     } catch (e) {
@@ -734,9 +734,9 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           </p>
           <p className="mt-2 text-[12px] text-amber-200/80 leading-snug">
             The other primitives (multisig, HTLC, channel, dead-man, time-decaying multisig, resolver-enforced/escrow) deploy through the
-            server-assisted dev-wallet path, which is disabled on mainnet, so their tiles are testnet-only for now. Prediction markets are
-            testnet-only too: a market can be created as a record, but matching and payout run on a testnet-only escrow, so a mainnet market
-            would never fund. Non-custodial mainnet deploys for these are coming.
+            server-assisted dev-wallet path, which is disabled on mainnet, so their tiles are testnet-only for now. Conditional-outcome
+            covenants are testnet-only too: one can be created as a record, but matching and payout run on a testnet-only escrow, so a mainnet
+            one would never fund. Non-custodial mainnet deploys for these are coming.
           </p>
         </div>
       )}
@@ -912,7 +912,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
                   their stake after fees.
                 </p>
                 <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1 leading-snug">
-                  An illustration on a balanced pool, not a guaranteed return. The real multiple moves with the actual YES/NO split and is computed the same way on the market page.
+                  An illustration on a balanced pool, not a guaranteed return. The real multiple moves with the actual YES/NO split and is computed the same way on the covenant page.
                 </p>
               </div>
             ) : (
@@ -923,10 +923,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
               </div>
             )}
             <p className="text-[11px] text-gray-400 light:text-slate-600 leading-relaxed">
-              Parimutuel YES/NO market on conjoined oracle covenants. The winning side is paid by an on-chain spend that needs no Covex key in the signature. To resolve, the market's authorized resolver (your wallet, gated by signature) reveals one committed outcome secret; once revealed, anyone can settle every funded leg on-chain with that secret and a Kaspa node. Today the committed secret is Covex-derived, a trust-minimized step toward binding the market to an external resolver you choose. Fee + rebate must stay under 100%. After creating, you land on the market page to place bets, match, resolve, and settle.
+              Parimutuel YES/NO covenant on conjoined oracle covenants. The winning side is paid by an on-chain spend that needs no Covex key in the signature. To resolve, the covenant's authorized resolver (your wallet, gated by signature) reveals one committed outcome secret; once revealed, anyone can settle every funded leg on-chain with that secret and a Kaspa node. Today the committed secret is Covex-derived, a trust-minimized step toward binding the covenant to an external resolver you choose. Fee + rebate must stay under 100%. After creating, you land on the covenant page to stake, match, resolve, and settle.
             </p>
             <p className="text-[11px] text-gray-500 light:text-slate-500 leading-relaxed">
-              Bets can be any amount with no maximum, on any tier including free. All building is free. Paid tiers add priority placement and the premium website templates.
+              Stakes can be any amount with no maximum, on any tier including free. All building is free. Paid tiers add priority placement and the premium website templates.
             </p>
           </div>
         )}
@@ -1072,7 +1072,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
         {kind === 'market' ? (
           <button onClick={createMarket} disabled={busy}
             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-semibold text-sm hover:shadow-[0_0_20px_rgba(73,234,203,0.3)] transition-all disabled:opacity-60">
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <TrendingUp size={16} />} Create prediction market
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <TrendingUp size={16} />} Create conditional-outcome covenant
           </button>
         ) : !usesDevWallets && !canSign ? (
           <div className="rounded-xl border border-white/10 bg-black/20 p-4 light:border-slate-200 light:bg-slate-50/60">

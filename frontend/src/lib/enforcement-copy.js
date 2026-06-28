@@ -3,9 +3,9 @@
 // Sacred palette (mirrored from pages/Readme.jsx and components/ui/Badge.jsx):
 //   on-chain        = consensus-enforced, zero trust
 //   hybrid          = an on-chain script gates release, but release depends on an
-//                     input the chain itself cannot decide (a market's revealed
-//                     outcome secret, or a Groth16 proof an external resolver
-//                     verifies off-chain before co-signing). Never a Covex key.
+//                     input the chain itself cannot decide (a conditional-outcome
+//                     covenant's revealed outcome secret, or a Groth16 proof an external
+//                     resolver verifies off-chain before co-signing). Never a Covex key.
 //   oracle-attested = off-chain outcome signed by the named external resolver the
 //                     deployer binds by pubkey (never Covex)
 //   full-zk         = Groth16 proof verified fail-closed by the disclosed external
@@ -48,7 +48,7 @@ export const REALITY_BODY = {
   'on-chain':
     'Funds are locked in the exact P2SH commitment. Kaspa consensus runs the redeem script and releases the money only if its conditions are met. No third party can move it, the chain is the referee.',
   'hybrid':
-    'An on-chain script gates custody and every payout leg, but release depends on an externally supplied input the chain itself cannot decide. For prediction markets that input is the single committed outcome secret an external resolver reveals; for StrictGroth16 circuits it is a real Groth16 proof an external resolver verifies fail-closed before contributing the consensus-required co-signature. Covex provides the verifier tooling but operates no oracle key on this path. Either way the custody is on-chain enforced, but which branch releases is gated by that off-chain check, so there is no Covex trust and it is not trustless: trust sits with the disclosed external resolver you chose or run.',
+    'An on-chain script gates custody and every payout leg, but release depends on an externally supplied input the chain itself cannot decide. For conditional-outcome covenants that input is the single committed outcome secret an external resolver reveals; for StrictGroth16 circuits it is a real Groth16 proof an external resolver verifies fail-closed before contributing the consensus-required co-signature. Covex provides the verifier tooling but operates no oracle key on this path. Either way the custody is on-chain enforced, but which branch releases is gated by that off-chain check, so there is no Covex trust and it is not trustless: trust sits with the disclosed external resolver you chose or run.',
   'oracle-attested':
     'An off-chain outcome (a market event, a data feed, a game result) is signed by the external resolver the deployer binds by pubkey, whose co-signature the chain still requires via the redeem script. Trust sits with that named, publicly-keyed external resolver and not with Covex; the settlement itself is on-chain.',
   'full-zk':
@@ -75,7 +75,7 @@ export const REALITY_VERB = {
 
 const ORACLE_NOTE = {
   'hybrid':
-    'The named external resolver (the one you connect or run, never Covex) contributes the consensus-required co-signature only after its off-chain check passes: the revealed market outcome for prediction markets, or a Groth16 proof that verifies fail-closed for StrictGroth16 circuits.',
+    'The named external resolver (the one you connect or run, never Covex) contributes the consensus-required co-signature only after its off-chain check passes: the revealed outcome a resolver publishes for conditional-outcome covenants, or a Groth16 proof that verifies fail-closed for StrictGroth16 circuits.',
   'oracle-attested':
     'The named, publicly-keyed external resolver the deployer binds by pubkey signs the outcome. Settlement is on-chain, but trust in the outcome sits with that external resolver, never with Covex.',
   'full-zk':

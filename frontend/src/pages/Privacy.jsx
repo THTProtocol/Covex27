@@ -66,9 +66,7 @@ export default function Privacy() {
           </ul>
           <p>
             The Platform does <strong className="text-white light:text-slate-900">not</strong> perform IP-based geoblocking or sanctions
-            screening, and does not use your IP address to determine eligibility; eligibility is governed by your
-            own representations in the <Link to="/terms" className="text-kaspa-green light:text-teal-600 hover:underline">Terms</Link>.
-            We do not use your IP address to track you across sites, build an advertising profile, or
+            screening. We do not use your IP address to track you across sites, build an advertising profile, or
             identify you personally, and we do not sell it. We deliberately key rate limiting on the
             proxy-set source address and ignore client-supplied forwarding headers, so we are not relying
             on attacker-controllable identity data.
@@ -154,12 +152,12 @@ export default function Privacy() {
           </p>
         </section>
 
-        {/* 9. Children */}
+        {/* 9. Not directed to children */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white light:text-slate-900">9. Children</h2>
+          <h2 className="text-base font-semibold text-white light:text-slate-900">9. Not Directed to Children</h2>
           <p>
-            The Platform is not directed to children and may not be used by anyone under the age of
-            majority in their jurisdiction. We do not knowingly process data from children.
+            The Platform is general-purpose developer tooling and is not directed to children. We do
+            not knowingly process data from children.
           </p>
         </section>
 

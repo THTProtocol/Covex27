@@ -197,13 +197,13 @@ const CAPABILITY_CHIPS = [
   { label: 'Vesting & timelocks', category: 'Vesting & Timelocks', Icon: Clock },
   { label: 'Insurance', to: '/sandbox', Icon: Repeat },
   { label: 'Custom logic', to: '/sandbox', Icon: Boxes },
-  { label: 'Prediction markets', category: 'Predictive Markets', Icon: TrendingUp },
-  { label: 'Games', category: 'Games & Matches', Icon: Gamepad2 },
+  { label: 'Conditional outcomes', category: 'Predictive Markets', Icon: TrendingUp },
+  { label: 'Two-party', category: 'Games & Matches', Icon: Gamepad2 },
 ];
 
 const ALL_CATEGORIES = [
   'All',
-  // Core types - utility first, gambling categories follow
+  // Core utility covenant types first, two-party and conditional-outcome types after.
   'Escrow & Custody', 'ZK Proofs', 'ZK Oracle Tools', 'Governance & DAO', 'Structured Settlement',
   'DeFi', 'Oracle', 'Flash Covenants', 'Community Pools', 'General',
   'Predictive Markets', 'Games & Matches', 'Tournaments', 'Contests', 'Verifiable Games',
@@ -216,11 +216,17 @@ const ALL_CATEGORIES = [
   'Chess', 'Poker', 'Blackjack', 'Dice & VRF', 'RPS & Games', 'Connect4', 'Reversi', 'Tic-Tac-Toe'];
 
 // Display-label overrides. The underlying category KEYS (used by CATEGORY_QUERY and the
-// activeCategory filter) stay stable, but the rendered chip text reads as a neutral product
-// descriptor instead of "skill" / "contest" framing. Anything not listed renders verbatim.
+// activeCategory filter) stay stable and the detection regexes are untouched, but the rendered
+// chip text reads as a neutral covenant descriptor instead of gambling-flavored framing.
+// Anything not listed renders verbatim.
 const CATEGORY_LABEL = {
+  'Lotteries & Pots': 'Pools',
+  'Prediction Pools': 'Conditional Outcomes',
+  'Predictive Markets': 'Conditional Outcomes',
+  'Tournaments': 'Multi-party',
+  'Contests': 'Head-to-head',
+  'Games & Matches': 'Two-party',
   'Verifiable Games': 'Head-to-head games',
-  'Contests': 'Two-player staked games',
 };
 
 // Animate a stat from 0 up to its REAL value once, the first time it loads (easeOutCubic).
@@ -683,11 +689,11 @@ export default function Explorer() {
                 Interactive Covenants for The <span className="text-kaspa-green">Kaspa BlockDAG</span>
               </h1>
               <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto md:mx-0 leading-relaxed mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
-                Discover, deploy, and interact with SilverScript covenants. Programmable UTXOs at 10 blocks per second.
+                Almost everything is free. Build and deploy any covenant: escrows, ZK proofs, vesting, custom logic. Give it a custom website in the Studio and claim non-custodially. No account, no cap.
               </p>
               <p className="text-[12px] text-white/45 light:text-slate-400 max-w-xl mx-auto md:mx-0 mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
                 <span title="SilverScript is Kaspa's covenant scripting language. Covenants are spend conditions on UTXOs (unspent outputs), enforced by the BlockDAG at about 10 blocks per second.">
-                  Powered by SilverScript covenants on programmable UTXOs. Building is free; paid tiers add priority placement and the premium template library.
+                  Powered by SilverScript covenants on programmable UTXOs at 10 blocks per second. Building is free; paid tiers add priority placement and the premium template library.
                 </span>
               </p>
               {/* Capability chip strip: makes the breadth VISIBLE and REACHABLE. Each chip
@@ -1417,7 +1423,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
           </div>
         </div>
 
-        {/* Value-locked hero + live status (the pot - leads like a gambling card) */}
+        {/* Value-locked figure + live status: the headline number for the card. */}
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
             <div className="label-xs text-gray-500 light:text-slate-400 mb-1">Value Locked</div>

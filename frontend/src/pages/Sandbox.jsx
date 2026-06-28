@@ -273,9 +273,9 @@ function BuildRail({
               >
                 {s.n}
               </span>
-              <s.Icon size={14} className={isActive ? 'text-kaspa-green light:text-emerald-700' : 'text-gray-500 light:text-slate-400'} />
-              <span className={`font-semibold truncate ${isActive ? 'text-white light:text-slate-900' : isPhase ? 'text-gray-300 light:text-slate-700' : 'text-gray-500 light:text-slate-400'}`}>{s.label}</span>
-              {!isPhase && <span className="ml-auto text-[10px] uppercase tracking-wide text-gray-600 light:text-slate-400">after deploy</span>}
+              <s.Icon size={14} className={isActive ? 'text-kaspa-green light:text-emerald-700' : 'text-gray-500 light:text-slate-600'} />
+              <span className={`font-semibold truncate ${isActive ? 'text-white light:text-slate-900' : isPhase ? 'text-gray-300 light:text-slate-700' : 'text-gray-500 light:text-slate-600'}`}>{s.label}</span>
+              {!isPhase && <span className="ml-auto text-[10px] uppercase tracking-wide text-gray-600 light:text-slate-600">after deploy</span>}
             </>
           );
           if (!isPhase) {

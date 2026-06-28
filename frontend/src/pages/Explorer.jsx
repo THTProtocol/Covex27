@@ -282,7 +282,7 @@ function LiveSnapshotCard({ stats, netLabel, network }) {
           <span aria-hidden="true" className="relative inline-flex h-1.5 w-1.5 rounded-full bg-kaspa-green" />
         </span>
         <span className="text-[10px] font-mono uppercase tracking-[0.18em] text-white/55 light:text-slate-500">Live snapshot</span>
-        <span className="ml-auto text-[10px] font-mono uppercase tracking-[0.14em] text-white/35 light:text-slate-400">{network}</span>
+        <span className="ml-auto text-[10px] font-mono uppercase tracking-[0.14em] text-white/35 light:text-slate-600">{network}</span>
       </div>
       <div className="relative px-5 py-5">
         {/* Total value locked: the headline figure */}
@@ -703,9 +703,9 @@ export default function Explorer() {
                 Interactive Covenants for The <span className="text-kaspa-green">Kaspa BlockDAG</span>
               </h1>
               <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto md:mx-0 leading-relaxed mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
-                Almost everything is free. Build and deploy any covenant: escrows, ZK proofs, vesting, custom logic. Give it a custom website in the Studio and claim non-custodially. No account, no cap.
+                Build any covenant, free. Escrows, ZK proofs, vesting, custom logic: deploy it, give it a custom website in the Studio, and claim non-custodially. No account, no cap.
               </p>
-              <p className="text-[12px] text-white/45 light:text-slate-400 max-w-xl mx-auto md:mx-0 mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
+              <p className="text-[12px] text-white/45 light:text-slate-600 max-w-xl mx-auto md:mx-0 mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
                 <span title="SilverScript is Kaspa's covenant scripting language. Covenants are spend conditions on UTXOs (unspent outputs), enforced by the BlockDAG at about 10 blocks per second.">
                   Powered by SilverScript covenants on programmable UTXOs at 10 blocks per second. Building is free; paid tiers add priority placement and the premium template library.
                 </span>
@@ -849,7 +849,7 @@ export default function Explorer() {
           to="/deploy/enforced"
           className="group inline-flex items-center gap-2 text-sm font-medium text-white/60 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors"
         >
-          <ShieldCheck size={15} className="text-white/50 light:text-slate-400 group-hover:text-kaspa-green light:group-hover:text-emerald-700 transition-colors" />
+          <ShieldCheck size={15} className="text-white/50 light:text-slate-600 group-hover:text-kaspa-green light:group-hover:text-emerald-700 transition-colors" />
           Or deploy an on-chain enforced primitive
           <span aria-hidden="true" className="opacity-60 group-hover:translate-x-0.5 transition-transform">&rarr;</span>
         </Link>
@@ -992,7 +992,7 @@ export default function Explorer() {
               <div className="flex items-center flex-wrap gap-2 px-3 py-2 rounded-xl bg-kaspa-green/[0.06] border border-kaspa-green/20 text-xs font-mono">
                 <KeyRound size={13} className="text-kaspa-green shrink-0" />
                 <span className="text-kaspa-green font-semibold">{resolvedChip.name}</span>
-                <span className="text-gray-500 light:text-slate-400">{'->'}</span>
+                <span className="text-gray-500 light:text-slate-600">{'->'}</span>
                 <Link
                   to={`/address/${encodeURIComponent(resolvedChip.address)}`}
                   className="text-gray-200 light:text-slate-700 hover:text-kaspa-green transition-colors truncate"
@@ -1001,7 +1001,7 @@ export default function Explorer() {
                   {truncMiddle(resolvedChip.address)}
                 </Link>
                 <CopyButton value={resolvedChip.address} label="Copy owner address" size={12} stopPropagation={false} />
-                <span className="text-gray-500 light:text-slate-400">KNS owner</span>
+                <span className="text-gray-500 light:text-slate-600">KNS owner</span>
               </div>
             )}
             {searchLoading && (
@@ -1015,7 +1015,7 @@ export default function Explorer() {
                 <p className="text-sm text-red-400 font-mono mb-1">No Results</p>
                 <p className="text-xs text-gray-300 light:text-slate-600 mb-4">{searchError}</p>
                 <div className="flex flex-wrap items-center justify-center gap-2 text-[11px]">
-                  <span className="text-gray-500 light:text-slate-400">Search instead by</span>
+                  <span className="text-gray-500 light:text-slate-600">Search instead by</span>
                   <button onClick={() => { setSearchQuery('kaspa:'); setSearchError(null); }} className="px-2.5 py-1 rounded-lg border border-white/10 light:border-slate-200 text-gray-300 light:text-slate-600 hover:text-kaspa-green hover:border-kaspa-green/30 transition-colors font-mono">an address</button>
                   <button onClick={() => { setSearchQuery('covenant.kas'); setSearchError(null); }} className="px-2.5 py-1 rounded-lg border border-white/10 light:border-slate-200 text-gray-300 light:text-slate-600 hover:text-kaspa-green hover:border-kaspa-green/30 transition-colors font-mono">a .kas name</button>
                   <button onClick={() => { setActiveTab('explore'); setSearchError(null); setShowCategoryPanel(true); }} className="px-2.5 py-1 rounded-lg border border-white/10 light:border-slate-200 text-gray-300 light:text-slate-600 hover:text-kaspa-green hover:border-kaspa-green/30 transition-colors">a category</button>
@@ -1050,7 +1050,7 @@ export default function Explorer() {
         {showArena && (
           <div>
             <div className="flex items-center gap-3 mb-4">
-              <h2 className="text-lg font-black text-white tracking-tight">
+              <h2 className="text-lg font-black text-white light:text-slate-900 tracking-tight">
                 <span className="text-kaspa-green">Play</span> - Open Matches
               </h2>
               <span className="text-xs text-gray-400 light:text-slate-500 font-mono">
@@ -1060,7 +1060,7 @@ export default function Explorer() {
             {/* Non-operator note at the point of play (condensed from the Terms framing).
                 Light/dark/mobile correct. Visually quiet: a small muted line, not a scary block. */}
             <p className="mb-5 flex items-start gap-2 text-[11px] leading-snug text-gray-400 light:text-slate-500">
-              <ShieldCheck size={13} className="mt-0.5 shrink-0 text-gray-500 light:text-slate-400" aria-hidden="true" />
+              <ShieldCheck size={13} className="mt-0.5 shrink-0 text-gray-500 light:text-slate-600" aria-hidden="true" />
               <span>
                 You deploy your own covenant. Covex is not a counterparty, bookmaker, or custodian, sets no odds, and runs no house. Resolution depends on an external resolver you choose.
               </span>
@@ -1192,7 +1192,7 @@ export default function Explorer() {
                 imply mainnet has activity it does not. */}
             {isEmptyMainnet && (
               <div data-tour="explorer-empty" className="glass-panel rounded-2xl p-10 text-center">
-                <Layers size={40} className="mx-auto text-gray-200 light:text-slate-400 mb-3" />
+                <Layers size={40} className="mx-auto text-gray-200 light:text-slate-600 mb-3" />
                 <p className="text-lg font-semibold text-white light:text-slate-900 mb-1.5">Mainnet covenants go live at the Toccata launch.</p>
                 <p className="text-sm text-gray-300 light:text-slate-600 mb-5">There are 14,000+ live covenants you can browse right now on Testnet-12.</p>
                 <div className="flex flex-wrap items-center justify-center gap-3">
@@ -1455,7 +1455,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
             style={isPaidVerified ? { '--title-accent': themeAccent } : undefined}>
             {covenantName}
           </h3>
-          <div className="mt-0.5 flex items-center gap-1 text-[10px] font-mono text-gray-500 light:text-slate-400 opacity-60">
+          <div className="mt-0.5 flex items-center gap-1 text-[10px] font-mono text-gray-500 light:text-slate-600 opacity-60">
             <span className="truncate">{txShort}...</span>
             {c.tx_id && <CopyButton value={c.tx_id} label="Copy txid" size={11} className="p-0.5 opacity-80" />}
           </div>
@@ -1464,7 +1464,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
         {/* Value-locked figure + live status: the headline number for the card. */}
         <div className="flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <div className="label-xs text-gray-500 light:text-slate-400 mb-1">Value Locked</div>
+            <div className="label-xs text-gray-500 light:text-slate-600 mb-1">Value Locked</div>
             <div className="flex items-baseline gap-1.5">
               <span className="font-mono text-[20px] sm:text-[22px] font-black leading-none tracking-tight text-white light:text-slate-900 tabular-nums"
                 style={!isPaid ? { textShadow: `0 0 22px ${accA(0.32)}` } : undefined}>

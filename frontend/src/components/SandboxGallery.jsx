@@ -134,7 +134,7 @@ function CircuitExampleModal({ circuit, onClose }) {
           {isGame ? (
             <SandboxCircuitPreview circuit={circuit} kind="game" />
           ) : (
-            <Suspense fallback={<div className="py-16 text-center text-[12px] text-gray-500 light:text-slate-400">Loading preview...</div>}>
+            <Suspense fallback={<div className="py-16 text-center text-[12px] text-gray-500 light:text-slate-600">Loading preview...</div>}>
               <CircuitExamplePreview circuit={circuit} />
             </Suspense>
           )}

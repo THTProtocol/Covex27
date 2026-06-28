@@ -868,7 +868,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
             {/* Non-operator note at the point of building a market (condensed from the Terms
                 framing). Visually quiet: a small muted line, light/dark/mobile correct. */}
             <p className="flex items-start gap-2 text-[11px] leading-snug text-gray-400 light:text-slate-500">
-              <ShieldCheck size={13} className="mt-0.5 shrink-0 text-gray-500 light:text-slate-400" aria-hidden="true" />
+              <ShieldCheck size={13} className="mt-0.5 shrink-0 text-gray-500 light:text-slate-600" aria-hidden="true" />
               <span>
                 You deploy your own covenant. Covex is not a counterparty, bookmaker, or custodian, sets no odds, and runs no house. Resolution depends on an external resolver you choose.
               </span>
@@ -1027,7 +1027,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
               disabled
               aria-disabled="true"
               placeholder="Disabled for this kind. Uses the default engine-results resolver."
-              className="w-full rounded-lg bg-black/20 light:bg-slate-100 border border-white/[0.06] light:border-slate-200 px-3 py-2 text-xs font-mono text-gray-500 light:text-slate-400 placeholder:text-gray-600 light:placeholder:text-slate-400 cursor-not-allowed"
+              className="w-full rounded-lg bg-black/20 light:bg-slate-100 border border-white/[0.06] light:border-slate-200 px-3 py-2 text-xs font-mono text-gray-500 light:text-slate-600 placeholder:text-gray-600 light:placeholder:text-slate-400 cursor-not-allowed"
             />
             <p className="text-[10px] text-gray-500 light:text-slate-500 leading-snug">
               External cosign is not yet wired. To bind an external resolver safely, choose a refundable kind so the funder can reclaim if the resolver does not act. See the connection guide (docs/CONNECTING_AN_ORACLE.md). This covenant deploys with the default engine-results resolver.

@@ -446,7 +446,7 @@ function GenerateWalletSection({ connectDevMode, onConnected }) {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-1 text-[11px] font-mono">
           {phrase.split(' ').map((w, i) => (
-            <div key={i} className="px-1.5 py-1 rounded bg-white/[0.03] light:bg-white border border-white/10 light:border-slate-200 text-gray-200 light:text-slate-800"><span className="text-gray-500 light:text-slate-400 mr-1">{i + 1}</span>{w}</div>
+            <div key={i} className="px-1.5 py-1 rounded bg-white/[0.03] light:bg-white border border-white/10 light:border-slate-200 text-gray-200 light:text-slate-800"><span className="text-gray-500 light:text-slate-600 mr-1">{i + 1}</span>{w}</div>
           ))}
         </div>
       </div>
@@ -473,7 +473,7 @@ function GenerateWalletSection({ connectDevMode, onConnected }) {
       <label className="flex items-start gap-2 text-[11px] text-gray-300 light:text-slate-600 cursor-pointer"><input type="checkbox" checked={ack2} onChange={e => setAck2(e.target.checked)} className="mt-0.5 accent-kaspa-green" /> I understand Covex cannot recover a lost phrase, and that browser-generated wallets are best for getting started (use a hardware wallet or extension for large amounts).</label>
 
       <button onClick={useThis} disabled={!ack1 || !ack2} className="w-full px-4 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed">Use this wallet</button>
-      <p className="text-[10px] text-gray-500 light:text-slate-400 text-center">Generated in your browser via the Kaspa WASM SDK. Your key is held only on this device and is never sent to Covex.</p>
+      <p className="text-[10px] text-gray-500 light:text-slate-600 text-center">Generated in your browser via the Kaspa WASM SDK. Your key is held only on this device and is never sent to Covex.</p>
     </div>
   );
 }
@@ -526,7 +526,7 @@ function MainnetWalletModal({ walletContext, onClose }) {
           {wallet.logo ? (
             <img src={wallet.logo} alt={wallet.name} className="w-8 h-8 object-contain rounded-md" loading="lazy" decoding="async" onError={(e) => { e.target.style.display = 'none'; }} />
           ) : (
-            <Wallet size={18} className="text-gray-400 light:text-slate-400" />
+            <Wallet size={18} className="text-gray-400 light:text-slate-600" />
           )}
         </div>
         <div className="flex-1 min-w-0">
@@ -541,7 +541,7 @@ function MainnetWalletModal({ walletContext, onClose }) {
           ? <ArrowRight size={16} className="text-kaspa-green shrink-0 group-hover:translate-x-0.5 transition-transform" />
           : isOpen
             ? <Smartphone size={15} className="text-kaspa-green shrink-0" />
-            : <Download size={14} className="text-gray-500 light:text-slate-400 group-hover:text-gray-300 transition-colors shrink-0" />}
+            : <Download size={14} className="text-gray-500 light:text-slate-600 group-hover:text-gray-300 transition-colors shrink-0" />}
       </button>
     );
   };
@@ -636,14 +636,14 @@ function MainnetWalletModal({ walletContext, onClose }) {
 
           <div className="flex items-center gap-3 py-1">
             <div className="flex-1 h-px bg-white/10 light:bg-slate-200" />
-            <span className="text-[10px] uppercase tracking-widest text-gray-500 light:text-slate-400">new to Kaspa?</span>
+            <span className="text-[10px] uppercase tracking-widest text-gray-500 light:text-slate-600">new to Kaspa?</span>
             <div className="flex-1 h-px bg-white/10 light:bg-slate-200" />
           </div>
           <GenerateWalletSection connectDevMode={connectDevMode} onConnected={onClose} />
         </div>
 
         <div className="p-5 border-t border-white/[0.06] light:border-slate-200">
-          <p className="text-[10px] text-gray-500 light:text-slate-400 text-center leading-relaxed">
+          <p className="text-[10px] text-gray-500 light:text-slate-600 text-center leading-relaxed">
             Non-custodial. Covex never holds your keys or funds. Mainnet activity uses real KAS from your own wallet.
           </p>
         </div>

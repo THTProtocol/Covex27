@@ -252,7 +252,7 @@ const Pricing = () => {
             <div className="space-y-3">
               <div className="flex justify-between items-baseline gap-3">
                 <span className="text-sm text-gray-300 light:text-slate-500">Tier</span>
-                <span className="font-bold" style={{ color: p.accent }}>{p.name}</span>
+                <span className={`font-bold tier-text-${p.id}`}>{p.name}</span>
               </div>
               <div className="flex justify-between items-baseline gap-3">
                 <span className="text-sm text-gray-300 light:text-slate-500">Send exactly</span>
@@ -377,7 +377,7 @@ const Pricing = () => {
                     <span className="text-4xl sm:text-5xl font-black tracking-[-0.03em] leading-[0.95] text-white light:text-slate-900 tabular-nums">
                       {isFree ? 'Free' : tier.price.toLocaleString()}
                     </span>
-                    {!isFree && <span className="text-base font-bold" style={{ color: tier.accent }}>KAS</span>}
+                    {!isFree && <span className={`text-base font-bold tier-text-${tier.id}`}>KAS</span>}
                   </div>
                   <div className="text-[11px] text-gray-500 light:text-slate-500 mt-1.5">{isFree ? 'free forever' : 'one-time payment'}</div>
                 </div>
@@ -413,7 +413,7 @@ const Pricing = () => {
         </div>
         <p className="mt-8 text-center text-sm text-gray-400 light:text-slate-500">
           <Link to="/kaspa" className="text-kaspa-green light:text-[#14B8A6] underline underline-offset-4">Learn about Kaspa</Link>
-          <span className="mx-2 text-gray-600 light:text-slate-400">|</span>
+          <span className="mx-2 text-gray-600 light:text-slate-600">|</span>
           <Link to="/treasury" className="text-kaspa-green light:text-[#14B8A6] underline underline-offset-4">Treasury and ranking transparency</Link>
         </p>
       </section>

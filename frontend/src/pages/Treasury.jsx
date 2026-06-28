@@ -102,7 +102,7 @@ export default function Treasury() {
           <Landmark size={22} className="text-kaspa-green light:text-emerald-600" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-black text-white light:text-slate-900">Treasury Transparency</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-white light:text-slate-900">Every payment, in the open</h1>
           <p className="text-sm text-gray-400 light:text-slate-500">Every tier payment is an <span className="text-kaspa-green/90 light:text-emerald-700 font-semibold">on-chain</span> transaction to a public address. Verify everything yourself.</p>
         </div>
       </div>
@@ -148,7 +148,7 @@ export default function Treasury() {
       <Card className="p-6">
         <div className="flex items-baseline justify-between gap-3 mb-2">
           <p className="text-sm font-bold text-white light:text-slate-900">Recent tier payments (on-chain)</p>
-          <p className="text-[10px] uppercase tracking-widest text-gray-500 light:text-slate-400 flex items-center gap-1">
+          <p className="text-[10px] uppercase tracking-widest text-gray-500 light:text-slate-600 flex items-center gap-1">
             <span className="inline-block w-1.5 h-1.5 rounded-full bg-kaspa-green/70 light:bg-emerald-500/70" aria-hidden="true" />
             Volume / window
           </p>
@@ -175,7 +175,7 @@ export default function Treasury() {
                   <span className="font-mono text-gray-400 light:text-slate-500 truncate flex-1 min-w-0">{u.covenant_id.slice(0, 24)}...</span>
                   <span className="font-mono text-white light:text-slate-900 shrink-0 tabular-nums">{u.amount_kaspa} KAS</span>
                   <span className="text-gray-500 light:text-slate-500 shrink-0 w-full sm:w-auto sm:text-right tabular-nums">{new Date(u.timestamp * 1000).toLocaleString()}</span>
-                  <ExternalLink size={11} className="text-gray-500 light:text-slate-400 group-hover:text-kaspa-green light:group-hover:text-emerald-600 shrink-0" aria-hidden="true" />
+                  <ExternalLink size={11} className="text-gray-500 light:text-slate-600 group-hover:text-kaspa-green light:group-hover:text-emerald-600 shrink-0" aria-hidden="true" />
                 </a>
               );
             })}

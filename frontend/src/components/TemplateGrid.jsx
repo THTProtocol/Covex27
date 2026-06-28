@@ -266,7 +266,7 @@ export default function TemplateGrid({ embedded = false, onUse = null, filter = 
                   ))}
                 </div>
 
-                <div className="text-xs text-gray-500 light:text-slate-400 mb-4">
+                <div className="text-xs text-gray-500 light:text-slate-600 mb-4">
                   {template.estimatedTime} • {template.recommendedTier} tier recommended
                 </div>
 

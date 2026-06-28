@@ -62,7 +62,7 @@ export default class ErrorBoundary extends React.Component {
             >
               Reload Page
             </button>
-            <div className="mt-8 text-xs text-gray-500 light:text-slate-400">
+            <div className="mt-8 text-xs text-gray-500 light:text-slate-600">
               If this keeps happening, please try again in a few minutes.
             </div>
           </div>

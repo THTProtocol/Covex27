@@ -240,7 +240,7 @@ export default function AboutPage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h3 className="text-lg font-bold text-white light:text-slate-900">{p.title}</h3>
-                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 light:text-slate-400">{p.tag}</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 light:text-slate-600">{p.tag}</span>
                       </div>
                       <p className="text-sm text-gray-400 light:text-slate-600 mt-1.5 leading-relaxed">{p.body}</p>
                     </div>
@@ -314,7 +314,7 @@ export default function AboutPage() {
               </motion.div>
             ))}
           </motion.div>
-          <p className="text-xs text-gray-500 light:text-slate-400 mt-5">
+          <p className="text-xs text-gray-500 light:text-slate-600 mt-5">
             Full worked walk-throughs for each, including how to build the website, live in the
             Building on Covex developer guide.
           </p>

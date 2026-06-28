@@ -75,7 +75,7 @@ function OutRow({ label, value }) {
   if (!value) return null;
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1">{label}</div>
+      <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 mb-1">{label}</div>
       <button
         onClick={() => { navigator.clipboard?.writeText(value).then(() => { setDone(true); setTimeout(() => setDone(false), 1300); }); }}
         className="group inline-flex items-start gap-1.5 max-w-full rounded-lg border border-white/10 light:border-slate-200 bg-black/40 light:bg-slate-50 px-2.5 py-1.5 text-left hover:border-kaspa-green/40 transition-colors"
@@ -165,7 +165,7 @@ export default function SilverTerminal() {
                       {ex.label}
                     </button>
                   ))}
-                  <div className="px-3 py-1.5 text-[10px] text-gray-600 light:text-slate-400 border-t border-white/5 light:border-slate-200">
+                  <div className="px-3 py-1.5 text-[10px] text-gray-600 light:text-slate-600 border-t border-white/5 light:border-slate-200">
                     Reference only. You write the covenant.
                   </div>
                 </div>
@@ -192,7 +192,7 @@ export default function SilverTerminal() {
           <pre
             ref={gutterRef}
             aria-hidden="true"
-            className="select-none overflow-hidden text-right py-3 pl-3 pr-2 font-mono text-[12.5px] leading-[1.55] text-gray-600 light:text-slate-400 bg-black/20 light:bg-slate-50 border-r border-white/5 light:border-slate-200"
+            className="select-none overflow-hidden text-right py-3 pl-3 pr-2 font-mono text-[12.5px] leading-[1.55] text-gray-600 light:text-slate-600 bg-black/20 light:bg-slate-50 border-r border-white/5 light:border-slate-200"
           >
             {Array.from({ length: lineCount }, (_, i) => i + 1).join('\n')}
           </pre>
@@ -221,7 +221,7 @@ export default function SilverTerminal() {
           >
             {loading ? <Loader2 size={15} className="animate-spin" /> : <Play size={15} />} Compile
           </button>
-          <span className="ml-auto text-[11px] text-gray-500 light:text-slate-400 font-mono">{lineCount} lines</span>
+          <span className="ml-auto text-[11px] text-gray-500 light:text-slate-600 font-mono">{lineCount} lines</span>
         </div>
       </div>
 
@@ -242,8 +242,8 @@ export default function SilverTerminal() {
           <div className="flex items-center gap-2">
             <ShieldCheck size={15} className="text-kaspa-green" />
             <span className="text-sm font-bold text-white light:text-slate-900">{result.contract_name || 'Covenant'}</span>
-            <span className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 font-mono">compiled</span>
-            <span className="ml-auto text-[11px] text-gray-500 light:text-slate-400">{result.bytecode_len} bytes</span>
+            <span className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 font-mono">compiled</span>
+            <span className="ml-auto text-[11px] text-gray-500 light:text-slate-600">{result.bytecode_len} bytes</span>
           </div>
 
           <div className="grid sm:grid-cols-2 gap-3">

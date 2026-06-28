@@ -114,13 +114,13 @@ export function FlagshipProver({ circuitId }) {
                 placeholder={f.default === '' ? 'random' : f.default}
                 className="w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white font-mono placeholder:text-gray-600 focus:outline-none focus:ring-2 focus:ring-violet-500/50 light:bg-slate-50 light:border-slate-300 light:text-slate-900 light:placeholder:text-slate-400"
               />
-              {f.hint && <span className="block text-[10.5px] text-gray-500 light:text-slate-400 mt-1 leading-snug">{f.hint}</span>}
+              {f.hint && <span className="block text-[10.5px] text-gray-500 light:text-slate-600 mt-1 leading-snug">{f.hint}</span>}
             </label>
           ))}
         </div>
       )}
       {(meta.fields || []).length === 0 && (
-        <p className="mt-3 text-[12px] text-gray-500 light:text-slate-400 leading-relaxed">
+        <p className="mt-3 text-[12px] text-gray-500 light:text-slate-600 leading-relaxed">
           This circuit runs its fixed worked example (a committed demo set). The secret witness is
           generated and kept in your browser.
         </p>
@@ -137,7 +137,7 @@ export function FlagshipProver({ circuitId }) {
           {running ? 'Proving + verifying...' : (result ? 'Run again' : 'Generate + verify proof')}
         </button>
         {result && result.timings && (
-          <span className="text-[11px] text-gray-500 light:text-slate-400 font-mono">
+          <span className="text-[11px] text-gray-500 light:text-slate-600 font-mono">
             prove {ms(result.timings.proveMs)} · verify {ms(result.timings.verifyMs)}
           </span>
         )}
@@ -168,7 +168,7 @@ export function FlagshipProver({ circuitId }) {
               {result.publicSignals.map((s, i) => (
                 <div key={i} className="font-mono text-[11px] text-emerald-200/90 light:text-emerald-700 break-all">[{i}] {s.toString()}</div>
               ))}
-              <p className="text-[10.5px] text-gray-500 light:text-slate-400 pt-1 leading-relaxed">
+              <p className="text-[10.5px] text-gray-500 light:text-slate-600 pt-1 leading-relaxed">
                 The private witness is not among these signals and never left your browser.
               </p>
             </div>
@@ -253,7 +253,7 @@ function CatalogGroup({ group, circuits, defaultOpen }) {
           <span className="block text-[11.5px] text-gray-400 light:text-slate-500 leading-snug">{group.desc}</span>
         </span>
         <span className="shrink-0 flex items-center gap-2">
-          <span className="text-[11px] text-gray-500 light:text-slate-400 font-mono">
+          <span className="text-[11px] text-gray-500 light:text-slate-600 font-mono">
             {circuits.length}{provableCount > 0 ? ` · ${provableCount} provable` : ''}
           </span>
           <ChevronDown size={16} className={`text-gray-400 transition-transform ${open ? 'rotate-180' : ''}`} />
@@ -323,7 +323,7 @@ function ZkStudioBody() {
         <section className="mb-10">
           <div className="flex items-baseline gap-3 mb-1">
             <h2 className="text-xl font-bold text-white light:text-slate-900">Prove it yourself</h2>
-            <span className="text-[12px] text-gray-500 light:text-slate-400">{STUDIO_FLAGSHIP_ORDER.length} flagship circuits</span>
+            <span className="text-[12px] text-gray-500 light:text-slate-600">{STUDIO_FLAGSHIP_ORDER.length} flagship circuits</span>
           </div>
           <p className="text-[13px] text-gray-400 light:text-slate-500 mb-5 max-w-3xl leading-relaxed">
             Each of these runs a genuine fullProve + verify in your browser. Proving takes a few
@@ -339,7 +339,7 @@ function ZkStudioBody() {
         <section>
           <div className="flex items-baseline gap-3 mb-1">
             <h2 className="text-xl font-bold text-white light:text-slate-900">The full circuit catalog</h2>
-            <span className="text-[12px] text-gray-500 light:text-slate-400">{totalCircuits} circuits</span>
+            <span className="text-[12px] text-gray-500 light:text-slate-600">{totalCircuits} circuits</span>
           </div>
           <p className="text-[13px] text-gray-400 light:text-slate-500 mb-5 max-w-3xl leading-relaxed">
             Every circuit's plain-English statement and what it proves. Circuits tagged
@@ -365,7 +365,7 @@ function ZkStudioBody() {
 
         <div className="mt-10 flex items-start gap-1.5">
           <Info size={12} className="text-gray-500 mt-0.5 shrink-0" />
-          <p className="text-[11px] text-gray-500 light:text-slate-400 leading-relaxed max-w-3xl">
+          <p className="text-[11px] text-gray-500 light:text-slate-600 leading-relaxed max-w-3xl">
             Proofs are generated with snarkjs (Groth16 over BN254) against artifacts served from
             <code className="font-mono"> /zk/&lt;circuit&gt;/</code>. Verification runs the same snarkjs
             in your browser against the served verification key. The same proofs verify identically for

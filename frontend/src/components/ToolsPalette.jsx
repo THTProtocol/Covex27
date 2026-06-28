@@ -187,7 +187,7 @@ function ItemRow({ kind, entry, onSeeExample, onAdd }) {
       <div className="flex items-start gap-2">
         <GripVertical
           size={12}
-          className="mt-1.5 text-gray-400 light:text-slate-400 opacity-40 group-hover:opacity-100 transition-opacity shrink-0"
+          className="mt-1.5 text-gray-400 light:text-slate-600 opacity-40 group-hover:opacity-100 transition-opacity shrink-0"
           aria-hidden="true"
         />
         <div className={`w-7 h-7 rounded-md border border-white/[0.08] light:border-slate-200 flex items-center justify-center shrink-0 ${chipColor}`}>
@@ -293,7 +293,7 @@ export default function ToolsPalette({ context = 'both', onAddBlock }) {
     <div className="w-full">
       {/* Search */}
       <div className="relative mb-3">
-        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 light:text-slate-400 pointer-events-none" />
+        <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 light:text-slate-600 pointer-events-none" />
         <input
           type="text"
           value={q}
@@ -319,7 +319,7 @@ export default function ToolsPalette({ context = 'both', onAddBlock }) {
             {openLogic && (
               <div className="mt-2 space-y-1.5">
                 {logicFiltered.length === 0 ? (
-                  <p className="text-xs text-gray-500 light:text-slate-400 px-2 py-3 text-center">
+                  <p className="text-xs text-gray-500 light:text-slate-600 px-2 py-3 text-center">
                     {needle ? 'No primitives match this search.' : 'No primitives available.'}
                   </p>
                 ) : (
@@ -351,7 +351,7 @@ export default function ToolsPalette({ context = 'both', onAddBlock }) {
             {openBlocks && (
               <div className="mt-2 space-y-1.5">
                 {blocksFiltered.length === 0 ? (
-                  <p className="text-xs text-gray-500 light:text-slate-400 px-2 py-3 text-center">
+                  <p className="text-xs text-gray-500 light:text-slate-600 px-2 py-3 text-center">
                     {needle ? 'No blocks match this search.' : 'No blocks available.'}
                   </p>
                 ) : (

@@ -7,7 +7,7 @@ import { Check, Sparkles, ShieldCheck, ArrowUpRight } from 'lucide-react';
 // all the time) and on the Pricing page so the message can never drift between
 // the two surfaces.
 //
-// Honesty rule (absolute): almost everything is free. Paid adds only PRIORITY
+// Honesty rule (absolute): building any covenant is free. Paid adds only PRIORITY
 // PLACEMENT (a better display spot) and the FULL premium UI website template
 // library; it never unlocks a technical capability. Every line below must reflect
 // that. If you edit the copy, edit it here once; both surfaces re-render from this

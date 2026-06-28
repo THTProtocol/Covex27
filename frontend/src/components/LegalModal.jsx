@@ -88,7 +88,7 @@ export default function LegalModal({ onAccept }) {
           <button
             onClick={handleAccept}
             disabled={!canAccept}
-            className={`w-full px-6 py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 light:focus:ring-slate-400/40 ${canAccept ? 'bg-white light:bg-slate-900 text-black light:text-white hover:bg-gray-200 light:hover:bg-slate-800 active:scale-[0.97]' : 'bg-white/[0.05] light:bg-slate-100 text-gray-200 light:text-slate-400 cursor-not-allowed border border-white/5 light:border-slate-200'}`}
+            className={`w-full px-6 py-3.5 rounded-xl font-semibold text-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/30 light:focus:ring-slate-400/40 ${canAccept ? 'bg-white light:bg-slate-900 text-black light:text-white hover:bg-gray-200 light:hover:bg-slate-800 active:scale-[0.97]' : 'bg-white/[0.05] light:bg-slate-100 text-gray-200 light:text-slate-600 cursor-not-allowed border border-white/5 light:border-slate-200'}`}
           >
             Continue to the Covenant Creator
           </button>

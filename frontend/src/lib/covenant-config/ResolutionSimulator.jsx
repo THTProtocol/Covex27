@@ -31,14 +31,14 @@ function Stat({ label, value, unit, accent, sub, primary }) {
         ? 'border-kaspa-green/45 bg-kaspa-green/[0.07] shadow-[0_0_24px_-8px_rgba(73,234,203,0.55)]'
         : 'border-white/[0.06] light:border-slate-200 bg-white/[0.02] light:bg-slate-50'
     }`}>
-      <div className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-gray-500 light:text-slate-400 flex items-center gap-1">
+      <div className="text-[9px] font-extrabold uppercase tracking-[0.16em] text-gray-500 light:text-slate-600 flex items-center gap-1">
         {primary && <span className="w-1.5 h-1.5 rounded-full bg-kaspa-green shadow-[0_0_6px_#49EACB]" />}{label}
       </div>
       <div className="flex items-baseline gap-1 mt-0.5">
         <span className={`font-black tabular-nums leading-none ${primary ? 'text-xl' : 'text-lg'}`} style={{ color: accent || 'inherit' }}>{value}</span>
         {unit && <span className="text-[10px] font-bold text-gray-400 light:text-slate-500">{unit}</span>}
       </div>
-      {sub && <div className="text-[9px] text-gray-500 light:text-slate-400 mt-1 leading-tight">{sub}</div>}
+      {sub && <div className="text-[9px] text-gray-500 light:text-slate-600 mt-1 leading-tight">{sub}</div>}
     </div>
   );
 }
@@ -293,7 +293,7 @@ function PotView({ initFee, initPotReturn, loStake, hiStake, players, perSideSta
         <Slider label="Pot return (display)" value={potReturn} set={setPotReturn} min={0} max={100} step={0.5} fmt={(v) => `${v}%`} accent="#E8AF34" />
         <div className="sm:col-span-2"><Slider label="Your assumed win-rate (p)" value={winProb} set={setWinProb} min={0} max={100} step={1} fmt={(v) => `${v}%`} /></div>
       </div>
-      <p className="text-[9.5px] text-gray-500 light:text-slate-400 mt-4 leading-relaxed border-t border-white/[0.06] light:border-slate-200 pt-3">
+      <p className="text-[9.5px] text-gray-500 light:text-slate-600 mt-4 leading-relaxed border-t border-white/[0.06] light:border-slate-200 pt-3">
         Win-rate <em>p</em> is your own assumption, not a Covex prediction. EV = p × winner share - your stake. The configured fee / pot-return drive the display model and are <strong>not</strong> taken on-chain; the enforced payout sends the full pot to the verified winner.
       </p>
     </>
@@ -344,7 +344,7 @@ function ParimutuelView({ initFee, loStake, hiStake }) {
           <div className="flex items-center justify-center text-[10px] font-black text-black transition-[width] duration-500" style={{ width: `${m.pctYes}%`, background: 'linear-gradient(90deg,#49EACB,#3bd1b4)' }}>{KAS(poolYes)}</div>
           <div className="flex items-center justify-center text-[10px] font-black text-black transition-[width] duration-500" style={{ width: `${100 - m.pctYes}%`, background: 'linear-gradient(90deg,#F472B6,#db5e9a)' }}>{KAS(poolNo)}</div>
         </div>
-        <div className="text-[9.5px] text-gray-500 light:text-slate-400 mt-1.5">Pool fee (on-chain via the bundle carve): <span className="text-amber-300">{KAS(m.feePool)} KAS</span> to treasury. Losers recover {rebate}% of their stake.</div>
+        <div className="text-[9.5px] text-gray-500 light:text-slate-600 mt-1.5">Pool fee (on-chain via the bundle carve): <span className="text-amber-300">{KAS(m.feePool)} KAS</span> to treasury. Losers recover {rebate}% of their stake.</div>
       </div>
 
       <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/25 bg-amber-500/[0.06] p-3 mb-4">
@@ -366,7 +366,7 @@ function ParimutuelView({ initFee, loStake, hiStake }) {
         <Slider label="Loser rebate" value={rebate} set={setRebate} min={0} max={Math.max(0, 99 - fee)} step={1} fmt={(v) => `${v}%`} accent="#E8AF34" />
         <div className="sm:col-span-2"><Slider label="Your bet" value={bet} set={setBet} min={1} max={hiStake} step={Math.max(1, hiStake / 200)} fmt={(v) => `${KAS(v)} KAS`} /></div>
       </div>
-      <p className="text-[9.5px] text-gray-500 light:text-slate-400 mt-4 leading-relaxed border-t border-white/[0.06] light:border-slate-200 pt-3">
+      <p className="text-[9.5px] text-gray-500 light:text-slate-600 mt-4 leading-relaxed border-t border-white/[0.06] light:border-slate-200 pt-3">
         Winner multiplier = (1 - fee) + (1 - fee - rebate) × (opposing pool ÷ your pool). Fee + rebate must stay under 100%. These economics are enforced on-chain by the conjoined binary-outcome covenants the market funds; no Covex key sits in the payout path.
       </p>
     </>
@@ -415,7 +415,7 @@ function ReleaseView({ circuit, loStake, hiStake }) {
       </div>
 
       <Slider label="Amount locked" value={locked} set={setLocked} min={loStake} max={hiStake} step={Math.max(0.5, (hiStake - loStake) / 200)} fmt={(v) => `${KAS(v)} KAS`} />
-      <p className="text-[9.5px] text-gray-500 light:text-slate-400 mt-4 leading-relaxed border-t border-white/[0.06] light:border-slate-200 pt-3">
+      <p className="text-[9.5px] text-gray-500 light:text-slate-600 mt-4 leading-relaxed border-t border-white/[0.06] light:border-slate-200 pt-3">
         Each path is gated by a specific key or condition (a preimage, a signature, a timelock, a quorum, or a zero-knowledge proof). The chain enforces it: funds move only when a path is genuinely satisfied.
       </p>
     </>

@@ -287,7 +287,10 @@ body {
   /* - Ink ramp (resolves the secondary/tertiary contradictions) - */
   --lm-ink-1: #0f172a;   /* primary: headings, key body */
   --lm-ink-2: #475569;   /* secondary body */
-  --lm-ink-3: #64748b;   /* tertiary meta / captions */
+  --lm-ink-3: #556175;   /* tertiary meta / captions. Darkened from #64748b (slate-500)
+                            so tertiary text clears WCAG AA (>= 4.5:1) even on the
+                            recessed #eef2f7 tile surface, where slate-500 dropped to
+                            4.23:1. Still a clear step lighter than --lm-ink-2. */
   --lm-ink-4: #94a3b8;   /* quaternary / placeholder / disabled */
 
   /* - Brand teal: ONE family (kills emerald / teal-600 / #14B8A6 drift for
@@ -519,7 +522,11 @@ body {
 .light [class*="text-white/3"],
 .light [class*="text-white/4"],
 .light [class*="text-white/5"] {
-  color: #94a3b8 !important; /* tertiary meta */
+  color: #556175 !important; /* tertiary meta - AA (>= 4.5:1) on white and on recessed
+                                tiles. Was #94a3b8 (slate-400, 2.5:1) which failed AA and,
+                                because it is !important, also overrode any light:text-slate-*
+                                the JSX set on these muted meta lines (e.g. the hero
+                                sub-lede "Powered by SilverScript ..."). */
 }
 
 /* Clean borders */
@@ -820,9 +827,13 @@ body {
   /* Nav already handled in JSX with hamburger, but tighten */
   nav .h-16 { height: 3.5rem; }
   
-  /* Cards and grids stack */
-  .grid-cols-3, .grid-cols-2 { grid-template-columns: 1fr !important; }
-  
+  /* Cards and grids reflow gracefully instead of force-stacking to one tall
+     column. auto-fit keeps chips, stat strips, and primitive pickers multi-col
+     while they fit, and drops to a single column only when a track can no longer
+     hold its minimum. min(100%, ...) clamps every track to the container width so
+     nothing can overflow horizontally at 375px. */
+  .grid-cols-3, .grid-cols-2 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr)) !important; }
+
   /* Text scaling for mobile - JSX declares per-component sm: floors; only lift truly tiny labels */
   .text-\[9px\], .text-\[8px\], .text-\[10px\] { font-size: 0.75rem !important; } /* lift tiny witness/pot labels */
   
@@ -853,7 +864,9 @@ body {
 @media (max-width: 640px) {
   .max-w-3xl, .max-w-4xl { max-width: 100% !important; padding-left: 0.75rem; padding-right: 0.75rem; }
   .p-6 { padding: 1rem !important; }
-  .grid-cols-2, .grid-cols-3 { grid-template-columns: 1fr !important; }
+  /* Same graceful reflow on dense interactive pages: wrap when it fits, drop to
+     one column only when too narrow, never overflow. */
+  .grid-cols-2, .grid-cols-3 { grid-template-columns: repeat(auto-fit, minmax(min(100%, 7.5rem), 1fr)) !important; }
   /* Make form-heavy sections breathe and stack */
   [class*="space-y-4"] > * { margin-bottom: 0.75rem !important; }
   /* Kill horizontal scroll everywhere on mobile */
@@ -1454,6 +1467,22 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
    than the .light .text-slate-* remap above and evaded it, leaving faint 2.5:1 text on white
    (e.g. the hero lede). Remap the variant too so all light-mode muted text clears WCAG AA. */
 .light .light\:text-slate-300, .light .light\:text-slate-400, .light .light\:text-slate-500 { color: #334155 !important; }
+
+/* Tier-identity TEXT color (the "KAS" price unit + tier name labels). The raw
+   tierPalette hues (BUILDER #3B82F6, PRO #E8AF34, MAX #A855F7) were applied via
+   inline style, which CSS class remaps cannot touch, so on white they sat at
+   1.98-3.96:1 (below AA). These class-based tokens keep the exact brand hue in
+   dark mode and switch to an AA-passing darkened hue (>= 4.6:1 on white) in light
+   mode. Decorative tier ICONS keep the bright inline accent (icons are exempt). */
+.tier-text-FREE    { color: #6B7280; }
+.tier-text-BUILDER { color: #3B82F6; }
+.tier-text-PRO     { color: #E8AF34; }
+.tier-text-MAX     { color: #A855F7; }
+.light .tier-text-FREE    { color: #475569 !important; }
+.light .tier-text-BUILDER { color: #1d4ed8 !important; }
+.light .tier-text-PRO     { color: #7a5a00 !important; }
+.light .tier-text-MAX     { color: #7e22ce !important; }
+
 .light .text-pink-300 { color: #be185d !important; }
 .light .text-rose-300 { color: #be123c !important; }
 .light .text-teal-300, .light .text-teal-400 { color: #0f766e !important; }
@@ -1478,7 +1507,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .light .ticker-shell { box-shadow: 0 1px 3px rgba(15,23,42,0.08); }
 .light .ticker-badge { background: rgba(13,148,136,0.07); border-color: #cce7e2; }
 .light .ticker-item span { text-shadow: none; }
-.light .ticker-item .text-gray-600 { color: #94a3b8 !important; }
+.light .ticker-item .text-gray-600 { color: #475569 !important; } /* slate-600, AA on the #eef2f7 ticker strip (was #94a3b8 slate-400, ~2.3:1) */
 
 /* Scrollbars + selection adapt */
 .light * { scrollbar-color: rgba(13,148,136,0.35) transparent; }

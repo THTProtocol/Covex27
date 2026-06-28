@@ -82,7 +82,7 @@ function CopyRow({ label, value }) {
   if (!value) return null;
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1">{label}</div>
+      <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 mb-1">{label}</div>
       <button
         onClick={() => navigator.clipboard?.writeText(String(value)).then(() => { setDone(true); setTimeout(() => setDone(false), 1400); })}
         className="group w-full inline-flex items-start gap-2 rounded-lg border border-white/10 light:border-slate-200 bg-black/30 light:bg-slate-50 px-3 py-2 text-left transition-colors hover:border-kaspa-green/40"
@@ -280,7 +280,7 @@ function ClaimFlow({ kit, utxos }) {
       {/* Branch selector (auto-selected when there is only one). */}
       {branches.length > 1 && (
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1.5">Which path are you claiming?</div>
+          <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 mb-1.5">Which path are you claiming?</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {branches.map((b) => (
               <button
@@ -314,7 +314,7 @@ function ClaimFlow({ kit, utxos }) {
 
       {/* Signing source. */}
       <div>
-        <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1.5">How will you sign?</div>
+        <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 mb-1.5">How will you sign?</div>
         <div className="flex rounded-lg bg-black/30 light:bg-slate-100 border border-white/10 light:border-slate-200 overflow-hidden text-[12px] font-semibold">
           <button
             onClick={() => setSignMode('wallet')}
@@ -331,7 +331,7 @@ function ClaimFlow({ kit, utxos }) {
           </button>
         </div>
         {signMode === 'wallet' ? (
-          <p className="text-[11px] text-gray-500 light:text-slate-400 mt-1.5">
+          <p className="text-[11px] text-gray-500 light:text-slate-600 mt-1.5">
             {canUseDevKey
               ? 'Your in-browser wallet signs the covenant input locally. The key never leaves this device.'
               : 'A wallet extension cannot sign a covenant P2SH input here (no such API). Use Paste key or the cold-recovery tool.'}
@@ -359,7 +359,7 @@ function ClaimFlow({ kit, utxos }) {
       {/* Branch inputs. */}
       {needsPreimage && (
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1">Revealed secret / preimage (hex)</div>
+          <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 mb-1">Revealed secret / preimage (hex)</div>
           <input
             value={preimage}
             onChange={(e) => setPreimage(e.target.value)}
@@ -379,7 +379,7 @@ function ClaimFlow({ kit, utxos }) {
       )}
 
       <div>
-        <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1">Destination address (where the funds go)</div>
+        <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 mb-1">Destination address (where the funds go)</div>
         <input
           value={destAddr}
           onChange={(e) => setDestAddr(e.target.value)}
@@ -387,7 +387,7 @@ function ClaimFlow({ kit, utxos }) {
           spellCheck={false}
           className="w-full rounded-xl border border-white/10 light:border-slate-300 bg-black/40 light:bg-slate-50 px-3 py-2 text-[12px] font-mono text-white light:text-slate-800 placeholder:text-gray-500 outline-none focus:border-kaspa-green/40"
         />
-        <p className="text-[11px] text-gray-500 light:text-slate-400 mt-1">Output value is derived as the UTXO amount minus a {Number(DEFAULT_FEE_SOMPI)}-sompi fee, and is committed in the signature so it cannot be redirected.</p>
+        <p className="text-[11px] text-gray-500 light:text-slate-600 mt-1">Output value is derived as the UTXO amount minus a {Number(DEFAULT_FEE_SOMPI)}-sompi fee, and is committed in the signature so it cannot be redirected.</p>
       </div>
 
       {/* Actions: broadcast OR export (offline). On testnet-12 there is no browser-reachable
@@ -411,7 +411,7 @@ function ClaimFlow({ kit, utxos }) {
         </button>
       </div>
       {!canBroadcastInBrowser && !oracleNeeded && (
-        <p className="text-[11px] text-gray-500 light:text-slate-400 -mt-1.5 leading-relaxed">
+        <p className="text-[11px] text-gray-500 light:text-slate-600 -mt-1.5 leading-relaxed">
           {kit.network} has no public node a browser can broadcast to. Use <span className="text-gray-300 light:text-slate-600 font-semibold">Sign &amp; export</span> (signed locally, never transmitted) and submit the transaction from a Kaspa node CLI, a block explorer, or the cold-recovery tool below.
         </p>
       )}
@@ -426,7 +426,7 @@ function ClaimFlow({ kit, utxos }) {
       )}
       {result?.json && (
         <div>
-          <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1">Signed transaction (broadcast elsewhere)</div>
+          <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 mb-1">Signed transaction (broadcast elsewhere)</div>
           <textarea readOnly value={result.json} rows={4} className="w-full rounded-xl border border-white/10 light:border-slate-300 bg-black/40 light:bg-slate-50 px-3 py-2 text-[10.5px] font-mono text-gray-300 light:text-slate-700 outline-none resize-y" />
         </div>
       )}
@@ -454,7 +454,7 @@ function ClaimFlow({ kit, utxos }) {
 function LabeledInput({ label, value, onChange, placeholder }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1">{label}</div>
+      <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 mb-1">{label}</div>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -565,8 +565,8 @@ export default function Recover() {
             <LifeBuoy size={20} className="text-kaspa-green" />
           </span>
           <div>
-            <h1 className="text-2xl font-black text-white light:text-slate-900 leading-tight">Recover a covenant</h1>
-            <p className="text-[12px] text-gray-400 light:text-slate-500">Settle your funds directly on Kaspa, with or without Covex.</p>
+            <h1 className="text-2xl font-black text-white light:text-slate-900 leading-tight">Claim your funds, with or without Covex</h1>
+            <p className="text-[12px] text-gray-400 light:text-slate-500">Settle directly on Kaspa from your own browser, even if this site is down.</p>
           </div>
         </div>
 
@@ -599,7 +599,7 @@ export default function Recover() {
                   {looking ? 'Looking…' : 'Look up'}
                 </button>
               </div>
-              <p className="text-[11px] text-gray-500 light:text-slate-400 mt-2">Convenient when Covex is online. If it is down, use your saved kit below.</p>
+              <p className="text-[11px] text-gray-500 light:text-slate-600 mt-2">Convenient when Covex is online. If it is down, use your saved kit below.</p>
             </div>
 
             {/* Paste / upload saved kit (works fully offline) */}
@@ -621,7 +621,7 @@ export default function Recover() {
               <button onClick={() => loadFromText(raw)} disabled={!raw.trim()} className="btn-shimmer mt-2.5 w-full py-2.5 rounded-xl font-bold text-sm bg-kaspa-green text-black disabled:opacity-40 hover:shadow-[0_0_18px_rgba(73,234,203,0.3)] transition-all">
                 Load recovery kit
               </button>
-              <p className="text-[11px] text-gray-500 light:text-slate-400 mt-2">No kit yet? Open any of your covenants on Covex and use <span className="text-gray-300 light:text-slate-600">Recover &rarr; Download recovery kit</span>, then keep it somewhere safe.</p>
+              <p className="text-[11px] text-gray-500 light:text-slate-600 mt-2">No kit yet? Open any of your covenants on Covex and use <span className="text-gray-300 light:text-slate-600">Recover &rarr; Download recovery kit</span>, then keep it somewhere safe.</p>
             </div>
 
             {error && (
@@ -659,7 +659,7 @@ export default function Recover() {
                 )}
                 {Array.isArray(bal.utxos) && bal.utxos.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-white/[0.06] light:border-slate-200">
-                    <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1.5">Coins to redeem ({bal.utxos.length} UTXO{bal.utxos.length === 1 ? '' : 's'})</div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 mb-1.5">Coins to redeem ({bal.utxos.length} UTXO{bal.utxos.length === 1 ? '' : 's'})</div>
                     <div className="space-y-1">
                       {bal.utxos.slice(0, 6).map((u) => (
                         <div key={`${u.txid}:${u.index}`} className="flex items-center justify-between gap-2 text-[10.5px]">
@@ -678,7 +678,7 @@ export default function Recover() {
             <div className="rounded-2xl border border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-white p-4 space-y-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-kaspa-green">{kind}</span>
-                {kit.network && <span className="text-[10px] text-gray-500 light:text-slate-400 font-mono">{kit.network}</span>}
+                {kit.network && <span className="text-[10px] text-gray-500 light:text-slate-600 font-mono">{kit.network}</span>}
               </div>
               <CopyRow label="P2SH address (where the funds are locked)" value={kit.address} />
               <CopyRow label="Redeem script (hex)" value={kit.redeem_script_hex} />
@@ -710,7 +710,7 @@ export default function Recover() {
             <div className="rounded-2xl border border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-white p-4">
               <div className="text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-500 mb-2">What this covenant&apos;s rule means</div>
               <p className="text-[12.5px] text-gray-300 light:text-slate-600 leading-relaxed"><span className="text-white light:text-slate-900 font-semibold">{kind}:</span> {hint}</p>
-              <p className="text-[11px] text-gray-500 light:text-slate-400 mt-3 pt-3 border-t border-white/[0.06] light:border-slate-200 leading-relaxed">
+              <p className="text-[11px] text-gray-500 light:text-slate-600 mt-3 pt-3 border-t border-white/[0.06] light:border-slate-200 leading-relaxed">
                 The claim builder above assembles the spend with kaspa-wasm, signs it in your browser, and broadcasts (or exports) it through a public Kaspa node - no Covex involvement. For a fully air-gapped flow, use the <a href="/tools/cold-recovery/" target="_blank" rel="noreferrer" className="text-kaspa-green hover:underline">standalone cold-recovery tool</a>.
               </p>
             </div>

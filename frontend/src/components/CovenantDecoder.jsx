@@ -43,7 +43,7 @@ function ParamRow({ p }) {
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
           <span className="text-[11px] font-bold text-gray-200 light:text-slate-700">{p.role}</span>
-          <span className="text-[9.5px] font-mono uppercase tracking-wider text-gray-500 light:text-slate-400">
+          <span className="text-[9.5px] font-mono uppercase tracking-wider text-gray-500 light:text-slate-600">
             {p.type}
           </span>
         </div>
@@ -68,7 +68,7 @@ function BranchCard({ b }) {
       </div>
       <div className="mt-1 text-[12px] text-gray-300 light:text-slate-600 leading-snug">{b.condition}</div>
       {b.satisfier && (
-        <div className="mt-1.5 font-mono text-[10.5px] text-gray-500 light:text-slate-400 break-all">
+        <div className="mt-1.5 font-mono text-[10.5px] text-gray-500 light:text-slate-600 break-all">
           {b.satisfier}
         </div>
       )}
@@ -93,7 +93,7 @@ function OpcodeRow({ t }) {
     null;
   return (
     <div className="flex items-baseline gap-3 py-0.5">
-      <span className="w-10 shrink-0 text-right text-[10px] text-gray-600 light:text-slate-400 tabular-nums">
+      <span className="w-10 shrink-0 text-right text-[10px] text-gray-600 light:text-slate-600 tabular-nums">
         {String(t.offset).padStart(3, '0')}
       </span>
       <span className="text-[11.5px] font-bold text-gray-200 light:text-slate-700">{t.name}</span>
@@ -193,7 +193,7 @@ export default function CovenantDecoder({ redeemHex, commitmentHex }) {
         <div className="space-y-3">
           <div>
             <div className="text-[15px] font-extrabold text-gray-100 light:text-slate-800">{decoded.label}</div>
-            <div className="mt-0.5 font-mono text-[11px] text-gray-500 light:text-slate-400">{decoded.kind}</div>
+            <div className="mt-0.5 font-mono text-[11px] text-gray-500 light:text-slate-600">{decoded.kind}</div>
             <div className="mt-1.5 text-[12px] text-gray-300 light:text-slate-600 leading-relaxed">{decoded.reality}</div>
             {verified && (
               <div className="mt-1.5 text-[11px] text-kaspa-green/90 leading-snug">
@@ -246,7 +246,7 @@ export default function CovenantDecoder({ redeemHex, commitmentHex }) {
                   </pre>
                 )}
                 <div className="mt-2 pt-2 border-t border-white/5 light:border-slate-200">
-                  <div className="text-[9.5px] uppercase tracking-wider text-gray-600 light:text-slate-400 mb-1">
+                  <div className="text-[9.5px] uppercase tracking-wider text-gray-600 light:text-slate-600 mb-1">
                     redeem_script_hex
                   </div>
                   <CopyChip text={redeemHex} />

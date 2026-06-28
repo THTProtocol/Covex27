@@ -116,11 +116,11 @@ export default function ApiDocs() {
         </div>
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-widest text-kaspa-green mb-1">Developer reference</p>
-          <h1 className="text-2xl sm:text-3xl font-black text-white">Covex API</h1>
-          <p className="text-sm text-gray-400 break-words">The same indexer API that powers this explorer. Free to use. Paginated. No key required for reads.</p>
+          <h1 className="text-2xl sm:text-3xl font-black text-white light:text-slate-900">The API behind every covenant</h1>
+          <p className="text-sm text-gray-400 light:text-slate-600 break-words">The same indexer API that powers this explorer. Free to use. Paginated. No key required for reads.</p>
         </div>
       </div>
-      <p className="relative z-10 text-xs font-mono text-gray-500 mb-8 break-words">
+      <p className="relative z-10 text-xs font-mono text-gray-500 light:text-slate-600 mb-8 break-words">
         Base URL: https://hightable.pro/api · Spec: <a href="/api/openapi.json" className="text-kaspa-green underline" target="_blank" rel="noreferrer">openapi.json</a>
       </p>
 

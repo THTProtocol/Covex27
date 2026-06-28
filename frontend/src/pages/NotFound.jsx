@@ -100,7 +100,7 @@ export default function NotFound() {
                   <span className="text-white light:text-slate-900 font-medium">
                     {c.name || c.category || 'Covenant'}
                   </span>
-                  <span className="ml-2 text-xs text-gray-500 light:text-slate-400 font-mono">
+                  <span className="ml-2 text-xs text-gray-500 light:text-slate-600 font-mono">
                     {String(c.tx_id).slice(0, 16)}...
                   </span>
                 </Link>

@@ -199,8 +199,8 @@ export default function Stats() {
 
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="h-page text-3xl sm:text-4xl font-black tracking-[-0.02em] text-white light:text-slate-900">Platform Statistics</h1>
-          <p className="text-sm text-gray-400 mt-1">Live aggregates from indexed covenants, confirmed treasury payments, and on-chain activity. Real data only.</p>
+          <h1 className="h-page text-3xl sm:text-4xl font-black tracking-[-0.02em] text-white light:text-slate-900">The numbers, live and on-chain</h1>
+          <p className="text-sm text-gray-400 light:text-slate-600 mt-1">Live aggregates from indexed covenants, confirmed treasury payments, and on-chain activity. Real data only.</p>
         </div>
         <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5 self-start light:bg-white light:border-slate-200">
           {NETWORKS.map((n) => (

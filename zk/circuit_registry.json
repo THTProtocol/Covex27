@@ -3,8 +3,8 @@
   "generated_by": "zk/scripts/gen_circuit_registry.js (do not hand-edit; run the generator)",
   "honesty": "Derived from committed served artifacts under frontend/public/zk/ + the canonical sets in frontend/src/lib/zk/circuits.js. A circuit is 'full-zk-offchain' (real in-browser Groth16 prover, proof verified OFF-CHAIN fail-closed) ONLY if it ships served wasm + _final.zkey + vkey AND is in VERIFIED_FULL_ZK. 'source+vkey' = compiled + vkey but NO served proving key (NOT provable yet, NOT claimable). This is OFF-CHAIN verification: Kaspa has no on-chain pairing verifier; a valid proof gates a 2-of-2 cosign + CSV timeout and only a BIP340 Schnorr co-signature is checked on-chain. The trusted setup is a single-contributor Covex dev ceremony, NOT a production multi-party MPC.",
   "counts": {
-    "served_with_vkey": 60,
-    "full_zk_offchain_provable": 21,
+    "served_with_vkey": 65,
+    "full_zk_offchain_provable": 26,
     "source_plus_vkey_not_provable": 28,
     "vkey_only": 11
   },
@@ -15,7 +15,7 @@
       "target_provable": true
     }
   ],
-  "provable_catalog_ids": 22,
+  "provable_catalog_ids": 27,
   "full_zk_offchain": [
     "age_verification",
     "anon_membership_nullifier",
@@ -26,14 +26,19 @@
     "escrow_2party",
     "hash_preimage",
     "merkle_membership",
+    "merkle_multi_membership",
     "merkle_range_membership",
     "nullifier_set",
+    "nullifier_uniqueness",
+    "pedersen_open_equals",
     "pot_split_math",
     "range_proof",
     "relative_timelock",
     "script_constraint",
     "set_non_membership",
     "solvency_sum",
+    "sorted_merkle_range",
+    "threshold_sig_knowledge",
     "timelock_absolute",
     "turn_timer",
     "vrf_dice_roll",
@@ -319,6 +324,17 @@
       "backend_strict_groth16": true
     },
     {
+      "id": "merkle_multi_membership",
+      "reality": "full-zk-offchain",
+      "served": {
+        "wasm": true,
+        "zkey": true,
+        "vkey": true
+      },
+      "in_browser_prover": true,
+      "backend_strict_groth16": true
+    },
+    {
       "id": "merkle_range_membership",
       "reality": "full-zk-offchain",
       "served": {
@@ -374,6 +390,17 @@
       "backend_strict_groth16": true
     },
     {
+      "id": "nullifier_uniqueness",
+      "reality": "full-zk-offchain",
+      "served": {
+        "wasm": true,
+        "zkey": true,
+        "vkey": true
+      },
+      "in_browser_prover": true,
+      "backend_strict_groth16": true
+    },
+    {
       "id": "nullifier_v1",
       "reality": "vkey-only",
       "served": {
@@ -394,6 +421,17 @@
       },
       "in_browser_prover": false,
       "backend_strict_groth16": false
+    },
+    {
+      "id": "pedersen_open_equals",
+      "reality": "full-zk-offchain",
+      "served": {
+        "wasm": true,
+        "zkey": true,
+        "vkey": true
+      },
+      "in_browser_prover": true,
+      "backend_strict_groth16": true
     },
     {
       "id": "poker_equity",
@@ -561,6 +599,17 @@
       "backend_strict_groth16": true
     },
     {
+      "id": "sorted_merkle_range",
+      "reality": "full-zk-offchain",
+      "served": {
+        "wasm": true,
+        "zkey": true,
+        "vkey": true
+      },
+      "in_browser_prover": true,
+      "backend_strict_groth16": true
+    },
+    {
       "id": "sorting_proof",
       "reality": "vkey-only",
       "served": {
@@ -581,6 +630,17 @@
       },
       "in_browser_prover": false,
       "backend_strict_groth16": false
+    },
+    {
+      "id": "threshold_sig_knowledge",
+      "reality": "full-zk-offchain",
+      "served": {
+        "wasm": true,
+        "zkey": true,
+        "vkey": true
+      },
+      "in_browser_prover": true,
+      "backend_strict_groth16": true
     },
     {
       "id": "tictactoe_v1",

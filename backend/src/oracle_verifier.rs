@@ -335,7 +335,10 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         "poseidon_commit",
         "sha256_preimage",
         "blake3_commit",
-        "merkle_multi_membership",
+        // NOTE: merkle_multi_membership is now registered below as StrictGroth16 (real circuit +
+        // served _final.zkey + vkey, node-verified accept + tamper-reject + false-predicate
+        // valid==0), so it is REMOVED from this attested list to avoid the last-insert-wins
+        // overwrite that would silently downgrade it to attested (caller-chosen outcome).
         "set_accumulator",
         "ecdsa_knowledge",
         "ring_signature",
@@ -749,6 +752,52 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
         VerifierSpec::StrictGroth16 {
             script: "verify_equality_of_commitments.js",
             prefix: "covex_eoc",
+        },
+    );
+    // === New self-contained primitives (circomwave 2026-06-28) ===
+    // Each verified end-to-end with the SERVED wasm + _final.zkey + vkey BEFORE registration:
+    // a real proof verifies true, a tampered public-signal / pi_a verifies false, and a false
+    // predicate (a leaf outside the set, a spent nullifier, mismatched shares, value != expected,
+    // an out-of-order sorted value) produces a VERIFYING proof whose computed valid==0 (so a
+    // non-satisfying claim fails the gate). `valid` is a CONSTRAINED OUTPUT (a product of
+    // comparator/equality outputs), not a `valid<==1` stub. Verify scripts are STRICT fail-closed
+    // (real snarkjs.groth16.verify vs the served vkey, {valid:false} on any failure, NO attested
+    // fallback). Keys are a single-contributor Covex dev ceremony (pot10 / pot12), NOT a production
+    // MPC; verified OFF-CHAIN by the disclosed oracle, never on-chain. merkle_multi_membership was
+    // promoted here from the attested crypto-primitive stub list above.
+    m.insert(
+        "merkle_multi_membership",
+        VerifierSpec::StrictGroth16 {
+            script: "verify_merkle_multi_membership.js",
+            prefix: "covex_mmm",
+        },
+    );
+    m.insert(
+        "nullifier_uniqueness",
+        VerifierSpec::StrictGroth16 {
+            script: "verify_nullifier_uniqueness.js",
+            prefix: "covex_nuq",
+        },
+    );
+    m.insert(
+        "threshold_sig_knowledge",
+        VerifierSpec::StrictGroth16 {
+            script: "verify_threshold_sig_knowledge.js",
+            prefix: "covex_tsk",
+        },
+    );
+    m.insert(
+        "pedersen_open_equals",
+        VerifierSpec::StrictGroth16 {
+            script: "verify_pedersen_open_equals.js",
+            prefix: "covex_poe",
+        },
+    );
+    m.insert(
+        "sorted_merkle_range",
+        VerifierSpec::StrictGroth16 {
+            script: "verify_sorted_merkle_range.js",
+            prefix: "covex_smr",
         },
     );
     // Re-assert as StrictGroth16 AFTER the attested loops above. age_verification and
@@ -1256,6 +1305,15 @@ pub(crate) fn determine_outcome_for_circuit(
             // proof can carry valid==0 (out-of-band value / mismatched commitment), which MUST
             // fail the gate, so we read [0] rather than treating proof presence as success.
             | "merkle_range_membership" | "equality_of_commitments"
+            // circomwave 2026-06-28 primitives, valid at publicSignals[0]:
+            // nullifier_uniqueness = fresh nullifier bracketed in the spent-set;
+            // threshold_sig_knowledge = held shares reconstruct the committed group secret;
+            // pedersen_open_equals = committed value == public expected.
+            // (merkle_multi_membership + sorted_merkle_range contain "merkle_" so they already hit
+            // the merkle branch above, which reads [0] with identical semantics; listed here in a
+            // comment for completeness.) A verifying proof can carry valid==0 (spent nullifier,
+            // mismatched shares, value != expected), which MUST fail the gate, so we read [0].
+            | "nullifier_uniqueness" | "threshold_sig_knowledge" | "pedersen_open_equals"
     ) || circuit_type.contains("timelock")
     {
         // These circuits EXPOSE their gating result as publicSignals[0]
@@ -1398,6 +1456,14 @@ mod tests {
             // negative-predicate (valid==0) before registration.
             "merkle_range_membership",
             "equality_of_commitments",
+            // circomwave 2026-06-28 primitives, node-verified accept + tamper + false-predicate
+            // (valid==0) before registration. merkle_multi_membership was promoted out of the
+            // attested crypto-primitive stub list (must not be re-attested by a later loop).
+            "merkle_multi_membership",
+            "nullifier_uniqueness",
+            "threshold_sig_knowledge",
+            "pedersen_open_equals",
+            "sorted_merkle_range",
         ] {
             assert!(
                 matches!(r.get(*id), Some(VerifierSpec::StrictGroth16 { .. })),
@@ -1581,6 +1647,49 @@ mod tests {
             ),
             0
         );
+    }
+
+    /// circomwave 2026-06-28 primitives: each EXPOSES its computed validity at publicSignals[0]
+    /// (valid = a CONSTRAINED product of comparator/equality outputs, never a free input). A
+    /// verifying proof can legitimately carry valid==0 (a leaf outside the set, a spent nullifier,
+    /// mismatched shares, value != expected, an out-of-order sorted value), which MUST fail the
+    /// gate. This asserts the Rust outcome reads the signal: valid==1 -> claimant wins (outcome 0),
+    /// valid==0 -> claim fails (outcome 1), and a missing signal fails closed. These are the same
+    /// circuits proven end-to-end off-chain (accept + tamper-reject + false-predicate valid==0)
+    /// before they were registered StrictGroth16.
+    #[test]
+    fn circomwave_primitives_read_validity_signal_not_proof_presence() {
+        // A proof WITH a groth16 body, so we prove the outcome reads the COMPUTED signal, not
+        // mere proof presence (the old generic `proof_has_groth16_body => 0` drain).
+        let proof = serde_json::json!({ "pi_a": ["1", "2", "3"] });
+        for circuit in [
+            "merkle_multi_membership",
+            "nullifier_uniqueness",
+            "threshold_sig_knowledge",
+            "pedersen_open_equals",
+            "sorted_merkle_range",
+        ] {
+            // valid == "1" at publicSignals[0] -> claimant wins (outcome 0).
+            assert_eq!(
+                determine_outcome_for_circuit(circuit, &proof, &["1".to_string()], None),
+                0,
+                "{circuit}: valid==1 at [0] must yield outcome 0 (claimant wins)"
+            );
+            // valid == "0" at publicSignals[0] -> claim fails (outcome 1), even with a proof body.
+            // This is the false-predicate case (a real verifying proof carrying valid==0) that
+            // MUST NOT drain the pot.
+            assert_eq!(
+                determine_outcome_for_circuit(circuit, &proof, &["0".to_string()], None),
+                1,
+                "{circuit}: valid==0 at [0] (false predicate) must FAIL the gate (outcome 1)"
+            );
+            // A missing validity signal must fail closed (never default to a win).
+            assert_eq!(
+                determine_outcome_for_circuit(circuit, &proof, &[], None),
+                1,
+                "{circuit}: a missing validity signal must fail closed (outcome 1)"
+            );
+        }
     }
 
     #[test]

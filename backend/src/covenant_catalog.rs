@@ -108,6 +108,14 @@ pub const VERIFIED_FULL_ZK_CIRCUITS: &[&str] = &[
     // in sync with frontend VERIFIED_FULL_ZK (enforced by zk-set-backend-parity.test.js).
     "merkle_range_membership",
     "equality_of_commitments",
+    // circomwave 2026-06-28 primitives, each proven end-to-end against the SERVED wasm+zkey+vkey
+    // (honest accept + tampered-proof reject + false-predicate valid==0) before being listed. Must
+    // stay in sync with frontend VERIFIED_FULL_ZK (enforced by zk-set-backend-parity.test.js).
+    "merkle_multi_membership",
+    "nullifier_uniqueness",
+    "threshold_sig_knowledge",
+    "pedersen_open_equals",
+    "sorted_merkle_range",
 ];
 
 /// Returns the full-zk reality for `circuit_id` if it is a verified circuit, else None.
@@ -579,11 +587,13 @@ mod tests {
     /// the chain-enforced ZK tier has been retired entirely (no const exists for it). The
     /// cross-language parity test (frontend zk-set-backend-parity.test.js) guards against the
     /// retired const being reintroduced on either side of the language boundary.
-    /// (19 original + 2 new zkwave 2026-06-28 primitives: merkle_range_membership,
-    /// equality_of_commitments, each node-verified accept + tamper + valid==0 before listing.)
+    /// (19 original + 2 zkwave 2026-06-28 primitives: merkle_range_membership,
+    /// equality_of_commitments + 5 circomwave 2026-06-28 primitives: merkle_multi_membership,
+    /// nullifier_uniqueness, threshold_sig_knowledge, pedersen_open_equals, sorted_merkle_range,
+    /// each node-verified accept + tamper-reject + false-predicate valid==0 before listing.)
     #[test]
-    fn zk_reality_counts_21_verified() {
-        assert_eq!(VERIFIED_FULL_ZK_CIRCUITS.len(), 21);
+    fn zk_reality_counts_26_verified() {
+        assert_eq!(VERIFIED_FULL_ZK_CIRCUITS.len(), 26);
     }
 
     /// String stability: the wire labels must be exactly what TrustBadge.jsx +

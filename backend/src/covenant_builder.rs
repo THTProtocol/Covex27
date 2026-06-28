@@ -5939,7 +5939,7 @@ pub struct BundleDeployRequest {
     pub preimage_b_hex: String,
     /// CSV relative-locktime (min_sequence) for every leg's refund branch.
     pub min_sequence: u64,
-    /// House fee / loser rebate in basis points. Defaults 3000 (30%) / 5000 (50%).
+    /// Creator fee / loser rebate in basis points. Defaults 3000 (30%) / 5000 (50%).
     #[serde(default)]
     pub fee_bps: Option<u64>,
     #[serde(default)]
@@ -6263,7 +6263,7 @@ pub struct CreateMarketRequest {
     pub kickoff_utc: Option<String>,
     #[serde(default)]
     pub source_url: Option<String>,
-    /// Customizable economics in basis points. Defaults: 3000 (30% house fee) / 5000 (50% loser rebate).
+    /// Customizable economics in basis points. Defaults: 3000 (30% creator fee) / 5000 (50% loser rebate).
     #[serde(default)]
     pub fee_bps: Option<u64>,
     #[serde(default)]
@@ -6355,7 +6355,7 @@ pub async fn create_market_handler(
     // tx_id = market_id, so /covenant/<market_id> resolves and the covenant page renders the full
     // betting website. Funds are enforced by the on-chain binary_oracle_select bundles it funds.
     let anchor_summary = format!(
-        "Parimutuel prediction market. {} vs {}. Settled on-chain by binary_oracle_select covenants. {}% house fee, {}% loser rebate.",
+        "Parimutuel prediction market. {} vs {}. Settled on-chain by binary_oracle_select covenants. {}% creator fee, {}% loser rebate.",
         req.outcome_a.trim(), req.outcome_b.trim(), fee_bps / 100, rebate_bps / 100
     );
     let _ = db::insert_covenant(

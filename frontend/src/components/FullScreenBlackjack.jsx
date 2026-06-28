@@ -12,7 +12,7 @@ import { getCurrentNetwork } from './WalletContext';
 const SUIT_CODE = { hearts: 'H', diamonds: 'D', clubs: 'C', spades: 'S' };
 
 // Blackjack OPEN DUEL: persistent two-wallet multiplayer over the covenant
-// match record. There is no house dealer: both players co-commit shuffle
+// match record. There is no operator: both players co-commit shuffle
 // seeds (commit-reveal), the deck is derived deterministically from the two
 // revealed seeds (neither side controls it), and each player plays their own
 // open hand. Closest to 21 without busting wins; equal values push.
@@ -372,7 +372,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
             <span className="hidden sm:inline">BLACKJACK OPEN DUEL · KASPA COVENANT</span>
           </div>
           <div className="hidden sm:block px-2 py-0.5 rounded bg-white/5 light:bg-slate-900/5 text-[10px] font-mono border border-white/10 light:border-slate-300 whitespace-nowrap">{totalPot} KAS POT · {feePercent}% FEE</div>
-          <div className="hidden md:block text-[10px] text-emerald-400 light:text-emerald-700 font-mono whitespace-nowrap">CO-COMMITTED DECK · NO HOUSE</div>
+          <div className="hidden md:block text-[10px] text-emerald-400 light:text-emerald-700 font-mono whitespace-nowrap">CO-COMMITTED DECK · NO OPERATOR</div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <div

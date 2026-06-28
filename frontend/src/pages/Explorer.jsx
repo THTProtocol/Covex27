@@ -190,26 +190,38 @@ const PAGE_SIZE = 60;
 // keys are exact ALL_CATEGORIES / CATEGORY_QUERY entries); chips with a `to` open the
 // builder directly (for ranges that have no single indexed category yet).
 const CAPABILITY_CHIPS = [
-  { label: 'Games', category: 'Games & Matches', Icon: Gamepad2 },
-  { label: 'Prediction markets', category: 'Predictive Markets', Icon: TrendingUp },
   { label: 'Escrows', category: 'Escrow & Custody', Icon: ShieldCheck },
-  { label: 'Auctions', category: 'Auctions', Icon: Landmark },
   { label: 'ZK proofs', category: 'ZK Proofs', Icon: Zap },
+  { label: 'Conditional payments', to: '/sandbox', Icon: KeyRound },
+  { label: 'Auctions', category: 'Auctions', Icon: Landmark },
+  { label: 'Vesting & timelocks', category: 'Vesting & Timelocks', Icon: Clock },
   { label: 'Insurance', to: '/sandbox', Icon: Repeat },
   { label: 'Custom logic', to: '/sandbox', Icon: Boxes },
+  { label: 'Prediction markets', category: 'Predictive Markets', Icon: TrendingUp },
+  { label: 'Games', category: 'Games & Matches', Icon: Gamepad2 },
 ];
 
 const ALL_CATEGORIES = [
   'All',
-  // Core types
-  'Predictive Markets', 'Flash Covenants', 'Tournaments', 'Games & Matches',
-  'Community Pools', 'ZK Oracle Tools', 'Escrow & Custody', 'Structured Settlement',
-  'Governance & DAO', 'Contests', 'Verifiable Games', 'DeFi', 'Oracle', 'ZK Proofs', 'General',
+  // Core types - utility first, gambling categories follow
+  'Escrow & Custody', 'ZK Proofs', 'ZK Oracle Tools', 'Governance & DAO', 'Structured Settlement',
+  'DeFi', 'Oracle', 'Flash Covenants', 'Community Pools', 'General',
+  'Predictive Markets', 'Games & Matches', 'Tournaments', 'Contests', 'Verifiable Games',
+  // Advanced / specialized (utility first)
+  'Auctions', 'Vesting & Timelocks', 'Timelocks', 'Milestone Escrows', 'Membership Claims',
+  'Multi-sig', 'Multi-sig Safes', 'Atomic Swaps', 'P2SH Commitments', 'Nullifier / Unlinkable',
+  'Yield & Compounding', 'Custom Logic',
+  'Lotteries & Pots', 'Prediction Pools',
   // Specific games & mechanics (for granular filtering)
-  'Chess', 'Poker', 'Blackjack', 'Dice & VRF', 'RPS & Games', 'Connect4', 'Reversi', 'Tic-Tac-Toe',
-  // Advanced / specialized
-  'Yield & Compounding', 'Auctions', 'Lotteries & Pots', 'Nullifier / Unlinkable', 'Timelocks',
-  'Milestone Escrows', 'Membership Claims', 'Multi-sig', 'Prediction Pools', 'Custom Logic', 'P2SH Commitments', 'Vesting & Timelocks', 'Atomic Swaps', 'Multi-sig Safes'];
+  'Chess', 'Poker', 'Blackjack', 'Dice & VRF', 'RPS & Games', 'Connect4', 'Reversi', 'Tic-Tac-Toe'];
+
+// Display-label overrides. The underlying category KEYS (used by CATEGORY_QUERY and the
+// activeCategory filter) stay stable, but the rendered chip text reads as a neutral product
+// descriptor instead of "skill" / "contest" framing. Anything not listed renders verbatim.
+const CATEGORY_LABEL = {
+  'Verifiable Games': 'Head-to-head games',
+  'Contests': 'Two-player staked games',
+};
 
 // Animate a stat from 0 up to its REAL value once, the first time it loads (easeOutCubic).
 // Honest: it always lands on the real indexed number. Reduced-motion users (and live +1
@@ -779,7 +791,7 @@ export default function Explorer() {
             className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 light:bg-white border border-white/10 light:border-slate-200 text-sm text-white/80 light:text-slate-700 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 transition-all"
           >
             <Layers size={16} className="text-kaspa-green" />
-            {activeCategory === 'All' ? 'All Covenant Types' : activeCategory}
+            {activeCategory === 'All' ? 'All Covenant Types' : (CATEGORY_LABEL[activeCategory] || activeCategory)}
             <ChevronDown
               size={12}
               className={`opacity-60 transition-transform duration-200 ${showCategoryPanel ? 'rotate-180' : ''}`}
@@ -798,7 +810,7 @@ export default function Explorer() {
                   onClick={() => { setActiveCategory(cat); setShowCategoryPanel(false); }}
                   className={`px-3 py-2 rounded-xl border text-left transition-all duration-200 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 focus-visible:border-kaspa-green/40 ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white text-white/70 light:text-slate-600 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/5 light:hover:bg-slate-50 hover:-translate-y-px'}`}
                 >
-                  {cat}
+                  {CATEGORY_LABEL[cat] || cat}
                 </button>
               ))}
             </div>
@@ -880,18 +892,18 @@ export default function Explorer() {
               role="tab"
               data-tab-id="arena"
               aria-selected={activeId === 'arena'}
-              aria-label="Arena"
+              aria-label="Play"
               tabIndex={activeId === 'arena' ? 0 : -1}
               onKeyDown={onTabKeyDown}
               onClick={() => selectTab(showArena ? 'explore' : 'arena')}
-              className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-amber-500/50 active:scale-[0.97] ${
-                showArena ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30' : 'text-gray-300 hover:text-amber-400 border border-transparent hover:border-amber-500/20'
+              className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 active:scale-[0.97] ${
+                showArena ? 'bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20' : 'text-gray-300 hover:text-white border border-transparent'
               }`}
             >
               <Gamepad2 size={12} aria-hidden="true" />
-              <span className="hidden sm:inline">Arena</span>
+              <span className="hidden sm:inline">Play</span>
               {arenaWaiting.length > 0 && (
-                <span className={`text-[9px] px-1.5 rounded-full ${showArena ? 'bg-amber-500/20 text-amber-300' : 'bg-amber-500/10 text-amber-400'}`}>
+                <span className={`text-[9px] px-1.5 rounded-full ${showArena ? 'bg-kaspa-green/20 text-kaspa-green' : 'bg-white/10 text-gray-300'}`}>
                   {arenaWaiting.length}
                 </span>
               )}
@@ -995,12 +1007,20 @@ export default function Explorer() {
           <div>
             <div className="flex items-center gap-3 mb-4">
               <h2 className="text-lg font-black text-white tracking-tight">
-                <span className="text-amber-400">Arena</span> - Open Matches
+                <span className="text-kaspa-green">Play</span> - Open Matches
               </h2>
-              <span className="text-xs text-amber-400/60 font-mono">
+              <span className="text-xs text-gray-400 light:text-slate-500 font-mono">
                 Games with someone waiting to match. Created on Covex.
               </span>
             </div>
+            {/* Non-operator note at the point of play (condensed from the Terms framing).
+                Light/dark/mobile correct. Visually quiet: a small muted line, not a scary block. */}
+            <p className="mb-5 flex items-start gap-2 text-[11px] leading-snug text-gray-400 light:text-slate-500">
+              <ShieldCheck size={13} className="mt-0.5 shrink-0 text-gray-500 light:text-slate-400" aria-hidden="true" />
+              <span>
+                You deploy your own covenant. Covex is not a counterparty, bookmaker, or custodian, sets no odds, and runs no house. Resolution depends on an external resolver you choose.
+              </span>
+            </p>
             {/* Create-a-game entry point: a game is a covenant you deploy. Routes into the
                 build flow with the game category pre-selected. Always visible in the Arena. */}
             <div className="mb-6 rounded-2xl border border-kaspa-green/25 light:border-emerald-300 bg-kaspa-green/[0.05] light:bg-emerald-50 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
@@ -1057,8 +1077,8 @@ export default function Explorer() {
               <div className="relative glass-panel rounded-2xl p-10 text-center overflow-hidden">
                 <div className="covex-aurora" aria-hidden="true" style={{ top: -20, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 380, height: 200, maxWidth: '90vw', opacity: 0.5 }} />
                 <div className="relative z-10">
-                  <span className="grid place-items-center mx-auto mb-4 h-14 w-14 rounded-2xl border border-amber-500/30 bg-amber-500/10">
-                    <Gamepad2 size={28} className="text-amber-400" />
+                  <span className="grid place-items-center mx-auto mb-4 h-14 w-14 rounded-2xl border border-kaspa-green/30 bg-kaspa-green/10">
+                    <Gamepad2 size={28} className="text-kaspa-green" />
                   </span>
                   <p className="text-lg font-semibold text-white mb-1">No active matches right now</p>
                   <p className="text-sm text-gray-300 max-w-md mx-auto mb-5">When a game creator is waiting for an opponent, their match appears here. Or start your own.</p>

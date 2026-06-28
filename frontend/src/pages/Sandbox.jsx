@@ -152,8 +152,8 @@ const CREATE_TABS = [
 // proofs are verified fail-closed OFF-CHAIN by anyone, a parimutuel game, age-gating, and a
 // verifiable pot split. All six are present in ZK_CIRCUIT_TYPES and land in Phase 2 on click.
 const TEMPLATE_IDS = [
-  'prediction_market', 'merkle_membership', 'escrow_2party',
-  'chess_blitz', 'age_verification', 'pot_distribution',
+  'escrow_2party', 'merkle_membership', 'age_verification',
+  'pot_distribution', 'prediction_market', 'chess_blitz',
 ];
 
 // Reduced-motion-safe cross-fade between phase panels (the y offset is dropped when reduced).

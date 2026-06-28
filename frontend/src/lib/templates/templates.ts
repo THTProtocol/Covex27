@@ -37,69 +37,6 @@ export interface CovenantTemplate {
 }
 
 export const COVENANT_TEMPLATES: CovenantTemplate[] = [
-  // === GAMES ===
-  {
-    id: 'chess-classic',
-    name: 'Classic Chess Match',
-    description: 'Standard 8x8 chess with FIDE rules. Winner takes all. Full legal play proven via ZK.',
-    category: 'Games',
-    icon: '♟️',
-    difficulty: 'Beginner',
-    estimatedTime: '5 min',
-    recommendedTier: 'BUILDER',
-    tags: ['Chess', '1v1', 'ZK'],
-    generateConfig: (addr) => ({
-      ...createDefaultConfig(addr, 'chess'),
-      covenant: {
-        ...createDefaultConfig(addr, 'chess').covenant,
-        name: 'Classic Chess Match',
-        description: 'FIDE rules chess. Winner takes the pot minus 2% fee.',
-      },
-      ui: {
-        templateId: 'chess-classic-v1',
-        theme: { primaryColor: '#49EACB' },
-        customizations: { boardStyle: 'classic', showClocks: true }
-      }
-    }),
-    studioSuggestions: { primaryColor: '#49EACB', style: 'Minimal Dark', features: ['Live board', 'Move history', 'Resign button'] }
-  },
-  {
-    id: 'chess-blitz',
-    name: 'Blitz Chess (10 min)',
-    description: 'Fast chess with time controls. High stakes, quick resolution.',
-    category: 'Games',
-    icon: '⚡',
-    difficulty: 'Beginner',
-    estimatedTime: '4 min',
-    recommendedTier: 'PRO',
-    tags: ['Chess', 'Blitz', 'Timed'],
-    generateConfig: (addr) => {
-      const cfg = createDefaultConfig(addr, 'chess');
-      return {
-        ...cfg,
-        covenant: { ...cfg.covenant, name: 'Blitz Chess (10 min)', description: '10-minute blitz. Time forfeit = loss.' },
-        ui: { templateId: 'chess-blitz-v1', theme: { primaryColor: '#F59E0B' } }
-      };
-    }
-  },
-  {
-    id: 'poker-texas',
-    name: 'Texas Hold\'em Poker',
-    description: '6-max Texas Hold\'em. Hand ranking proven via ZK where possible.',
-    category: 'Games',
-    icon: '🃏',
-    difficulty: 'Intermediate',
-    estimatedTime: '8 min',
-    recommendedTier: 'PRO',
-    tags: ['Poker', 'Multiplayer', 'Cards'],
-    generateConfig: (addr) => ({
-      ...createDefaultConfig(addr, 'chess'), // placeholder until poker circuit
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Texas Hold\'em (6-max)', description: 'Standard poker. Best hand wins.' },
-      resolution: { ...createDefaultConfig(addr).resolution, circuit: { type: 'custom' } },
-      ui: { templateId: 'poker-texas-v1', theme: { primaryColor: '#DC2626' } }
-    })
-  },
-
   // === ESCROW & AGREEMENTS ===
   {
     id: 'simple-escrow',
@@ -359,23 +296,6 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
       ui: { templateId: 'revenue-share-v1', theme: { primaryColor: '#10B981' } }
     })
   },
-  {
-    id: 'connect4-arena',
-    name: 'Connect Four Arena',
-    description: 'Head-to-head Connect Four for stakes. Server-authoritative engine; oracle attests the winner. Winner takes the pot.',
-    category: 'Games',
-    icon: '🔴',
-    difficulty: 'Beginner',
-    estimatedTime: '4 min',
-    recommendedTier: 'BUILDER',
-    tags: ['Game', '1v1', 'Oracle'],
-    generateConfig: (addr) => ({
-      ...createDefaultConfig(addr, 'chess'),
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Connect Four Arena', description: 'Oracle-attested Connect Four. Winner takes the pot minus fee.' },
-      resolution: { mode: 'oracle', circuit: { type: 'custom' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 200 } },
-      ui: { templateId: 'connect4-v1', theme: { primaryColor: '#EF4444' } }
-    })
-  },
 
   // === CORE COVENANT PRIMITIVES (each deep-links to its real circuit in the Sandbox) ===
   // Honest by construction: every entry maps to a circuit that already exists, and its
@@ -538,6 +458,103 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     })
   },
   {
+    id: 'timeout-refund-escrow',
+    name: 'Timeout-Refund ZK Escrow',
+    description: 'A two-party escrow where a DAA timelock enables an honest refund if the deal stalls. Outcome proven on the escrow_2party circuit (zero-knowledge).',
+    category: 'Escrow & Agreements',
+    icon: '⏱️',
+    difficulty: 'Intermediate',
+    estimatedTime: '6 min',
+    recommendedTier: 'PRO',
+    tags: ['ZK', 'Escrow', 'Refund'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'escrow'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Timeout-Refund Escrow', description: 'Two-party escrow with an honest timelock refund (zero-knowledge).' },
+      resolution: { mode: 'zk', circuit: { type: 'escrow_2party' }, oracle: { provider: 'covex' }, payoutModel: { type: 'custom', feeBasisPoints: 0 } },
+      ui: { templateId: 'escrow-2party-v1', theme: { primaryColor: '#38BDF8' } }
+    })
+  },
+
+  // === GAMES (kept creatable and reachable, but listed after the utility primitives) ===
+  {
+    id: 'chess-classic',
+    name: 'Classic Chess Match',
+    description: 'Standard 8x8 chess with FIDE rules. Two players stake; the proven winner is paid the pot. Full legal play proven via ZK.',
+    category: 'Games',
+    icon: '♟️',
+    difficulty: 'Beginner',
+    estimatedTime: '5 min',
+    recommendedTier: 'BUILDER',
+    tags: ['Chess', '1v1', 'ZK'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'chess'),
+      covenant: {
+        ...createDefaultConfig(addr, 'chess').covenant,
+        name: 'Classic Chess Match',
+        description: 'FIDE rules chess. The proven winner is paid the pot minus a 2% fee.',
+      },
+      ui: {
+        templateId: 'chess-classic-v1',
+        theme: { primaryColor: '#49EACB' },
+        customizations: { boardStyle: 'classic', showClocks: true }
+      }
+    }),
+    studioSuggestions: { primaryColor: '#49EACB', style: 'Minimal Dark', features: ['Live board', 'Move history', 'Resign button'] }
+  },
+  {
+    id: 'chess-blitz',
+    name: 'Blitz Chess (10 min)',
+    description: 'Fast chess with time controls. Two players stake; the proven winner is paid the pot.',
+    category: 'Games',
+    icon: '⚡',
+    difficulty: 'Beginner',
+    estimatedTime: '4 min',
+    recommendedTier: 'PRO',
+    tags: ['Chess', 'Blitz', 'Timed'],
+    generateConfig: (addr) => {
+      const cfg = createDefaultConfig(addr, 'chess');
+      return {
+        ...cfg,
+        covenant: { ...cfg.covenant, name: 'Blitz Chess (10 min)', description: '10-minute blitz. Time forfeit = loss.' },
+        ui: { templateId: 'chess-blitz-v1', theme: { primaryColor: '#F59E0B' } }
+      };
+    }
+  },
+  {
+    id: 'poker-texas',
+    name: 'Texas Hold\'em Poker',
+    description: '6-max Texas Hold\'em. Hand ranking proven via ZK where possible.',
+    category: 'Games',
+    icon: '🃏',
+    difficulty: 'Intermediate',
+    estimatedTime: '8 min',
+    recommendedTier: 'PRO',
+    tags: ['Poker', 'Multiplayer', 'Cards'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'chess'), // placeholder until poker circuit
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Texas Hold\'em (6-max)', description: 'Standard poker. Best hand wins.' },
+      resolution: { ...createDefaultConfig(addr).resolution, circuit: { type: 'custom' } },
+      ui: { templateId: 'poker-texas-v1', theme: { primaryColor: '#DC2626' } }
+    })
+  },
+  {
+    id: 'connect4-arena',
+    name: 'Connect Four Arena',
+    description: 'Head-to-head Connect Four for stakes. Server-authoritative engine; the oracle attests the winner. Two players stake; the proven winner is paid the pot.',
+    category: 'Games',
+    icon: '🔴',
+    difficulty: 'Beginner',
+    estimatedTime: '4 min',
+    recommendedTier: 'BUILDER',
+    tags: ['Game', '1v1', 'Oracle'],
+    generateConfig: (addr) => ({
+      ...createDefaultConfig(addr, 'chess'),
+      covenant: { ...createDefaultConfig(addr).covenant, name: 'Connect Four Arena', description: 'Oracle-attested Connect Four. The proven winner is paid the pot minus the fee.' },
+      resolution: { mode: 'oracle', circuit: { type: 'custom' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 200 } },
+      ui: { templateId: 'connect4-v1', theme: { primaryColor: '#EF4444' } }
+    })
+  },
+  {
     id: 'vrf-lottery',
     name: 'VRF Lottery (Provably Fair Draw)',
     description: 'A winner forced by a committed random value so no one can cherry-pick the result. The draw is generated in your browser and verified on the vrf_random circuit (zero-knowledge).',
@@ -570,23 +587,6 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
       resolution: { mode: 'zk', circuit: { type: 'vrf_dice_roll' }, oracle: { provider: 'covex' }, payoutModel: { type: 'winner_takes_all', feeBasisPoints: 100 } },
       ui: { templateId: 'vrf-dice-v1', theme: { primaryColor: '#F472B6' } }
     })
-  },
-  {
-    id: 'timeout-refund-escrow',
-    name: 'Timeout-Refund ZK Escrow',
-    description: 'A two-party escrow where a DAA timelock enables an honest refund if the deal stalls. Outcome proven on the escrow_2party circuit (zero-knowledge).',
-    category: 'Escrow & Agreements',
-    icon: '⏱️',
-    difficulty: 'Intermediate',
-    estimatedTime: '6 min',
-    recommendedTier: 'PRO',
-    tags: ['ZK', 'Escrow', 'Refund'],
-    generateConfig: (addr) => ({
-      ...createDefaultConfig(addr, 'escrow'),
-      covenant: { ...createDefaultConfig(addr).covenant, name: 'Timeout-Refund Escrow', description: 'Two-party escrow with an honest timelock refund (zero-knowledge).' },
-      resolution: { mode: 'zk', circuit: { type: 'escrow_2party' }, oracle: { provider: 'covex' }, payoutModel: { type: 'custom', feeBasisPoints: 0 } },
-      ui: { templateId: 'escrow-2party-v1', theme: { primaryColor: '#38BDF8' } }
-    })
   }
 ];
 
@@ -599,5 +599,5 @@ export function getTemplateById(id: string): CovenantTemplate | undefined {
 }
 
 export const TEMPLATE_CATEGORIES: TemplateCategory[] = [
-  'Games', 'Escrow & Agreements', 'Prediction & Markets', 'Governance & DAOs', 'Financial Tools'
+  'Escrow & Agreements', 'Financial Tools', 'Governance & DAOs', 'Prediction & Markets', 'Games'
 ];

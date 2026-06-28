@@ -4,6 +4,7 @@ import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
 import GamePotPanel from './GamePotPanel';
 import { getCurrentNetwork } from './WalletContext';
+import { resolveTttMarks } from '../lib/markGameTheme';
 
 // Full-screen Tic-Tac-Toe (3x3): persistent two-wallet multiplayer over the
 // covenant match record. Seats: player1 = X (moves first), player2 = O.
@@ -27,9 +28,19 @@ const CELL_CENTERS = [
   [50, 250], [150, 250], [250, 250],
 ];
 
-// Inline SVG X (two kaspa-green strokes) and O (kaspa-gold ring) that draw in on place.
-function MarkX({ ghost = false }) {
-  const stroke = '#49EACB';
+// Hex (#rrggbb) -> "r,g,b" for the drop-shadow glow tint; defaults to the
+// classic kaspa-green channels for any non-hex input.
+const tttRgb = (hex) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return '73,234,203';
+  const n = parseInt(m[1], 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+};
+
+// Inline SVG X and O that draw in on place. The stroke + glow color are the
+// creator-chosen mark colors (default teal X / gold O).
+function MarkX({ ghost = false, color = '#49EACB' }) {
+  const stroke = color;
   return (
     <svg viewBox="0 0 100 100" className={`w-3/4 h-3/4 ${ghost ? '' : 'anim-pop'}`} style={ghost ? { opacity: 0.25 } : undefined}>
       <g
@@ -37,7 +48,7 @@ function MarkX({ ghost = false }) {
         stroke={stroke}
         strokeWidth="11"
         strokeLinecap="round"
-        style={ghost ? undefined : { filter: 'drop-shadow(0 0 8px rgba(73,234,203,0.65))' }}
+        style={ghost ? undefined : { filter: `drop-shadow(0 0 8px rgba(${tttRgb(color)},0.65))` }}
       >
         <line x1="24" y1="24" x2="76" y2="76" style={ghost ? undefined : { strokeDasharray: 74, strokeDashoffset: 74, animation: 'ttt-draw 0.25s ease-out 0.02s forwards' }} />
         <line x1="76" y1="24" x2="24" y2="76" style={ghost ? undefined : { strokeDasharray: 74, strokeDashoffset: 74, animation: 'ttt-draw 0.25s ease-out 0.12s forwards' }} />
@@ -46,8 +57,8 @@ function MarkX({ ghost = false }) {
   );
 }
 
-function MarkO({ ghost = false }) {
-  const stroke = '#E8AF34';
+function MarkO({ ghost = false, color = '#E8AF34' }) {
+  const stroke = color;
   return (
     <svg viewBox="0 0 100 100" className={`w-3/4 h-3/4 ${ghost ? '' : 'anim-pop'}`} style={ghost ? { opacity: 0.25 } : undefined}>
       <circle
@@ -59,7 +70,7 @@ function MarkO({ ghost = false }) {
         strokeWidth="11"
         strokeLinecap="round"
         transform="rotate(-90 50 50)"
-        style={ghost ? undefined : { strokeDasharray: 188.5, strokeDashoffset: 188.5, animation: 'ttt-draw 0.25s ease-out forwards', filter: 'drop-shadow(0 0 8px rgba(232,175,52,0.6))' }}
+        style={ghost ? undefined : { strokeDasharray: 188.5, strokeDashoffset: 188.5, animation: 'ttt-draw 0.25s ease-out forwards', filter: `drop-shadow(0 0 8px rgba(${tttRgb(color)},0.6))` }}
       />
     </svg>
   );
@@ -74,7 +85,10 @@ const replayBoard = (moves) => {
   return b;
 };
 
-export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
+export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, feePercent = 2, potReturnPercent = 2, look }) {
+  // Creator-chosen X / O mark colors. Falls back to the classic teal X / gold O
+  // so an arena opened without a look renders exactly as before.
+  const marks = look?.marks || resolveTttMarks();
   const [board, setBoard] = useState(Array(9).fill(null));
   const [localMethod, setLocalMethod] = useState(null);
   const [hoverCell, setHoverCell] = useState(null);
@@ -260,9 +274,9 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
                       className={`relative flex items-center justify-center rounded-xl transition-colors ${canPlay ? 'cursor-pointer hover:bg-white/[0.035]' : 'cursor-default'} ${isWinCell ? 'animate-pulse' : ''}`}
                       style={isWinCell ? { background: 'rgba(73,234,203,0.12)' } : undefined}
                     >
-                      {v === 'X' && <MarkX />}
-                      {v === 'O' && <MarkO />}
-                      {!v && canPlay && hoverCell === i && (myLabel === 'X' ? <MarkX ghost /> : <MarkO ghost />)}
+                      {v === 'X' && <MarkX color={marks.x} />}
+                      {v === 'O' && <MarkO color={marks.o} />}
+                      {!v && canPlay && hoverCell === i && (myLabel === 'X' ? <MarkX ghost color={marks.x} /> : <MarkO ghost color={marks.o} />)}
                     </div>
                   );
                 })}

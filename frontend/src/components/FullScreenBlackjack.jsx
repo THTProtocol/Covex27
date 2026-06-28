@@ -6,6 +6,7 @@ import { ChipStack } from './games/Chips';
 import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
 import GamePotPanel from './GamePotPanel';
+import { resolveBlackjackFelt, resolveBlackjackCardBack } from '../lib/blackjackTheme';
 import { getCurrentNetwork } from './WalletContext';
 
 // Map our internal suit names to the PlayingCard primitive's suit codes.
@@ -125,7 +126,7 @@ function deriveTable(moves) {
 // A dealt hand of PlayingCards. Deals one card at a time with a stagger so each
 // card slides from the shoe (.anim-deal) and flips back->face. This is purely a
 // presentation concern: the cards/values are already derived by deriveTable().
-function HandRow({ cards, width = 64, faceUp = true, dim = false, win = false }) {
+function HandRow({ cards, width = 64, faceUp = true, dim = false, win = false, back }) {
   return (
     <div style={{ display: 'flex', gap: width * 0.18 }}>
       {cards.map((card, i) => (
@@ -146,6 +147,7 @@ function HandRow({ cards, width = 64, faceUp = true, dim = false, win = false })
             faceDown={!faceUp}
             flipping={faceUp}
             highlight={win}
+            back={back}
           />
         </div>
       ))}
@@ -153,7 +155,12 @@ function HandRow({ cards, width = 64, faceUp = true, dim = false, win = false })
   );
 }
 
-export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
+export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, feePercent = 2, potReturnPercent = 2, look }) {
+  // Creator-chosen appearance (felt color + card back). Falls back to the classic
+  // Covex teal felt + kaspa card back so an arena opened without a look renders
+  // exactly as before. cardBack is passed to every PlayingCard.
+  const feltLook = look?.felt || resolveBlackjackFelt();
+  const cardBack = look?.cardBack || resolveBlackjackCardBack();
   const [seedAlert, setSeedAlert] = useState(null); // commit-mismatch warning
   const [lostData, setLostData] = useState(false);
 
@@ -395,8 +402,8 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
       <div className="flex-1 flex flex-col items-center justify-center p-4 gap-8 overflow-auto">
         {/* Table surface */}
         <div className="board-bezel-wood relative w-full max-w-[850px] aspect-[2.2/1] rounded-[160px] shadow-2xl">
-          <div className="felt-radial felt-noise absolute inset-0 rounded-[150px] overflow-hidden"
-               style={{ boxShadow: 'inset 0 0 60px rgba(0,0,0,0.55), inset 0 0 0 2px rgba(73,234,203,0.10)' }}>
+          <div className="felt-noise absolute inset-0 rounded-[150px] overflow-hidden"
+               style={{ background: `radial-gradient(ellipse at 50% 40%, ${feltLook.surface} 0%, rgba(0,0,0,0.35) 120%)`, boxShadow: `inset 0 0 60px rgba(0,0,0,0.55), inset 0 0 0 2px ${feltLook.frame}` }}>
 
             {/* Center insignia: BLACKJACK arc + PAYS 3:2 */}
             <div className="absolute top-[30%] left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none select-none"
@@ -455,6 +462,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
                     faceUp={showdown}
                     dim={showdown && oppBust}
                     win={showdown && oppWin}
+                    back={cardBack}
                   />
                 ) : (
                   <span className="font-mono text-white/20 light:text-slate-900/40 tracking-[3px]" style={{ fontSize: 9 }}>BET</span>
@@ -488,6 +496,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
                     faceUp={showdown}
                     dim={showdown && meBust}
                     win={showdown && meWin}
+                    back={cardBack}
                   />
                 ) : (
                   <span className="font-mono text-white/20 light:text-slate-900/40 tracking-[3px]" style={{ fontSize: 9 }}>BET</span>

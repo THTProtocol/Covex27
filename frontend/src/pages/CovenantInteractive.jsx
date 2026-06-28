@@ -40,7 +40,7 @@ const GAME_REGISTRY = {
 };
 assertGamesInSync(Object.keys(GAME_REGISTRY), 'GAME_REGISTRY');
 import { Chessboard } from 'react-chessboard';
-import { chessLookFromConfig } from '../lib/chessTheme';
+import { gameLookFromConfig } from '../lib/gameTheme';
 import { Layers, Terminal, Lock, ArrowLeft, ArrowRight, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, EyeOff, ImagePlus, Monitor, Code, Code2, Paintbrush, Check, Type, Ruler, Save, Share2, Clock, Wallet } from 'lucide-react';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import CopyButton from '../components/CopyButton';
@@ -322,9 +322,12 @@ export default function CovenantInteractive() {
     () => (!isCreator ? Math.round(Number(covenant?.amount_kaspa || 0)) : 0),
     [isCreator, covenant?.amount_kaspa],
   );
-  // Creator-chosen chess look (board theme + piece set), resolved from the saved
-  // custom_ui_config so the public page matches what the creator previewed.
-  const chessLook = useMemo(() => chessLookFromConfig(covenant?.custom_ui_config), [covenant]);
+  // Creator-chosen appearance for whichever game this covenant is, resolved from
+  // the saved custom_ui_config so the public arena matches what the creator
+  // previewed. gameLook is the unified per-game look; chessLook is kept as the
+  // chess-specific alias used by the inline lobby board below.
+  const gameLook = useMemo(() => gameLookFromConfig(covenant?.custom_ui_config, gameType), [covenant, gameType]);
+  const chessLook = useMemo(() => gameLookFromConfig(covenant?.custom_ui_config, 'chess'), [covenant]);
   // A single binary_oracle_select covenant is one LEG of a parimutuel market, not a bare
   // on-chain primitive: its custody is script-locked but the OUTCOME is set by the secret a
   // deployer-bound external resolver reveals. It must read as a market, never "no oracle, no trust".
@@ -1820,6 +1823,7 @@ export default function CovenantInteractive() {
                     covenantId={covenant.tx_id}
                     creatorAddr={covenant.creator_addr}
                     feePercent={2}
+                    chessLook={chessLook}
                   />
                 )}
                 {showGameArena && isOtherGame && (() => {
@@ -1831,6 +1835,7 @@ export default function CovenantInteractive() {
                       covenantId={covenant.tx_id}
                       feePercent={2}
                       potReturnPercent={2}
+                      look={gameLook}
                     />
                   );
                 })()}

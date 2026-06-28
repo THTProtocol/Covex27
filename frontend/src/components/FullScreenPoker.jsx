@@ -7,6 +7,7 @@ import InviteLink from './InviteLink';
 import GamePotPanel from './GamePotPanel';
 import PlayingCard from './games/PlayingCard';
 import { ChipStack } from './games/Chips';
+import { resolvePokerFelt, resolvePokerCardBack } from '../lib/pokerTheme';
 
 // Real heads-up No-Limit Hold'em over the covenant match record.
 //
@@ -256,7 +257,12 @@ function BetChips({ amount }) {
   );
 }
 
-export default function FullScreenPoker({ stake = 100, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
+export default function FullScreenPoker({ stake = 100, onClose, covenantId, feePercent = 2, potReturnPercent = 2, look }) {
+  // Creator-chosen appearance (felt color + card back + chip accent). Falls back
+  // to the classic Covex teal felt + kaspa card back so an arena opened without a
+  // look renders exactly as before. cardBack is passed to every PlayingCard.
+  const feltLook = look?.felt || resolvePokerFelt();
+  const cardBack = look?.cardBack || resolvePokerCardBack();
   const { address, signMessage } = useWallet();
 
   // seats + join come from the shared match record (skill_games)
@@ -546,16 +552,17 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
         {/* Table (wood bezel around a teal-rail felt oval) */}
         <div className="board-bezel-wood w-full max-w-[880px] shrink-0" style={{ borderRadius: 999 }}>
           <div
-            className="felt-radial felt-noise relative w-full aspect-[2/1]"
+            className="felt-noise relative w-full aspect-[2/1]"
             style={{
               borderRadius: 999,
-              boxShadow: 'inset 0 0 0 8px rgba(15,94,84,0.55), inset 0 0 60px rgba(0,0,0,0.55), inset 0 0 0 2px rgba(73,234,203,0.18)',
+              background: `radial-gradient(ellipse at 50% 38%, ${feltLook.surface} 0%, rgba(0,0,0,0.35) 120%)`,
+              boxShadow: `inset 0 0 0 8px ${feltLook.rail}, inset 0 0 60px rgba(0,0,0,0.55), inset 0 0 0 2px rgba(73,234,203,0.18)`,
             }}
           >
             {/* betting-line arc + pot ring + center brand mark */}
             <svg viewBox="0 0 880 440" preserveAspectRatio="none" className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }} aria-hidden>
               {/* outer betting line arc */}
-              <ellipse cx="440" cy="220" rx="320" ry="150" fill="none" stroke="rgba(73,234,203,0.14)" strokeWidth="2" />
+              <ellipse cx="440" cy="220" rx="320" ry="150" fill="none" stroke={feltLook.line} strokeWidth="2" />
               {/* pot-area ring */}
               <ellipse cx="440" cy="196" rx="150" ry="70" fill="none" stroke="rgba(232,175,52,0.18)" strokeWidth="1.5" strokeDasharray="4 7" />
             </svg>
@@ -574,7 +581,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
                   const p = cardProps(c);
                   return p
                     ? <div key={i} className={reveal ? 'anim-deal' : ''}><PlayingCard {...p} width={44} highlight={isWinCard(c)} /></div>
-                    : <PlayingCard key={i} faceDown width={44} />;
+                    : <PlayingCard key={i} faceDown width={44} back={cardBack} />;
                 })}
               </div>
               <BetChips amount={hand ? committed[oppSeat] : 0} />
@@ -593,7 +600,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
                         <PlayingCard {...p} width={56} highlight={isWinCard(code)} />
                       </div>
                     )
-                    : <PlayingCard key={i} faceDown width={56} />;
+                    : <PlayingCard key={i} faceDown width={56} back={cardBack} />;
                 })}
               </div>
               {/* pot as chip graphic */}
@@ -618,7 +625,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, feeP
                   const big = mySeat != null; // your own cards bigger
                   return p
                     ? <div key={i} className={reveal ? 'anim-deal' : ''}><PlayingCard {...p} width={big ? 68 : 44} highlight={isWinCard(c)} /></div>
-                    : <PlayingCard key={i} faceDown width={big ? 68 : 44} />;
+                    : <PlayingCard key={i} faceDown width={big ? 68 : 44} back={cardBack} />;
                 })}
               </div>
               <SeatPlate {...seatPlateProps(mySeat == null ? 0 : mySeat, mySeat == null ? 'SEAT 1' : 'YOU')} />

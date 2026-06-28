@@ -5,6 +5,7 @@ import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
 import GamePotPanel from './GamePotPanel';
 import { getCurrentNetwork } from './WalletContext';
+import { resolveCheckersBoard, resolveCheckersPieces } from '../lib/checkersTheme';
 
 // Professional full-screen Checkers (8x8, forced jumps, kings, multi-jump):
 // persistent two-wallet multiplayer over the covenant match record.
@@ -57,12 +58,11 @@ function KingCrown({ size, tint }) {
 
 // Captured-count tray: small glossy discs of the pieces this side has taken,
 // plus a JetBrains Mono count. Visual only; derived from board piece counts.
-function CapturedTray({ side, count }) {
+function CapturedTray({ side, count, pieceLook }) {
   const taken = side === 'w' ? 'b' : 'w'; // white's tray holds captured black discs
-  const dotBg = taken === 'w'
-    ? 'radial-gradient(circle at 38% 32%, #f5f0e6, #cbbfa6)'
-    : 'radial-gradient(circle at 38% 32%, #3a3a40, #0a0a0c)';
-  const edge = taken === 'w' ? 'rgba(60,48,28,0.5)' : 'rgba(0,0,0,0.7)';
+  const dotBg = taken === 'w' ? (pieceLook?.wBase || 'radial-gradient(circle at 38% 32%, #f5f0e6, #cbbfa6)')
+    : (pieceLook?.bBase || 'radial-gradient(circle at 38% 32%, #3a3a40, #0a0a0c)');
+  const edge = taken === 'w' ? (pieceLook?.wRim || 'rgba(60,48,28,0.5)') : (pieceLook?.bRim || 'rgba(0,0,0,0.7)');
   const shown = Math.min(count, 12);
   return (
     <div className="mt-1 flex items-center gap-1.5">
@@ -89,16 +89,16 @@ function CapturedTray({ side, count }) {
 // A premium layered glossy disc piece: base radial-gradient disc, inset top face,
 // thin dark edge ring and a top-left specular blob. Kings stack a second disc
 // offset 2px down and engrave a gold crown. Visual only; no piece/move logic.
-function CheckerPiece({ piece, captured = false }) {
+function CheckerPiece({ piece, captured = false, pieceLook }) {
   const white = isWhitePc(piece);
   const king = isKing(piece);
-  const edge = white ? 'rgba(60,48,28,0.55)' : 'rgba(0,0,0,0.7)';
+  const edge = white ? (pieceLook?.wRim || 'rgba(60,48,28,0.55)') : (pieceLook?.bRim || 'rgba(0,0,0,0.7)');
   const baseGrad = white
-    ? 'radial-gradient(circle at 38% 32%, #f5f0e6 0%, #e3d8c2 48%, #cbbfa6 100%)'
-    : 'radial-gradient(circle at 38% 32%, #3a3a40 0%, #1c1c20 48%, #0a0a0c 100%)';
+    ? (pieceLook?.wBase || 'radial-gradient(circle at 38% 32%, #f5f0e6 0%, #e3d8c2 48%, #cbbfa6 100%)')
+    : (pieceLook?.bBase || 'radial-gradient(circle at 38% 32%, #3a3a40 0%, #1c1c20 48%, #0a0a0c 100%)');
   const topFace = white
-    ? 'radial-gradient(circle at 42% 34%, #fbf7ee 0%, #ddd0b6 100%)'
-    : 'radial-gradient(circle at 42% 34%, #34343a 0%, #121216 100%)';
+    ? (pieceLook?.wTop || 'radial-gradient(circle at 42% 34%, #fbf7ee 0%, #ddd0b6 100%)')
+    : (pieceLook?.bTop || 'radial-gradient(circle at 42% 34%, #34343a 0%, #121216 100%)');
   const crownTint = white ? 'rgba(70,52,20,0.5)' : 'rgba(0,0,0,0.55)';
 
   const disc = (offset) => (
@@ -226,7 +226,12 @@ function replayState(moves) {
   return { bd, side };
 }
 
-export default function FullScreenCheckers({ stake = 50, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
+export default function FullScreenCheckers({ stake = 50, onClose, covenantId, feePercent = 2, potReturnPercent = 2, look }) {
+  // Creator-chosen appearance (board squares + the two piece colors). Falls back
+  // to the classic wood board with cream/charcoal pieces so an arena opened
+  // without a look renders exactly as before.
+  const boardLook = look?.board || resolveCheckersBoard();
+  const pieceLook = look?.pieces || resolveCheckersPieces();
   const [board, setBoard] = useState(() => initBoard());
   const [selected, setSelected] = useState(null);
   const [chain, setChain] = useState(null); // in-progress multi-jump: [sq0, sq1, ...]
@@ -449,7 +454,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
             <div className={`font-mono text-5xl xl:text-6xl font-bold tabular-nums tracking-tighter ${whiteMs < 30000 ? 'text-red-500' : 'text-white light:text-slate-900'}`}>{formatTime(whiteMs)}</div>
           </div>
           <div className="text-[10px] font-mono text-gray-500 light:text-slate-500">{seat(game?.player1)}</div>
-          <CapturedTray side="w" count={blackCaptured} />
+          <CapturedTray side="w" count={blackCaptured} pieceLook={pieceLook} />
           <div className="text-[10px] text-gray-500 light:text-slate-500 mt-1">{status === 'active' && turnSide === 'w' ? 'TO MOVE' : ''}</div>
         </div>
 
@@ -489,9 +494,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
                 const isCapture = isLegal && legalMv.jump;
                 const isLast = lastMoveSquares.has(i);
                 // Faint wood-grain striping layered onto the dark playing squares.
-                const darkBg = dark
-                  ? 'repeating-linear-gradient(115deg, rgba(0,0,0,0.18) 0 3px, rgba(255,255,255,0.025) 3px 7px), linear-gradient(160deg, #6b4226 0%, #4f2f17 100%)'
-                  : 'linear-gradient(160deg, #ead2a8 0%, #d9bd8a 100%)';
+                const darkBg = dark ? boardLook.dark : boardLook.light;
                 return (
                   <div
                     key={i}
@@ -515,7 +518,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
                     )}
                     {p && (
                       <div key={`${i}-${p}`} className="anim-pop w-full h-full flex items-center justify-center">
-                        <CheckerPiece piece={p} />
+                        <CheckerPiece piece={p} pieceLook={pieceLook} />
                       </div>
                     )}
                   </div>
@@ -553,7 +556,7 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
             <div className={`font-mono text-5xl xl:text-6xl font-bold tabular-nums tracking-tighter ${blackMs < 30000 ? 'text-red-500' : 'text-white light:text-slate-900'}`}>{formatTime(blackMs)}</div>
           </div>
           <div className="text-[10px] font-mono text-gray-500 light:text-slate-500">{seat(game?.player2)}</div>
-          <CapturedTray side="b" count={whiteCaptured} />
+          <CapturedTray side="b" count={whiteCaptured} pieceLook={pieceLook} />
 
           {/* Real, non-custodial winner-takes-all pot. Renders only when actionable. */}
           <GamePotPanel covenantId={covenantId} gameType="checkers" game={game} seatToken={getSeatToken ? getSeatToken() : ''} network={getCurrentNetwork()} onChange={refresh} />

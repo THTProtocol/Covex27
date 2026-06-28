@@ -5,6 +5,7 @@ import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
 import GamePotPanel from './GamePotPanel';
 import { getCurrentNetwork } from './WalletContext';
+import { resolveReversiBoard, resolveReversiDiscs } from '../lib/reversiTheme';
 
 // Professional full-screen Reversi / Othello (8x8): persistent two-wallet
 // multiplayer over the covenant match record. Black moves first, so seats
@@ -89,21 +90,23 @@ const RANKS = ['1', '2', '3', '4', '5', '6', '7', '8'];
 // A single Othello disc rendered with real thickness: a 3D preserve-3d shell
 // with two faces (black / white), a darker rim and a soft specular highlight.
 // `flip` plays the rotateY capture animation; `pop` plays the place scale-in.
-function Disc({ color, flip = false, pop = false, delay = 0 }) {
+function Disc({ color, flip = false, pop = false, delay = 0, discLook }) {
   const isB = color === 'B';
-  const faceBack = isB
-    ? 'radial-gradient(circle at 34% 28%, #3a3a44 0%, #1a1a1a 46%, #000 100%)'
-    : 'radial-gradient(circle at 34% 28%, #ffffff 0%, #ededed 48%, #dcdcdc 100%)';
-  const specular = isB
-    ? 'radial-gradient(circle at 36% 26%, rgba(120,150,255,0.28) 0%, rgba(120,150,255,0) 42%)'
-    : 'radial-gradient(circle at 36% 26%, rgba(255,244,225,0.85) 0%, rgba(255,244,225,0) 46%)';
-  const rim = isB ? '#000' : '#bdbdbd';
+  // discLook.a is the dark/B disc, .b is the light/W disc. Fall back to the
+  // classic black/white gradients when no creator look is supplied.
+  const aBack = discLook?.aBack || 'radial-gradient(circle at 34% 28%, #3a3a44 0%, #1a1a1a 46%, #000 100%)';
+  const bBack = discLook?.bBack || 'radial-gradient(circle at 34% 28%, #ffffff 0%, #ededed 48%, #dcdcdc 100%)';
+  const aSpec = discLook?.aSpec || 'radial-gradient(circle at 36% 26%, rgba(120,150,255,0.28) 0%, rgba(120,150,255,0) 42%)';
+  const bSpec = discLook?.bSpec || 'radial-gradient(circle at 36% 26%, rgba(255,244,225,0.85) 0%, rgba(255,244,225,0) 46%)';
+  const aRim = discLook?.aRim || '#000';
+  const bRim = discLook?.bRim || '#bdbdbd';
+  const faceBack = isB ? aBack : bBack;
+  const specular = isB ? aSpec : bSpec;
+  const rim = isB ? aRim : bRim;
   // When flipping we present BOTH faces and rotate the shell; otherwise one face.
   const flipColor = isB ? 'B' : 'W';
   const otherIsB = flipColor !== 'B'; // the face shown at the start of a flip is the opponent's
-  const startBack = otherIsB
-    ? 'radial-gradient(circle at 34% 28%, #3a3a44 0%, #1a1a1a 46%, #000 100%)'
-    : 'radial-gradient(circle at 34% 28%, #ffffff 0%, #ededed 48%, #dcdcdc 100%)';
+  const startBack = otherIsB ? aBack : bBack;
   return (
     <div
       className={pop ? 'anim-pop' : undefined}
@@ -130,7 +133,7 @@ function Disc({ color, flip = false, pop = false, delay = 0 }) {
           <div style={{
             position: 'absolute', inset: 0, borderRadius: '50%', backfaceVisibility: 'hidden',
             transform: 'rotateY(180deg)', background: startBack,
-            boxShadow: `inset 0 -2px 3px ${otherIsB ? '#000' : '#bdbdbd'}, inset 0 2px 2px rgba(255,255,255,0.18), 0 3px 5px rgba(0,0,0,0.55)`,
+            boxShadow: `inset 0 -2px 3px ${otherIsB ? aRim : bRim}, inset 0 2px 2px rgba(255,255,255,0.18), 0 3px 5px rgba(0,0,0,0.55)`,
           }} />
         )}
       </div>
@@ -139,20 +142,22 @@ function Disc({ color, flip = false, pop = false, delay = 0 }) {
 }
 
 // Big disc-count chip used in the live scoreboard beside the board.
-function ScoreChip({ color, count, leading }) {
+function ScoreChip({ color, count, leading, discLook }) {
   const isB = color === 'B';
+  const aBack = discLook?.aBack || 'radial-gradient(circle at 36% 28%, #3a3a44 0%, #1a1a1a 48%, #000 100%)';
+  const bBack = discLook?.bBack || 'radial-gradient(circle at 36% 28%, #ffffff 0%, #ededed 48%, #dcdcdc 100%)';
+  const aRim = discLook?.aRim || '#000';
+  const bRim = discLook?.bRim || '#bdbdbd';
   return (
     <div className="flex flex-col items-center gap-1">
       <div
         className="relative rounded-full flex items-center justify-center"
         style={{
           width: 48, height: 48,
-          background: isB
-            ? 'radial-gradient(circle at 36% 28%, #3a3a44 0%, #1a1a1a 48%, #000 100%)'
-            : 'radial-gradient(circle at 36% 28%, #ffffff 0%, #ededed 48%, #dcdcdc 100%)',
+          background: isB ? aBack : bBack,
           boxShadow: leading
-            ? `0 0 0 2px #49EACB, 0 0 14px rgba(73,234,203,0.5), inset 0 -2px 3px ${isB ? '#000' : '#bdbdbd'}`
-            : `inset 0 -2px 3px ${isB ? '#000' : '#bdbdbd'}, 0 2px 5px rgba(0,0,0,0.5)`,
+            ? `0 0 0 2px #49EACB, 0 0 14px rgba(73,234,203,0.5), inset 0 -2px 3px ${isB ? aRim : bRim}`
+            : `inset 0 -2px 3px ${isB ? aRim : bRim}, 0 2px 5px rgba(0,0,0,0.5)`,
         }}
       />
       <span className="font-mono text-2xl font-bold tabular-nums text-white light:text-slate-900">{count}</span>
@@ -160,7 +165,12 @@ function ScoreChip({ color, count, leading }) {
   );
 }
 
-export default function FullScreenReversi({ stake = 40, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
+export default function FullScreenReversi({ stake = 40, onClose, covenantId, feePercent = 2, potReturnPercent = 2, look }) {
+  // Creator-chosen appearance (board color + the two disc colors). Falls back to
+  // the classic green board with black/white discs so an arena opened without a
+  // look renders exactly as before.
+  const boardLook = look?.board || resolveReversiBoard();
+  const discLook = look?.discs || resolveReversiDiscs();
   const [board, setBoard] = useState(() => initBoard());
   const [localMethod, setLocalMethod] = useState(null);
   // Visual-only: which cell was just placed and which discs it flipped, so we can
@@ -307,7 +317,7 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
             </div>
             <div className="mt-1 text-[10px] font-mono text-gray-500 light:text-slate-500">{seat(game?.player1)}</div>
           </div>
-          <ScoreChip color="B" count={blackCount} leading={blackCount > whiteCount} />
+          <ScoreChip color="B" count={blackCount} leading={blackCount > whiteCount} discLook={discLook} />
           <div className="text-[10px] font-mono tracking-wider text-center text-[#49EACB] light:text-[#0d9488]">
             {blackCount === whiteCount ? 'LEVEL' : blackCount > whiteCount ? `BLACK +${blackCount - whiteCount}` : `WHITE +${whiteCount - blackCount}`}
           </div>
@@ -325,8 +335,8 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
           <div className="board-bezel-wood" style={{ width: 'min(92vw,420px)' }}>
             <div className="relative">
               <div
-                className="felt-radial felt-noise grid grid-cols-8 overflow-hidden"
-                style={{ width: '100%', aspectRatio: '1', borderRadius: 8, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.4), inset 0 0 22px rgba(0,0,0,0.45)' }}
+                className="felt-noise grid grid-cols-8 overflow-hidden"
+                style={{ width: '100%', aspectRatio: '1', borderRadius: 8, background: boardLook.surface, boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.4), inset 0 0 22px rgba(0,0,0,0.45)' }}
               >
                 {board.map((v, i) => {
                   const legal = !result && isLegal(i);
@@ -350,6 +360,7 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
                           flip={isFlipped}
                           pop={isPlaced}
                           delay={isFlipped ? flipIdx * 55 : 0}
+                          discLook={discLook}
                         />
                       )}
                       {legal && (
@@ -357,9 +368,7 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
                           className="absolute rounded-full pointer-events-none"
                           style={{
                             width: '30%', height: '30%',
-                            background: myPiece === 'B'
-                              ? 'radial-gradient(circle at 38% 30%, #4a4a52, #0c0c0c)'
-                              : 'radial-gradient(circle at 38% 30%, #ffffff, #cfcfcf)',
+                            background: myPiece === 'B' ? discLook.aBack : discLook.bBack,
                             opacity: 0.55,
                             boxShadow: '0 0 6px rgba(73,234,203,0.5), 0 0 0 1px rgba(73,234,203,0.6)',
                           }}
@@ -412,7 +421,7 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
             <div className={`font-mono text-5xl font-bold tabular-nums ${whiteTime < 30000 ? 'text-red-500' : 'text-white light:text-slate-900'}`}>{format(whiteTime)}</div>
           </div>
           <div className="mt-1 text-[10px] font-mono text-gray-500 light:text-slate-500">{seat(game?.player2)}</div>
-          <div className="mt-3"><ScoreChip color="W" count={whiteCount} leading={whiteCount > blackCount} /></div>
+          <div className="mt-3"><ScoreChip color="W" count={whiteCount} leading={whiteCount > blackCount} discLook={discLook} /></div>
           {/* Real, non-custodial winner-takes-all pot. Renders only when actionable. */}
           <div className="mt-3 w-full"><GamePotPanel covenantId={covenantId} gameType="reversi" game={game} seatToken={getSeatToken ? getSeatToken() : ''} network={getCurrentNetwork()} onChange={refresh} /></div>
           <div className="mt-3 w-full text-[10px] font-mono bg-black/50 light:bg-white light:text-slate-600 p-2 rounded border border-white/10 light:border-slate-200 light:shadow-sm max-h-28 overflow-auto">{moves.slice(-5).join(' ')}</div>

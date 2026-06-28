@@ -247,9 +247,24 @@ function CardFace({ rank, suit, w, h }) {
   );
 }
 
-function CardBack({ w, h }) {
-  // Branded kaspa-green geometric back with a subtle DAG motif (overlapping
-  // diagonal gradients) and a thin gold inner border. No plain stripes.
+// Hex (#rrggbb) -> "r,g,b" so a creator-chosen accent can drive the rgba motif
+// tints. Falls back to the kaspa-green channels for any non-hex input.
+function rgbChannels(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''));
+  if (!m) return '73,234,203';
+  const n = parseInt(m[1], 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
+
+function CardBack({ w, h, back }) {
+  // Branded geometric back with a subtle DAG motif (overlapping diagonal
+  // gradients) and a thin inner border. The creator-chosen card-back preset
+  // drives the deep base color, the accent (DAG mark + tints) and the frame; it
+  // defaults to the original kaspa-green/teal look.
+  const baseColor = back?.back || '#06151a';
+  const accent = back?.accent || KASPA_GREEN;
+  const frame = back?.frame || KASPA_GOLD;
+  const ch = rgbChannels(accent);
   return (
     <div
       style={{
@@ -259,25 +274,25 @@ function CardBack({ w, h }) {
         height: h,
         borderRadius: w * 0.1,
         background: `
-          radial-gradient(circle at 30% 22%, rgba(73,234,203,0.35), transparent 42%),
-          radial-gradient(circle at 72% 78%, rgba(73,234,203,0.22), transparent 46%),
-          repeating-linear-gradient(45deg, rgba(73,234,203,0.10) 0 6px, transparent 6px 13px),
-          repeating-linear-gradient(-45deg, rgba(73,234,203,0.06) 0 6px, transparent 6px 13px),
-          linear-gradient(155deg, #0b2a26 0%, #06151a 100%)`,
+          radial-gradient(circle at 30% 22%, rgba(${ch},0.35), transparent 42%),
+          radial-gradient(circle at 72% 78%, rgba(${ch},0.22), transparent 46%),
+          repeating-linear-gradient(45deg, rgba(${ch},0.10) 0 6px, transparent 6px 13px),
+          repeating-linear-gradient(-45deg, rgba(${ch},0.06) 0 6px, transparent 6px 13px),
+          linear-gradient(155deg, ${baseColor} 0%, #06151a 100%)`,
         boxShadow: 'inset 0 0 0 1px rgba(0,0,0,0.4)',
         backfaceVisibility: 'hidden',
         WebkitBackfaceVisibility: 'hidden',
         overflow: 'hidden',
       }}
     >
-      {/* thin gold border frame */}
+      {/* thin accent border frame */}
       <div
         style={{
           position: 'absolute',
           inset: w * 0.07,
           borderRadius: w * 0.06,
-          border: `1.5px solid ${KASPA_GOLD}99`,
-          boxShadow: `inset 0 0 0 1px ${KASPA_GREEN}33`,
+          border: `1.5px solid ${frame}99`,
+          boxShadow: `inset 0 0 0 1px ${accent}33`,
         }}
       />
       {/* center DAG diamond mark */}
@@ -291,12 +306,12 @@ function CardBack({ w, h }) {
         }}
       >
         <svg width={w * 0.42} height={w * 0.42} viewBox="0 0 100 100" aria-hidden>
-          <g fill="none" stroke={KASPA_GREEN} strokeWidth="3" opacity="0.85">
+          <g fill="none" stroke={accent} strokeWidth="3" opacity="0.85">
             <path d="M50 14 L86 50 L50 86 L14 50 Z" />
-            <circle cx="50" cy="14" r="5" fill={KASPA_GREEN} stroke="none" />
-            <circle cx="86" cy="50" r="5" fill={KASPA_GREEN} stroke="none" />
-            <circle cx="50" cy="86" r="5" fill={KASPA_GREEN} stroke="none" />
-            <circle cx="14" cy="50" r="5" fill={KASPA_GREEN} stroke="none" />
+            <circle cx="50" cy="14" r="5" fill={accent} stroke="none" />
+            <circle cx="86" cy="50" r="5" fill={accent} stroke="none" />
+            <circle cx="50" cy="86" r="5" fill={accent} stroke="none" />
+            <circle cx="14" cy="50" r="5" fill={accent} stroke="none" />
             <path d="M50 14 L50 86 M14 50 L86 50" opacity="0.5" />
           </g>
         </svg>
@@ -305,7 +320,7 @@ function CardBack({ w, h }) {
   );
 }
 
-function PlayingCardImpl({ rank, suit, faceDown = false, width = 64, flipping = false, highlight = false }) {
+function PlayingCardImpl({ rank, suit, faceDown = false, width = 64, flipping = false, highlight = false, back }) {
   const w = width;
   const h = Math.round(width * 1.4); // 5:7 aspect ratio
 
@@ -332,7 +347,7 @@ function PlayingCardImpl({ rank, suit, faceDown = false, width = 64, flipping = 
         >
           {/* back: starts facing viewer, rotates away */}
           <div style={{ position: 'absolute', inset: 0, transform: 'rotateY(0deg)' }}>
-            <CardBack w={w} h={h} />
+            <CardBack w={w} h={h} back={back} />
           </div>
           {/* face: pre-rotated so it lands facing viewer at the end */}
           <div style={{ position: 'absolute', inset: 0, transform: 'rotateY(180deg)' }}>
@@ -345,7 +360,7 @@ function PlayingCardImpl({ rank, suit, faceDown = false, width = 64, flipping = 
 
   return (
     <div style={{ position: 'relative', width: w, height: h, ...(ringStyle || {}) }}>
-      {faceDown ? <CardBack w={w} h={h} /> : <CardFace rank={rank} suit={suit} w={w} h={h} />}
+      {faceDown ? <CardBack w={w} h={h} back={back} /> : <CardFace rank={rank} suit={suit} w={w} h={h} />}
       {/* keyframes for the flip live here so the component is self-contained */}
       <style>{`
         @keyframes pc-flip-anim {

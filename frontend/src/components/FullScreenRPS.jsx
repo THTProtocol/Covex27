@@ -4,6 +4,7 @@ import InviteLink from './InviteLink';
 import useGameSync from '../hooks/useGameSync';
 import GamePotPanel from './GamePotPanel';
 import { getCurrentNetwork } from './WalletContext';
+import { resolveRpsAccents } from '../lib/markGameTheme';
 
 // Rock Paper Scissors, best of 3: persistent two-wallet multiplayer with a
 // COMMIT-REVEAL protocol so picks stay secret until both are locked.
@@ -113,7 +114,12 @@ function parseRounds(ms) {
   return rounds;
 }
 
-export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
+export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePercent = 2, potReturnPercent = 2, look }) {
+  // Creator-chosen per-choice accent colors (rock / paper / scissors). Falls back
+  // to the classic teal / gold / rose triple so an arena opened without a look
+  // renders exactly as before. Visual only; never touches move encodings.
+  const acc = look?.accents || resolveRpsAccents();
+  const accentOf = (choice) => acc[choice] || ACCENTS[choice] || '#49EACB';
   // verification verdicts per completed round index: { r1ok, r2ok }
   const [verdicts, setVerdicts] = useState({});
   const [lostData, setLostData] = useState(false);
@@ -394,8 +400,8 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
             <div className="flex items-center justify-center gap-3 sm:gap-6">
               {/* my hand slides in from the left */}
               <div className={`rps-hand rps-hand-left rps-clash ${showdown.myOutcome === 'loss' ? 'rps-dim' : ''}`}>
-                <div className={`rps-hand-tile ${showdown.myOutcome === 'win' ? 'rps-hand-win' : ''}`} style={{ '--rps-accent': ACCENTS[showdown.mine] }}>
-                  <RpsIcon choice={showdown.mine} size={64} />
+                <div className={`rps-hand-tile ${showdown.myOutcome === 'win' ? 'rps-hand-win' : ''}`} style={{ '--rps-accent': accentOf(showdown.mine) }}>
+                  <RpsIcon choice={showdown.mine} size={64} accent={accentOf(showdown.mine)} />
                 </div>
                 <div className="text-[10px] font-bold tracking-widest mt-1.5 text-gray-300 light:text-slate-600">{myColor ? 'YOU' : 'X'}</div>
               </div>
@@ -405,8 +411,8 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
               </div>
               {/* opponent hand slides in from the right */}
               <div className={`rps-hand rps-hand-right rps-clash ${showdown.myOutcome === 'win' ? 'rps-dim' : ''}`}>
-                <div className={`rps-hand-tile ${showdown.myOutcome === 'loss' ? 'rps-hand-win' : ''}`} style={{ '--rps-accent': ACCENTS[showdown.opp] }}>
-                  <RpsIcon choice={showdown.opp} size={64} />
+                <div className={`rps-hand-tile ${showdown.myOutcome === 'loss' ? 'rps-hand-win' : ''}`} style={{ '--rps-accent': accentOf(showdown.opp) }}>
+                  <RpsIcon choice={showdown.opp} size={64} accent={accentOf(showdown.opp)} />
                 </div>
                 <div className="text-[10px] font-bold tracking-widest mt-1.5 text-gray-300 light:text-slate-600">{myColor ? 'OPPONENT' : 'O'}</div>
               </div>
@@ -420,7 +426,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
             <div className="flex items-center justify-center gap-5 opacity-60">
               {CHOICES.map((c) => (
                 <div key={c} className="rps-float" style={{ animationDelay: `${CHOICES.indexOf(c) * 0.18}s` }}>
-                  <RpsIcon choice={c} size={40} />
+                  <RpsIcon choice={c} size={40} accent={accentOf(c)} />
                 </div>
               ))}
             </div>
@@ -444,9 +450,9 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
                 disabled={disabled}
                 onClick={() => pick(c)}
                 className={`rps-tile ${disabled ? 'rps-tile-locked' : 'rps-tile-live'}`}
-                style={{ '--rps-accent': ACCENTS[c], animationDelay: `${i * 0.22}s` }}
+                style={{ '--rps-accent': accentOf(c), animationDelay: `${i * 0.22}s` }}
               >
-                <span className="rps-tile-icon"><RpsIcon choice={c} size={52} /></span>
+                <span className="rps-tile-icon"><RpsIcon choice={c} size={52} accent={accentOf(c)} /></span>
                 <span className="text-xs font-bold uppercase tracking-[2px] text-gray-200 light:text-slate-700">{LABELS[c]}</span>
                 {/* padlock fairness badge: closed while committed/hidden, snaps open on reveal */}
                 <span className={`rps-lock ${lockOpen ? 'rps-lock-open' : 'rps-lock-closed'}`}>

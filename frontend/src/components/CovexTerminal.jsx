@@ -22,6 +22,27 @@ import { loadSnarkjs, makeFullProveBound, PROVERS } from '../lib/zk/provers';
 import { Chessboard } from 'react-chessboard';
 import ChessPreviewConfig, { defaultTimeControlFor } from './ChessPreviewConfig';
 import { DEFAULT_BOARD_THEME, DEFAULT_PIECE_SET } from '../lib/chessTheme';
+import GameThemeConfig from './GameThemeConfig';
+import { normalizeGameKey, gameLookFromConfig } from '../lib/gameTheme';
+import { DEFAULT_POKER_FELT, DEFAULT_POKER_CARD_BACK, DEFAULT_POKER_CHIPS } from '../lib/pokerTheme';
+import { DEFAULT_BLACKJACK_FELT, DEFAULT_BLACKJACK_CARD_BACK } from '../lib/blackjackTheme';
+import { DEFAULT_CONNECT4_BOARD, DEFAULT_CONNECT4_DISCS } from '../lib/connect4Theme';
+import { DEFAULT_CHECKERS_BOARD, DEFAULT_CHECKERS_PIECES } from '../lib/checkersTheme';
+import { DEFAULT_REVERSI_BOARD, DEFAULT_REVERSI_DISCS } from '../lib/reversiTheme';
+import { DEFAULT_TTT_MARKS, DEFAULT_RPS_ACCENTS } from '../lib/markGameTheme';
+
+// Default per-game appearance selections, keyed by canonical arena key. The
+// builder seeds state from this and persists the chosen ids into
+// custom_ui_config.games.<key>. Chess keeps its own dedicated state below.
+const DEFAULT_GAMES_APPEARANCE = {
+  poker: { felt: DEFAULT_POKER_FELT, card_back: DEFAULT_POKER_CARD_BACK, chips: DEFAULT_POKER_CHIPS },
+  blackjack: { felt: DEFAULT_BLACKJACK_FELT, card_back: DEFAULT_BLACKJACK_CARD_BACK },
+  connect4: { board: DEFAULT_CONNECT4_BOARD, discs: DEFAULT_CONNECT4_DISCS },
+  checkers: { board: DEFAULT_CHECKERS_BOARD, pieces: DEFAULT_CHECKERS_PIECES },
+  reversi: { board: DEFAULT_REVERSI_BOARD, discs: DEFAULT_REVERSI_DISCS },
+  tictactoe: { marks: DEFAULT_TTT_MARKS },
+  rps: { accents: DEFAULT_RPS_ACCENTS },
+};
 import { useWallet } from './WalletContext';
 import Skeleton from './ui/Skeleton';
 import FullScreenPoker from './FullScreenPoker';
@@ -1367,6 +1388,19 @@ contract VisualCovenant {
   const [chessBoardTheme, setChessBoardTheme] = useState(DEFAULT_BOARD_THEME);
   const [chessPieceSet, setChessPieceSet] = useState(DEFAULT_PIECE_SET);
   const [chessScriptCopied, setChessScriptCopied] = useState(false);
+  // Per-game appearance selections for the NON-chess arenas (poker felt + card
+  // back, connect4 discs, etc.), keyed by canonical arena key. Persisted into
+  // custom_ui_config.games.<key>. updateGameAppearance patches one field.
+  const [gamesAppearance, setGamesAppearance] = useState(DEFAULT_GAMES_APPEARANCE);
+  const updateGameAppearance = useCallback((key, field, value) => {
+    setGamesAppearance((prev) => ({ ...prev, [key]: { ...(prev[key] || {}), [field]: value } }));
+  }, []);
+  // Resolve the current selection for a game key into the look object the arenas
+  // consume, so the terminal's own playable previews honor the creator's choice.
+  const terminalLook = useCallback(
+    (key) => gameLookFromConfig({ games: { [key]: gamesAppearance[key] || {} } }, key),
+    [gamesAppearance],
+  );
   // When a saved config restores a time control, skip the next per-variant default re-seed
   // for that gameType so the creator's persisted clock wins.
   const chessTcLoadedRef = useRef(null);
@@ -1791,6 +1825,7 @@ ${gameMeta.outcomeBranches}
   // configuration the creator previewed. Null for non-chess covenants.
   const chessUiConfig = useMemo(() => {
     if (!gameType.startsWith('chess')) return null;
+    const chessLook = { board_theme: chessBoardTheme, piece_set: chessPieceSet };
     return {
       game_type: 'chess',
       variant: gameType,
@@ -1803,13 +1838,34 @@ ${gameMeta.outcomeBranches}
       per_side_stake_kas: chessStake,
       fee_percent: feePercent,
       pot_return_percent: potReturnPercent,
-      // Creator-chosen look; the public page resolves these via chessLookFromConfig.
-      chess: {
-        board_theme: chessBoardTheme,
-        piece_set: chessPieceSet,
-      },
+      // Creator-chosen look. Persisted under both the new unified games.chess and
+      // the legacy custom_ui_config.chess location so old and new readers agree.
+      chess: chessLook,
+      games: { chess: chessLook },
     };
   }, [gameType, chessBaseMinutes, chessIncrementSeconds, chessBaseMs, chessIncrementMs, chessStake, feePercent, potReturnPercent, chessBoardTheme, chessPieceSet]);
+
+  // Canonical arena key for the currently selected (non-chess) game type, or null
+  // when this is not a themeable arena game.
+  const arenaGameKey = useMemo(() => {
+    const k = normalizeGameKey(gameType);
+    return k && k !== 'chess' ? k : null;
+  }, [gameType]);
+
+  // custom_ui_config persisted for the NON-chess arena games: carries game_type +
+  // the creator-chosen appearance under games.<key>, so the public covenant page
+  // resolves the same look via gameLookFromConfig. Null when not an arena game.
+  const arenaUiConfig = useMemo(() => {
+    if (!arenaGameKey) return null;
+    return {
+      game_type: arenaGameKey,
+      variant: gameType,
+      per_side_stake_kas: chessStake,
+      fee_percent: feePercent,
+      pot_return_percent: potReturnPercent,
+      games: { [arenaGameKey]: gamesAppearance[arenaGameKey] || {} },
+    };
+  }, [arenaGameKey, gameType, chessStake, feePercent, potReturnPercent, gamesAppearance]);
 
   // ── Chess ZK Arena Handlers (full rules via chess.js + ZK outcome submission) ──
   const resetChessArena = useCallback(() => {
@@ -2128,11 +2184,27 @@ ${gameMeta.outcomeBranches}
             if (savedTc.base_minutes != null) setChessBaseMinutes(savedTc.base_minutes);
             if (savedTc.increment_seconds != null) setChessIncrementSeconds(savedTc.increment_seconds);
           }
-          // Restore the saved chess look (board theme + piece set).
-          const savedChess = cfg.chess || cfg.custom_ui_config?.chess;
+          // Restore the saved chess look (board theme + piece set). Prefer the new
+          // unified games.chess location, fall back to the legacy chess key.
+          const savedGames = cfg.games || cfg.custom_ui_config?.games || {};
+          const savedChess = savedGames.chess || cfg.chess || cfg.custom_ui_config?.chess;
           if (savedChess) {
             if (savedChess.board_theme) setChessBoardTheme(savedChess.board_theme);
             if (savedChess.piece_set) setChessPieceSet(savedChess.piece_set);
+          }
+          // Restore the saved per-game appearance for the non-chess arenas,
+          // merging onto the defaults so any unset field keeps its default.
+          if (savedGames && typeof savedGames === 'object') {
+            setGamesAppearance((prev) => {
+              const next = { ...prev };
+              for (const k of Object.keys(savedGames)) {
+                if (k === 'chess') continue;
+                if (savedGames[k] && typeof savedGames[k] === 'object') {
+                  next[k] = { ...(prev[k] || {}), ...savedGames[k] };
+                }
+              }
+              return next;
+            });
           }
           if (data.ui_html) setCustomUICode(data.ui_html);
         } else {
@@ -2251,6 +2323,8 @@ ${gameMeta.outcomeBranches}
         ...(gameType.startsWith('chess') ? {
           time_control: { base_minutes: chessBaseMinutes, increment_seconds: chessIncrementSeconds },
           custom_ui_config: chessUiConfig,
+        } : arenaUiConfig ? {
+          custom_ui_config: arenaUiConfig,
         } : {}),
         timelock: buildTimelockConfig(),
         oracle_proof: JSON.stringify(proofObj),
@@ -2346,6 +2420,8 @@ ${gameMeta.outcomeBranches}
       ...(gameType.startsWith('chess') ? {
         time_control: { base_minutes: chessBaseMinutes, increment_seconds: chessIncrementSeconds },
         custom_ui_config: chessUiConfig,
+      } : arenaUiConfig ? {
+        custom_ui_config: arenaUiConfig,
       } : {}),
       resolution_mode: resolutionMode,
       custom_oracle_key: resolutionMode === 'custom' ? customOracleKey : null,
@@ -2378,7 +2454,7 @@ ${gameMeta.outcomeBranches}
     covenantId, gameType, name, description, feePercent, potReturnPercent, reusable, allowTopups,
     customUICode, resolutionMode, customOracleKey, zkCircuit, zkVerifierKey,
     chessProvingMode, buildTimelockConfig,
-    chessBaseMinutes, chessIncrementSeconds, chessUiConfig,
+    chessBaseMinutes, chessIncrementSeconds, chessUiConfig, arenaUiConfig,
   ]);
 
   // ── Apply Custom UI (also triggers save) ──
@@ -3402,6 +3478,29 @@ ${gameMeta.outcomeBranches}
         </section>
       )}
 
+      {/* ─── GAME APPEARANCE (non-chess arena games: poker, checkers, etc.) ─── */}
+      {arenaGameKey && (
+        <section className={`${SECTION_BASE} border-[#49EACB]/25`}>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className={SECTION_HEADER}>
+              <div className="p-1.5 rounded-lg bg-[#49EACB]/20">
+                <Palette size={16} className="text-[#49EACB]" />
+              </div>
+              <span>Customize how your {(ZK_CIRCUIT_TYPES.find(c => c.id === gameType) || {}).name || 'game'} looks</span>
+            </div>
+            <span className="text-[10px] px-2 py-0.5 rounded-full border border-kaspa-green/30 text-kaspa-green tracking-wider">LIVE PREVIEW</span>
+          </div>
+          <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed -mt-1">
+            Pick the table, board, and piece colors. The preview updates live and is saved into the deployed covenant page, so every visitor sees the same look. Appearance is visual only and never changes the rules or payouts.
+          </p>
+          <GameThemeConfig
+            gameKey={arenaGameKey}
+            sel={gamesAppearance[arenaGameKey]}
+            onChange={(field, value) => updateGameAppearance(arenaGameKey, field, value)}
+          />
+        </section>
+      )}
+
       {/* ─── FULL CHESS ZK ARENA (only for chess_v1) ─── */}
       {(gameType === 'chess_v1') && (
         <section className={`${SECTION_BASE} border-[#49EACB]/30 bg-[#0a1412] ring-1 ring-[#49EACB]/20`}>
@@ -3940,6 +4039,7 @@ ${gameMeta.outcomeBranches}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
+          look={terminalLook('poker')}
         />
       )}
 
@@ -3951,6 +4051,7 @@ ${gameMeta.outcomeBranches}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
+          look={terminalLook('blackjack')}
         />
       )}
 
@@ -3962,6 +4063,7 @@ ${gameMeta.outcomeBranches}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
+          look={terminalLook('checkers')}
         />
       )}
       {showFullScreenConnect4 && (
@@ -3971,6 +4073,7 @@ ${gameMeta.outcomeBranches}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
+          look={terminalLook('connect4')}
         />
       )}
       {showFullScreenTicTacToe && (
@@ -3980,6 +4083,7 @@ ${gameMeta.outcomeBranches}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
+          look={terminalLook('tictactoe')}
         />
       )}
       {showFullScreenReversi && (
@@ -3989,6 +4093,7 @@ ${gameMeta.outcomeBranches}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
+          look={terminalLook('reversi')}
         />
       )}
       {showFullScreenRPS && (
@@ -3998,6 +4103,7 @@ ${gameMeta.outcomeBranches}
           covenantId={covenantId}
           feePercent={feePercent}
           potReturnPercent={potReturnPercent}
+          look={terminalLook('rps')}
         />
       )}
 

@@ -5,6 +5,7 @@ import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
 import GamePotPanel from './GamePotPanel';
 import { getCurrentNetwork } from './WalletContext';
+import { resolveConnect4Board, resolveConnect4Discs } from '../lib/connect4Theme';
 
 // Professional full-screen Connect 4 (7x6): persistent two-wallet multiplayer
 // over the covenant match record. Seats: player1 = R (red, drops first),
@@ -66,7 +67,12 @@ const replayBoard = (moves) => {
   return b;
 };
 
-export default function FullScreenConnect4({ stake = 30, onClose, covenantId, feePercent = 2, potReturnPercent = 2 }) {
+export default function FullScreenConnect4({ stake = 30, onClose, covenantId, feePercent = 2, potReturnPercent = 2, look }) {
+  // Creator-chosen appearance (board color + the two disc colors), resolved
+  // upstream by gameLookFromConfig. Falls back to the classic blue board with
+  // red/yellow discs so an arena opened without a look renders exactly as before.
+  const boardLook = look?.board || resolveConnect4Board();
+  const discLook = look?.discs || resolveConnect4Discs();
   const [board, setBoard] = useState(Array(COLS * ROWS).fill(null));
   const [localMethod, setLocalMethod] = useState(null);
 
@@ -226,13 +232,13 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
   // 1px inner rim, and a deeper bottom shadow for a moulded plastic feel.
   const discStyle = (label) => ({
     background: label === 'R'
-      ? 'radial-gradient(circle at 32% 28%, #ff7a6b 0%, #ef4444 42%, #b91c1c 100%)'
-      : 'radial-gradient(circle at 32% 28%, #fde68a 0%, #facc15 44%, #ca8a04 100%)',
+      ? `radial-gradient(circle at 32% 28%, ${discLook.aHi} 0%, ${discLook.aMid} 42%, ${discLook.aDeep} 100%)`
+      : `radial-gradient(circle at 32% 28%, ${discLook.bHi} 0%, ${discLook.bMid} 44%, ${discLook.bDeep} 100%)`,
     boxShadow: [
       'inset 0 1px 0 rgba(255,255,255,0.55)',
       label === 'R'
-        ? 'inset 0 0 0 1px rgba(255,160,150,0.45)'
-        : 'inset 0 0 0 1px rgba(255,235,150,0.5)',
+        ? `inset 0 0 0 1px ${discLook.aRim}`
+        : `inset 0 0 0 1px ${discLook.bRim}`,
       'inset 0 -6px 10px rgba(0,0,0,0.42)',
       '0 3px 5px rgba(0,0,0,0.55)',
     ].join(','),
@@ -310,13 +316,13 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
             className="relative grid grid-cols-7 gap-1.5 p-2.5 rounded-[20px]"
             style={{
               width: 'min(94vw, 420px)',
-              background: 'linear-gradient(180deg, #2563eb 0%, #1e3a8a 100%)',
+              background: `linear-gradient(180deg, ${boardLook.top} 0%, ${boardLook.bottom} 100%)`,
               boxShadow: [
                 'inset 0 2px 2px rgba(255,255,255,0.28)',
                 'inset 0 -10px 22px rgba(0,0,0,0.5)',
                 'inset 0 0 0 1px rgba(255,255,255,0.08)',
                 '0 22px 46px -14px rgba(0,0,0,0.7)',
-                '0 8px 18px -6px rgba(29,78,216,0.5)',
+                `0 8px 18px -6px ${boardLook.glow}`,
               ].join(','),
             }}
           >
@@ -339,13 +345,13 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
                   onClick={() => drop(col)}
                   onMouseEnter={() => setHoverCol(col)}
                   onMouseLeave={() => setHoverCol((c) => (c === col ? -1 : c))}
-                  className={`relative aspect-square rounded-full flex items-center justify-center transition-colors ${colPlayable ? 'cursor-pointer' : ''} ${isHoverCol ? 'bg-[#13235a]' : 'bg-[#0b1530]'}`}
-                  style={{ boxShadow: 'inset 0 4px 9px rgba(0,0,0,0.78), inset 0 -1px 0 rgba(255,255,255,0.05)' }}
+                  className={`relative aspect-square rounded-full flex items-center justify-center transition-colors ${colPlayable ? 'cursor-pointer' : ''}`}
+                  style={{ background: isHoverCol ? boardLook.holeHover : boardLook.hole, boxShadow: 'inset 0 4px 9px rgba(0,0,0,0.78), inset 0 -1px 0 rgba(255,255,255,0.05)' }}
                 >
                   {/* hover ghost disc (current player's color) in the next landing slot */}
                   {isGhost && !cell && (
                     <div className="absolute w-[82%] h-[82%] rounded-full opacity-30"
-                      style={{ background: myLabel === 'R' ? 'radial-gradient(circle at 32% 28%, #ff8a7a, #ef4444)' : 'radial-gradient(circle at 32% 28%, #fde68a, #facc15)' }} aria-hidden="true" />
+                      style={{ background: myLabel === 'R' ? `radial-gradient(circle at 32% 28%, ${discLook.aHi}, ${discLook.aMid})` : `radial-gradient(circle at 32% 28%, ${discLook.bHi}, ${discLook.bMid})` }} aria-hidden="true" />
                   )}
                   {cell && (
                     <div

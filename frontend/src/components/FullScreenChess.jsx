@@ -7,6 +7,7 @@ import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';
 import GamePotPanel from './GamePotPanel';
 import { getCurrentNetwork } from './WalletContext';
+import { resolveBoardTheme, resolvePieceSet } from '../lib/chessTheme';
 
 /**
  * Persistent multiplayer chess over the covenant's match record.
@@ -24,7 +25,12 @@ const PIECE_GLYPH = {
   black: { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛' },
 };
 
-export default function FullScreenChess({ stake = 50, onClose, covenantId, creatorAddr, feePercent = 2 }) {
+export default function FullScreenChess({ stake = 50, onClose, covenantId, creatorAddr, feePercent = 2, chessLook }) {
+  // Creator-chosen look (board theme + piece set), resolved upstream by
+  // gameLookFromConfig. Falls back to the classic resolved presets so an arena
+  // opened without a look prop renders exactly as it did before.
+  const board = chessLook?.board || resolveBoardTheme();
+  const pieces = chessLook?.pieces || resolvePieceSet();
   const [chess] = useState(() => new Chess());
   const [fen, setFen] = useState(chess.fen());
   // SAN history drives the move list, last-move highlight and captured material.
@@ -177,6 +183,29 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
     return rows;
   }, [sanHistory]);
 
+  // Custom piece renderers for react-chessboard v5: one glyph per piece code
+  // (wP, bK, ...) drawn in the creator-chosen piece set's color + glyph. Pure
+  // presentation; the board logic is unchanged. The board scales each renderer
+  // into its square, so the glyph just fills its box.
+  const customPieces = useMemo(() => {
+    const codes = ['P', 'N', 'B', 'R', 'Q', 'K'];
+    const map = {};
+    for (const c of codes) {
+      const whiteCode = `w${c}`;
+      const blackCode = `b${c}`;
+      // White army uses the uppercase glyph + whiteFill; black uses lowercase + blackFill.
+      const glyphWhite = pieces.glyphs[c] || pieces.glyphs[c.toLowerCase()];
+      const glyphBlack = pieces.glyphs[c.toLowerCase()] || pieces.glyphs[c];
+      map[whiteCode] = () => (
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', fontSize: '78%', lineHeight: 1, color: pieces.whiteFill, textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>{glyphWhite}</span>
+      );
+      map[blackCode] = () => (
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', fontSize: '78%', lineHeight: 1, color: pieces.blackFill, textShadow: '0 1px 2px rgba(0,0,0,0.45)' }}>{glyphBlack}</span>
+      );
+    }
+    return map;
+  }, [pieces]);
+
   const boardWidth = Math.min(460, (typeof window !== 'undefined' ? window.innerWidth : 480) - 56);
   const formatMs = (ms) => {
     const total = Math.max(0, Math.ceil((ms || 0) / 1000));
@@ -252,8 +281,9 @@ export default function FullScreenChess({ stake = 50, onClose, covenantId, creat
                   onPieceDrag,
                   allowDragging: status === 'active' && !!myColor,
                   boardOrientation: myColor === 'black' ? 'black' : 'white',
-                  darkSquareStyle: { backgroundColor: '#769656' },
-                  lightSquareStyle: { backgroundColor: '#EBECD0' },
+                  darkSquareStyle: { backgroundColor: board.dark },
+                  lightSquareStyle: { backgroundColor: board.light },
+                  pieces: customPieces,
                   showNotation: true,
                   squareStyles,
                   id: 'covex-chess',

@@ -364,14 +364,21 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       redeem.required = Math.max(1, parseInt(reqNow || '2', 10));   // quorum now
       redeem.req_after = Math.max(1, parseInt(reqAfter || '1', 10)); // quorum after the deadline
     }
-    // oracle_enforced / oracle_escrow: bind to the creator-chosen EXTERNAL resolver if one is
-    // given, else fall back to the default engine-results resolver (server-side default). The
-    // backend's resolve_oracle_xonly embeds whichever key into the redeem script, so the deployed
-    // covenant requires THIS resolver's co-signature on-chain. The dev-wallet demo supplies the
-    // winner / player keys. Validated as a 32-byte x-only hex so a bad key fails before any funds lock.
-    if (kind === 'oracle_enforced' || kind === 'oracle_escrow') {
+    // Bind a creator-chosen EXTERNAL resolver ONLY on a *_refundable kind (see
+    // kindAllowsExternalResolver): external cosign is not yet wired, so binding an external key to a
+    // non-refundable kind would build an unspendable payout branch with no refund fallback. On a
+    // refundable kind the funder can always reclaim via the CSV refund branch if the resolver never
+    // acts. When allowed and set, the backend's resolve_oracle_xonly embeds THIS key into the redeem
+    // so the covenant requires its co-signature on-chain. A blank field always falls back to the
+    // default engine-results resolver. Validated as 32-byte x-only hex so a bad key fails pre-lock.
+    if (kind === 'oracle_enforced' || kind === 'oracle_escrow' || kindAllowsExternalResolver) {
       const rk = resolverKey.trim().toLowerCase();
-      if (rk) {
+      if (rk && !kindAllowsExternalResolver) {
+        // Defense in depth: a prefilled ?resolver= deep link plus a non-refundable kind must never
+        // bind. Ignore the external key here (the field is also gated off in the UI) and deploy with
+        // the default resolver rather than erroring, so the default-resolver path is never broken.
+        // (The UI note already explains why and points to a refundable kind.)
+      } else if (rk) {
         if (!/^[0-9a-f]{64}$/.test(rk)) {
           setError('External resolver key must be a 32-byte x-only public key (64 hex chars). Leave blank to use the default engine-results resolver.');
           return;
@@ -651,6 +658,15 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   // Market and the oracle covenants are hybrid: custody/payout settle on-chain, but the
   // deployer-bound resolver decides the outcome. Only the pure P2SH primitives are on-chain-only.
   const isHybridKind = ['oracle_enforced', 'oracle_escrow', 'market', 'binary_oracle_select'].includes(kind);
+  // SAFETY GATE: binding an EXTERNAL resolver key is only safe on a *_refundable kind. The
+  // signature-cosign spend path cannot produce an external key's signature, so binding an
+  // external key to a NON-refundable oracle kind creates an unspendable payout branch (the
+  // funder cannot reclaim either). Only a refundable kind gives the funder a CSV refund fallback
+  // if the resolver never acts, so only those may expose the external-resolver-key field. The
+  // currently-offered oracle_enforced / oracle_escrow are NOT refundable, so the field is gated
+  // off for them and a note steers the user to a refundable kind. This predicate is the single
+  // gate the UI and the deploy() binding both read, so adding a *_refundable kind enables it.
+  const kindAllowsExternalResolver = /_refundable$/.test(kind);
 
   return (
     <div className={effectiveEmbedded ? 'relative w-full space-y-6' : 'relative w-full max-w-5xl mx-auto px-4 py-10 space-y-8'}>
@@ -980,12 +996,12 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           <p className="text-[11px] text-gray-400 light:text-slate-600">Demo dead-man's switch: the owner (dev wallet 1) can spend any time; the heir (dev wallet 2) can claim only after the timelock above, so funds pass on if the owner goes silent.</p>
         )}
         {kind === 'oracle_enforced' && (
-          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-of-2 of the resolver and the winner (dev wallet 1). The chain requires the resolver co-signature, and the resolver co-signs only the declared outcome. Set an external resolver below to bind a real-world covenant to a key you choose, or leave it blank to use the default engine-results resolver (deterministic move-log replay; engine results only). Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at the Toccata hard fork.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-of-2 of the resolver and the winner (dev wallet 1). The chain requires the resolver co-signature, and the resolver co-signs only the declared outcome. This kind uses the default engine-results resolver (deterministic move-log replay; engine results only). Binding your own external resolver needs a refundable kind (external cosign is not wired yet), so the funder can reclaim if the resolver does not act. Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at the Toccata hard fork.</p>
         )}
         {kind === 'oracle_escrow' && (
-          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-player pot of the dev wallets that the chain releases only to the resolver-declared winner: it needs the resolver co-signature plus the winning player on their branch. Set an external resolver below to bind to a key you choose, or leave it blank to use the default engine-results resolver. Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at Toccata.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-player pot of the dev wallets that the chain releases only to the resolver-declared winner: it needs the resolver co-signature plus the winning player on their branch. This kind uses the default engine-results resolver. Binding your own external resolver needs a refundable kind (external cosign is not wired yet), so the funder can reclaim if the resolver does not act. Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at Toccata.</p>
         )}
-        {(kind === 'oracle_enforced' || kind === 'oracle_escrow') && (
+        {(kind === 'oracle_enforced' || kind === 'oracle_escrow') && kindAllowsExternalResolver && (
           <div className="space-y-1.5">
             <label className="text-[11px] font-medium text-gray-300 light:text-slate-700">External resolver key (optional, x-only hex)</label>
             <input
@@ -996,6 +1012,26 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
               className="w-full rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-300 px-3 py-2 text-xs font-mono text-gray-200 light:text-slate-800 placeholder:text-gray-600 light:placeholder:text-slate-400 focus:outline-none focus:border-kaspa-green/50"
             />
             <p className="text-[10px] text-gray-500 light:text-slate-500">When set, the deployed covenant embeds THIS key and requires its co-signature to release. Covex is not in the path. Covex does not attest real-world facts; bring your own resolver for those.</p>
+          </div>
+        )}
+        {/* External-resolver-key field is GATED OFF for the non-refundable oracle kinds: binding an
+            external key to them would create an unspendable payout branch (external cosign is not
+            wired yet) with no refund fallback. Show the disabled field + an honest steer to a
+            refundable kind. The default engine-results resolver path stays available (blank). */}
+        {(kind === 'oracle_enforced' || kind === 'oracle_escrow') && !kindAllowsExternalResolver && (
+          <div className="space-y-1.5">
+            <label className="text-[11px] font-medium text-gray-400 light:text-slate-500">External resolver key</label>
+            <input
+              type="text"
+              value=""
+              disabled
+              aria-disabled="true"
+              placeholder="Disabled for this kind. Uses the default engine-results resolver."
+              className="w-full rounded-lg bg-black/20 light:bg-slate-100 border border-white/[0.06] light:border-slate-200 px-3 py-2 text-xs font-mono text-gray-500 light:text-slate-400 placeholder:text-gray-600 light:placeholder:text-slate-400 cursor-not-allowed"
+            />
+            <p className="text-[10px] text-gray-500 light:text-slate-500 leading-snug">
+              External cosign is not yet wired. To bind an external resolver safely, choose a refundable kind so the funder can reclaim if the resolver does not act. See the connection guide (docs/CONNECTING_AN_ORACLE.md). This covenant deploys with the default engine-results resolver.
+            </p>
           </div>
         )}
         {kind === 'binary_oracle_select' && (

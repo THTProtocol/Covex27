@@ -382,7 +382,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
           </div>
           <div className="flex flex-col items-center gap-1 pt-1">
             <div className="text-[#49EACB] light:text-[#0d9488] text-[10px] tracking-[4px] font-bold">ROUND</div>
-            <div className="font-mono text-lg font-black text-white light:text-slate-800" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{Math.min(roundIndex + 1, 3)}<span className="text-gray-600 light:text-slate-400">/3</span></div>
+            <div className="font-mono text-lg font-black text-white light:text-slate-800" style={{ fontFamily: "'JetBrains Mono', monospace" }}>{Math.min(roundIndex + 1, 3)}<span className="text-gray-600 light:text-slate-600">/3</span></div>
           </div>
           <div className={`flex flex-col items-center ${myColor === 'black' ? 'rps-seat-me' : ''}`}>
             <div className="text-[11px] font-bold tracking-wider text-gray-300 light:text-slate-600">O {myColor === 'black' && <span className="text-[#49EACB] light:text-[#0d9488]">(you)</span>}</div>

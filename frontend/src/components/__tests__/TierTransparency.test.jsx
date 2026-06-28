@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import TierTransparency from '../TierTransparency.jsx';
 
 // TierTransparency is the single authoritative statement of the honesty rule:
-// almost everything is free; paid adds only PRIORITY PLACEMENT and the FULL
+// building any covenant is free; paid adds only PRIORITY PLACEMENT and the FULL
 // premium UI website template library, never a technical capability. These tests
 // pin the exact load-bearing copy and the tier-reflecting line so the message
 // cannot silently drift (the same component renders in the Terminal and on Pricing).

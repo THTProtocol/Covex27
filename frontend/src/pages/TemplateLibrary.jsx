@@ -129,7 +129,7 @@ export default function TemplateLibrary() {
                       <div className="text-4xl leading-none">{icon}</div>
                       {t.reality && <span className={`shrink-0 text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide ${realityStyle}`}>{t.reality}</span>}
                     </div>
-                    <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1.5 truncate">{catLabel(t.category) || 'Covenant'}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 mb-1.5 truncate">{catLabel(t.category) || 'Covenant'}</div>
                     <h3 className="text-lg font-bold text-white light:text-slate-900 mb-1.5 leading-tight break-words">{t.name || t.id}</h3>
                     <p className="text-xs text-gray-400 light:text-slate-500 mb-4 leading-relaxed break-words line-clamp-3">{t.description}</p>
                     <a href={hrefFor(t)}

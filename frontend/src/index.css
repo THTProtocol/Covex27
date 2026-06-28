@@ -230,6 +230,46 @@ h3, h4 {
   --accent: 73 234 203;
   --input-bg: 0 0 0 / 0.4;
   --kaspa-green: #49EACB;
+
+  /* ═══════════════════════════════════════════════════════════════
+     DARK SURFACE ELEVATION RAMP (single source of truth)
+     Before this, ~30 ad-hoc near-black hexes (#0a0a0f / #0c0c14 /
+     #0e0e16 / #15151f ...) hand-rolled the same few surfaces, so a card
+     base on one page drifted a few points off the same card on another.
+     This is the canonical dark mirror of the light --lm-surface ramp:
+     one deep canvas, then three raised steps, plus a hairline border.
+     Use via the .surface-* utility classes below or bg-[var(--ds-...)].
+     ═══════════════════════════════════════════════════════════════ */
+  --ds-canvas: #05050a;      /* page base (mirrors --color-surface-base) */
+  --ds-surface: #0a0a0f;     /* canonical card/panel base */
+  --ds-surface-2: #0c0c14;   /* raised tile / gradient mid-stop */
+  --ds-surface-3: #0e0e16;   /* elevated panel / inner well */
+  --ds-surface-4: #15151f;   /* topmost: gradient highlight, hover lift */
+  --ds-border: rgba(255, 255, 255, 0.10);   /* canonical hairline */
+  --ds-border-subtle: rgba(255, 255, 255, 0.06);
+}
+
+/* Token-driven dark surface utilities. They carry the dark value plus the
+   matching light-mode override, so a single class is theme-correct on both
+   sides instead of needing a paired `light:bg-*`. Components that need a
+   gradient still reach for bg-[var(--ds-surface-2)] etc. directly. */
+.surface-1 { background-color: var(--ds-surface); }
+.surface-2 { background-color: var(--ds-surface-2); }
+.surface-3 { background-color: var(--ds-surface-3); }
+.light .surface-1 { background-color: var(--lm-surface); }
+.light .surface-2 { background-color: var(--lm-surface-2); }
+.light .surface-3 { background-color: var(--lm-surface-3); }
+
+/* Scoped interactive transition (the canonical replacement for blanket
+   `transition-all`). `transition-all` watches every animatable property, so a
+   hover that only changes color still forces the browser to consider layout +
+   paint on width/height/top/etc - a jank + perf smell. This animates only the
+   properties our hover/press states actually touch (color, the three surface
+   fills, shadow, transform) on the standard 200ms premium ease. */
+.transition-surface {
+  transition-property: color, background-color, border-color, box-shadow, transform;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--motion-ease-out);
 }
 
 /* ═══════════════════════════════════════════════════════════════

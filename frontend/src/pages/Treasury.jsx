@@ -102,7 +102,7 @@ export default function Treasury() {
           <Landmark size={22} className="text-kaspa-green light:text-emerald-600" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-black text-white light:text-slate-900">Every payment, in the open</h1>
+          <h1 className="h-page text-white light:text-slate-900">Every payment, in the open</h1>
           <p className="text-sm text-gray-400 light:text-slate-500">Every tier payment is an <span className="text-kaspa-green/90 light:text-emerald-700 font-semibold">on-chain</span> transaction to a public address. Verify everything yourself.</p>
         </div>
       </div>

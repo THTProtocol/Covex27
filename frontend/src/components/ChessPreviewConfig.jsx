@@ -202,7 +202,7 @@ export default function ChessPreviewConfig({
           <div className="flex items-center gap-2">
             <Palette size={15} className="text-kaspa-green" />
             <span className="text-[11px] uppercase tracking-wider text-gray-300 light:text-slate-600 font-semibold">Board and pieces</span>
-            <span className="ml-auto text-[10px] text-gray-500 light:text-slate-400">saved into your covenant page</span>
+            <span className="ml-auto text-[10px] text-gray-500 light:text-slate-600">saved into your covenant page</span>
           </div>
           <ChoiceRow
             label="Board theme"
@@ -346,14 +346,14 @@ export default function ChessPreviewConfig({
                 <button type="button" className="w-full py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-xs shadow-[0_0_15px_rgba(73,234,203,0.3)] cursor-default" tabIndex={-1}>
                   STAKE {stake} KAS &amp; MATCH
                 </button>
-                <p className="text-[9px] text-gray-500 light:text-slate-400 text-center leading-relaxed">
+                <p className="text-[9px] text-gray-500 light:text-slate-600 text-center leading-relaxed">
                   Winner takes {winnerKas} KAS after the {feePercent}% fee. Draw refunds both sides.
                 </p>
               </div>
             </div>
           </div>
         </div>
-        <p className="text-[10px] text-gray-500 light:text-slate-400 leading-relaxed">
+        <p className="text-[10px] text-gray-500 light:text-slate-600 leading-relaxed">
           This mock reflects your current time control, stake, and fee. The deployed covenant page renders the same configuration with the full interactive board and live clocks.
         </p>
       </div>

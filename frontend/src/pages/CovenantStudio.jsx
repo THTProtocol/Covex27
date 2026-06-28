@@ -55,7 +55,7 @@ function PuckPageThumb({ data, liveData, height = 120, scale = 0.16, className =
           <PuckRender config={puckConfig} data={data} metadata={{ live: liveData }} />
         </div>
       ) : (
-        <div className="flex items-center justify-center h-full text-[10px] uppercase tracking-widest font-bold text-gray-500 light:text-slate-400">
+        <div className="flex items-center justify-center h-full text-[10px] uppercase tracking-widest font-bold text-gray-500 light:text-slate-600">
           Blank page
         </div>
       )}
@@ -1301,7 +1301,7 @@ function MobileStudioInterstitial({ covenantId, data, liveData }) {
           </button>
         </div>
         <div className="px-5 py-3 border-t border-white/[0.06] light:border-slate-100 flex items-center gap-2">
-          <Smartphone size={13} className="text-gray-500 light:text-slate-400 shrink-0" />
+          <Smartphone size={13} className="text-gray-500 light:text-slate-600 shrink-0" />
           <p className="text-[11px] text-gray-500 light:text-slate-500 leading-snug">
             Tip: page settings, theme and templates still work here from the toolbar overflow menu.
           </p>

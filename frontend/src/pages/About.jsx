@@ -332,7 +332,7 @@ export default function AboutPage() {
                 transition={{ duration: 0.45, delay: i * 0.04 }}
                 className="ml-7 relative"
               >
-                <span className="absolute -left-[2.35rem] top-0 w-8 h-8 rounded-full bg-[#0b0e16] border border-[#49EACB]/40 flex items-center justify-center light:bg-white light:border-teal-300">
+                <span className="absolute -left-[2.35rem] top-0 w-8 h-8 rounded-full bg-[var(--ds-surface-3)] border border-[#49EACB]/40 flex items-center justify-center light:bg-white light:border-teal-300">
                   <s.icon size={15} className="text-[#49EACB] light:text-teal-600" />
                 </span>
                 <h3 className="text-base font-bold text-white light:text-slate-900 flex items-center gap-2">
@@ -405,7 +405,7 @@ export default function AboutPage() {
         >
           <Card hero className="text-center p-8 sm:p-12 relative overflow-hidden">
             <Sparkles size={26} className="text-[#49EACB] light:text-teal-600 mx-auto mb-4" />
-            <h2 className="text-2xl sm:text-4xl font-black text-white light:text-slate-900 tracking-tight">
+            <h2 className="h-page text-white light:text-slate-900">
               Build your first covenant
             </h2>
             <p className="text-gray-300 light:text-slate-600 mt-3 max-w-xl mx-auto leading-relaxed">

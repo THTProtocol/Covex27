@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import { explorerAddressUrl } from '../lib/explorer';
+import { truncateHash } from '../lib/format.js';
 import { Link } from 'react-router-dom';
 import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, walletPrimaryAction, isMobile } from './WalletContext';
 import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles, Smartphone, Download, Loader2, QrCode, KeyRound, ShieldCheck } from 'lucide-react';
@@ -280,7 +281,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
           {meta?.logo
             ? <img src={meta.logo} alt="" className="w-4 h-4 rounded-sm shrink-0" />
             : <span className="w-1.5 h-1.5 rounded-full bg-[#49EACB] shadow-[0_0_6px_#49EACB] shrink-0" />}
-          <span className="font-mono shrink-0">{address.slice(0, 6)}...{address.slice(-4)}</span>
+          <span className="font-mono shrink-0">{truncateHash(address, 6, 4)}</span>
           {balance !== null ? (
             <span className="hidden sm:inline text-gray-300 light:text-slate-600 text-xs tabular-nums shrink-0">{(balance / 1e8).toLocaleString(undefined, { maximumFractionDigits: 2 })} KAS</span>
           ) : balanceLoading ? (

@@ -2619,7 +2619,7 @@ ${gameMeta.outcomeBranches}
 
       {/* ─── Tier transparency: ALWAYS visible, every tier, all the time. Same component
             and copy as the Pricing page so the message can never drift. Honesty rule:
-            almost everything is free; paid adds only priority placement and the premium
+            building any covenant is free; paid adds only priority placement and the premium
             UI website template library, never a technical capability. ─── */}
       <TierTransparency currentTier={currentTier} />
 
@@ -2836,7 +2836,7 @@ ${gameMeta.outcomeBranches}
                         {keys.map(k => (
                           <div key={k}>
                             <div className="text-[9px] uppercase tracking-widest text-[#49EACB]/80 font-semibold mb-1 sticky top-0 bg-black/60 backdrop-blur py-0.5 light:bg-white/90">
-                              {TITLE[k] || k} <span className="text-gray-600 ml-1 light:text-slate-400">{groups[k].length}</span>
+                              {TITLE[k] || k} <span className="text-gray-600 ml-1 light:text-slate-600">{groups[k].length}</span>
                             </div>
                             <div className="flex flex-wrap gap-1">{groups[k].map(Pill)}</div>
                           </div>
@@ -3058,7 +3058,7 @@ ${gameMeta.outcomeBranches}
                 <div className="flex items-center gap-2 mb-1.5">
                   <BadgeCheck size={13} className="text-emerald-400 light:text-emerald-600" />
                   <span className="text-[11px] font-semibold text-emerald-300 uppercase tracking-wider light:text-emerald-700">Production circuits</span>
-                  <span className="text-[10px] text-gray-500 light:text-slate-400">{production.length}</span>
+                  <span className="text-[10px] text-gray-500 light:text-slate-600">{production.length}</span>
                 </div>
                 <p className="text-[10px] text-gray-400 mb-2 light:text-slate-500">
                   Ship a real Groth16 prover and/or fail-closed verifier, proven end-to-end (valid accepted, tampered rejected). Verified off-chain by you, the counterparty, or any external verifier (snarkjs against the audited vkey).

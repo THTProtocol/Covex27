@@ -1045,7 +1045,7 @@ export default function CovenantInteractive() {
           no published page see a subtle honest note inviting them to interact directly. */}
       {!isCreator && !creatorSurface ? (
         <div className="mb-10 flex items-center gap-2.5 rounded-2xl border border-white/[0.06] light:border-slate-200 bg-white/[0.02] light:bg-slate-50 px-4 py-3 text-[12px] text-gray-400 light:text-slate-500">
-          <LayoutTemplate size={15} className="shrink-0 text-gray-500 light:text-slate-400" />
+          <LayoutTemplate size={15} className="shrink-0 text-gray-500 light:text-slate-600" />
           <span>The creator can design a full interactive page for this covenant in Covex Page Studio. Until then, you can interact with it directly below.</span>
         </div>
       ) : null}
@@ -1203,8 +1203,8 @@ export default function CovenantInteractive() {
                   <Fragment key={st.label}>
                     <div className="flex flex-col items-center text-center flex-1 min-w-0 px-0.5">
                       <div className={`w-3 h-3 rounded-full mb-1.5 shrink-0 ${st.done ? 'bg-kaspa-green shadow-[0_0_8px_rgba(73,234,203,0.6)]' : 'bg-white/15 border border-white/20 light:bg-slate-200 light:border-slate-300'}`} />
-                      <span className={`text-[11px] font-semibold leading-tight ${st.done ? 'text-white light:text-slate-900' : 'text-gray-500 light:text-slate-400'}`}>{st.label}</span>
-                      <span className="text-[9px] text-gray-500 light:text-slate-400 font-mono leading-tight break-words mt-0.5">{st.sub}</span>
+                      <span className={`text-[11px] font-semibold leading-tight ${st.done ? 'text-white light:text-slate-900' : 'text-gray-500 light:text-slate-600'}`}>{st.label}</span>
+                      <span className="text-[9px] text-gray-500 light:text-slate-600 font-mono leading-tight break-words mt-0.5">{st.sub}</span>
                     </div>
                     {i < arr.length - 1 && (
                       <div className={`relative h-px flex-none w-3 sm:w-10 mt-1.5 overflow-hidden ${st.done ? 'bg-kaspa-green/15' : 'bg-white/10'}`}>

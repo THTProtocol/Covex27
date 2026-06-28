@@ -36,11 +36,11 @@ import { GoldenGrid } from '../components/GoldenGrid';
 import CopyButton from '../components/CopyButton';
 import { Badge } from '../components/ui/Badge';
 import { TIER_PALETTE, TIER_COLOR } from '../lib/tierPalette';
+import { formatKas, formatCount, truncateMiddle as truncMiddle } from '../lib/format.js';
 
-// Middle-truncate a long address/hash for a compact resolved-chip readout:
-// kaspa:qpz2...n4uk5a. Keeps both ends (network prefix + checksum tail) legible.
-const truncMiddle = (s, head = 12, tail = 6) =>
-  s && s.length > head + tail + 3 ? `${s.slice(0, head)}...${s.slice(-tail)}` : s || '';
+// Middle-truncate a long address/hash for a compact resolved-chip readout
+// (kaspa:qpz2…n4uk5a) via the shared formatter, so the ellipsis and head/tail
+// lengths match every other short-hash chip in the app.
 
 // Normalize a pasted search box value: a full Covex/explorer URL or a bare 64-hex
 // txid both resolve to the term the existing search path expects. Humans paste
@@ -68,29 +68,10 @@ function normalizeSearchTerm(raw) {
   return q;
 }
 
-const formatKaspa = (kas) => {
-  if (kas == null) return 'N/A';
-  const num = Number(kas);
-  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M KAS`;
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}K KAS`;
-  return `${num.toLocaleString(undefined, { maximumFractionDigits: 2 })} KAS`;
-};
-
-// Compact count formatter for hero stat columns. At 375px the 3-up grid gives
-// each cell ~100px, so a raw ".toLocaleString()" on totals over 9,999 wraps or
-// clips. Abbreviate large counts (1.2k, 1.2M) to keep stat numbers on one line
-// while small counts still render in full.
-const formatCount = (n) => {
-  if (n == null) return '0';
-  const num = Number(n);
-  if (!Number.isFinite(num)) return '0';
-  if (num >= 1000000) return `${(num / 1000000).toFixed(1).replace(/\.0$/, '')}M`;
-  if (num >= 1000) return `${(num / 1000).toFixed(1).replace(/\.0$/, '')}k`;
-  return Math.round(num).toLocaleString();
-};
-
-const truncate = (s, n = 8) =>
-  s && s.length > n * 2 ? `${s.slice(0, n)}...${s.slice(-4)}` : s || 'N/A';
+// The headline VALUE LOCKED figure: the shared formatter with the " KAS" unit and
+// the Explorer's 'N/A' fallback for a missing amount (formatCount, used by the
+// hero stat columns, is imported above).
+const formatKaspa = (kas) => formatKas(kas, { unit: true, fallback: 'N/A' });
 
 // Tier identity, aligned with the canonical lib/tierPalette.js. MAX previously
 // borrowed amber here, which collided with PRO across the rest of the app
@@ -274,7 +255,7 @@ function LiveSnapshotCard({ stats, netLabel, network }) {
   const tvlNum = sp > 0 ? tvlStr.slice(0, sp) : tvlStr;
   const tvlUnit = sp > 0 ? tvlStr.slice(sp + 1) : '';
   return (
-    <div className="hover-lift relative overflow-hidden rounded-2xl border border-white/10 light:border-slate-200 bg-gradient-to-br from-[#0c0c14]/90 to-[#0c0c14]/70 light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_24px_64px_-28px_rgba(73,234,203,0.35)] light:shadow-[0_10px_30px_-14px_rgba(15,23,42,0.14)]">
+    <div className="hover-lift relative overflow-hidden rounded-2xl border border-white/10 light:border-slate-200 bg-gradient-to-br from-[var(--ds-surface-2)]/90 to-[var(--ds-surface-2)]/70 light:from-white light:to-slate-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_24px_64px_-28px_rgba(73,234,203,0.35)] light:shadow-[0_10px_30px_-14px_rgba(15,23,42,0.14)]">
       <div aria-hidden="true" className="absolute inset-0 pointer-events-none bg-[radial-gradient(120%_140%_at_0%_0%,rgba(73,234,203,0.08),transparent_55%)]" />
       <div className="relative flex items-center gap-2 px-5 pt-4 pb-3 border-b border-white/[0.06] light:border-slate-200">
         <span className="relative inline-flex h-1.5 w-1.5">
@@ -702,7 +683,7 @@ export default function Explorer() {
               >
                 Interactive Covenants for The <span className="text-kaspa-green">Kaspa BlockDAG</span>
               </h1>
-              <p className="text-base sm:text-lg md:text-xl text-gray-200 light:text-slate-600 max-w-2xl mx-auto md:mx-0 leading-relaxed mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
+              <p className="lede max-w-2xl mx-auto md:mx-0 mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
                 Build any covenant, free. Escrows, ZK proofs, vesting, custom logic: deploy it, give it a custom website in the Studio, and claim non-custodially. No account, no cap.
               </p>
               <p className="text-[12px] text-white/45 light:text-slate-600 max-w-xl mx-auto md:mx-0 mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
@@ -715,7 +696,7 @@ export default function Explorer() {
                   builder). Categories are the canonical ALL_CATEGORIES / CATEGORY_QUERY keys. */}
               <div className="relative flex flex-wrap items-center justify-center md:justify-start gap-2 max-w-2xl mx-auto md:mx-0 mb-8 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.12s_both]">
                 {CAPABILITY_CHIPS.map(({ label, category, to, Icon }) => {
-                  const cls = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-medium text-white/80 light:text-slate-700 hover:text-kaspa-green light:hover:text-emerald-700 hover:border-kaspa-green/40 light:hover:border-emerald-400 hover:bg-kaspa-green/[0.06] light:hover:bg-emerald-50 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60';
+                  const cls = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-medium text-white/80 light:text-slate-700 hover:text-kaspa-green light:hover:text-emerald-700 hover:border-kaspa-green/40 light:hover:border-emerald-400 hover:bg-kaspa-green/[0.06] light:hover:bg-emerald-50 transition-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60';
                   return to ? (
                     <Link key={label} to={to} className={cls}>
                       <Icon size={13} className="text-kaspa-green light:text-emerald-700 shrink-0" aria-hidden="true" /> {label}
@@ -740,7 +721,7 @@ export default function Explorer() {
                 <Link
                   data-tour="build-cta"
                   to="/sandbox"
-                  className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+                  className="group inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
                 >
                   <Sparkles size={16} className="transition-transform duration-300 group-hover:rotate-12" />
                   Build a Covenant
@@ -808,7 +789,7 @@ export default function Explorer() {
         <div className="flex justify-center mb-4">
           <button
             onClick={() => setShowCategoryPanel(!showCategoryPanel)}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 light:bg-white border border-white/10 light:border-slate-200 text-sm text-white/80 light:text-slate-700 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 transition-all"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 light:bg-white border border-white/10 light:border-slate-200 text-sm text-white/80 light:text-slate-700 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 transition-surface"
           >
             <Layers size={16} className="text-kaspa-green" />
             {activeCategory === 'All' ? 'All Covenant Types' : (CATEGORY_LABEL[activeCategory] || activeCategory)}
@@ -828,7 +809,7 @@ export default function Explorer() {
                 <button
                   key={cat}
                   onClick={() => { setActiveCategory(cat); setShowCategoryPanel(false); }}
-                  className={`px-3 py-2 rounded-xl border text-left transition-all duration-200 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 focus-visible:border-kaspa-green/40 ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white text-white/70 light:text-slate-600 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/5 light:hover:bg-slate-50 hover:-translate-y-px'}`}
+                  className={`px-3 py-2 rounded-xl border text-left transition-[color,background-color,border-color,box-shadow,transform] duration-200 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 focus-visible:border-kaspa-green/40 ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white text-white/70 light:text-slate-600 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/5 light:hover:bg-slate-50 hover:-translate-y-px'}`}
                 >
                   {CATEGORY_LABEL[cat] || cat}
                 </button>
@@ -901,7 +882,7 @@ export default function Explorer() {
                 tabIndex={activeId === tab.id ? 0 : -1}
                 onKeyDown={onTabKeyDown}
                 onClick={() => selectTab(tab.id)}
-                className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 active:scale-[0.97] ${
+                className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-[color,background-color,border-color,box-shadow,transform] duration-200 flex items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 active:scale-[0.97] ${
                   activeId === tab.id ? 'bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20' : 'text-gray-300 hover:text-white'
                 }`}
               >
@@ -916,7 +897,7 @@ export default function Explorer() {
               tabIndex={activeId === 'arena' ? 0 : -1}
               onKeyDown={onTabKeyDown}
               onClick={() => selectTab(showArena ? 'explore' : 'arena')}
-              className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 active:scale-[0.97] ${
+              className={`px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold transition-[color,background-color,border-color,box-shadow,transform] duration-200 flex items-center gap-1.5 outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 active:scale-[0.97] ${
                 showArena ? 'bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20' : 'text-gray-300 hover:text-white border border-transparent'
               }`}
             >
@@ -941,7 +922,7 @@ export default function Explorer() {
         {activeTab === 'search' && (
           <div className="space-y-6">
             <form onSubmit={handleSearch} className="relative">
-              <div className="relative flex items-center gap-3 p-3 sm:p-4 rounded-2xl glass-panel focus-within:border-kaspa-green/40 transition-all">
+              <div className="relative flex items-center gap-3 p-3 sm:p-4 rounded-2xl glass-panel focus-within:border-kaspa-green/40 transition-surface">
                 <Search size={18} className="text-kaspa-green shrink-0" />
                 <input type="text" ref={searchInputRef} value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
@@ -949,11 +930,9 @@ export default function Explorer() {
                   className="flex-1 bg-transparent border-none outline-none text-sm font-mono text-white light:text-slate-900 placeholder:text-gray-200 light:placeholder:text-slate-400"
                   autoFocus spellCheck={false} autoComplete="off"
                 />
-                <button type="submit" disabled={searchLoading || !searchQuery.trim()}
-                  className="btn-shimmer px-4 py-2 rounded-xl bg-kaspa-green text-black font-bold text-xs hover:brightness-110 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2 transition-all"
-                >
+                <Button type="submit" variant="kaspa" size="sm" shimmer disabled={searchLoading || !searchQuery.trim()}>
                   {searchLoading ? <Spinner variant="inverse" size="xs" label="Searching" /> : <><Search size={12} /> Search</>}
-                </button>
+                </Button>
               </div>
             </form>
             <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-gray-200 light:text-slate-500">
@@ -1079,7 +1058,7 @@ export default function Explorer() {
               </div>
               <Link
                 to="/sandbox?category=game"
-                className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green hover:brightness-110 text-black font-extrabold text-sm transition-all shadow-[0_8px_24px_-10px_rgba(73,234,203,0.7)]"
+                className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green hover:brightness-110 text-black font-extrabold text-sm transition-surface shadow-[0_8px_24px_-10px_rgba(73,234,203,0.7)]"
               >
                 <Play size={14} /> Create a game
               </Link>
@@ -1094,7 +1073,7 @@ export default function Explorer() {
                     <Link
                       key={m.covenant_id}
                       to={`/covenant/${encodeURIComponent(m.covenant_id)}?play=1`}
-                      className="glass-panel rounded-2xl p-4 border border-emerald-500/25 hover:border-emerald-400/60 transition-all hover:-translate-y-0.5 flex items-center justify-between gap-3"
+                      className="glass-panel rounded-2xl p-4 border border-emerald-500/25 hover:border-emerald-400/60 transition-surface hover:-translate-y-0.5 flex items-center justify-between gap-3"
                     >
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-white capitalize">{m.game_type} match</p>
@@ -1128,7 +1107,7 @@ export default function Explorer() {
                   <p className="text-sm text-gray-300 max-w-md mx-auto mb-5">When a game creator is waiting for an opponent, their match appears here. Or start your own.</p>
                   <Link
                     to="/sandbox?category=game"
-                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green hover:brightness-110 text-black font-extrabold text-sm transition-all shadow-[0_8px_24px_-10px_rgba(73,234,203,0.7)]"
+                    className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green hover:brightness-110 text-black font-extrabold text-sm transition-surface shadow-[0_8px_24px_-10px_rgba(73,234,203,0.7)]"
                   >
                     <Play size={14} /> Create a game covenant
                   </Link>
@@ -1142,7 +1121,7 @@ export default function Explorer() {
                   const stakeAmt = g.amount_kaspa || 1;
                   const tierAccent = TIER_COLOR[tierKey] || TIER_COLOR.FREE;
                   return (
-                    <div key={g.tx_id || i} className={`hover-lift relative overflow-hidden glass-panel rounded-3xl p-5 border transition-all ${cfg.border} bg-gradient-to-br ${cfg.gradient} ${cfg.glow} min-h-[210px] flex flex-col`}>
+                    <div key={g.tx_id || i} className={`hover-lift relative overflow-hidden glass-panel rounded-2xl p-5 border transition-surface ${cfg.border} bg-gradient-to-br ${cfg.gradient} ${cfg.glow} min-h-[210px] flex flex-col`}>
                       <div
                         aria-hidden="true"
                         className="absolute top-0 inset-x-0 h-[3px]"
@@ -1162,7 +1141,7 @@ export default function Explorer() {
                       <div className="text-xs text-gray-300 mb-4 flex-1">Match the stake to join. On-chain covenant with transparent resolution.</div>
                       <Link
                         to={`/covenant/${encodeURIComponent(g.tx_id)}`}
-                        className="btn-shimmer w-full py-3 bg-kaspa-green hover:brightness-110 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] flex items-center justify-center gap-2 transition-all shadow-[0_0_0_1px_rgba(73,234,203,0.35),0_10px_30px_-10px_rgba(73,234,203,0.5)] hover:shadow-[0_0_28px_rgba(73,234,203,0.45)]"
+                        className="btn-shimmer w-full py-3 bg-kaspa-green hover:brightness-110 text-black font-extrabold rounded-2xl text-sm active:scale-[0.985] flex items-center justify-center gap-2 transition-surface shadow-[0_0_0_1px_rgba(73,234,203,0.35),0_10px_30px_-10px_rgba(73,234,203,0.5)] hover:shadow-[0_0_28px_rgba(73,234,203,0.45)]"
                       >
                         <Play size={14} /> JOIN BY STAKING ({formatKaspa(stakeAmt)})
                       </Link>
@@ -1199,13 +1178,13 @@ export default function Explorer() {
                   <button
                     type="button"
                     onClick={() => switchNetwork(DEFAULT_NETWORK)}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
                   >
                     Browse 14,000+ live covenants <ArrowRight size={16} />
                   </button>
                   <Link
                     to="/sandbox"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-all duration-300"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
                   >
                     Build a covenant
                   </Link>
@@ -1223,13 +1202,13 @@ export default function Explorer() {
                   <button
                     type="button"
                     onClick={startTour}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
                   >
                     Take the tour
                   </button>
                   <Link
                     to="/sandbox"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-all duration-300"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
                   >
                     Build directly
                   </Link>
@@ -1275,14 +1254,14 @@ export default function Explorer() {
                       <button
                         type="button"
                         onClick={startTour}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
                       >
                         Take the tour
                       </button>
                       <button
                         type="button"
                         onClick={() => { setActiveCategory('All'); setSearchQuery(''); setShowCategoryPanel(false); }}
-                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-all duration-300"
+                        className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
                       >
                         Clear filters
                       </button>
@@ -1307,7 +1286,7 @@ export default function Explorer() {
                     <button
                       onClick={loadMore}
                       disabled={loadingMore}
-                      className="btn-shimmer inline-flex items-center gap-2 px-6 py-2.5 rounded-xl border border-kaspa-green/40 text-kaspa-green text-sm font-bold hover:bg-kaspa-green/10 transition-all duration-200 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 disabled:opacity-50 disabled:cursor-wait"
+                      className="btn-shimmer inline-flex items-center gap-2 px-6 py-2.5 rounded-xl border border-kaspa-green/40 text-kaspa-green text-sm font-bold hover:bg-kaspa-green/10 transition-[color,background-color,border-color,box-shadow,transform] duration-200 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 disabled:opacity-50 disabled:cursor-wait"
                     >
                       {loadingMore ? <><Spinner size="sm" label="Loading more covenants" /> Loading...</> : `Load more (${stats.total.toLocaleString()} total)`}
                     </button>
@@ -1395,11 +1374,11 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
 
   return (
     <Link to={`/covenant/${encodeURIComponent(c.tx_id)}`}
-      className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform hover:-translate-y-1 active:-translate-y-0 active:scale-[0.995] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0a0a0f] light:focus-visible:ring-offset-white ${
+      className={`group relative flex flex-col rounded-2xl border overflow-hidden transition-[transform,border-color,box-shadow] duration-200 ease-[cubic-bezier(0.16,1,0.3,1)] will-change-transform hover:-translate-y-1 active:-translate-y-0 active:scale-[0.995] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--ds-surface)] light:focus-visible:ring-offset-white ${
         isPaid
           ? `${cfg.border} ${cfg.glow} holo-border hover:shadow-2xl`
           : 'border-white/[0.08] light:border-slate-200 hover:border-[color:var(--ca)] hover:shadow-[0_22px_55px_-22px_var(--cg)]'
-      } bg-gradient-to-br from-[#15151f] via-[#0e0e16] to-[#0a0a0f] light:from-white light:via-white light:to-slate-50 min-h-[340px]`}
+      } bg-gradient-to-br from-[var(--ds-surface-4)] via-[var(--ds-surface-3)] to-[var(--ds-surface)] light:from-white light:via-white light:to-slate-50 min-h-[340px]`}
       style={!isPaid ? { '--ca': accA(0.55), '--cg': accA(0.4) } : undefined}
     >
       {/* Top accent bar - paid cards project their tier identity (brand-consistent
@@ -1420,7 +1399,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
         <div className="absolute inset-0 opacity-[0.06]" style={{
           backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.9) 1px, transparent 1px)', backgroundSize: '14px 14px',
         }} />
-        <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-[#0d0d14] light:from-white to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-5 bg-gradient-to-t from-[var(--ds-surface-3)] light:from-white to-transparent" />
         <div className="relative z-10 flex items-center justify-between h-full px-3.5 gap-2">
           <div className="flex items-center gap-1.5 min-w-0">
             {c._isNew && (
@@ -1553,7 +1532,7 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
             <span className="mx-1.5 text-white/15">·</span>
             {timestamp}
           </span>
-          <span className={`shrink-0 inline-flex items-center gap-1 font-semibold ${isPaid ? cfg.text : 'text-kaspa-green/90'} group-hover:gap-1.5 transition-all`}>
+          <span className={`shrink-0 inline-flex items-center gap-1 font-semibold ${isPaid ? cfg.text : 'text-kaspa-green/90'} group-hover:gap-1.5 transition-surface`}>
             View <span className="group-hover:translate-x-0.5 transition-transform">{'→'}</span>
           </span>
         </div>

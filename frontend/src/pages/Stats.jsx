@@ -95,7 +95,7 @@ function BarList({ rows, max, colorFor, labelKey, valueKey, valueFmt }) {
           <div key={r[labelKey]} className="flex items-center gap-3 rounded-md -mx-1 px-1 py-0.5 hover:bg-white/[0.02] light:hover:bg-slate-50 transition-colors">
             <div className="w-28 shrink-0 text-[11px] font-mono text-gray-300 light:text-slate-600 truncate" title={r[labelKey]}>{r[labelKey]}</div>
             <div className="flex-1 h-5 rounded-md bg-white/[0.03] light:bg-slate-100 overflow-hidden">
-              <div className="h-full rounded-md transition-all" style={{ width: `${pct}%`, background: colorFor(r) }} />
+              <div className="h-full rounded-md transition-[width] duration-500 ease-out" style={{ width: `${pct}%`, background: colorFor(r) }} />
             </div>
             <div className="num w-24 shrink-0 text-right text-[11px] text-gray-300 light:text-slate-600">{valueFmt(v)}</div>
           </div>
@@ -199,13 +199,13 @@ export default function Stats() {
 
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
         <div>
-          <h1 className="h-page text-3xl sm:text-4xl font-black tracking-[-0.02em] text-white light:text-slate-900">The numbers, live and on-chain</h1>
+          <h1 className="h-page text-white light:text-slate-900">The numbers, live and on-chain</h1>
           <p className="text-sm text-gray-400 light:text-slate-600 mt-1">Live aggregates from indexed covenants, confirmed treasury payments, and on-chain activity. Real data only.</p>
         </div>
         <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5 self-start light:bg-white light:border-slate-200">
           {NETWORKS.map((n) => (
             <button key={n.value} onClick={() => setNetwork(n.value)}
-              className={`px-2.5 py-1 text-[11px] font-semibold rounded-sm transition-all ${network === n.value ? 'text-black' : 'text-gray-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'}`}
+              className={`px-2.5 py-1 text-[11px] font-semibold rounded-sm transition-colors ${network === n.value ? 'text-black' : 'text-gray-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'}`}
               style={network === n.value ? { backgroundColor: n.color } : {}}>
               {n.label}
             </button>

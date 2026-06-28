@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { ShieldCheck, ExternalLink, Cpu, Lock, Radio, FileText, ArrowUpRight } from 'lucide-react';
+import { formatKas } from '../lib/format.js';
 
 // Embeddable covenant widget. Designed to be dropped into ANY external website via an
 // <iframe src="https://hightable.pro/embed/covenant/:id">. It is deliberately READ-ONLY:
@@ -18,15 +19,9 @@ const REALITY = {
 };
 const realityOf = (r) => REALITY[r] || REALITY['oracle-attested'];
 
-// Honest VALUE LOCKED formatting, mirrored from the Explorer CovenantCard so the
-// embed reads the same real on-chain figure (compact K/M, no fabricated value).
-const formatKas = (kas) => {
-  const num = Number(kas);
-  if (!Number.isFinite(num)) return '0';
-  if (num >= 1000000) return `${(num / 1000000).toFixed(2)}M`;
-  if (num >= 1000) return `${(num / 1000).toFixed(1)}K`;
-  return num.toLocaleString(undefined, { maximumFractionDigits: 2 });
-};
+// VALUE LOCKED + count + short-hash formatting come from the shared lib/format.js
+// so the embed reads the same real on-chain figure, the same compact K/M, and the
+// same canonical ellipsis as the Explorer and the wallet pill.
 
 export default function CovenantEmbed() {
   const { id } = useParams();

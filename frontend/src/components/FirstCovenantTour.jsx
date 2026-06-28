@@ -154,7 +154,7 @@ export default function FirstCovenantTour() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const reducedMotion = useMemo(isReducedMotion, []);
+  const reducedMotion = useMemo(() => isReducedMotion(), []);
   const [stepIdx, setStepIdx] = useState(0);
   const [active, setActive] = useState(false);
   const [demoId, setDemoId] = useState(null);
@@ -167,6 +167,7 @@ export default function FirstCovenantTour() {
   // change, e.g. the tour appending ?tour=1 as it navigates between routes) can tell
   // a fresh start from an already-running tour, and NOT reset the current step.
   const activeRef = useRef(false);
+  // eslint-disable-next-line react-hooks/refs -- intentional latest-value ref: written/read during render to keep a callback or the live editor data fresh without a stale closure; moving it to an effect would change update timing for the consumers that depend on the current value
   activeRef.current = active;
 
   // Activation: query param OR localStorage flag. A single global instance is

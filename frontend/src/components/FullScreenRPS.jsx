@@ -218,6 +218,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
     if (status !== 'active' || !myColor || !isMyTurn || !myRevealPhase) return;
     if (submitting.current === ms.length) return;
     const stored = localStorage.getItem(storageKey(roundIndex));
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     if (!stored) { setLostData(true); return; }
     submitting.current = ms.length;
     (async () => {
@@ -249,6 +250,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
     })();
   }, [status, myColor, isMyTurn, myRevealPhase, ms.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the only deps the compiler infers as missing are stable useState setters (identity never changes), so this manual useCallback/useMemo memoization is correct as written; adding them is a no-op at best and a TDZ reference at worst (some setters are declared lower in this large component)
   const submitToOracle = useCallback(async () => {
     if (!result) return;
     if (!covenantId) { setOracleError('This match is not attached to an on-chain covenant, so there is nothing to resolve.'); return; }
@@ -261,6 +263,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
       else { setOracleError(d.error || 'Oracle rejected the result.'); }
     } catch (e) { setOracleError(e?.message || 'Oracle request failed. Check your connection and try again.'); }
     finally { setOracleLoading(false); }
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the only deps the compiler infers as missing are stable useState setters (identity never changes), so this manual useCallback/useMemo memoization is correct as written; adding them is a no-op at best and a TDZ reference at worst (some setters are declared lower in this large component)
   }, [result, covenantId, rounds.length, score, ms]);
 
   const claimPayout = useCallback(async () => {

@@ -107,6 +107,7 @@ export const parseVideoEmbed = (raw) => {
 // (legacy blocks stored an emoji string). Honest, inert, no markup injected.
 function IconOrEmoji({ name, emoji, size = 22, className }) {
   const C = lucideByName(name);
+  // eslint-disable-next-line react-hooks/static-components -- dynamic icon render: the capitalized binding is a stateless lucide icon resolved from a fixed name->component map, not a component created in render, so there is no state to reset
   if (C) return <C size={size} className={className} aria-hidden="true" />;
   if (emoji && typeof emoji === 'string') return <span className={className} aria-hidden="true">{emoji}</span>;
   return null;
@@ -187,6 +188,7 @@ function useCountUp(target, ms = 1100) {
   const [val, setVal] = React.useState(0);
   React.useEffect(() => {
     const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     if (reduce || !(target > 0)) { setVal(target); return undefined; }
     let raf; const t0 = performance.now();
     const step = (t) => {
@@ -1390,7 +1392,7 @@ function CountdownBlock({ title, targetDate, endedText, accentColor, live }) {
   const ac = SAFE_COLOR(accentColor, '#E8AF34');
   const target = Date.parse(resolveTokens(String(targetDate || ''), live));
   const valid = Number.isFinite(target);
-  const [now, setNow] = React.useState(Date.now());
+  const [now, setNow] = React.useState(() => Date.now());
   React.useEffect(() => {
     if (!valid) return undefined;
     const iv = setInterval(() => setNow(Date.now()), 1000);

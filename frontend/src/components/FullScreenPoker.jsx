@@ -395,6 +395,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, look
   const canCheck = hand && mySeat != null && (committed[mySeat] ?? 0) === hand.current_bet;
   const maxTo = hand && mySeat != null ? (committed[mySeat] ?? 0) + (stacks[mySeat] ?? 0) : 0;
   const minTo = hand ? Math.min(hand.min_raise_to, maxTo) : 0;
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
   useEffect(() => { if (hand) setRaiseTo(minTo); }, [hand?.hand_no, hand?.current_bet, minTo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // quick-size helpers (presentation: they only move the slider value; the

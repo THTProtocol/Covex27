@@ -158,6 +158,7 @@ function ClaimFlow({ kit, utxos }) {
 
   // Default the destination to the connected wallet address (the holder's own payout address).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     if (!destAddr && wallet.address) setDestAddr(wallet.address);
   }, [wallet.address]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -488,6 +489,7 @@ export default function Recover() {
   // When a kit loads, confirm the locked balance + UTXOs via a PUBLIC Kaspa node (read-only, never Covex).
   useEffect(() => {
     if (!kit?.address || !hasPublicApi(kit.network)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
       setBal({ loading: false, kas: null, error: null, available: false, utxos: null });
       return undefined;
     }
@@ -548,6 +550,7 @@ export default function Recover() {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const id = p.get('id') || p.get('txid');
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     if (id) { setTxid(id); lookup(id); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

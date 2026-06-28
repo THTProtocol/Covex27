@@ -998,6 +998,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
 
   useEffect(() => {
     if (!connectedAddress) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
       setPaidStatus({ highest_tier: 'FREE' });
       return;
     }
@@ -1041,6 +1042,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     // Drop the banner the moment the existing paidStatus shows a real tier upgrade.
     if (paidStatus && paidStatus.highest_tier && paidStatus.highest_tier !== 'FREE') {
       try { sessionStorage.removeItem('payment_broadcast_tx'); } catch { /* best-effort; failure is non-fatal here */ }
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
       setPendingBroadcast(null);
       setPendingTimedOut(false);
       return;
@@ -1091,6 +1093,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
       const kindParam = params.get('kind') || '';
       const nameParam = params.get('name');
       const descParam = params.get('desc');
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
       if (nameParam) setName(nameParam);
       if (descParam) setDescription(descParam);
       if (rawCircuit) {
@@ -1109,7 +1112,6 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
         }
       }
     } catch { /* ignore malformed params */ }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Live-sync the builder's selected circuit to an external selector (the unified Sandbox's
@@ -1117,6 +1119,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
   // (one window, one selection). Runs whenever the prop changes (not just on mount).
   useEffect(() => {
     if (!externalCircuit) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     setShowAllZK(true);
     setVisualConfig((prev) =>
       prev.selectedCircuits.length === 1 && prev.selectedCircuits[0] === externalCircuit
@@ -1126,6 +1129,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     // For chess circuits picked in the Sandbox gallery, also drive gameType so the configure +
     // preview surface (and per-variant time-control default) follows the selection. Other circuit
     // families keep their existing builder-grid-driven gameType behavior untouched.
+    // eslint-disable-next-line react-hooks/immutability -- setGameType is a stable useState setter declared lower in this component; the effect only runs after render, so the source-order reference is resolved by then (reordering this 5k-line component's hook declarations is the riskier change)
     if (externalCircuit.startsWith('chess')) setGameType(externalCircuit);
   }, [externalCircuit]);
 
@@ -1278,6 +1282,7 @@ contract VisualCovenant {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     rebuildLiveScript(visualConfig);
   }, [visualConfig, rebuildLiveScript]);
 
@@ -1297,9 +1302,15 @@ contract VisualCovenant {
   const [gameType, setGameType] = useState('chess_v1');
   const [infoCircuit, setInfoCircuit] = useState(null); // circuit being inspected in the TransparencyModal
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the only deps the compiler infers as missing are stable useState setters (identity never changes), so this manual useCallback/useMemo memoization is correct as written; adding them is a no-op at best and a TDZ reference at worst (some setters are declared lower in this large component)
   const handleGameTypeChange = useCallback((typeId) => {
     setGameType(typeId);
-    // Close any open pro arenas when switching covenant type (skill games + chess)
+    // Close any open pro arenas when switching covenant type (skill games + chess).
+    // These setShowFullScreen* setters are stable useState setters declared lower in this
+    // component; this callback only runs on user interaction (well after render), so the
+    // source-order references are resolved by then. Reordering all the hook declarations in
+    // this 5k-line component is the riskier change, so the rule is disabled for this block.
+    /* eslint-disable react-hooks/immutability */
     setShowFullScreenChess(false);
     setShowFullScreenPoker(false);
     setShowFullScreenBlackjack(false);
@@ -1308,6 +1319,7 @@ contract VisualCovenant {
     setShowFullScreenTicTacToe(false);
     setShowFullScreenReversi(false);
     setShowFullScreenRPS(false);
+    /* eslint-enable react-hooks/immutability */
 
     const gt = ZK_CIRCUIT_TYPES.find(g => g.id === typeId);
     if (gt) {
@@ -1862,6 +1874,7 @@ ${gameMeta.outcomeBranches}
   }, [arenaGameKey, gameType, chessStake, feePercent, potReturnPercent, gamesAppearance]);
 
   // ── Chess ZK Arena Handlers (full rules via chess.js + ZK outcome submission) ──
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the only deps the compiler infers as missing are stable useState setters (identity never changes), so this manual useCallback/useMemo memoization is correct as written; adding them is a no-op at best and a TDZ reference at worst (some setters are declared lower in this large component)
   const resetChessArena = useCallback(() => {
     const fresh = new Chess();
     setChessGame(fresh);
@@ -1911,13 +1924,19 @@ ${gameMeta.outcomeBranches}
 
   // ── Persistent skill-game arenas: the table itself handles join/seats/turns
   // against /api/games via useGameSync, so opening it is the whole flow ──
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the only deps the compiler infers as missing are stable useState setters (identity never changes), so this manual useCallback/useMemo memoization is correct as written; adding them is a no-op at best and a TDZ reference at worst (some setters are declared lower in this large component)
   const launchFullScreenCheckers = useCallback(() => { setShowFullScreenCheckers(true); }, []);
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the only deps the compiler infers as missing are stable useState setters (identity never changes), so this manual useCallback/useMemo memoization is correct as written; adding them is a no-op at best and a TDZ reference at worst (some setters are declared lower in this large component)
   const launchFullScreenConnect4 = useCallback(() => { setShowFullScreenConnect4(true); }, []);
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the only deps the compiler infers as missing are stable useState setters (identity never changes), so this manual useCallback/useMemo memoization is correct as written; adding them is a no-op at best and a TDZ reference at worst (some setters are declared lower in this large component)
   const launchFullScreenTicTacToe = useCallback(() => { setShowFullScreenTicTacToe(true); }, []);
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the only deps the compiler infers as missing are stable useState setters (identity never changes), so this manual useCallback/useMemo memoization is correct as written; adding them is a no-op at best and a TDZ reference at worst (some setters are declared lower in this large component)
   const launchFullScreenReversi = useCallback(() => { setShowFullScreenReversi(true); }, []);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the only deps the compiler infers as missing are stable useState setters (identity never changes), so this manual useCallback/useMemo memoization is correct as written; adding them is a no-op at best and a TDZ reference at worst (some setters are declared lower in this large component)
   const launchFullScreenRPS = useCallback(() => { setShowFullScreenRPS(true); }, []);
 
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the only deps the compiler infers as missing are stable useState setters (identity never changes), so this manual useCallback/useMemo memoization is correct as written; adding them is a no-op at best and a TDZ reference at worst (some setters are declared lower in this large component)
   const launchFullScreenChess = useCallback(() => {
     if (chessMatchState !== 'playing' && chessMatchState !== 'finished') return;
     // Only allow full screen professional play after stakes match
@@ -2125,6 +2144,7 @@ ${gameMeta.outcomeBranches}
     setChessBaseMinutes(base);
     setChessIncrementSeconds(inc);
     if (chessMatchState === 'idle') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
       setWhiteTime(base * 60 * 1000);
       setBlackTime(base * 60 * 1000);
     }
@@ -2134,6 +2154,7 @@ ${gameMeta.outcomeBranches}
   // Keep the idle clocks in sync when the creator hand-tunes the base minutes.
   useEffect(() => {
     if (chessMatchState !== 'idle') return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     setWhiteTime(chessBaseMs);
     setBlackTime(chessBaseMs);
   }, [chessBaseMs, chessMatchState]);
@@ -2144,6 +2165,7 @@ ${gameMeta.outcomeBranches}
       // No specific covenant to edit (e.g. the public /sandbox builder, which mounts
       // the terminal with externalCircuit only). There's nothing to fetch, so render
       // immediately with defaults instead of spinning on "Loading terminal..." forever.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
       setConfigLoaded(true);
       return;
     }

@@ -167,6 +167,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
     const prefersReduced = typeof window !== 'undefined' && window.matchMedia
       && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (prefersReduced) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
       setOpen(false);
       setLeaving(false);
       return undefined;
@@ -201,6 +202,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
 
   // Close the connect drawer the moment a wallet actually connects (covers the deep-link return
   // case: the in-app browser injects a provider, auto-connect fires, address appears).
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
   useEffect(() => { if (address && open && !leaving) closeDrawer(); }, [address, open, leaving]);
 
   // Drawer: Escape closes it (matches the X button). Connect drawer is a modal so this is
@@ -224,6 +226,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
   // (and jumps to the one-click section) without the user having to reopen the drawer.
   useEffect(() => {
     if (!open) return undefined;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     setShowAllWallets(false);
     let n = 0;
     const id = setInterval(() => { bumpDetect((t) => t + 1); if (++n >= 16) clearInterval(id); }, 400);

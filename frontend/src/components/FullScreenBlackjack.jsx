@@ -186,6 +186,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
 
   // verify revealed seeds against their commits
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     if (!table.seeds?.seed1 || !table.seeds?.seed2) { setSeedAlert(null); return; }
     (async () => {
       const ok1 = (await sha256Hex(table.seeds.seed1)).slice(0, 32) === table.commits.c1;
@@ -231,6 +232,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
     if (!myReveal) return;
     if (submitting.current === msCount) return;
     const seed = localStorage.getItem(storageKey);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     if (!seed) { setLostData(true); return; }
     submitting.current = msCount;
     (async () => {

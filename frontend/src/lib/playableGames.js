@@ -44,7 +44,6 @@ export function assertGamesInSync(registryKeys, label = 'game registry') {
   const missing = [...want].filter((k) => !have.has(k));
   const extra = [...have].filter((k) => !want.has(k));
   if (missing.length || extra.length) {
-    // eslint-disable-next-line no-console
     console.warn(
       `[playableGames] ${label} drifted from PLAYABLE_GAMES.` +
         (missing.length ? ` Missing: ${missing.join(', ')}.` : '') +

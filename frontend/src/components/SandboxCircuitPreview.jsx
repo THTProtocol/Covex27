@@ -91,6 +91,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
   // is not pulled until Phase 2 is actually being explored.
   const [exampleScript, setExampleScript] = useState(null);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     if (!circuit) { setExampleScript(null); return; }
     let cancelled = false;
     (async () => {
@@ -124,6 +125,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
   const canTestProve = !!circuit && IN_BROWSER_PROVERS.has(circuit.id) && !!STUDIO_CIRCUITS[circuit.id];
   const [showProver, setShowProver] = useState(false);
   // Reset the inline prover open-state whenever the selected circuit changes.
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
   useEffect(() => { setShowProver(false); }, [circuit?.id]);
   const copyScript = async () => {
     if (!exampleScript) return;

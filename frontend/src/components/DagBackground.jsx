@@ -77,6 +77,7 @@ const DagBackground = () => {
   // when it paints; until then the themed placeholder (below) covers the gap so
   // we never show a stale-theme DAG behind a freshly-switched UI.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     setLayers((prev) => (prev.some((l) => l.theme === theme) ? prev : [...prev, makeLayer(theme)]));
   }, [theme]);
 

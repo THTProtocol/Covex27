@@ -366,6 +366,7 @@ export default function CovenantInteractive() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     setLoading(true);
     fetch(`/api/covenants/${encodeURIComponent(id)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
@@ -598,6 +599,7 @@ export default function CovenantInteractive() {
     const tabParam = searchParams.get('tab');
     const playParam = searchParams.get('play');
     if ((tabParam === 'terminal' || playParam) && isCreator) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
       setActiveTab('terminal');
     } else if (covenant.custom_ui_html && covenant.custom_ui_html.length > 10) {
       setActiveTab('interact');

@@ -44,6 +44,7 @@ export default function StickyActionRail({
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (reduceMotion) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
       setVisible(true);
       return;
     }

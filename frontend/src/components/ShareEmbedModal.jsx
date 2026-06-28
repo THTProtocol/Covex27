@@ -14,6 +14,18 @@ import { useDialog } from '../lib/useDialog';
 // among the tab buttons only when one of THEM has focus, so global key handlers
 // (Escape, page hotkeys) are not stolen.
 
+// Hoisted to module scope so it is a stable component identity (declaring it
+// inside the parent would remount it on every parent render, losing focus/state).
+// State stays in the parent: it passes the current `copied` key + an onCopy callback.
+function CopyBtn({ text, k, copied, onCopy }) {
+  return (
+    <button onClick={() => onCopy(text, k)}
+      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-kaspa-green/15 border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/25 transition-colors">
+      {copied === k ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
+    </button>
+  );
+}
+
 const TABS = [
   { id: 'direct', label: 'Direct link', Icon: Link2 },
   { id: 'embed', label: 'Embed', Icon: Code2 },
@@ -132,13 +144,6 @@ export default function ShareEmbedModal({ open, onClose, id, network, name, real
     });
   };
 
-  const CopyBtn = ({ text, k }) => (
-    <button onClick={() => copy(text, k)}
-      className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-kaspa-green/15 border border-kaspa-green/30 text-kaspa-green hover:bg-kaspa-green/25 transition-colors">
-      {copied === k ? <><Check size={13} /> Copied</> : <><Copy size={13} /> Copy</>}
-    </button>
-  );
-
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
@@ -205,7 +210,7 @@ export default function ShareEmbedModal({ open, onClose, id, network, name, real
             <input readOnly value={directUrl} onFocus={(e) => e.target.select()}
               aria-label="Direct link to this covenant"
               className="flex-1 min-w-0 rounded-lg bg-black/40 border border-white/10 light:bg-white light:border-slate-300 px-3 py-2 text-xs text-gray-200 light:text-slate-800 font-mono" />
-            <CopyBtn text={directUrl} k="link" />
+            <CopyBtn text={directUrl} k="link" copied={copied} onCopy={copy} />
           </div>
           <div className="mt-2 flex gap-2 flex-wrap">
             <a href={tweet} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-300 light:text-slate-600 hover:text-kaspa-green px-2.5 py-1.5 rounded-lg border border-white/10 light:border-slate-300 hover:border-kaspa-green/30 transition-colors">
@@ -240,7 +245,7 @@ export default function ShareEmbedModal({ open, onClose, id, network, name, real
             <textarea readOnly value={snippet} onFocus={(e) => e.target.select()} rows={3}
               aria-label="HTML embed snippet"
               className="flex-1 min-w-0 rounded-lg bg-black/40 border border-white/10 light:bg-white light:border-slate-300 px-3 py-2 text-[11px] text-gray-200 light:text-slate-800 font-mono resize-none" />
-            <CopyBtn text={snippet} k="embed" />
+            <CopyBtn text={snippet} k="embed" copied={copied} onCopy={copy} />
           </div>
           <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1.5">Paste this into any HTML page. The widget is read-only and opens Covex in a new tab for wallet actions, so your visitors stay safe.</p>
 

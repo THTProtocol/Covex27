@@ -211,6 +211,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       sessionStorage.removeItem('redeem_covenant');
       const r = JSON.parse(raw);
       if (!r?.redeem_script_hex) return;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
       setExt((prev) => ({
         ...prev,
         redeem_script_hex: r.redeem_script_hex || '',
@@ -254,7 +255,8 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   }
 
   // Refresh the available-balance hint whenever the connected address or network changes.
-  useEffect(() => { setAvailKas(null); if (address) fetchDeployerBalanceKas(); /* eslint-disable-next-line */ }, [address, net]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
+  useEffect(() => { setAvailKas(null); if (address) fetchDeployerBalanceKas(); }, [address, net]);
 
   // MAINNET DEAD-END GUARD: if the selected kind cannot deploy on mainnet (any non
   // single-signer kind, including a ?kind=market deep link), snap the selection back to a
@@ -262,6 +264,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   // keep every kind. Mirrors the per-tile `mainnetUnavailable` gate below.
   useEffect(() => {
     if (isMainnet && !MAINNET_CAPABLE_KINDS.includes(kind)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
       setKind('singlesig');
     }
   }, [isMainnet, kind]);

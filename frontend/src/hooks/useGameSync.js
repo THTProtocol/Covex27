@@ -31,6 +31,7 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
   // same browser keeps the seat; the server never re-issues it on rejoin.
   const seatToken = useRef('');
   const onMovesRef = useRef(onMoves);
+  // eslint-disable-next-line react-hooks/refs -- intentional latest-value ref: written/read during render to keep a callback or the live editor data fresh without a stale closure; moving it to an effect would change update timing for the consumers that depend on the current value
   onMovesRef.current = onMoves;
 
   useEffect(() => {
@@ -209,5 +210,6 @@ export default function useGameSync({ covenantId, gameType, stake = 0, onMoves }
   // current value (it is set on join, so it is stable by the time a pot is lockable).
   const getSeatToken = () => seatToken.current;
 
+  // eslint-disable-next-line react-hooks/refs -- intentional latest-value ref: written/read during render to keep a callback or the live editor data fresh without a stale closure; moving it to an effect would change update timing for the consumers that depend on the current value
   return { game, status, myColor, isMyTurn, joining, error, setError, join, submitMove, resign, refresh, clocks, claimTimeout, address, walletConnected, seatToken: seatToken.current, getSeatToken };
 }

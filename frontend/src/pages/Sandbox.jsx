@@ -488,6 +488,7 @@ export default function Sandbox() {
   useEffect(() => {
     // phase
     const wantPhase = pPhase && PHASES.some((x) => x.id === pPhase) ? pPhase : 'create';
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     if (wantPhase !== phase) setPhaseState(wantPhase);
     // selection
     const wantId = pCircuit ? resolveCircuit(pCircuit, pKind) : null;

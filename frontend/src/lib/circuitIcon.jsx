@@ -85,6 +85,7 @@ export function CircuitGlyph({ type, size = 40, className = '' }) {
         boxShadow: `inset 0 1px 0 ${accent}26, 0 6px 18px -10px ${accent}55`,
       }}
     >
+      {/* eslint-disable-next-line react-hooks/static-components -- dynamic icon render: the capitalized binding is a stateless lucide icon resolved from a fixed name-to-component map, not a component created in render, so there is no state to reset */}
       <Icon size={Math.round(size * 0.5)} style={{ color: accent }} strokeWidth={1.9} />
     </div>
   );

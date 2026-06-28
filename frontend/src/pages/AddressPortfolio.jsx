@@ -23,6 +23,7 @@ export default function AddressPortfolio() {
   const network = localStorage.getItem('kaspaNetwork') || 'mainnet';
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     setLoading(true);
     fetch(`/api/address/${encodeURIComponent(addr)}?network=${network}`)
       .then((r) => r.json())

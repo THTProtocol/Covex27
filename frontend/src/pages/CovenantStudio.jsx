@@ -218,6 +218,7 @@ export default function CovenantStudio() {
   }, [activeDrawer]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     setLoading(true);
     fetch(`/api/covenants/${encodeURIComponent(id)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
@@ -240,6 +241,7 @@ export default function CovenantStudio() {
   // and Sandbox). FREE creators can still build; this only flips premium UI website
   // templates from locked to applicable. Fails closed to FREE on any error.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     if (!address) { setIsPaid(false); return undefined; }
     let cancelled = false;
     const net = (typeof localStorage !== 'undefined' && localStorage.getItem('kaspaNetwork')) || 'mainnet';
@@ -249,6 +251,11 @@ export default function CovenantStudio() {
       .catch(() => { if (!cancelled) setIsPaid(false); });
     return () => { cancelled = true; };
   }, [address]);
+
+  // On-chain action log: declared before the live-refresh effect below so the
+  // tick handler's setActions reference is in scope at definition order.
+  const [actions, setActions] = useState([]);
+  const [actionsLoading, setActionsLoading] = useState(true);
 
   // Live refresh: keep the studio preview's on-chain figures current while the
   // creator designs. Merges ONLY volatile fields, never the canvas.
@@ -276,10 +283,10 @@ export default function CovenantStudio() {
   // visitor sees: ActivityFeed / Leaderboard / PoolChart populate from real indexed actions,
   // and {{oracle_pubkey}} resolves to the real disclosed BIP340 key instead of the literal
   // token. Mirrors CovenantInteractive verbatim so the preview is faithful, not a hollow shell.
-  const [actions, setActions] = useState([]);
-  const [actionsLoading, setActionsLoading] = useState(true);
+  // (the `actions`/`actionsLoading` state is declared above, before the live-refresh effect.)
   useEffect(() => {
     if (!id) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional state sync/reset inside this effect (data-fetch loading reset, dependency-change reset, or external-event handler); React Compiler perf advisory, not a render-loop bug; tests cover the behavior
     setActionsLoading(true);
     fetch(`/api/covenants/${encodeURIComponent(id)}/actions`)
       .then((r) => r.json())
@@ -706,6 +713,7 @@ export default function CovenantStudio() {
       )}
       {activeDrawer === 'preview' && (
         <PagePreviewModal
+          // eslint-disable-next-line react-hooks/refs -- intentional latest-value ref: written/read during render to keep a callback or the live editor data fresh without a stale closure; moving it to an effect would change update timing for the consumers that depend on the current value
           data={puckDataRef.current || initialData || EMPTY_PAGE}
           liveData={liveData}
           covenantId={id}

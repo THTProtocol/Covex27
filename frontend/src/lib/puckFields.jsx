@@ -119,6 +119,7 @@ export function IconPicker({ onChange, value, field }) {
     <div className="cvx-field">
       {field?.label && <label className="cvx-field-label">{field.label}</label>}
       <button type="button" className="cvx-icon-current" onClick={() => setOpen((o) => !o)}>
+        {/* eslint-disable-next-line react-hooks/static-components -- dynamic icon render: the capitalized binding is a stateless lucide icon resolved from a fixed name-to-component map, not a component created in render, so there is no state to reset */}
         {Current ? <Current size={16} /> : <span className="cvx-icon-none">None</span>}
         <span className="cvx-icon-name">{value || 'Choose icon'}</span>
       </button>

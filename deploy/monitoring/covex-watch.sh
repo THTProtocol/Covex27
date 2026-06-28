@@ -13,7 +13,7 @@
 #                            the staleness window; also surfaces the backend's own
 #                            stalled / stall_reason watchdog (node_tip_frozen).
 #   3. Disk                - df on / and /mnt/covex-data; RED >=85%, WARN >=80%.
-#   4. TLS cert expiry     - hightable.pro:443 and oracle.hightable.pro:443; RED <14d.
+#   4. TLS cert expiry     - each host in COVEX_TLS_HOSTS (default hightable.pro:443); RED <14d.
 #   5. systemd is-active   - covex-backend, kaspad-tn12, nginx (plus any units in COVEX_UNITS).
 #
 # Alerting is FAIL-SAFE and ARM-READY: with no webhook configured the box is
@@ -50,7 +50,7 @@ DISK_WARN="${COVEX_DISK_WARN:-80}"
 TLS_RED_DAYS="${COVEX_TLS_RED_DAYS:-14}"
 
 # Hosts to TLS-probe (space separated).
-TLS_HOSTS="${COVEX_TLS_HOSTS:-hightable.pro oracle.hightable.pro}"
+TLS_HOSTS="${COVEX_TLS_HOSTS:-hightable.pro}"
 
 # systemd units to require active (space separated).
 UNITS="${COVEX_UNITS:-covex-backend.service kaspad-tn12.service nginx.service}"

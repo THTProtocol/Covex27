@@ -122,7 +122,7 @@ and WARN conditions:
 | 1 | backend liveness | `http://127.0.0.1:3006/health` is not 200, or 200 with no `app`/`status` field, or `status != ok` | - |
 | 2 | node tip freshness | `testnet-12` `node_sync.tip_daa` has not advanced within the staleness window (default 900s), OR the backend's own `stalled`/`stall_reason` is set (`node_tip_frozen` / `indexer_frozen` / `disconnected`), OR `connected == false` | - |
 | 3 | disk | `/` or `/mnt/covex-data` `>= 85%` used | `>= 80%` used |
-| 4 | TLS cert expiry | `hightable.pro:443` or `oracle.hightable.pro:443` cert has `< 14` days left | (could not read/parse a cert) |
+| 4 | TLS cert expiry | any host in `COVEX_TLS_HOSTS` (default `hightable.pro:443`) cert has `< 14` days left | (could not read/parse a cert) |
 | 5 | systemd units | `covex-backend.service`, `kaspad-tn12.service`, or `nginx.service` is not `active` | - |
 
 Tip-freshness detail (the core gap this closes): the monitor persists the
@@ -171,10 +171,8 @@ kernel). The GitHub Actions `uptime` workflow runs on GitHub's infra, cron every
 ~10 min plus `workflow_dispatch`, and curls the PUBLIC endpoints:
 
 - `https://hightable.pro/api/health` - must be 200 with `status` + `git_commit`.
-- `https://oracle.hightable.pro/health` - probed, but the oracle service has NO `/health`
-  route (it 404s); the service answers 200 on `/`, so the job falls back to `/`
-  and accepts that. This divergence is expected and is why the oracle probe does
-  not hard-fail on the `/health` 404 alone.
+- An optional oracle liveness probe runs only if the repo variable `COVEX_ORACLE_HEALTH_URL`
+  is set (no oracle URL is hardcoded; a bound oracle is provider-agnostic and operator-set).
 
 On any failure the job FAILS (the red X in the Actions tab is itself the alert)
 and, if the repo secret `ALERT_WEBHOOK` is set, POSTs the same dual-key

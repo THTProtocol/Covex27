@@ -149,8 +149,6 @@ jobs:
       # block every push without a dedicated cleanup. Tighten to blocking once the count is 0.
       - name: eslint
         run: npm run lint
-        continue-on-error: true
-
       # Advisory: known-vulnerable npm dependencies (high severity and up).
       - name: npm audit
         run: npm audit --audit-level=high

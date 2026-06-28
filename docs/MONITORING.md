@@ -123,7 +123,7 @@ and WARN conditions:
 | 2 | node tip freshness | `testnet-12` `node_sync.tip_daa` has not advanced within the staleness window (default 900s), OR the backend's own `stalled`/`stall_reason` is set (`node_tip_frozen` / `indexer_frozen` / `disconnected`), OR `connected == false` | - |
 | 3 | disk | `/` or `/mnt/covex-data` `>= 85%` used | `>= 80%` used |
 | 4 | TLS cert expiry | `hightable.pro:443` or `oracle.hightable.pro:443` cert has `< 14` days left | (could not read/parse a cert) |
-| 5 | systemd units | `covex-backend.service`, `koracle.service`, `kaspad-tn12.service`, or `nginx.service` is not `active` | - |
+| 5 | systemd units | `covex-backend.service`, `kaspad-tn12.service`, or `nginx.service` is not `active` | - |
 
 Tip-freshness detail (the core gap this closes): the monitor persists the
 last-seen `tip_daa` and the time it FIRST saw that value in
@@ -171,7 +171,7 @@ kernel). The GitHub Actions `uptime` workflow runs on GitHub's infra, cron every
 ~10 min plus `workflow_dispatch`, and curls the PUBLIC endpoints:
 
 - `https://hightable.pro/api/health` - must be 200 with `status` + `git_commit`.
-- `https://oracle.hightable.pro/health` - probed, but koracle has NO `/health`
+- `https://oracle.hightable.pro/health` - probed, but the oracle service has NO `/health`
   route (it 404s); the service answers 200 on `/`, so the job falls back to `/`
   and accepts that. This divergence is expected and is why the oracle probe does
   not hard-fail on the `/health` 404 alone.

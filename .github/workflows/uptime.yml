@@ -51,18 +51,18 @@ jobs:
           fi
 
           # 2. Oracle liveness. NOTE: oracle.hightable.pro has NO /health route
-          #    (it 404s); the koracle service answers 200 on "/". So we probe "/"
+          #    (it 404s); the oracle service answers 200 on "/". So we probe "/"
           #    and accept 200. This divergence is documented in docs/MONITORING.md.
           oracle_url="https://oracle.hightable.pro/health"
           ocode=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$oracle_url" || echo "000")
           if [ "$ocode" = "200" ]; then
             echo "ok: oracle $oracle_url 200"
           else
-            # Fall back to the root path, which koracle does serve.
+            # Fall back to the root path, which the oracle service does serve.
             oroot="https://oracle.hightable.pro/"
             orcode=$(curl -s -o /dev/null -w "%{http_code}" --max-time 15 "$oroot" || echo "000")
             if [ "$orcode" = "200" ]; then
-              echo "ok: oracle root $oroot 200 (/health returned $ocode; expected, /health is not a koracle route)"
+              echo "ok: oracle root $oroot 200 (/health returned $ocode; expected, /health is not an oracle-service route)"
             else
               add "RED  oracle $oroot -> HTTP $orcode (and /health -> $ocode)"
               fail=1

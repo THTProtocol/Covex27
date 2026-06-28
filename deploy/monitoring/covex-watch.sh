@@ -14,7 +14,7 @@
 #                            stalled / stall_reason watchdog (node_tip_frozen).
 #   3. Disk                - df on / and /mnt/covex-data; RED >=85%, WARN >=80%.
 #   4. TLS cert expiry     - hightable.pro:443 and oracle.hightable.pro:443; RED <14d.
-#   5. systemd is-active   - covex-backend, koracle, kaspad-tn12, nginx.
+#   5. systemd is-active   - covex-backend, kaspad-tn12, nginx (plus any units in COVEX_UNITS).
 #
 # Alerting is FAIL-SAFE and ARM-READY: with no webhook configured the box is
 # considered healthy and the script logs what it WOULD have sent, then exits 0.
@@ -53,7 +53,7 @@ TLS_RED_DAYS="${COVEX_TLS_RED_DAYS:-14}"
 TLS_HOSTS="${COVEX_TLS_HOSTS:-hightable.pro oracle.hightable.pro}"
 
 # systemd units to require active (space separated).
-UNITS="${COVEX_UNITS:-covex-backend.service koracle.service kaspad-tn12.service nginx.service}"
+UNITS="${COVEX_UNITS:-covex-backend.service kaspad-tn12.service nginx.service}"
 
 # Disk mount points to check (space separated).
 DISK_MOUNTS="${COVEX_DISK_MOUNTS:-/ /mnt/covex-data}"

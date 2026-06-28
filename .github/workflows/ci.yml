@@ -41,6 +41,12 @@ jobs:
           fi
           bash scripts/check-no-emdash.sh "$BASE"
 
+      # GATE: provider-neutrality + separation. Covex ships oracle connectors but is never
+      # itself a provider and advertises no specific one; the separate oracle project and any
+      # specific third-party oracle product must never be named anywhere in the tree.
+      - name: No forbidden project/product names
+        run: bash scripts/check-forbidden-names.sh
+
   backend:
     name: Backend (build + test + lint)
     runs-on: ubuntu-latest

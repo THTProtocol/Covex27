@@ -333,12 +333,12 @@ const Pricing = () => {
 
   // Honest, simple explanations shown BELOW the prices so the page leads with the
   // numbers. These carry the same claims the old banner/transparency block did:
-  // almost everything is free, paid only adds visibility, and there is no cap.
+  // building is free, paid only adds visibility, and there is no cap.
   const EXPLAIN = [
-    { icon: Eye, title: 'Almost everything is free', body: 'Build and deploy any covenant - escrows, ZK proofs, vesting, custom logic - give it a custom website in the Studio, and claim non-custodially. No account, no cap.' },
-    { icon: Star, title: 'Paid tiers add visibility', body: 'Builder unlocks the full premium website template library. PRO adds featured placement on the Explorer. MAX adds top placement and a TVL-weighted ranking boost.' },
-    { icon: ShieldCheck, title: 'No maximum, ever', body: 'Any covenant on any tier, including free, can lock any amount. Tiers only change how visible your covenant is, never how much you can lock.' },
-    { icon: Crown, title: 'How payment works', body: 'A one-time KAS payment to the treasury. The tier unlocks for the wallet address you pay from, so pay from the wallet you will deploy with.' },
+    { icon: Eye, title: 'Free to build, free to ship', body: 'Build and deploy any covenant - escrows, ZK proofs, vesting, custom logic - give it a custom website in the Studio, and claim non-custodially. No account, no cap.' },
+    { icon: Star, title: 'Pay only for the spotlight', body: 'Builder unlocks the full premium website template library. PRO adds featured placement on the Explorer. MAX adds top placement and a TVL-weighted ranking boost.' },
+    { icon: ShieldCheck, title: 'No cap. Ever.', body: 'Any covenant on any tier, including free, can lock any amount. Tiers only change how visible your covenant is, never how much you can lock.' },
+    { icon: Crown, title: 'One payment, one wallet', body: 'A one-time KAS payment to the treasury. The tier unlocks for the wallet address you pay from, so pay from the wallet you will deploy with.' },
   ];
 
   return (
@@ -349,7 +349,7 @@ const Pricing = () => {
       <header className="relative z-10 text-center max-w-2xl mx-auto mb-10">
         <h1 className="h-display text-white light:text-slate-900 mb-3">Pricing</h1>
         <p className="lede text-gray-300 light:text-slate-600">
-          One-time payment. Almost everything is free, the website builder included. Paid tiers only add visibility, never a higher limit.
+          One-time payment. Building and shipping any covenant is free, the website builder included. Paid tiers only add visibility, never a higher limit.
         </p>
       </header>
 

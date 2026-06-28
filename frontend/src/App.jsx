@@ -20,7 +20,7 @@ function FixToStudioRedirect() {
     ? <Navigate to={`/covenant/${encodeURIComponent(id)}/studio`} replace />
     : <Navigate to="/sandbox" replace />;
 }
-import { WalletProvider, useWallet, getCurrentNetwork } from './components/WalletContext';
+import { WalletProvider, getCurrentNetwork } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
 import CovexLogo from './components/CovexLogo';
@@ -163,51 +163,6 @@ const NL_MOBILE = ({ isActive }) =>
       ? 'text-kaspa-green'
       : 'text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-slate-700 light:hover:text-slate-900 light:hover:bg-slate-100'
   }`;
-
-function SmartDeployLink() {
-  const { address } = useWallet();
-  const [isPaid, setIsPaid] = useState(false);
-
-  useEffect(() => {
-    if (!address) return;
-    const net = getCurrentNetwork();
-    fetch('/api/auth-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, network: net })
-    })
-      .then(r => r.ok ? r.json() : { tier: 'FREE' })
-      .then(data => setIsPaid(data.tier && data.tier !== 'FREE'))
-      .catch(() => setIsPaid(false));
-  }, [address]);
-
-  // One trustless deploy path for everyone: the enforced (script-locked P2SH) flow.
-  // The old decorative /deploy is redirected there. (isPaid kept only to gate the
-  // separate paid "Terminal" builder link, not the deploy destination.)
-  void isPaid;
-  return <NavLink to="/deploy/enforced" className={NL}>Deploy</NavLink>;
-}
-
-function SmartTerminalLink() {
-  const { address } = useWallet();
-  const [isPaid, setIsPaid] = useState(false);
-
-  useEffect(() => {
-    if (!address) { setIsPaid(false); return; }
-    const net = getCurrentNetwork();
-    fetch('/api/auth-session', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address, network: net })
-    })
-      .then(r => r.ok ? r.json() : { tier: 'FREE' })
-      .then(data => setIsPaid(data.tier && data.tier !== 'FREE'))
-      .catch(() => setIsPaid(false));
-  }, [address]);
-
-  if (!isPaid) return null;
-  return <NavLink to="/premium" className={NL}>Terminal</NavLink>;
-}
 
 // User-selectable network. Mainnet is the brand / identity network but indexes nothing until the
 // Toccata launch, so a brand-new visitor defaults to the live, active network (DEFAULT_NETWORK =

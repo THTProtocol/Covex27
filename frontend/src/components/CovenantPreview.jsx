@@ -69,8 +69,6 @@ export default function CovenantPreview({ config, covenant, children, className 
     neon: `0 0 20px ${pc}30, inset 0 0 30px ${pc}05`,
     elevated: '0 8px 32px rgba(0,0,0,0.4)',
   };
-  const glowInt = { low: '15', medium: '30', high: '60' };
-  const glowVal = glowInt[config.glowIntensity] || '30';
   const shadow = config.showGlow ? shadowMap[config.shadow || 'soft'] : shadowMap.soft;
   // Animation map. Each option maps to a DISTINCT visual: 'shimmer' and 'glitch'
   // used to silently fall back to animate-pulse (dishonest UI), so they now drive

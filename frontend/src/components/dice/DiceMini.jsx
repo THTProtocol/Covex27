@@ -1,6 +1,6 @@
 import { Dices } from 'lucide-react';
 
-const DiceMini = ({ compact = false }) => {
+const DiceMini = () => {
   return (
     <div className="flex items-center justify-center h-full bg-black/30 rounded-lg p-3 text-center">
       <div>

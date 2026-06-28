@@ -50,7 +50,6 @@ import FullScreenRPS from './FullScreenRPS';
 import { useCovenantConfig } from '../lib/covenant-config/useCovenantConfig';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
 import { explorerTxUrl } from '../lib/explorer';
-import AdvancedPrimitivesComposer from '../lib/advanced-primitives/AdvancedPrimitivesComposer';
 import MultiOracleConfigurator from '../lib/multi-oracle/MultiOracleConfigurator';
 import { HEADLINE_GAME_CIRCUITS, HEADLINE_GAME_CIRCUIT_SET } from '../lib/playableGames';
 
@@ -583,7 +582,6 @@ export function generateSilverScriptForConfig(cfg) {
   const {
     gameType = 'chess_v1',
     feePercent = 2,
-    potReturnPercent = 2,
     resolutionMode = 'oracle',
     customOracleKey = '',
     zkCircuit = 'chess_v1',
@@ -593,9 +591,6 @@ export function generateSilverScriptForConfig(cfg) {
     // Chess time control (base minutes + increment seconds). Only rendered for chess covenants.
     chessBaseMinutes = 5,
     chessIncrementSeconds = 0,
-    // Passed in by callers (defaults to full). This was previously read from
-    // component scope, so this standalone export always threw a ReferenceError.
-    hasPaidAccess = true,
   } = cfg || {};
 
   const feeBasis = Math.round(feePercent * 100);
@@ -885,15 +880,14 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
   const navigate = useNavigate();
 
   // ── Wallet (for signing ownership challenges) ──
-  const { address: connectedAddress, signMessage, sendPayment, devMode: devModeFromContext } = useWallet();
+  const { address: connectedAddress, signMessage, sendPayment } = useWallet();
 
   // Covenant Config + Studio Integration
-  const { 
-    config: studioConfig, 
-    loadOrCreate, 
-    exportToStudio,
+  const {
+    config: studioConfig,
+    loadOrCreate,
     updateConfig: updateStudioConfig,
-    loadFromJson 
+    loadFromJson
   } = useCovenantConfig(connectedAddress || '');
 
   // Auto-load config from URL or selected template
@@ -1153,7 +1147,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
 
   // ── In-terminal payment (QR for tiers, tied to current wallet only)
   const [payingTier, setPayingTier] = useState(null);
-  const [lastPaidCheck, setLastPaidCheck] = useState(null);
+  const [, setLastPaidCheck] = useState(null);
 
   const startPaymentForTier = (tier) => {
     const treasury = netConfig.treasury;
@@ -1184,6 +1178,10 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     }
   };
 
+  // Dev-wallet payment seam: kept wired to sendPayment for the dev/test flow even though no
+  // current button invokes it (the live tier flow uses the QR path above). Retained intentionally
+  // rather than deleted so the dev affordance stays one line from being re-attached.
+  // eslint-disable-next-line no-unused-vars -- intentional unwired dev-only payment seam
   const payWithDevWallet = async (tier) => {
     if (!sendPayment || !connectedAddress) {
       toast.error('Dev send not available');
@@ -1407,11 +1405,11 @@ contract VisualCovenant {
 
   // ── Poker State (stake match → full screen pro table) ──
   const [showFullScreenPoker, setShowFullScreenPoker] = useState(false);
-  const [pokerStake, setPokerStake] = useState(100);
+  const [pokerStake] = useState(100);
 
   // ── Blackjack State (stake match → full screen pro table) ──
   const [showFullScreenBlackjack, setShowFullScreenBlackjack] = useState(false);
-  const [bjStake, setBjStake] = useState(100);
+  const [bjStake] = useState(100);
 
   // ── Additional Skill Games States (checkers, connect4, tictactoe, reversi + more) ──
   // These four are persistent multiplayer: the real join/seat flow lives in
@@ -4988,12 +4986,11 @@ ${gameMeta.outcomeBranches}
         </button>
 
         <div className="mt-4">
-          <MultiOracleConfigurator 
-            value={{}} 
-            onChange={(cfg) => {
-              // Merge into current config
-              // console.log("Multi-oracle config updated:", cfg); // cleaned for prod
-            }} 
+          <MultiOracleConfigurator
+            value={{}}
+            onChange={() => {
+              // Multi-oracle config is captured by the composer; no merge wired here yet.
+            }}
           />
         </div>
       </section>

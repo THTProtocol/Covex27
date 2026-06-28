@@ -84,15 +84,9 @@ const REDEEM_DEADMAN = hx(cat(
   [OpElse], [0x01, 0x90], [OpCheckSequenceVerify], p32(HEIR), [OpCheckSig], [OpEndIf],
 ));
 
-// channel: <p1> OpCheckSig ... <p2> OpCheckSig ... <p1> OpCheckSig -> [p1, p2, p1]
-const REDEEM_CHANNEL = hx(cat(
-  [OpIf], p32(P2), [OpCheckSig], p32(P1), [OpCheckSig],
-  [OpElse], [0x01, 0x90], p32(P1), [OpCheckSig], [OpEndIf],
-));
-// NOTE: buildRedeem channel script order is [p1, p2, p1]; the close branch needs BOTH p1 and p2,
-// so assertSignerForBranch close accepts either index 0 (p1) or 1 (p2). We construct the script
-// to that parse order: refund-branch p1 first... but to keep the parse simple and match the doc
-// "[p1, p2, p1]", reconstruct deterministically below.
+// channel: buildRedeem script order is [p1, p2, p1]; the close branch needs BOTH p1 and p2,
+// so assertSignerForBranch close accepts either index 0 (p1) or 1 (p2). Constructed
+// deterministically to that "[p1, p2, p1]" parse order below.
 const REDEEM_CHANNEL_DOC = hx(cat(
   p32(P1), [OpCheckSig], p32(P2), [OpCheckSig], p32(P1), [OpCheckSig],
 ));

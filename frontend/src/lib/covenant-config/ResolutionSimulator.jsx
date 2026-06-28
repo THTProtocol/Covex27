@@ -301,7 +301,7 @@ function PotView({ initFee, initPotReturn, loStake, hiStake, players, perSideSta
 }
 
 // ── Parimutuel market view (two pools, multiplier, break-even) ──────────────────────────
-function ParimutuelView({ initFee, loStake, hiStake }) {
+function ParimutuelView({ initFee, hiStake }) {
   const [poolYes, setPoolYes] = useState(Math.min(hiStake, 120));
   const [poolNo, setPoolNo] = useState(Math.min(hiStake, 240));
   const [fee, setFee] = useState(Math.min(99, Math.max(0, initFee > 5 ? initFee : 30)));

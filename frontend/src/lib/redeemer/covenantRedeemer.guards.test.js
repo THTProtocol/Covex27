@@ -50,6 +50,7 @@ describe('buildUnsignedSpend fail-closed validation', () => {
   const base = { utxo: okUtxo, redeemHex: '00', destAddr: 'kaspa:qqexampledest', networkId: 'mainnet', fee: 2000n, kind: 'singlesig' };
 
   it('missing fee throws', async () => {
+    // eslint-disable-next-line no-unused-vars -- `fee` is destructured out on purpose to build a base object without it
     const { fee, ...noFee } = base;
     await expect(buildUnsignedSpend(noFee)).rejects.toThrow(/fee.*required/);
   });
@@ -80,6 +81,7 @@ describe('buildUnsignedSpend fail-closed validation', () => {
   });
 
   it('missing utxo throws', async () => {
+    // eslint-disable-next-line no-unused-vars -- `utxo` is destructured out on purpose to build a base object without it
     const { utxo, ...noUtxo } = base;
     await expect(buildUnsignedSpend(noUtxo)).rejects.toThrow(/utxo/);
   });

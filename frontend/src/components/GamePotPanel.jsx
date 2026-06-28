@@ -50,7 +50,7 @@ const CLAIM_STEPS = {
   paid: 'Paid.',
 };
 
-export default function GamePotPanel({ covenantId, gameType = 'chess', game, seatToken, network = 'testnet-12', onChange, className = '' }) {
+export default function GamePotPanel({ covenantId, game, seatToken, network = 'testnet-12', onChange, className = '' }) {
   const { address, isDevMode, devMode } = useWallet();
   const privKeyHex = isDevMode && devMode?.privateKeyHex ? devMode.privateKeyHex : '';
   const [busy, setBusy] = useState(false);

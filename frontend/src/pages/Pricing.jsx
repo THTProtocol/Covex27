@@ -1,8 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Check, Loader2, ArrowLeft, Terminal, Star, Crown, Eye, Copy, ShieldCheck } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import { useWallet, getCurrentNetwork } from '../components/WalletContext';
+import { useWallet } from '../components/WalletContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { toast } from '../components/ToastContext';
@@ -122,23 +122,13 @@ const getTreasuryAddress = () => MAINNET_TREASURY;
 
 const Pricing = () => {
   const navigate = useNavigate();
-  const { address, sendPayment, connecting, DevConnectPanel } = useWallet();
-  const [currentNetwork, setCurrentNetwork] = useState(() => getCurrentNetwork());
-  const isMainnet = currentNetwork === 'mainnet' || currentNetwork === 'mainnet-1';
+  const { address, sendPayment, DevConnectPanel } = useWallet();
   const TREASURY = getTreasuryAddress();
-
-  useEffect(() => {
-    const handler = () => {
-      setCurrentNetwork(getCurrentNetwork());
-    };
-    window.addEventListener('kaspa-network-change', handler);
-    return () => window.removeEventListener('kaspa-network-change', handler);
-  }, []);
 
   // Server-confirmed tier sync only - no localStorage pre-write
   // The auth-session endpoint is the only source of truth for paid access
 
-  const [processing, setProcessing] = useState(null);
+  const [, setProcessing] = useState(null);
   const [awaitingConfirmation, setAwaitingConfirmation] = useState(null);
   const [paymentStatus, setPaymentStatus] = useState(null);
   const [payingTier, setPayingTier] = useState(null);

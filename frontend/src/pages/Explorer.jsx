@@ -24,7 +24,7 @@ const CATEGORY_ICON = {
   general: Boxes,
 };
 import { useWallet, getCurrentNetwork, DEFAULT_NETWORK } from '../components/WalletContext';
-import GamePreview, { detectGameType, hasCustomUI } from '../components/GamePreview';
+import { detectGameType, hasCustomUI } from '../components/GamePreview';
 import LiveTicker from '../components/LiveTicker';
 import TrustBadge from '../components/TrustBadge';
 import { GoldenGrid } from '../components/GoldenGrid';
@@ -1297,7 +1297,7 @@ export default function Explorer() {
 }
 
 /* PREMIUM COVENANT CARD - rich data, all info, premium visuals */
-function CovenantCard({ covenant: c, index, ownerAddress }) {
+function CovenantCard({ covenant: c }) {
   const navigate = useNavigate();
   const tierKey = (c.verified_tier || c.tier || 'FREE').toUpperCase();
   const cfg = TIER_CONFIG[tierKey] || TIER_CONFIG.FREE;
@@ -1308,11 +1308,9 @@ function CovenantCard({ covenant: c, index, ownerAddress }) {
   const isActive = c.is_active !== false;
   const creatorName = c.creator_addr || c.address || '';
   const blockDAA = c.block_daa_score || 0;
-  const scriptShort = (c.script_hash || '').slice(0, 8);
   const categoryLabel = c.category || 'general';
   const txShort = (c.tx_id || '').slice(0, 10);
   const timestamp = c.timestamp ? new Date(c.timestamp * 1000).toLocaleDateString() : (c.block_daa_score ? `DAA ${blockDAA.toLocaleString()}` : 'Unknown');
-  const statusColor = isActive ? 'text-emerald-400' : 'text-gray-500';
   const statusLabel = isActive ? 'ACTIVE' : 'SETTLED';
   // Honest finality signal from the backend (derived against the live node tip). Only the
   // not-yet-final states get a chip; "final" is the boring default and stays uncluttered.

@@ -46,7 +46,6 @@ export function enforcementLabel(node) {
 
 // A one-line honest summary for the whole covenant (for the deploy confirmation + share card).
 export function summarize(node) {
-  const tier = compositionTier(node);
   const n = leaves(node).length;
   const kinds = [...new Set(leaves(node).map((l) => LEAF_KINDS[l.kind]?.label || l.kind))];
   return `${n} condition${n === 1 ? '' : 's'} (${kinds.join(', ')}). ${enforcementLabel(node)}`;

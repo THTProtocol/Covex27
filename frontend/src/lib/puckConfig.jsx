@@ -697,7 +697,6 @@ export const puckConfig = {
       render: ({ preset, glow, rounded, puck }) => {
         const p = BG_PRESETS[preset] || BG_PRESETS.aurora;
         const Inner = puck?.renderDropZone || (() => null);
-        const uid = `cvxsec-${preset}`;
         return (
           <div className={`relative overflow-hidden mb-5 ${rounded === 'yes' ? 'mx-2 md:mx-4 rounded-3xl' : ''}`} data-sec={preset} style={{ background: p.css }}>
             <style>{`.light [data-sec="${preset}"]{background:${p.light} !important;}`}</style>

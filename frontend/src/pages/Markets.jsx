@@ -116,7 +116,7 @@ function OddsRow({ book, odds, resolved, showOpen }) {
 // All request payloads (/order, /match) are passed through unchanged via
 // the onPlaceBet / onMatch callbacks the parent owns.
 function PlaceOrderCard({
-  book, market, odds, resolved,
+  book, odds, resolved,
   side, setSide, stake, setStake, addr, setAddr,
   busy, onPlaceBet, onMatch,
 }) {

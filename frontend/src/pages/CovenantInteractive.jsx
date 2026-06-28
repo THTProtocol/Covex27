@@ -226,18 +226,6 @@ const COVENANT_TEMPLATES = [
   }
 ];
 
-function ColorSwatch({ color, active, onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`h-8 w-8 rounded-full border-2 transition-all ${
-        active ? 'border-white scale-110 shadow-[0_0_10px_rgba(255,255,255,0.3)]' : 'border-transparent hover:scale-105'
-      }`}
-      style={{ backgroundColor: color }}
-    />
-  );
-}
-
 export default function CovenantInteractive() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -245,10 +233,9 @@ export default function CovenantInteractive() {
   const [covenant, setCovenant] = useState(null);
   const [loading, setLoading] = useState(true);
   const [amount, setAmount] = useState('');
-  const { address, balance, sendPayment, connecting, buildUri, signMessage } = useWallet();
+  const { address, balance, sendPayment, buildUri, signMessage } = useWallet();
 
   // UI Builder state
-  const [showBuilder, setShowBuilder] = useState(false);
   const [config, setConfig] = useState(DEFAULT_UI_CONFIG);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showTemplatePreview, setShowTemplatePreview] = useState(null); // for modal full preview
@@ -269,8 +256,8 @@ export default function CovenantInteractive() {
     return 'interact';
   });
 
-  // Transparency: always show full details for viewers (no hidden settings for regular users)
-  const showTransparency = true; // Always for the "everything there is to know - fully transparent" requirement.
+  // Full details are always shown to viewers (no hidden settings for regular users):
+  // "everything there is to know, fully transparent". There is no toggle to gate.
 
   const [walletModalOpen, setWalletModalOpen] = useState(false);
   const [fullscreenUI, setFullscreenUI] = useState(false);
@@ -655,7 +642,6 @@ export default function CovenantInteractive() {
 
     const title = ESC(cfg.titleOverride || cov.name || TRUNC(cov.tx_id));
     const desc = ESC(cfg.descOverride || cov.description || cov.desc || honestDescDefault);
-    const logic = ESC(cov.full_logic_summary || cov.description || honestLogicDefault);
     const creator = ESC(cov.creator_addr || 'Unknown');
     const locked = ESC((cov.amount_kaspa || 0).toLocaleString());
     const tx = ESC(cov.tx_id || '');

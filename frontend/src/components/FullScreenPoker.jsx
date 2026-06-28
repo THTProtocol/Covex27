@@ -257,7 +257,7 @@ function BetChips({ amount }) {
   );
 }
 
-export default function FullScreenPoker({ stake = 100, onClose, covenantId, feePercent = 2, potReturnPercent = 2, look }) {
+export default function FullScreenPoker({ stake = 100, onClose, covenantId, look }) {
   // Creator-chosen appearance (felt color + card back + chip accent). Falls back
   // to the classic Covex teal felt + kaspa card back so an arena opened without a
   // look renders exactly as before. cardBack is passed to every PlayingCard.

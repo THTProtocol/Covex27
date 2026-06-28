@@ -1,5 +1,5 @@
 
-const BlackjackMini = ({ compact = false }) => {
+const BlackjackMini = () => {
   return (
     <div className="flex items-center justify-center h-full bg-black/30 rounded-lg p-3 text-center">
       <div>

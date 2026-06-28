@@ -14,7 +14,9 @@ export default function MultiOracleConfigurator({ value, onChange }) {
     { name: "External Resolver 3", publicKey: "", weight: 1 },
   ]);
   const [threshold, setThreshold] = useState(value?.multiOracle?.threshold || 2);
-  const [collectedSignatures, setCollectedSignatures] = useState([]); // for demo: user pastes signatures here
+  // Demo-only: a paste box captures signatures into state. No live path reads them
+  // back yet (the emitted config uses onChange above), so only the setter is bound.
+  const [, setCollectedSignatures] = useState([]);
 
   const update = (newOracles, newThreshold) => {
     const config = {
@@ -48,15 +50,6 @@ export default function MultiOracleConfigurator({ value, onChange }) {
   const changeThreshold = (newT) => {
     setThreshold(newT);
     update(oracles, newT);
-  };
-
-  // Helper to build the final multi_oracle object for submission
-  const getMultiOracleConfigForSubmission = () => {
-    return {
-      providers: oracles,
-      threshold,
-      signatures: collectedSignatures.filter(s => s.signature && s.publicKey),
-    };
   };
 
   return (

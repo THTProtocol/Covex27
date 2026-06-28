@@ -62,7 +62,6 @@ export default function BuildStepsRail({ compact }) {
           {STEPS.map((s) => {
           const active = current === s.n;
           const done = typeof isDone === 'function' ? isDone(s.n) : current > s.n;
-          const upcoming = !active && !done;
           // goTo() only navigates the sandbox phases (steps 1-3). Steps 4-5 live on
           // a covenant route goTo cannot reach, so they render as an inert span
           // instead of a button that silently no-ops on click.

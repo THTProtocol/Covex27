@@ -18,7 +18,6 @@ import {
 const P1 = 'kaspatest:player1';
 const P2 = 'kaspatest:player2';
 const KEY = '11'.repeat(32);          // an in-browser private key (hex)
-const SIG = 'bb'.repeat(64);
 
 const zkGame = (over = {}) => ({
   player1: P1,

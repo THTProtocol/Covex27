@@ -73,7 +73,7 @@ export default function LiveTicker({ network }) {
         <span className={`text-[11px] font-bold tracking-wide ${t.text}`}>{t.label}</span>
         {e.detail && <span className="text-[11px] text-gray-400 max-w-[150px] truncate group-hover/item:text-gray-200 transition-colors">{e.detail}</span>}
         {e.amount_kaspa > 0 && (
-          <span className="text-[11px] font-mono font-semibold text-white/90">{e.amount_kaspa.toLocaleString()} <span className="text-white/40">KAS</span></span>
+          <span className="text-[11px] font-mono font-semibold text-white/90 light:text-slate-900">{e.amount_kaspa.toLocaleString()} <span className="text-white/40 light:text-slate-500">KAS</span></span>
         )}
         <span className="text-[10px] font-mono text-gray-600">{ago(e.timestamp)}</span>
       </Link>

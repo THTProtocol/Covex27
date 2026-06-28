@@ -90,19 +90,8 @@ const PILLARS = [
 ];
 
 // Worked covenant examples, each with its genuine enforcement reality.
+// Utility primitives lead; the staked games / market examples follow.
 const EXAMPLES = [
-  {
-    icon: Gamepad2,
-    name: 'Games arena',
-    kind: 'oracle-attested',
-    body: 'Two players stake into a covenant and play in a premium client. On testnet today, a pot settles when Covex re-derives the winner from the publicly-replayable signed move log and co-signs the payout; Covex does not decide the winner, and the chain still requires the winning player to add their own signature. The chain-enforced, no-Covex-key path is rolling out.',
-  },
-  {
-    icon: TrendingUp,
-    name: 'Prediction market',
-    kind: 'oracle-attested',
-    body: 'Funds sit in on-chain binary-select bundles, but a real-world fact must be attested off-chain by an external resolver the creator chooses (single key or k-of-n independent signers), never by Covex. Today the bundled market settles via a Covex-derived secret gated to the creator wallet, a trust-minimized step toward full external-resolver binding. The website shows live odds, pools, and a place-order panel.',
-  },
   {
     icon: Lock,
     name: 'Escrow',
@@ -120,6 +109,18 @@ const EXAMPLES = [
     name: 'Fundraiser',
     kind: 'on-chain',
     body: 'A pooled covenant with a target and a deadline. The website shows a live pool meter against the goal and a contribute button; the destination is always derived from the indexed covenant, never the button.',
+  },
+  {
+    icon: TrendingUp,
+    name: 'Prediction market',
+    kind: 'oracle-attested',
+    body: 'Funds sit in on-chain binary-select bundles, but a real-world fact must be attested off-chain by an external resolver the creator chooses (single key or k-of-n independent signers), never by Covex. Today the bundled market settles via a Covex-derived secret gated to the creator wallet, a trust-minimized step toward full external-resolver binding. The website shows live odds, pools, and a place-order panel.',
+  },
+  {
+    icon: Gamepad2,
+    name: 'Games arena',
+    kind: 'oracle-attested',
+    body: 'Two players stake into a covenant and play in a premium client. On testnet today, a pot settles when Covex re-derives the winner from the publicly-replayable signed move log and co-signs the payout; Covex does not decide the winner, and the chain still requires the winning player to add their own signature. The chain-enforced, no-Covex-key path is rolling out.',
   },
   {
     icon: Boxes,

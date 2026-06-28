@@ -38,7 +38,7 @@ Covex has three jobs, and a fourth that ties them together:
 | Pillar | What it means | Free? |
 |--------|---------------|-------|
 | **Explore** | Every covenant on the chain, discovered on-chain by independent indexers. Paginated API, keyword search, categories, a live activity feed and ticker, per-covenant lifecycle and action history, and address portfolios. | Free forever |
-| **Interact** | Connect a Kaspa wallet and act on any covenant directly: stake, join, bet, claim, resolve, settle. On-chain game arenas (chess and more) settle real pots. Markets take real orders. Any on-chain P2SH covenant can be redeemed by supplying its redeem script, even covenants not created on Covex. | Free forever |
+| **Interact** | Connect a Kaspa wallet and act on any covenant directly: deposit, claim, resolve, settle, stake, join. Any on-chain P2SH covenant can be redeemed by supplying its redeem script, even covenants not created on Covex. Markets take real orders and on-chain game arenas (chess and more) settle real pots. | Free forever |
 | **Create** | A free covenant creator plus paid Studio tiers. Build the covenant itself (real circuits, fee and payout config, and a SilverScript terminal that compiles to a declared-logic payload, not payout-enforcing script - the funds are locked by the engine-tested on-chain primitives, not the DSL), then build the **interactive website that lives on its covenant page** with a drag-and-drop visual builder. | Free + paid tiers |
 | **Trust** | Every covenant page shows its lifecycle, finality, and an honest enforcement-reality badge (on-chain / oracle-attested / full-zk / metadata). The platform treasury, ranking formula, and payment history are public. | Always on |
 

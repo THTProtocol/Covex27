@@ -524,6 +524,40 @@ fn params_for(kind: &RedeemKind) -> Vec<DecodedParam> {
             out.push(pk("refund", refund));
             out
         }
+        RedeemKind::WinnerTakesAllBound {
+            winner,
+            fee_sompi,
+            require_sig,
+        } => vec![
+            pk("winner", winner),
+            DecodedParam {
+                role: "fee_sompi".into(),
+                r#type: "u64".into(),
+                value: fee_sompi.to_string(),
+            },
+            DecodedParam {
+                role: "require_sig".into(),
+                r#type: "bool".into(),
+                value: require_sig.to_string(),
+            },
+        ],
+        RedeemKind::EscrowBound {
+            party_a,
+            party_b,
+            fee_sompi,
+            min_sequence,
+            refund,
+        } => vec![
+            pk("party_a", party_a),
+            pk("party_b", party_b),
+            DecodedParam {
+                role: "fee_sompi".into(),
+                r#type: "u64".into(),
+                value: fee_sompi.to_string(),
+            },
+            seq("min_sequence", *min_sequence),
+            pk("refund", refund),
+        ],
     }
 }
 
@@ -686,6 +720,34 @@ fn branches_for(kind: &RedeemKind) -> Vec<SpendBranch> {
                 "<refund_sig> OP_FALSE (input.sequence >= min_sequence)",
             ),
         ],
+        RedeemKind::WinnerTakesAllBound { require_sig, .. } => {
+            let mut v = vec![branch(
+                "winner",
+                "the tx must have exactly one output paying (input amount - fee) to the winner P2PK, enforced on-chain by KIP-10 introspection (OpTxOutputCount / OpTxOutputAmount / OpTxOutputSpk)",
+                if *require_sig { "<winner_sig> (A2: winner OpCheckSig after the output binding)" } else { "(A1: pure output binding; any relayer pays it out, only ever to the winner)" },
+            )];
+            if !*require_sig {
+                v[0].name = "payout".into();
+            }
+            v
+        }
+        RedeemKind::EscrowBound { min_sequence, .. } => vec![
+            branch(
+                "party_a",
+                "IF: pay (input amount - fee) to party_a (output-bound), signed by A",
+                "<sig_a> OP_TRUE",
+            ),
+            branch(
+                "party_b",
+                "ELSE IF: pay (input amount - fee) to party_b (output-bound), signed by B",
+                "<sig_b> OP_TRUE OP_FALSE",
+            ),
+            branch(
+                "refund",
+                &format!("ELSE: funder refunds after the UTXO ages {min_sequence}"),
+                "<refund_sig> OP_FALSE OP_FALSE (input.sequence >= min_sequence)",
+            ),
+        ],
     }
 }
 
@@ -725,6 +787,8 @@ fn label_for(kind: &RedeemKind) -> String {
         RedeemKind::OracleEnforcedRefundable { .. } => "Oracle-enforced payout, refundable".into(),
         RedeemKind::OracleEscrowRefundable { .. } => "Oracle-enforced escrow, refundable".into(),
         RedeemKind::ZkGameSettle { .. } => "On-chain ZK game settlement (KIP-16 OpZkPrecompile)".into(),
+        RedeemKind::WinnerTakesAllBound { .. } => "Winner-takes-all, output-bound (KIP-10)".into(),
+        RedeemKind::EscrowBound { .. } => "2-party escrow, output-bound + CSV refund (KIP-10)".into(),
     }
 }
 

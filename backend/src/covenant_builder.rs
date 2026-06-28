@@ -213,6 +213,30 @@ pub enum RedeemKind {
         /// The refund x-only pubkey (funder reclaim if no winning proof is ever produced).
         refund: [u8; 32],
     },
+    /// Trustless WINNER-TAKES-ALL via KIP-10 introspection (no oracle, no Covex key). The spend is
+    /// valid only if there is EXACTLY ONE output and output[0] pays exactly (input amount - fee) to
+    /// the winner's P2PK scriptPublicKey, enforced ON-CHAIN by OpTxOutputCount (0xb4) /
+    /// OpTxInputAmount (0xbe) / OpTxOutputAmount (0xc2) / OpTxOutputSpk (0xc3). The pot can only ever
+    /// flow to `winner`; a redirect/skim spend is consensus-rejected. KIP-10 is Crescendo-live on
+    /// mainnet. `require_sig` true also requires the winner's OpCheckSig (recommended; mirrors the
+    /// SilverScript escrow primitive). Gated by `kip10_introspection_available()`.
+    WinnerTakesAllBound {
+        winner: [u8; 32],
+        fee_sompi: u64,
+        require_sig: bool,
+    },
+    /// Trustless 2-party escrow with output binding + CSV refund tail (no oracle). IF = pay
+    /// output[0] = (input amount - fee) to party_a, signed by A; ELSE IF = pay party_b, signed by B;
+    /// ELSE = a relative-timelock (CSV) refund to `refund`. Each payout branch binds output[0]
+    /// amount + spk via KIP-10 introspection, so neither party can redirect the pot and a silent
+    /// dispute is resolved by the timeout refund. Gated by `kip10_introspection_available()`.
+    EscrowBound {
+        party_a: [u8; 32],
+        party_b: [u8; 32],
+        fee_sompi: u64,
+        min_sequence: u64,
+        refund: [u8; 32],
+    },
 }
 
 /// The number of BN254 `Fr` public inputs a RISC0 Groth16 receipt verifies against (a0, a1, c0,
@@ -241,6 +265,76 @@ pub const OP_TO_ALT_STACK: u8 = 0x6b;
 pub const OP_FROM_ALT_STACK: u8 = 0x6c;
 /// `OpDrop` (`0x75`): pop and discard the top item. Consumes the TRUE `OpZkPrecompile` pushes.
 pub const OP_DROP_BYTE: u8 = 0x75;
+
+// ── KIP-10 transaction-introspection opcode BYTES (Crescendo-live on Kaspa mainnet since May 2025).
+// kaspa-txscript 0.15.0 predates the named constants (it maps these as OpUnknown180/185/190/194/195,
+// returning InvalidOpcode), so the builder splices the raw bytes the way ZkGameSettle splices 0xa6.
+// The LIVE node engine (TN10/TN12/mainnet) implements them; the builder only needs to emit them.
+// Bytes cross-checked against KIP-10, rusty-kaspa master opcodes/mod.rs, and disassembler.rs.
+/// `OpTxOutputCount` (`0xb4`): pushes the number of outputs (used to bind "exactly one output").
+pub const OP_TX_OUTPUT_COUNT: u8 = 0xb4;
+/// `OpTxInputIndex` (`0xb9`): pushes the index of the input being validated.
+pub const OP_TX_INPUT_INDEX: u8 = 0xb9;
+/// `OpTxInputAmount` (`0xbe`): pops an i32 index, pushes inputs[index].amount (sompi).
+pub const OP_TX_INPUT_AMOUNT: u8 = 0xbe;
+/// `OpTxOutputAmount` (`0xc2`): pops an i32 index, pushes outputs[index].amount (sompi).
+pub const OP_TX_OUTPUT_AMOUNT: u8 = 0xc2;
+/// `OpTxOutputSpk` (`0xc3`): pops an i32 index, pushes outputs[index].scriptPublicKey BYTES
+/// (version-prefixed serialization, NOT a hash). Per the on-chain TN12 golden vector the pushed
+/// form is [version_u16_LE][raw script], NO length prefix (spec section 4 / R1, resolved 2026-06-25).
+pub const OP_TX_OUTPUT_SPK: u8 = 0xc3;
+
+/// `OpSub` (`0x94`): pop b, pop a, push a-b. Used for (input amount - fee).
+pub const OP_SUB_BYTE: u8 = 0x94;
+/// `OpNumEqualVerify` (`0x9d`): pop two numbers, fail the script unless equal. Used to bind the
+/// output amount to (input amount - fee). (OpNumEqual `0x9c` leaves a bool; we use the Verify form.)
+pub const OP_NUM_EQUAL_VERIFY: u8 = 0x9d;
+/// `OpEqual` (`0x87`): pop two byte strings, push their equality bool (the trailing SPK-bind result).
+pub const OP_EQUAL_BYTE: u8 = 0x87;
+/// `OpEqualVerify` (`0x88`): pop two byte strings, fail unless equal (the SPK bind in the signed form).
+pub const OP_EQUAL_VERIFY_BYTE: u8 = 0x88;
+
+/// The DEPLOY/build gate for the KIP-10 output-binding kinds (WinnerTakesAllBound / EscrowBound).
+/// KIP-10 introspection is Crescendo-live on mainnet, so these kinds need NO mainnet freeze (unlike
+/// zk_precompile_deploy_allowed). BUT this build emits the opcodes via raw-byte splice (the vendored
+/// kaspa-txscript 0.15 cannot NAME them and its engine rejects them as InvalidOpcode), and no full
+/// TN12 e2e (lock -> redirect-reject -> valid-spend) has yet been run for THESE kinds. So the gate is
+/// FAIL-CLOSED by default and opens only when the operator sets COVEX_KIP10_BOUND_ENABLED truthy,
+/// after running the section-5/section-7 e2e. The byte layout itself is pinned by the unit tests +
+/// the on-chain TN12 SPK golden vector cited in docs/KIP10_DETERMINISTIC_COVENANTS_SPEC.md. Returns
+/// Ok(()) when a bound-kind deploy may proceed, else a caller-surfaceable error.
+pub fn kip10_introspection_available() -> BResult<()> {
+    let enabled = std::env::var("COVEX_KIP10_BOUND_ENABLED")
+        .map(|v| {
+            let v = v.trim().to_ascii_lowercase();
+            v == "1" || v == "true" || v == "yes" || v == "on"
+        })
+        .unwrap_or(false);
+    if !enabled {
+        return Err(
+            "KIP-10 output-bound covenants are not enabled yet (set COVEX_KIP10_BOUND_ENABLED=1 once the TN12 lock/redirect-reject/valid-spend e2e has been run). The builder + byte layout are ready; the live spend e2e for these kinds is the remaining gate."
+                .to_string(),
+        );
+    }
+    Ok(())
+}
+
+/// On-stack reconstruction of the version-prefixed scriptPublicKey for a standard P2PK lock to
+/// `xonly`, pushed as ONE canonical data item so an `OpEqual` against `OpTxOutputSpk` (0xc3) binds
+/// the output recipient. Per the on-chain TN12 golden vector (spec section 4, resolved 2026-06-25),
+/// OpTxOutputSpk pushes `[version_u16_LE][raw script]` with NO length prefix, so this builds:
+///   version_u16_LE (2 bytes, 0x0000 for a standard P2PK) || 0x20 || xonly(32) || 0xac  (36 bytes).
+/// Worked golden vector: x-only d83d04fa... -> 000020d83d04fa...ac, proven by spend
+/// 0e10765e3a218fd4756e9785e90c95f82108d9a731adbc758f10db3d7e21061a (the with-length and bare-script
+/// forms were consensus-rejected). The build splices the canonical data push via push_data_raw.
+pub fn push_p2pk_spk(out: &mut Vec<u8>, xonly: &[u8; 32]) -> BResult<()> {
+    let mut spk: Vec<u8> = Vec::with_capacity(36);
+    spk.extend_from_slice(&0u16.to_le_bytes()); // version 0, little-endian (the OpTxOutputSpk form).
+    spk.push(0x20); // OpData32: a 32-byte data push (the x-only pubkey).
+    spk.extend_from_slice(xonly);
+    spk.push(OpCheckSig); // 0xac, completing the P2PK script.
+    push_data_raw(out, &spk)
+}
 
 impl RedeemKind {
     /// Serialize this kind into its Kaspa redeem script bytes (the single source of truth;
@@ -312,6 +406,18 @@ impl RedeemKind {
                 min_sequence,
                 refund,
             } => redeem_zk_game_settle(vk, public_inputs, winner_pubkey, *min_sequence, refund),
+            RedeemKind::WinnerTakesAllBound {
+                winner,
+                fee_sompi,
+                require_sig,
+            } => redeem_winner_takes_all_bound(winner, *fee_sompi, *require_sig),
+            RedeemKind::EscrowBound {
+                party_a,
+                party_b,
+                fee_sompi,
+                min_sequence,
+                refund,
+            } => redeem_escrow_bound(party_a, party_b, *fee_sompi, *min_sequence, refund),
         }
     }
 
@@ -354,6 +460,14 @@ impl RedeemKind {
             RedeemKind::ZkGameSettle { min_sequence, .. } => {
                 format!("zk_game_settle:{min_sequence}")
             }
+            // require_sig rides after the ':' so the spend path rebuilds sig_op_count (1 if signed,
+            // 0 for the pure output-binding form). "winner_bound:1" = A2 (signed), ":0" = A1.
+            RedeemKind::WinnerTakesAllBound { require_sig, .. } => {
+                format!("winner_bound:{}", if *require_sig { 1 } else { 0 })
+            }
+            RedeemKind::EscrowBound { min_sequence, .. } => {
+                format!("escrow_bound:{min_sequence}")
+            }
         }
     }
 
@@ -378,6 +492,8 @@ impl RedeemKind {
             RedeemKind::OracleEnforcedRefundable { .. } => "oracle_enforced_refundable",
             RedeemKind::OracleEscrowRefundable { .. } => "oracle_escrow_refundable",
             RedeemKind::ZkGameSettle { .. } => "p2sh_zk_game_settle",
+            RedeemKind::WinnerTakesAllBound { .. } => "p2sh_winner_bound",
+            RedeemKind::EscrowBound { .. } => "p2sh_escrow_bound",
         }
     }
 }
@@ -444,6 +560,18 @@ pub enum SpendKind {
     ZkGameSettle {
         min_sequence: u64,
     },
+    /// `winner_bound:S` - KIP-10 output-bound winner-takes-all. The introspection opcodes are NOT
+    /// sig ops, so sig_op_count is 1 when require_sig (S==1, the A2 form with the trailing winner
+    /// OpCheckSig) or 0 for the pure output-binding A1 form (S==0).
+    WinnerBound {
+        require_sig: bool,
+    },
+    /// `escrow_bound:N` - KIP-10 output-bound 2-party escrow. IF [bind + A CheckSig] ELSE IF [bind +
+    /// B CheckSig] ELSE [CSV refund CheckSig] = 3 static sig ops (one per branch; the introspection
+    /// opcodes are NOT sig ops). The refund branch needs the spend input's sequence >= N.
+    EscrowBound {
+        min_sequence: u64,
+    },
 }
 
 impl SpendKind {
@@ -494,6 +622,13 @@ impl SpendKind {
             "zk_game_settle" => Some(SpendKind::ZkGameSettle {
                 min_sequence: param?.parse().ok()?,
             }),
+            "winner_bound" => Some(SpendKind::WinnerBound {
+                // "winner_bound:1" = A2 (winner OpCheckSig), ":0" = A1 (pure output binding).
+                require_sig: param.map(|p| p == "1").unwrap_or(true),
+            }),
+            "escrow_bound" => Some(SpendKind::EscrowBound {
+                min_sequence: param?.parse().ok()?,
+            }),
             _ => None,
         }
     }
@@ -527,6 +662,17 @@ impl SpendKind {
             SpendKind::OracleEscrowRefundable { .. } => 4,
             // IF [OpZkPrecompile (not a sig op) + winner CheckSig = 1] ELSE [CSV refund CheckSig = 1] = 2.
             SpendKind::ZkGameSettle { .. } => 2,
+            // KIP-10 output binding uses only introspection opcodes (NOT sig ops). A2 adds the winner
+            // OpCheckSig (1); A1 is pure output binding (0).
+            SpendKind::WinnerBound { require_sig } => {
+                if *require_sig {
+                    1
+                } else {
+                    0
+                }
+            }
+            // IF [bind + A CheckSig = 1] ELSE IF [bind + B CheckSig = 1] ELSE [CSV refund CheckSig = 1] = 3.
+            SpendKind::EscrowBound { .. } => 3,
             // Two multisigs (IF + ELSE), each counting one sig-op per listed pubkey.
             SpendKind::TimeDecay { n } => 2 * *n,
         }
@@ -912,6 +1058,128 @@ pub fn build_zk_game_settle_refund_satisfier(
     satisfier.push(OpFalse); // select the ELSE (refund) branch.
     kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
         .map_err(|e| format!("zk_game_settle refund signature script: {e}"))
+}
+
+// ── KIP-10 output-binding builders (WinnerTakesAllBound / EscrowBound) ───────────────────────────
+// These EMIT the KIP-10 introspection opcodes (0xb4 / 0xbe / 0xc2 / 0xc3) via raw-byte splice (the
+// ZkGameSettle 0xa6 precedent) so the covenant enforces WHO IS PAID (amount + recipient spk), not
+// just who may spend. The byte layout follows docs/KIP10_DETERMINISTIC_COVENANTS_SPEC.md section 2,
+// the SilverScript escrow primitive, and the on-chain TN12 SPK golden vector (section 4 / R1).
+
+/// Push the integer 0 as the i32 INDEX operand the amount/spk opcodes pop. For index 0 the minimal
+/// script-number is the empty push (OP_0 == OpFalse == 0x00), which the opcode reads as i32 0
+/// (spec section 1 item 3 / R5). We splice via the audited ScriptBuilder add_i64 so the encoding is
+/// identical to every other number push.
+fn push_index0(out: &mut Vec<u8>) -> BResult<()> {
+    let mut b = ScriptBuilder::new();
+    b.add_i64(0).map_err(|e| format!("kip10 push index 0: {e}"))?;
+    out.extend_from_slice(&b.drain());
+    Ok(())
+}
+
+/// Emit the output[0]-binding asserts shared by every bound branch (spec section 2):
+///   OpTxOutputCount NUM(1) OpNumEqualVerify          ; exactly one output (no skim) - REQUIRED
+///   OpTxInputIndex OpTxInputAmount PUSH(fee) OpSub    ; inputs[thisIdx].amount - fee
+///   NUM(0) OpTxOutputAmount OpNumEqualVerify          ; require outputs[0].amount == amount - fee
+///   NUM(0) OpTxOutputSpk PUSH(P2PK_SPK(recipient))    ; outputs[0].scriptPublicKey
+///   <eq_op>                                           ; OpEqual (A1, leaves bool) or OpEqualVerify
+/// The leading exactly-one-output bind is the change/skim defense (spec R2) and is NEVER dropped.
+/// `eq_op` is OP_EQUAL (0x87) for the trailing-result A1 form, or OP_EQUAL_VERIFY (0x88) when a
+/// signature check follows (A2 / escrow branches).
+fn emit_output_binding(out: &mut Vec<u8>, fee_sompi: u64, recipient: &[u8; 32], eq_op: u8) -> BResult<()> {
+    // OpTxOutputCount NUM(1) OpNumEqualVerify  (exactly one output - the skim defense).
+    out.push(OP_TX_OUTPUT_COUNT);
+    {
+        let mut b = ScriptBuilder::new();
+        b.add_i64(1).map_err(|e| format!("kip10 push 1: {e}"))?;
+        out.extend_from_slice(&b.drain());
+    }
+    out.push(OP_NUM_EQUAL_VERIFY);
+    // OpTxInputIndex OpTxInputAmount  -> inputs[thisIdx].amount.
+    out.push(OP_TX_INPUT_INDEX);
+    out.push(OP_TX_INPUT_AMOUNT);
+    // PUSH(fee) OpSub  -> amount - fee.
+    {
+        let mut b = ScriptBuilder::new();
+        b.add_i64(fee_sompi as i64)
+            .map_err(|e| format!("kip10 push fee: {e}"))?;
+        out.extend_from_slice(&b.drain());
+    }
+    out.push(OP_SUB_BYTE);
+    // NUM(0) OpTxOutputAmount OpNumEqualVerify  -> require outputs[0].amount == amount - fee.
+    push_index0(out)?;
+    out.push(OP_TX_OUTPUT_AMOUNT);
+    out.push(OP_NUM_EQUAL_VERIFY);
+    // NUM(0) OpTxOutputSpk PUSH(P2PK_SPK(recipient)) <eq_op>  -> bind outputs[0].spk to recipient.
+    push_index0(out)?;
+    out.push(OP_TX_OUTPUT_SPK);
+    push_p2pk_spk(out, recipient)?;
+    out.push(eq_op);
+    Ok(())
+}
+
+/// Redeem script for a trustless WINNER-TAKES-ALL covenant bound by KIP-10 introspection (spec
+/// section 2(a)). The pot can only ever flow to `winner`. `require_sig` true (A2, recommended)
+/// requires the winner's OpCheckSig after the output binding; false (A1) is pure output binding
+/// (anyone can relay the payout, but only to the winner). `fee_sompi` is the exact baked miner fee
+/// (the input/output delta); a wrong fee makes the pot unspendable (safe-fail), never redirectable.
+pub fn redeem_winner_takes_all_bound(
+    winner: &[u8; 32],
+    fee_sompi: u64,
+    require_sig: bool,
+) -> BResult<Vec<u8>> {
+    let mut r: Vec<u8> = Vec::new();
+    if require_sig {
+        // A2: output binding (OpEqualVerify) then PUSH(winner) OpCheckSig (leaves the sig result).
+        emit_output_binding(&mut r, fee_sompi, winner, OP_EQUAL_VERIFY_BYTE)?;
+        push_data_raw(&mut r, winner)?;
+        r.push(OpCheckSig);
+    } else {
+        // A1: output binding ending in OpEqual, whose TRUE/FALSE is the script result.
+        emit_output_binding(&mut r, fee_sompi, winner, OP_EQUAL_BYTE)?;
+    }
+    Ok(r)
+}
+
+/// Redeem script for a trustless 2-party ESCROW bound by KIP-10 introspection + a CSV refund tail
+/// (spec section 2(b)). IF = pay output[0] = (amount - fee) to party_a, signed by A; ELSE IF = pay
+/// party_b, signed by B; ELSE = a relative-timelock (CSV) refund to `refund`. Each payout branch
+/// binds output[0] amount + spk so neither party can redirect the pot; the refund prevents frozen
+/// funds. Like every CSV builder, OpCheckSequenceVerify pops its operand (no OpDrop). sig_op_count =
+/// 3 (one OpCheckSig per branch), identical to BinaryOracleSelect.
+pub fn redeem_escrow_bound(
+    party_a: &[u8; 32],
+    party_b: &[u8; 32],
+    fee_sompi: u64,
+    min_sequence: u64,
+    refund: &[u8; 32],
+) -> BResult<Vec<u8>> {
+    let mut r: Vec<u8> = Vec::new();
+    // Branch A (outer IF): bind output[0] -> party_a, signed by A.
+    r.push(OpIf);
+    emit_output_binding(&mut r, fee_sompi, party_a, OP_EQUAL_VERIFY_BYTE)?;
+    push_data_raw(&mut r, party_a)?;
+    r.push(OpCheckSig);
+    r.push(OpElse);
+    // Branch B (inner IF): bind output[0] -> party_b, signed by B.
+    r.push(OpIf);
+    emit_output_binding(&mut r, fee_sompi, party_b, OP_EQUAL_VERIFY_BYTE)?;
+    push_data_raw(&mut r, party_b)?;
+    r.push(OpCheckSig);
+    r.push(OpElse);
+    // Refund (inner ELSE): relative timelock to the funder. CSV pops its operand (no OpDrop).
+    {
+        let mut b = ScriptBuilder::new();
+        b.add_lock_time(min_sequence)
+            .map_err(|e| format!("escrow_bound add seq: {e}"))?;
+        r.extend_from_slice(&b.drain());
+    }
+    r.push(OpCheckSequenceVerify);
+    push_data_raw(&mut r, refund)?;
+    r.push(OpCheckSig);
+    r.push(OpEndIf); // close inner IF.
+    r.push(OpEndIf); // close outer IF.
+    Ok(r)
 }
 
 /// Stage-3 deploy gate for the ZK on-chain kind. The kind is OFF by default: it deploys only when
@@ -2036,6 +2304,53 @@ fn assemble_noncustodial_satisfier(
                 }
             }
         }
+        // ── KIP-10 output-bound winner-takes-all (spec section 3). The output binding is enforced
+        // by introspection opcodes in the REDEEM; the satisfier only supplies the optional winner
+        // signature. A2 (signed): PUSH(winner_sig). A1 (pure binding): empty satisfier. No oracle. ──
+        "winner_bound" => {
+            // A redeem that ends in a winner OpCheckSig (A2) needs a signature; the A1 form does not.
+            // We detect A2 by a trailing OpCheckSig after a 32-byte push (the redeem tail), but the
+            // caller-supplied solo signature is the authoritative signal: present => A2, absent => A1.
+            if let Some(sig) = solo {
+                satisfier.extend(push65(sig));
+            }
+            // A1: nothing to push; the redeem's trailing OpEqual is the whole spend condition.
+        }
+        // ── KIP-10 output-bound 2-party escrow (spec section 3). IF/IF/ELSE choreography identical
+        // to binary_oracle_select; each payout branch is output-bound by introspection in the redeem.
+        //   branch A (winner_is_a, !refund): <sig_a> OP_TRUE
+        //   branch B (!winner_is_a, !refund): <sig_b> OP_TRUE OP_FALSE  (OP_FALSE on top = outer ELSE)
+        //   refund (branch_refund):           <sig_refund> OP_FALSE OP_FALSE
+        // No oracle_sig is ever consumed (the key difference vs the oracle_escrow arm). ──
+        "escrow_bound" => {
+            let s = solo
+                .copied()
+                .or_else(|| {
+                    // Allow a per-member map keyed by the branch's named key (defense in depth).
+                    let idx = if branch_refund {
+                        // members for escrow_bound are [party_a, party_b, refund]; refund at 2.
+                        2usize
+                    } else if winner_is_a {
+                        0usize
+                    } else {
+                        1usize
+                    };
+                    members.get(idx).and_then(|p| sig_for(p))
+                })
+                .ok_or_else(|| {
+                    "escrow_bound spend needs the claiming party's signature (signature_hex)".to_string()
+                })?;
+            satisfier.extend(push65(&s));
+            if branch_refund {
+                satisfier.push(OpFalse); // inner ELSE
+                satisfier.push(OpFalse); // outer ELSE (top)
+            } else if winner_is_a {
+                satisfier.push(OpTrue); // outer IF (branch A)
+            } else {
+                satisfier.push(OpTrue); // inner IF (branch B)
+                satisfier.push(OpFalse); // outer ELSE (top)
+            }
+        }
         other => return Err(format!("non-custodial assembly does not support '{other}'")),
     }
     kaspa_txscript::pay_to_script_hash_signature_script(redeem.to_vec(), satisfier)
@@ -2261,8 +2576,19 @@ pub struct RedeemSpec {
     /// zk_game_settle only: the WINNER's x-only pubkey (the journal-bound payee). Baked; only this
     /// key's signature can spend the winner branch. refund_pubkey_hex (above) is the CSV refund key,
     /// and lock_daa (above) is reused as the CSV refund min_sequence.
+    /// winner_bound (KIP-10) also reuses winner_pubkey_hex as the bound recipient.
     #[serde(default)]
     pub winner_pubkey_hex: Option<String>,
+    /// winner_bound / escrow_bound (KIP-10) only: the exact baked miner fee in sompi (the
+    /// input/output delta). The output binding requires outputs[0].amount == input - fee, so a
+    /// wrong fee makes the pot unspendable (safe-fail), never redirectable. Defaults to TX_FEE.
+    #[serde(default)]
+    pub fee_sompi: Option<u64>,
+    /// winner_bound (KIP-10) only: true (default) = the A2 form requiring the winner's OpCheckSig
+    /// after the output binding (recommended); false = the A1 pure-output-binding form (any relayer
+    /// can pay the pot out, but only ever to the winner).
+    #[serde(default)]
+    pub require_sig: Option<bool>,
 }
 
 /// The two testnet dev-wallet secret keys for a network (used as default multisig
@@ -5480,6 +5806,47 @@ fn build_redeem_from_spec(spec: &RedeemSpec, owner_xonly: &[u8; 32]) -> BResult<
             Ok((
                 redeem_oracle_escrow(&oracle_xonly, &decode_xonly_hex(&pks[0])?, &decode_xonly_hex(&pks[1])?)?,
                 "oracle_escrow".to_string(),
+            ))
+        }
+        // ── KIP-10 output-bound trustless kinds (no oracle, no Covex key). Gated fail-closed by
+        // kip10_introspection_available() until the TN12 e2e is run. ──
+        "winner_bound" => {
+            kip10_introspection_available()?;
+            // The bound recipient: winner_pubkey_hex if given, else the deployer (a self-pot).
+            let winner = match &spec.winner_pubkey_hex {
+                Some(h) if !h.trim().is_empty() => decode_xonly_hex(h)?,
+                _ => *owner_xonly,
+            };
+            let fee = spec.fee_sompi.unwrap_or(TX_FEE);
+            let require_sig = spec.require_sig.unwrap_or(true);
+            Ok((
+                redeem_winner_takes_all_bound(&winner, fee, require_sig)?,
+                format!("winner_bound:{}", if require_sig { 1 } else { 0 }),
+            ))
+        }
+        "escrow_bound" => {
+            kip10_introspection_available()?;
+            let pks = spec
+                .pubkeys_hex
+                .as_ref()
+                .ok_or("escrow_bound requires pubkeys_hex=[party_a, party_b]")?;
+            if pks.len() < 2 {
+                return Err("escrow_bound needs pubkeys_hex=[party_a, party_b]".into());
+            }
+            let party_a = decode_xonly_hex(&pks[0])?;
+            let party_b = decode_xonly_hex(&pks[1])?;
+            let fee = spec.fee_sompi.unwrap_or(TX_FEE);
+            let min_sequence = spec
+                .lock_daa
+                .ok_or("escrow_bound requires lock_daa (the CSV refund min_sequence)")?;
+            // The refund key reclaims after the CSV delay; defaults to the deployer.
+            let refund = match &spec.refund_pubkey_hex {
+                Some(h) if !h.trim().is_empty() => decode_xonly_hex(h)?,
+                _ => *owner_xonly,
+            };
+            Ok((
+                redeem_escrow_bound(&party_a, &party_b, fee, min_sequence, &refund)?,
+                format!("escrow_bound:{min_sequence}"),
             ))
         }
         other => Err(format!("non-custodial deploy does not support kind '{other}' (oracle covenants use the server oracle path)")),
@@ -11208,5 +11575,212 @@ mod tests {
             bundled_market_mainnet_allowed("testnet-12").is_ok(),
             "testnet-12 bundled market must be allowed"
         );
+    }
+
+    // ── PIECE 3: KIP-10 output-binding covenants (WinnerTakesAllBound / EscrowBound) ──────────────
+
+    /// push_p2pk_spk must produce EXACTLY the version-prefixed scriptPublicKey byte string that the
+    /// on-chain OpTxOutputSpk (0xc3) pushes for a standard P2PK output, pinned to the on-chain TN12
+    /// GOLDEN VECTOR in docs/KIP10_DETERMINISTIC_COVENANTS_SPEC.md section 4 (resolved 2026-06-25 by
+    /// spend 0e10765e...; the with-length and bare-script forms were consensus-rejected). The form
+    /// is [version_u16_LE=0x0000][0x20][xonly 32][0xac] = 36 script bytes, pushed via OpData (0x24).
+    /// This is THE load-bearing interop anchor: if these bytes are wrong, the OpEqual against the
+    /// real output spk never matches and the covenant is unspendable (or, far worse if it were the
+    /// other way, mis-bound). The push includes the canonical OpData36 (0x24) length prefix.
+    #[test]
+    fn push_p2pk_spk_matches_onchain_golden_vector() {
+        let xonly =
+            hex::decode("d83d04fa71379caea93eb11ebb6ba62f629ac05384a4c5bc7a7e165ff9b1d02d")
+                .unwrap();
+        let mut x = [0u8; 32];
+        x.copy_from_slice(&xonly);
+        let mut out = Vec::new();
+        push_p2pk_spk(&mut out, &x).unwrap();
+        // The spk bytes the opcode pushes (no length prefix): 000020<xonly>ac (36 bytes).
+        let expected_spk =
+            hex::decode("000020d83d04fa71379caea93eb11ebb6ba62f629ac05384a4c5bc7a7e165ff9b1d02dac")
+                .unwrap();
+        assert_eq!(expected_spk.len(), 36, "golden spk must be 36 bytes");
+        // push_p2pk_spk emits a CANONICAL data push of those 36 bytes: OpData36 (0x24) then the spk.
+        assert_eq!(out[0], 0x24, "must be an OpData36 canonical push (36 = 0x24)");
+        assert_eq!(&out[1..], &expected_spk[..], "pushed spk must equal the on-chain golden vector");
+    }
+
+    /// The winner-bound A2 redeem must contain, IN ORDER, the KIP-10 output-binding opcode sequence
+    /// that enforces WHO IS PAID: the exactly-one-output bind (OpTxOutputCount NUM(1)
+    /// OpNumEqualVerify - the skim defense), the amount bind (OpTxInputIndex OpTxInputAmount
+    /// PUSH(fee) OpSub NUM(0) OpTxOutputAmount OpNumEqualVerify), and the recipient bind (NUM(0)
+    /// OpTxOutputSpk PUSH(P2PK_SPK(winner)) OpEqualVerify), then PUSH(winner) OpCheckSig.
+    #[test]
+    fn winner_bound_a2_emits_the_kip10_binding_opcodes_in_order() {
+        let winner = [0x55u8; 32];
+        let fee = 10_000u64;
+        let r = redeem_winner_takes_all_bound(&winner, fee, true).unwrap();
+
+        // Output-count skim defense FIRST (the most important byte; spec R2).
+        assert_eq!(r[0], OP_TX_OUTPUT_COUNT, "must open with OpTxOutputCount (0xb4)");
+        assert_eq!(r[1], 0x51, "NUM(1) is OP_1 (0x51)");
+        assert_eq!(r[2], OP_NUM_EQUAL_VERIFY, "exactly-one-output bind via OpNumEqualVerify");
+        // Then the amount + spk introspection opcodes must all be present in order.
+        let idx = |op: u8| r.iter().position(|&b| b == op).expect("opcode present");
+        let p_in_idx = idx(OP_TX_INPUT_INDEX);
+        let p_in_amt = idx(OP_TX_INPUT_AMOUNT);
+        let p_sub = idx(OP_SUB_BYTE);
+        let p_out_amt = idx(OP_TX_OUTPUT_AMOUNT);
+        let p_out_spk = idx(OP_TX_OUTPUT_SPK);
+        assert!(p_in_idx < p_in_amt, "OpTxInputIndex before OpTxInputAmount");
+        assert!(p_in_amt < p_sub, "OpTxInputAmount before OpSub (amount - fee)");
+        assert!(p_sub < p_out_amt, "OpSub before OpTxOutputAmount");
+        assert!(p_out_amt < p_out_spk, "amount bind before the spk bind");
+        // The winner P2PK spk bytes must be embedded (so the recipient is BOUND).
+        let mut spk = Vec::new();
+        push_p2pk_spk(&mut spk, &winner).unwrap();
+        let spk_payload = &spk[1..]; // drop the OpData36 length byte.
+        assert!(
+            r.windows(spk_payload.len()).any(|w| w == spk_payload),
+            "the winner P2PK spk must be embedded so OpEqual binds the recipient"
+        );
+        // A2 ends in the winner OpCheckSig.
+        assert_eq!(*r.last().unwrap(), OpCheckSig, "A2 winner_bound ends in OpCheckSig");
+        // sig_op_count parity: winner_bound:1 -> 1.
+        assert_eq!(
+            SpendKind::parse("winner_bound:1").unwrap().sig_op_count(),
+            1,
+            "A2 winner_bound has one sig op"
+        );
+        // A1 (pure binding) ends in OpEqual and has ZERO sig ops.
+        let a1 = redeem_winner_takes_all_bound(&winner, fee, false).unwrap();
+        assert_eq!(*a1.last().unwrap(), OP_EQUAL_BYTE, "A1 winner_bound ends in OpEqual");
+        assert_eq!(
+            SpendKind::parse("winner_bound:0").unwrap().sig_op_count(),
+            0,
+            "A1 winner_bound has zero sig ops"
+        );
+    }
+
+    /// THE LOAD-BEARING NEGATIVE TEST (output binding = who-is-paid enforcement). A redeem bound to
+    /// winner A and a redeem bound to winner B must differ ONLY in the embedded P2PK spk + winner
+    /// pushes, and the bound bytes are the recipient's OWN spk - so a spend that redirects/skims the
+    /// output to a DIFFERENT recipient pushes a DIFFERENT spk for OpTxOutputSpk to compare against,
+    /// which the baked OpEqual/OpEqualVerify rejects. We prove this at the byte level (the production
+    /// kaspa-txscript 0.15 engine CANNOT execute the 0xb4/0xc2/0xc3 opcodes - it maps them as
+    /// OpUnknown* / InvalidOpcode - so a local TxScriptEngine run is NOT a valid oracle for KIP-10;
+    /// see the engine-rejects-introspection test below). The full consensus skim-rejection is proven
+    /// by the on-chain TN12 golden vector (spec sections 1/4/7-8 R1) and is re-runnable as the
+    /// section-7 e2e once COVEX_KIP10_BOUND_ENABLED is set. The amount bind is analogous: a wrong
+    /// output amount fails OpNumEqualVerify against (input - fee).
+    #[test]
+    fn winner_bound_binds_the_recipient_a_skim_to_another_payee_cannot_match() {
+        let winner_a = [0xAAu8; 32];
+        let winner_b = [0xBBu8; 32]; // a "skim" recipient (a different payee).
+        let fee = 10_000u64;
+        let ra = redeem_winner_takes_all_bound(&winner_a, fee, true).unwrap();
+        let rb = redeem_winner_takes_all_bound(&winner_b, fee, true).unwrap();
+        assert_eq!(ra.len(), rb.len(), "same shape, different bound recipient");
+
+        // The two scripts must differ ONLY where the recipient is embedded (the P2PK spk push that
+        // OpTxOutputSpk is compared against, and the trailing OpCheckSig pubkey). Every other byte
+        // (the count/amount binding opcodes, the fee) is identical. So the ONLY thing that decides
+        // who can be paid is the bound recipient - a redirect to winner_b cannot satisfy ra.
+        let diffs: Vec<usize> = ra
+            .iter()
+            .zip(rb.iter())
+            .enumerate()
+            .filter(|(_, (x, y))| x != y)
+            .map(|(i, _)| i)
+            .collect();
+        // The recipient appears twice (the bound spk's 32 key bytes + the checksig 32 key bytes).
+        assert_eq!(diffs.len(), 64, "exactly the 2x32 recipient key bytes differ, nothing else");
+
+        // The bound spk in ra is winner_a's (NOT winner_b's), so an output paying winner_b yields a
+        // different OpTxOutputSpk value and the baked OpEqualVerify against winner_a's spk fails.
+        let mut spk_a = Vec::new();
+        push_p2pk_spk(&mut spk_a, &winner_a).unwrap();
+        let mut spk_b = Vec::new();
+        push_p2pk_spk(&mut spk_b, &winner_b).unwrap();
+        let pa = &spk_a[1..];
+        let pb = &spk_b[1..];
+        assert!(ra.windows(pa.len()).any(|w| w == pa), "ra binds winner_a's spk");
+        assert!(!ra.windows(pb.len()).any(|w| w == pb), "ra must NOT contain winner_b's spk (no skim path)");
+    }
+
+    /// The escrow-bound redeem must be the IF/IF/ELSE choreography (each payout branch output-bound)
+    /// + a CSV refund tail, and each branch must bind its OWN party's spk. sig_op_count = 3.
+    #[test]
+    fn escrow_bound_has_two_bound_branches_and_a_csv_refund() {
+        let a = [0x11u8; 32];
+        let b = [0x22u8; 32];
+        let refund = [0x33u8; 32];
+        let fee = 10_000u64;
+        let r = redeem_escrow_bound(&a, &b, fee, 144, &refund).unwrap();
+        assert_eq!(r[0], OpIf, "must open with OP_IF");
+        assert_eq!(*r.last().unwrap(), OpEndIf, "must close with OP_ENDIF");
+        // Both parties' spks bound; the refund key present; a CSV in the refund tail.
+        for (label, key) in [("party_a", &a), ("party_b", &b)] {
+            let mut spk = Vec::new();
+            push_p2pk_spk(&mut spk, key).unwrap();
+            let p = &spk[1..];
+            assert!(r.windows(p.len()).any(|w| w == p), "{label} spk must be bound");
+        }
+        assert!(r.windows(32).any(|w| w == refund), "refund key must be present");
+        assert!(r.contains(&OpCheckSequenceVerify), "refund branch must use CSV");
+        assert!(r.contains(&OpElse), "must have ELSE branches");
+        // Two OpTxOutputCount binds (one per payout branch), each a skim defense.
+        let count_binds = r.iter().filter(|&&b| b == OP_TX_OUTPUT_COUNT).count();
+        assert_eq!(count_binds, 2, "each payout branch must carry the exactly-one-output skim defense");
+        assert_eq!(
+            SpendKind::parse("escrow_bound:144").unwrap().sig_op_count(),
+            3,
+            "escrow_bound has 3 static sig ops (one per branch)"
+        );
+    }
+
+    /// HONESTY GUARD: the production kaspa-txscript 0.15 engine does NOT implement the KIP-10
+    /// introspection opcodes (it maps 0xb4/0xbe/0xc2/0xc3 as OpUnknown* returning InvalidOpcode), so
+    /// a local TxScriptEngine run of a winner-bound redeem ABORTS regardless of the output - it can
+    /// neither accept a valid spend nor selectively reject a skim. This is WHY the negative test
+    /// above asserts the binding at the byte level + relies on the on-chain TN12 golden vector for
+    /// the consensus proof, instead of running a (vacuously-rejecting) local engine. The v2.0.1
+    /// rusty-kaspa migration (the spike/kaspa-2.0.1 worktree) is the path to a live-engine local
+    /// test. This test pins that limitation so a future engine upgrade (which would make the run
+    /// meaningful) is noticed here.
+    #[test]
+    fn production_engine_cannot_execute_kip10_introspection_opcodes() {
+        let winner = test_keypair(71);
+        let xonly = winner.x_only_public_key().0.serialize();
+        let redeem = redeem_winner_takes_all_bound(&xonly, TX_FEE, true).unwrap();
+        // Drive the real engine with a single output paying the winner the bound amount - even the
+        // CORRECT spend cannot pass on the 0.15 engine because it lacks the introspection opcodes.
+        let ok = run_spend_generic(&redeem, 0, 0, |s| {
+            // A2 witness = the winner signature (the binding is enforced by the redeem, not here).
+            build_p2sh_signature_script(s, 0, &winner, &redeem, &[]).unwrap()
+        });
+        assert!(
+            !ok,
+            "the vendored 0.15 engine must reject a KIP-10 redeem (it lacks 0xb4/0xc2/0xc3); the live node enforces it. If this ever passes, the engine gained KIP-10 support and the negative test should be upgraded to a real skim-rejection run."
+        );
+    }
+
+    /// The KIP-10 deploy gate must FAIL CLOSED by default (the builder + bytes are ready, but the
+    /// TN12 lock/redirect-reject/valid-spend e2e for these kinds has not been run), and open only
+    /// when COVEX_KIP10_BOUND_ENABLED is truthy.
+    #[test]
+    fn kip10_bound_deploy_gate_is_fail_closed() {
+        std::env::remove_var("COVEX_KIP10_BOUND_ENABLED");
+        assert!(
+            kip10_introspection_available().is_err(),
+            "must be fail-closed when the flag is unset (default off)"
+        );
+        std::env::set_var("COVEX_KIP10_BOUND_ENABLED", "1");
+        assert!(
+            kip10_introspection_available().is_ok(),
+            "must open when COVEX_KIP10_BOUND_ENABLED=1"
+        );
+        std::env::set_var("COVEX_KIP10_BOUND_ENABLED", "0");
+        assert!(
+            kip10_introspection_available().is_err(),
+            "must be fail-closed when explicitly disabled"
+        );
+        std::env::remove_var("COVEX_KIP10_BOUND_ENABLED");
     }
 }

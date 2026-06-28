@@ -78,7 +78,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'chess_clock_proof', name: 'Chess Per-Turn Clock Proof', description: 'Hybrid: prove only active player clock decremented; timeout = loss. Ties to Kaspa DAA. Reality: oracle-attested + onchain time. Use cases: all timed Kaspa chess covenants. (vision §4.3 shared)', circuit: 'chess_clock_proof', accent: '#49EACB', category: 'game', variant: true, reality: 'hybrid' },
   { id: 'chess_repetition', name: 'Chess Threefold Repetition Proof', description: 'Property: prove position repeated 3x (transcript hash chain). Reality: oracle-attested (RISC0 for full PGN). Use cases: draw claims in Kaspa chess. (vision §4.3)', circuit: 'chess_repetition', accent: '#49EACB', category: 'game', variant: true, reality: 'oracle-attested' },
   { id: 'chess_insufficient', name: 'Chess Insufficient Material Proof', description: 'Property proof: K vs K, K+B vs K etc. Reality: hybrid. Use cases: auto-draw in endgame Kaspa covenants. (vision §4.3)', circuit: 'chess_insufficient', accent: '#49EACB', category: 'game', variant: true, reality: 'hybrid' },
-  { id: 'poker_v1', name: 'Poker (Texas Hold\'em)', description: 'Off-chain game engine + oracle-attested result. Full hand ranking, pot split, side pots. 2-9 players. Real per-turn timer (blinds/action only current player). Zero = fold + PAYOUT COMPUTED. ZK hand strength + range proof optional. Reality: hybrid. Use cases: real-stakes Kaspa poker covenants. (vision §4.3)', circuit: 'poker_v1', accent: '#E8AF34', category: 'game', reality: 'hybrid' },
+  { id: 'poker_v1', name: 'Poker (Texas Hold\'em)', description: 'Off-chain game engine + oracle-attested result. Full hand ranking, pot split, side pots. 2-9 players. Real per-turn timer (blinds/action only current player). Zero = fold + PAYOUT COMPUTED. ZK hand strength + range proof optional. Reality: hybrid. Use cases: head-to-head Kaspa card covenants. (vision §4.3)', circuit: 'poker_v1', accent: '#E8AF34', category: 'game', reality: 'hybrid' },
   { id: 'poker_6max', name: 'Poker 6-Max', description: 'Hold\'em 6-max with 15s action timer. Oracle-attested result + optional ZK range proof. Per-turn current player clock only. Red <5s, zero = auto-fold. Reality: hybrid. Use cases: fast Kaspa 6max tables.', circuit: 'poker_6max', accent: '#E8AF34', category: 'game', variant: true, reality: 'hybrid' },
   { id: 'poker_tourney', name: 'Poker Tournament', description: 'Multi-table tournament structure, escalating blinds, ICM chop. Oracle-attested with optional ZK. Per-turn timer per table. Reality: oracle-attested. Use cases: ICM + multi-table Kaspa tourneys.', circuit: 'poker_tourney', accent: '#E8AF34', category: 'game', variant: true, reality: 'oracle-attested' },
   { id: 'poker_hand_rank', name: 'Poker Hand Rank Proof', description: 'Property ZK (hybrid): prove hand rank (straight flush etc) without revealing hole cards (committed range or zero-knowledge). Reality: hybrid (ZK property + oracle engine). Artifacts: planned (range + custom). Use cases for Kaspa: showdown without leaking info, side-pot fairness. (vision §4.3 poker)', circuit: 'poker_hand_rank', accent: '#E8AF34', category: 'game', variant: true, reality: 'hybrid' },
@@ -98,7 +98,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'checkers_v1', name: 'Checkers (Standard)', description: '8×8 American checkers, forced jumps, kings. Oracle-attested rules. Per-turn timer. Zero = auto-resolve. Reality: oracle-attested. Use cases: classic checkers on Kaspa.', circuit: 'checkers_v1', accent: '#A855F7', category: 'game', reality: 'oracle-attested' },
   { id: 'tictactoe_v1', name: 'Tic-Tac-Toe', description: 'Full ZK: Groth16 proof per legal move (3×3, full in-circuit win/draw). MiMC7 board hash. Falls back to oracle attestation. Artifacts in zk/games/tictactoe/. Reality: full-zk. Use cases: entry-level full-zk teaching covenants.', circuit: 'tictactoe_v1', accent: '#EC4899', category: 'game', reality: 'full-zk', artifacts: true },
   { id: 'reversi_v1', name: 'Reversi / Othello', description: '8×8, capture-flip mechanics. Oracle-attested rules. Per-turn timer. Reality: oracle-attested. Use cases: flip-based Kaspa games.', circuit: 'reversi_v1', accent: '#06B6D4', category: 'game', reality: 'oracle-attested' },
-  { id: 'rps_v1', name: 'Rock Paper Scissors', description: 'Best of 3 with a commit-reveal protocol so picks stay secret until both are locked. Two-wallet arena; the result is computed deterministically by replaying the signed move log (anyone can recompute), then the counterparty or a deployer-bound external resolver co-signs the release (not trustless). Winner takes the pot minus the creator fee. Reality: oracle-attested. Use cases: quick-stake Kaspa skill/luck duels.', circuit: 'rps_v1', accent: '#F2557A', category: 'game', reality: 'oracle-attested' },
+  { id: 'rps_v1', name: 'Rock Paper Scissors', description: 'Best of 3 with a commit-reveal protocol so picks stay secret until both are locked. Two-wallet arena; the result is computed deterministically by replaying the signed move log (anyone can recompute), then the counterparty or a deployer-bound external resolver co-signs the release (not trustless). Winner takes the staked amount minus the creator fee. Reality: oracle-attested. Use cases: quick-stake Kaspa head-to-head duels.', circuit: 'rps_v1', accent: '#F2557A', category: 'game', reality: 'oracle-attested' },
   { id: 'battleship_v1', name: 'Battleship', description: '10×10 fleet placement + salvo. VRF for ship placement fairness. Per-turn (salvo phase). Oracle-attested. Reality: hybrid. Use cases: hidden placement Kaspa battleship.', circuit: 'battleship_v1', accent: '#84CC16', category: 'game', reality: 'hybrid' },
   { id: 'battleship_placement', name: 'Battleship Ship Placement Proof', description: 'Property: prove valid non-overlapping fleet placement (VRF or committed). Reality: hybrid. Use cases: fair setup in Kaspa battleship. (vision §4.3)', circuit: 'battleship_placement', accent: '#84CC16', category: 'game', variant: true, reality: 'hybrid' },
   { id: 'scrabble_v1', name: 'Scrabble', description: '15×15 board, dictionary validation, premium squares. Oracle word-check. Per-turn timer. Reality: oracle-attested. Use cases: word game covenants.', circuit: 'scrabble_v1', accent: '#F97316', category: 'game', reality: 'oracle-attested' },
@@ -246,14 +246,14 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'compute_sort_network', name: 'Compute: Sorting / Ranking Network', description: 'Concrete: prove list correctly sorted/ranked (hidden elements). Reality: oracle-attested. Use cases: leaderboards + tournament seeding on Kaspa. (vision §4.6)', circuit: 'risc0_sort', accent: '#06B6D4', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_graph_reach', name: 'Compute: Graph Reachability / Shortest Path', description: 'Concrete: path exists + length in committed hidden graph. Reality: oracle-attested. Use cases: supply chain provenance, social graphs on Kaspa. (vision §4.6, §4.9)', circuit: 'risc0_graph', accent: '#84CC16', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_ml_credit', name: 'Compute: ML Credit Scoring (small model)', description: 'Concrete: ezkl or direct ZKML inference for credit score. Reality: oracle-attested (ZKML). Use cases: on-chain credit without revealing data. (vision §4.6)', circuit: 'ezkl_credit', accent: '#8B5CF6', category: 'compute', variant: true, reality: 'oracle-attested' },
-  { id: 'compute_ml_fraud', name: 'Compute: ML Fraud / Anomaly Detection', description: 'Concrete small model inference for fraud/bet pattern anomaly. Reality: oracle-attested. Use cases: collusion/anomaly detection in Kaspa games. (vision §4.6)', circuit: 'ezkl_fraud', accent: '#8B5CF6', category: 'compute', variant: true, reality: 'oracle-attested' },
+  { id: 'compute_ml_fraud', name: 'Compute: ML Fraud / Anomaly Detection', description: 'Concrete small model inference for fraud/stake-pattern anomaly. Reality: oracle-attested. Use cases: collusion/anomaly detection in Kaspa games. (vision §4.6)', circuit: 'ezkl_fraud', accent: '#8B5CF6', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_regex_dict', name: 'Compute: Regex / Dictionary Matching', description: 'Concrete: string/regex match against committed dict (Scrabble/KYC patterns). Reality: oracle-attested. Use cases: word validation + private KYC on Kaspa. (vision §4.6)', circuit: 'risc0_regex', accent: '#F97316', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_bigint_math', name: 'Compute: BigInt / FP Math Lib', description: 'Concrete: arbitrary precision math for finance. Reality: oracle-attested. Use cases: complex financial formulas in Kaspa covenants. (vision §4.6)', circuit: 'risc0_bigint', accent: '#EC4899', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_risk_battle', name: 'Compute: Risk Battle Simulator', description: 'Concrete sim for fair combat resolution (dice + modifiers). Reality: oracle-attested. Use cases: deterministic Risk-style combat on Kaspa. (vision §4.6)', circuit: 'risc0_risk_sim', accent: '#DC2626', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_catan_sim', name: 'Compute: Catan Resource / Start Sim', description: 'Concrete: fair starting position / resource sim. Reality: oracle-attested. Use cases: provably fair Catan setups on Kaspa. (vision §4.6)', circuit: 'risc0_catan', accent: '#D946EF', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_linprog_pot', name: 'Compute: Linear Programming (Pot Splits)', description: 'Concrete LP solver stub for optimal fair splits. Reality: oracle-attested. Use cases: complex treasury/pot allocation on Kaspa. (vision §4.6)', circuit: 'risc0_lp', accent: '#FB923C', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_custom_fsm', name: 'Compute: Custom Game FSM Compiler', description: 'Concrete: compile user FSM spec → prove execution. Reality: oracle-attested. Use cases: bring-your-own-game rules to Kaspa. (vision §4.6)', circuit: 'risc0_fsmc', accent: '#10B981', category: 'compute', variant: true, reality: 'oracle-attested' },
-  { id: 'compute_anomaly_bet', name: 'Compute: Anomaly Detection (Bet Sizing / Timing)', description: 'ZK stats on move times / bet patterns for collusion. Reality: oracle-attested. Use cases: anti-cheat in Kaspa games. (vision §4.6)', circuit: 'risc0_anom', accent: '#A855F7', category: 'compute', variant: true, reality: 'oracle-attested' },
+  { id: 'compute_anomaly_bet', name: 'Compute: Anomaly Detection (Stake Sizing / Timing)', description: 'ZK stats on move times / stake patterns for collusion. Reality: oracle-attested. Use cases: anti-cheat in Kaspa games. (vision §4.6)', circuit: 'risc0_anom', accent: '#A855F7', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_formal_verify', name: 'Compute: Formal Verification Result Proof', description: 'Prove a program satisfies spec (simple specs). Reality: oracle-attested. Use cases: verified covenant logic on Kaspa. (vision §4.6, §4.9)', circuit: 'risc0_formal', accent: '#F97316', category: 'compute', variant: true, reality: 'oracle-attested' },
 
   // ═══════════════════════════════════════════
@@ -269,11 +269,11 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'feed_price_btc', name: 'Data Feed: BTC/USD Price', description: 'BTC price attestation. Reality: oracle-attested. Use cases: BTC-pegged or cross-asset Kaspa covenants. (vision §4.7)', circuit: 'feed_btc', accent: '#F59E0B', category: 'oracle', variant: true, reality: 'oracle-attested' },
   { id: 'feed_price_eth', name: 'Data Feed: ETH/USD Price', description: 'ETH price. Reality: oracle-attested. Use cases: ETH collateral or swaps on Kaspa. (vision §4.7)', circuit: 'feed_eth', accent: '#F59E0B', category: 'oracle', variant: true, reality: 'oracle-attested' },
   { id: 'feed_price_usdt', name: 'Data Feed: USDT/USDC Stable Price', description: 'Stablecoin peg attest. Reality: oracle-attested. Use cases: stable collateral / loans on Kaspa. (vision §4.7)', circuit: 'feed_stable', accent: '#F59E0B', category: 'oracle', variant: true, reality: 'oracle-attested' },
-  { id: 'feed_nba_score', name: 'Data Feed: NBA Game Score', description: 'Final score + basic stats for specific game. Reality: oracle-attested (multi-source). Use cases: sports prediction / prop bets on Kaspa. (vision §4.7)', circuit: 'feed_nba', accent: '#22C55E', category: 'oracle', variant: true, reality: 'oracle-attested' },
+  { id: 'feed_nba_score', name: 'Data Feed: NBA Game Score', description: 'Final score + basic stats for specific game. Reality: oracle-attested (multi-source). Use cases: sports conditional-outcome covenants on Kaspa. (vision §4.7)', circuit: 'feed_nba', accent: '#22C55E', category: 'oracle', variant: true, reality: 'oracle-attested' },
   { id: 'feed_nba_prop', name: 'Data Feed: NBA Player Prop (Pts/Reb)', description: 'Player performance stats attested by an external resolver you connect; Covex does not attest this. Reality: oracle-attested. Use cases: fantasy-style player props on Kaspa. (vision §4.7)', circuit: 'feed_nba_prop', accent: '#22C55E', category: 'oracle', variant: true, reality: 'oracle-attested' },
   { id: 'feed_soccer_premier', name: 'Data Feed: Soccer Premier League Result', description: 'Match outcome + score for Premier/etc. Reality: oracle-attested. Use cases: soccer markets on Kaspa. (vision §4.7)', circuit: 'feed_soccer', accent: '#22C55E', category: 'oracle', variant: true, reality: 'oracle-attested' },
   { id: 'feed_weather_temp', name: 'Data Feed: Weather Param (Temp/Rain at Loc)', description: 'Temperature/rainfall at city for parametric insurance. Reality: oracle-attested. Use cases: weather derivatives / crop insurance on Kaspa. (vision §4.7)', circuit: 'feed_weather', accent: '#0EA5E9', category: 'oracle', variant: true, reality: 'oracle-attested' },
-  { id: 'feed_election', name: 'Data Feed: Election / Governance Result', description: 'Verified election outcome (multi-source). Reality: oracle-attested. Use cases: prediction + governance markets on Kaspa. (vision §4.7)', circuit: 'feed_elect', accent: '#8B5CF6', category: 'oracle', variant: true, reality: 'oracle-attested' },
+  { id: 'feed_election', name: 'Data Feed: Election / Governance Result', description: 'Verified election outcome (multi-source). Reality: oracle-attested. Use cases: conditional-outcome + governance covenants on Kaspa. (vision §4.7)', circuit: 'feed_elect', accent: '#8B5CF6', category: 'oracle', variant: true, reality: 'oracle-attested' },
   { id: 'feed_flight_delay', name: 'Data Feed: Flight Delay / Status', description: 'Specific flight delay or arrival status. Reality: oracle-attested. Use cases: travel insurance parametric on Kaspa. (vision §4.7)', circuit: 'feed_flight', accent: '#0EA5E9', category: 'oracle', variant: true, reality: 'oracle-attested' },
   { id: 'feed_drand', name: 'Data Feed: drand Beacon Randomness', description: 'drand public randomness attest. Reality: oracle-attested. Use cases: public beacon for Kaspa VRF games. (vision §4.7)', circuit: 'feed_drand', accent: '#EC4899', category: 'oracle', variant: true, reality: 'oracle-attested' },
   { id: 'feed_web2_nba', name: 'Data Feed: Web2 NBA API Hash Attest', description: 'An external resolver you connect attests a response hash (+ optional ZK subset) for a specific NBA endpoint; Covex does not run it. Reality: oracle-attested. Use cases: external sports data on Kaspa. (vision §4.7)', circuit: 'feed_web2_nba', accent: '#22C55E', category: 'oracle', variant: true, reality: 'oracle-attested' },
@@ -2472,14 +2472,14 @@ ${gameMeta.outcomeBranches}
               <p><strong className="text-kaspa-green">Reusable covenants are advisable for most use cases.</strong> They support multiple sessions and ongoing value:</p>
               <ul className="list-disc list-inside ml-2 space-y-1 text-gray-300 light:text-slate-600">
                 <li>Multiple players or sessions from a single on-chain covenant deploy</li>
-                <li>The covenant pot persists and grows across games</li>
+                <li>The covenant pool persists and grows across games</li>
                 <li>Creator earns platform % on every game without redeploying</li>
-                <li>% back to covenant sustains the pot for future players</li>
+                <li>% back to covenant sustains the pool for future players</li>
                 <li>Less on-chain spam (one deploy, many sessions)</li>
                 <li>Builds community around popular covenants that live forever</li>
               </ul>
-              <p><strong className="text-white">How it works:</strong> Enable "Reusable Covenant" and "Allow Top-ups" below. The covenant script includes OpReuseCovenant (multiple unlocks) and OpAddToPot (new deposits). On each resolution, the winner takes their share, creator gets %, and a configurable % flows back into the covenant pot for the next round.</p>
-              <p><strong className="text-white">Example (Chess):</strong> 2 players stake equal KAS to pot. Winner takes 96% of pot. Creator earns 2%. Remaining 2% goes back to the covenant pot for sustainability. Next pair of players can use the same covenant. Creator earns 2% on every game forever without deploying anything new.</p>
+              <p><strong className="text-white">How it works:</strong> Enable "Reusable Covenant" and "Allow Top-ups" below. The covenant script includes OpReuseCovenant (multiple unlocks) and OpAddToPot (new deposits). On each resolution, the winner takes their share, creator gets %, and a configurable % flows back into the covenant pool for the next round.</p>
+              <p><strong className="text-white">Example (Chess):</strong> 2 players stake equal KAS to the pool. Winner takes 96% of the pool. Creator earns 2%. Remaining 2% goes back to the covenant pool for sustainability. Next pair of players can use the same covenant. Creator earns 2% on every game forever without deploying anything new.</p>
             </div>
           </div>
 
@@ -2494,9 +2494,9 @@ ${gameMeta.outcomeBranches}
               <ul className="list-disc list-inside ml-2 space-y-1 text-gray-300 light:text-slate-600">
                 <li><strong className="text-white">Name</strong>: Clear, descriptive covenant name</li>
                 <li><strong className="text-white">Full description</strong>: Rules, variants, edge cases, examples (minimum 80 characters for best results)</li>
-                <li><strong className="text-white">Exact payout structure</strong>: Who gets what percentage of the pot under each outcome</li>
+                <li><strong className="text-white">Exact payout structure</strong>: Who gets what percentage of the pool under each outcome</li>
                 <li><strong className="text-white">Resolution method</strong>: Which oracle or ZK circuit decides outcomes, with keys/endpoints</li>
-                <li><strong className="text-white">Reusable configuration</strong>: Whether the covenant accepts multiple sessions and top-ups, and if % flows back to the pot</li>
+                <li><strong className="text-white">Reusable configuration</strong>: Whether the covenant accepts multiple sessions and top-ups, and if % flows back to the pool</li>
                 <li><strong className="text-white">Test evidence</strong>: on-chain transaction links showing the covenant works</li>
               </ul>
               <p><strong className="text-amber-300">Incomplete transparency = no trust.</strong> Participants need to know exactly how their KAS will be handled before staking.</p>
@@ -2519,8 +2519,8 @@ ${gameMeta.outcomeBranches}
                 <p className="text-gray-300 light:text-slate-600">Explain rules, edge cases, and examples. Public description builds trust.</p>
               </div>
               <div className="space-y-1">
-                <p className="text-white font-semibold">3. Set % back to covenant pot</p>
-                <p className="text-gray-300 light:text-slate-600">Keep 1-3% flowing back to sustain the pot for future players.</p>
+                <p className="text-white font-semibold">3. Set % back to covenant pool</p>
+                <p className="text-gray-300 light:text-slate-600">Keep 1-3% flowing back to sustain the pool for future players.</p>
               </div>
               <div className="space-y-1">
                 <p className="text-white font-semibold">4. Choose ZK for high-stakes</p>
@@ -2556,7 +2556,7 @@ ${gameMeta.outcomeBranches}
           <div className="flex items-center gap-2 text-amber-400 light:text-amber-700 font-semibold text-sm">
             <Shield size={16} /> PRIORITY PLACEMENT & PREMIUM TEMPLATES (OPTIONAL)
           </div>
-          <p className="text-xs text-gray-300 light:text-slate-600 mt-1">Every build feature is already free: select any ZK circuit, use ZK resolution, the live SilverScript editor, oracles, timing, live code updates, the public UI designer, and any bet/lock amount with no cap. A one-time payment from this connected wallet adds priority placement for your covenant and its website on Covex plus the premium UI website template library, never a circuit or build feature. TXs broadcast in real time via backend signer.</p>
+          <p className="text-xs text-gray-300 light:text-slate-600 mt-1">Every build feature is already free: select any ZK circuit, use ZK resolution, the live SilverScript editor, oracles, timing, live code updates, the public UI designer, and any stake/lock amount with no cap. A one-time payment from this connected wallet adds priority placement for your covenant and its website on Covex plus the premium UI website template library, never a circuit or build feature. TXs broadcast in real time via backend signer.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-3">
             {TIERS.map((t) => (
@@ -2734,7 +2734,7 @@ ${gameMeta.outcomeBranches}
                 };
                 const POPULAR = ['chess_v1', 'chess_blitz', 'poker_v1', 'merkle_membership', 'range_proof'];
                 const collapsed = ZK_CIRCUIT_TYPES.filter(c => visualConfig.selectedCircuits.includes(c.id) || POPULAR.includes(c.id));
-                const TITLE = { crypto: 'Zero-knowledge & crypto', oracle: 'Oracle & prediction', defi: 'DeFi & lending', game: 'Games', identity: 'Identity & gating', gating: 'Identity & gating', compute: 'Verifiable compute', general: 'Primitives & timelocks' };
+                const TITLE = { crypto: 'Zero-knowledge & crypto', oracle: 'Oracle & data feeds', defi: 'DeFi & lending', game: 'Games', identity: 'Identity & gating', gating: 'Identity & gating', compute: 'Verifiable compute', general: 'Primitives & timelocks' };
                 const groups = {};
                 for (const c of ZK_CIRCUIT_TYPES) { const k = c.category || 'other'; (groups[k] = groups[k] || []).push(c); }
                 // Within each category lead with production-ready circuits, then roadmap ones.
@@ -3680,7 +3680,7 @@ ${gameMeta.outcomeBranches}
 
           <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
             <div className="p-2 rounded-lg bg-black/60 border border-white/10 font-mono text-[11px] text-gray-300 light:text-slate-600">
-              Take a seat at the full-screen table: first wallet sits as P1 and waits, the second activates the match. Blinds 1/2, 100 chips each, winner takes the covenant pot.
+              Take a seat at the full-screen table: first wallet sits as P1 and waits, the second activates the match. Blinds 1/2, 100 chips each, winner takes the covenant pool.
             </div>
             <div>
               <button
@@ -4091,7 +4091,7 @@ ${gameMeta.outcomeBranches}
           {/* Reusable Toggle */}
           <Toggle
             label="Reusable Covenant"
-            desc="Allow multiple participants to reuse this covenant. Fee stays in the pot."
+            desc="Allow multiple participants to reuse this covenant. Fee stays in the pool."
             enabled={reusable}
             onChange={setReusable}
           />

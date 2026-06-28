@@ -8,6 +8,18 @@ import TemplateGrid from '../components/TemplateGrid';
  * Chrome only: page headline + builder link + the embeddable TemplateGrid for the
  * official Covex starters, then the marketplace catalog and community published lists.
  */
+
+// Display-only relabel for the marketplace categories. The backend returns the raw
+// category string ('Games', 'Prediction & Markets') and the rest of the page matches,
+// routes, and keys icons off that raw string. This map ONLY changes what the user reads,
+// keeping the framing neutral (head-to-head covenants, conditional outcomes) without
+// touching any matching or routing key. Categories not listed fall through unchanged.
+const CAT_LABEL = {
+  'Games': 'Two-party',
+  'Prediction & Markets': 'Conditional Outcomes',
+};
+const catLabel = (c) => CAT_LABEL[c] || c;
+
 export default function TemplateLibrary() {
   const [communityTemplates, setCommunityTemplates] = useState([]);
   const [tplSearch, setTplSearch] = useState('');
@@ -50,7 +62,7 @@ export default function TemplateLibrary() {
         const q = tplSearch.trim().toLowerCase();
         const shown = communityTemplates.filter(t =>
           (tplCat === 'All' || t.category === tplCat) &&
-          (!q || `${t.name} ${t.description} ${t.category} ${t.id}`.toLowerCase().includes(q))
+          (!q || `${t.name} ${t.description} ${t.category} ${catLabel(t.category)} ${t.id}`.toLowerCase().includes(q))
         );
         // All genuine on-chain primitive kinds reach the free enforced-deploy builder. The
         // two oracle_* kinds are HYBRID (oracle co-signature is consensus-required): routing
@@ -88,7 +100,7 @@ export default function TemplateLibrary() {
             {cats.map(c => (
               <button key={c} onClick={() => setTplCat(c)}
                 className={`text-[11px] px-2.5 py-1 rounded-lg border transition-colors ${tplCat === c ? 'border-kaspa-green/40 bg-kaspa-green/10 text-kaspa-green' : 'border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200'}`}>
-                {c}
+                {catLabel(c)}
               </button>
             ))}
           </div>
@@ -117,7 +129,7 @@ export default function TemplateLibrary() {
                       <div className="text-4xl leading-none">{icon}</div>
                       {t.reality && <span className={`shrink-0 text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide ${realityStyle}`}>{t.reality}</span>}
                     </div>
-                    <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1.5 truncate">{t.category || 'Covenant'}</div>
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-400 mb-1.5 truncate">{catLabel(t.category) || 'Covenant'}</div>
                     <h3 className="text-lg font-bold text-white light:text-slate-900 mb-1.5 leading-tight break-words">{t.name || t.id}</h3>
                     <p className="text-xs text-gray-400 light:text-slate-500 mb-4 leading-relaxed break-words line-clamp-3">{t.description}</p>
                     <a href={hrefFor(t)}

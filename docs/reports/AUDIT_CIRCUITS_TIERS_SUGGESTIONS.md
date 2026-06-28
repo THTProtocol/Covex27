@@ -148,7 +148,7 @@
 148|### D. Oracles (fx.nba.com etc. to DAG)
 149|- **How it works today**:
 150|  - Off-chain external resolver (backend/src/oracle.rs + /api/oracle/verify-and-sign).
-151|  - For external data (sports scores, prices, events): Oracle service polls API (e.g. hypothetical fx.nba.com or real sports feed / Chainlink-style).
+151|  - For external data (sports scores, prices, events): Oracle service polls API (e.g. hypothetical fx.nba.com or real sports feed / external-oracle-network style).
 152|  - Fetches result, validates against covenant rules, signs `{covenant_id, outcome, timestamp}` (Schnorr or BLS).
 153|  - User (or bot) submits the signed attestation via Terminal "Submit Oracle Proof" flow.
 154|  - Covenant on DAG verifies sig against configured oracle pubkey (stored in covenant config or global).

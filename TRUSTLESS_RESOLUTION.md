@@ -5,10 +5,14 @@ makes no server-side outcome decision. Every payout is gated by one of three tru
 mechanisms below. Covex provides the tooling (circuits, covenant templates, provider connectors);
 the chain and/or independent parties provide the trust.
 
-Hard constraint that shapes everything: **Kaspa has no on-chain pairing/SNARK verifier.** A ZK
-proof can never be checked by Kaspa consensus. So ZK verification happens OFF chain (by the
-counterparty, or an external verifier), and the chain enforces only custody + signatures + hashlocks
-+ timelocks. See `frontend/src/lib/zk/circuits.js` (CHAIN_ENFORCED_ZK is intentionally empty).
+Constraint, updated for Toccata: Kaspa's KIP-16 OpZkPrecompile (opcode 0xa6) verifies a Groth16
+proof over BN254 in consensus (RISC0-Groth16 receipts via tag 0x20; live on TN10/TN12, mainnet at
+the Toccata activation DAA). So ZK verification CAN now happen on chain for proofs in the
+precompile's accepted form. The on-chain RISC0 path (`zk_game_settle`) is verified by consensus and
+is testnet-gated until proven live. The circom suite below still verifies OFF chain today (by the
+counterparty or an external verifier) and is a candidate to move on-chain via the precompile (see
+`docs/ZK_ONCHAIN_PLAN.md` and `docs/zk_precompile_abi.md`); for everything else the chain enforces
+custody + signatures + hashlocks + timelocks.
 
 ## Mechanism 1 - ZK proof (circom) for bounded provable statements
 
@@ -50,9 +54,9 @@ nice-to-have, not a requirement (and is infeasible to prove on the current 7GB s
 For facts no circuit can prove (asset prices, sports, weather, elections), the covenant requires a
 signed attestation from an EXTERNAL oracle provider - never Covex. Design = a generic, pluggable
 provider registry so any current/future Kaspa oracle works:
-- **Kaskad COB oracle** - LIVE today: TEE-attested consolidated-order-book fair price, sub-second.
-- **Kaspa L1 miner-vote oracle** - announced, "coming soon" (attestation embedded in PoW consensus).
-- **Other Kaspa oracle providers** - bind by pubkey when they ship.
+- Any Kaspa-native oracle provider that publishes a BIP340-signed attestation can be bound by
+  `{provider_id, provider_pubkey, feed_id, format}`. Covex ships the connector and the verification
+  template, endorses no specific provider, and is never itself a provider.
 
 Covenant config carries `{provider_id, provider_pubkey, feed_id, format}`; the spend path verifies
 the provider's BIP340 signature over the attested value (a normal OP_CHECKSIG the chain CAN do).

@@ -29,8 +29,18 @@ export default defineConfig({
     },
   },
   resolve: {
-    alias: {
-      '@': path.resolve(__dirname, './src'),
-    },
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+      // Dedup the kaspa-wasm double-ship: the package's kaspa_bg.wasm.js glue embeds the entire
+      // ~11.5MB wasm AGAIN as base64 (only reachable via default()/__wbg_init, a CJS require that
+      // already fails in the browser and is never used by our initSync path). The require is a
+      // RELATIVE "./kaspa_bg.wasm.js" inside the package, so it is matched here by its resolved
+      // absolute path (a regex on the file name). Aliasing it to an empty stub strips that
+      // duplicate from the vendor-kaspa-wasm chunk; the binary still ships exactly once as the
+      // served kaspa_bg.wasm.bin asset that loadKaspaWasm() fetches + compiles. The regex matches
+      // the WHOLE specifier (relative "./kaspa_bg.wasm.js" or any absolute path ending in it) and
+      // replaces it wholesale with the stub.
+      { find: /^.*[\\/]kaspa_bg\.wasm\.js$/, replacement: path.resolve(__dirname, './src/lib/kaspaWasmGlueStub.js') },
+    ],
   },
 })

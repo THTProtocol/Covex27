@@ -321,6 +321,7 @@ const CARD_RISE = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, tra
 
 export default function Explorer() {
   const { address } = useWallet();
+  const navigate = useNavigate();
   const prefersReduced = useReducedMotion();
   const [covenants, setCovenants] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -328,7 +329,20 @@ export default function Explorer() {
 
   const [activeTab, setActiveTab] = useState('explore');
   const [searchQuery, setSearchQuery] = useState('');
+  // Dedicated "search by creator address" affordance: routes to the AddressPortfolio page
+  // (/address/:addr), which is otherwise only reachable by typing a URL directly.
+  const [creatorAddr, setCreatorAddr] = useState('');
   const searchInputRef = useRef(null);
+
+  // Open the per-address portfolio for a creator/owner address. Trims and normalizes a pasted
+  // value (accepts a bare address or one wrapped by spaces); a missing prefix still routes (the
+  // AddressPortfolio page handles validation + lookup).
+  const openCreatorPortfolio = useCallback((e) => {
+    if (e?.preventDefault) e.preventDefault();
+    const addr = (creatorAddr || '').trim();
+    if (!addr) return;
+    navigate(`/address/${encodeURIComponent(addr)}`);
+  }, [creatorAddr, navigate]);
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState(null);
@@ -948,6 +962,30 @@ export default function Explorer() {
               <button type="button" onClick={() => fillSearch('kaspa:')} className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">kaspa:...</button>
               <button type="button" onClick={() => fillSearch('txid:0')} className="inline-flex items-center min-h-[44px] sm:min-h-0 px-2 py-0.5 rounded border border-white/5 light:border-slate-200 hover:border-kaspa-green/20 hover:text-kaspa-green transition-colors font-mono">txid:0</button>
             </div>
+            {/* Search by creator address: jumps straight to that address's portfolio page
+                (/address/:addr), which lists every covenant the address created/owns. The page
+                exists but was only reachable by a direct URL; this surfaces it. */}
+            <form onSubmit={openCreatorPortfolio} className="flex items-center gap-2 p-2.5 rounded-xl border border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-white">
+              <KeyRound size={15} className="text-kaspa-green shrink-0 ml-1" aria-hidden="true" />
+              <label htmlFor="creator-addr" className="sr-only">Search by creator address</label>
+              <input
+                id="creator-addr"
+                type="text"
+                value={creatorAddr}
+                onChange={(e) => setCreatorAddr(e.target.value)}
+                placeholder="Creator address: kaspa:qr... (open their portfolio)"
+                className="flex-1 min-w-0 bg-transparent border-none outline-none text-xs font-mono text-white light:text-slate-900 placeholder:text-gray-400 light:placeholder:text-slate-400"
+                spellCheck={false}
+                autoComplete="off"
+              />
+              <button
+                type="submit"
+                disabled={!creatorAddr.trim()}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-kaspa-green/15 border border-kaspa-green/30 text-kaspa-green light:text-emerald-700 hover:bg-kaspa-green/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <ArrowRight size={12} /> Portfolio
+              </button>
+            </form>
             {/* Resolved chip: a .kas name that resolved to an owner address, with a copy
                 button. covenant.kas -> kaspa:qpz2...n4uk5a. Honest: KNS owner, not a claim. */}
             {resolvedChip && !searchLoading && (

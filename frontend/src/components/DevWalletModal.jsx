@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, deriveFromMnemonic, deriveFromPrivateKey, loadKaspaWasm, walletPrimaryAction } from './WalletContext';
+import { useDialog } from '../lib/useDialog';
 import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ShieldCheck, ArrowRight, Check, Smartphone, Download } from 'lucide-react';
 
 // ── Standalone Dev Wallet Modal ──
@@ -38,6 +39,8 @@ export default function DevWalletModal({ isOpen, onClose }) {
   const [derivedAddr, setDerivedAddr] = useState(null);
   const [isWasmReady, setIsWasmReady] = useState(false);
   const wasmLoadAttempted = useRef(false);
+  const titleId = 'dev-wallet-modal-title';
+  const dialogRef = useDialog({ open: isOpen, onClose });
 
   // Listen for network changes while modal is open
   useEffect(() => {
@@ -173,7 +176,14 @@ export default function DevWalletModal({ isOpen, onClose }) {
   if (isConnected) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-        <div className="w-full max-w-sm rounded-2xl border border-emerald-500/30 bg-[#0a0a0c] light:bg-white p-6" onClick={e => e.stopPropagation()}>
+        <div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Dev wallet connected (${netLabel})`}
+          className="w-full max-w-sm rounded-2xl border border-emerald-500/30 bg-[#0a0a0c] light:bg-white p-6 outline-none"
+          onClick={e => e.stopPropagation()}
+        >
           <div className="text-center">
             <div className="w-3 h-3 rounded-full bg-emerald-400 mx-auto mb-3 animate-pulse" />
             <div className="text-emerald-400 light:text-emerald-600 text-sm font-mono mb-1">Dev Mode Active ({netLabel})</div>
@@ -193,7 +203,11 @@ export default function DevWalletModal({ isOpen, onClose }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md bg-[#0a0a0a] light:bg-white border border-[#1f1f1f] light:border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="w-full max-w-md bg-[#0a0a0a] light:bg-white border border-[#1f1f1f] light:border-slate-200 rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -203,7 +217,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
               <Key size={18} className={A.icon} />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white light:text-slate-900">{netLabel} Dev Wallet</h3>
+              <h3 id={titleId} className="text-base font-bold text-white light:text-slate-900">{netLabel} Dev Wallet</h3>
               <p className={`text-[10px] ${A.sub} font-mono uppercase tracking-wider`}>
                 Isolated · Kaspa WASM · No Extensions
               </p>
@@ -468,6 +482,8 @@ function GenerateWalletSection({ connectDevMode, onConnected }) {
 function MainnetWalletModal({ walletContext, onClose }) {
   const { wallets, connect, connecting, error, clearError, connectDevMode } = walletContext;
   const [showAll, setShowAll] = useState(false);
+  const titleId = 'mainnet-wallet-modal-title';
+  const dialogRef = useDialog({ open: true, onClose });
   // Re-detect periodically so a wallet extension that injects a moment after the modal opens
   // shows up as "Installed" without the user having to reopen.
   const [, setTick] = useState(0);
@@ -532,7 +548,14 @@ function MainnetWalletModal({ walletContext, onClose }) {
 
   return (
     <div className="fixed inset-0 z-[999999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-white/10 light:border-slate-200 bg-[#0a0a0c] light:bg-white shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="w-full max-w-md rounded-2xl border border-white/10 light:border-slate-200 bg-[#0a0a0c] light:bg-white shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto outline-none"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-white/[0.06] light:border-slate-200">
           <div className="flex items-center gap-2.5">
@@ -540,7 +563,7 @@ function MainnetWalletModal({ walletContext, onClose }) {
               <Wallet size={18} className="text-kaspa-green" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white light:text-slate-900">Connect a wallet</h3>
+              <h3 id={titleId} className="text-base font-bold text-white light:text-slate-900">Connect a wallet</h3>
               <p className="text-[11px] text-gray-400 light:text-slate-500 flex items-center gap-1.5">
                 <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-red-300 light:text-red-600 bg-red-500/10 light:bg-red-50 border border-red-500/25 light:border-red-200 px-1.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Mainnet</span>
                 Non-custodial · keys stay in your wallet

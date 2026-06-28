@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
 import { vkeyPathFor, IN_BROWSER_PROVERS } from '../lib/zk/circuits';
+import { useDialog } from '../lib/useDialog';
 
 /**
  * TransparencyModal - press any ZK / resolver / enforcement badge to see, in plain terms:
@@ -139,6 +140,9 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
     ? firstPush32(covenant?.redeem_script_hex)
     : null;
 
+  const titleId = 'transparency-modal-title';
+  const dialogRef = useDialog({ open: true, onClose });
+
   const [oracle, setOracle] = useState({ loading: involvesOracle, pubkey: null, liveness: null, error: null });
 
   useEffect(() => {
@@ -158,18 +162,18 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
     return () => ac.abort();
   }, [involvesOracle]);
 
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  // Escape-to-close + focus trap + focus restore are handled by useDialog (dialogRef) above.
 
   const network = covenant?.network;
 
   return createPortal(
     <div className="fixed inset-0 z-[100000] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-150" onClick={onClose}>
       <div
-        className="glass-panel relative w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-white/10 light:border-slate-200 animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className="glass-panel relative w-full sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl border border-white/10 light:border-slate-200 animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="covex-aurora" style={{ top: 0, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: '70%', height: 160, maxWidth: '90vw', opacity: 0.5 }} aria-hidden="true" />
@@ -180,7 +184,7 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
             <ui.Icon size={20} style={{ color: ui.accent }} />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="text-base font-black text-white light:text-slate-900 leading-tight truncate">{title}</div>
+            <div id={titleId} className="text-base font-black text-white light:text-slate-900 leading-tight truncate">{title}</div>
             <span className="inline-flex items-center gap-1.5 mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border" style={{ color: ui.accent, borderColor: `${ui.accent}55`, background: `${ui.accent}14` }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: ui.accent }} /> {ui.name}
               {circuitId && <span className="text-gray-500 light:text-slate-600 font-mono normal-case tracking-normal">· {circuitId}</span>}

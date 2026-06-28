@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react';
 import { ShieldCheck } from 'lucide-react';
+import { useDialog } from '../lib/useDialog';
 
 export default function LegalModal({ onAccept }) {
   const [visible, setVisible] = useState(true);
   const [fadeOut, setFadeOut] = useState(false);
   const [checked, setChecked] = useState(false);
   const canAccept = checked;
+  const titleId = 'legal-modal-title';
+
+  // This is a consent GATE, not a dismissable dialog: Escape must NOT bypass it (you cannot use
+  // the platform without accepting). So useDialog gets a no-op onClose - it still traps focus,
+  // moves focus in on open, and restores it on close, just never auto-closes on Escape.
+  const dialogRef = useDialog({ open: visible, onClose: () => {} });
 
   useEffect(() => {
     if (visible) {
@@ -29,14 +36,20 @@ export default function LegalModal({ onAccept }) {
     <div
       className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 light:bg-slate-900/40 backdrop-blur-xl transition-opacity duration-300 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
     >
-      <div className={`max-w-lg w-full rounded-2xl glass-heavy p-5 sm:p-8 flex flex-col max-h-[90dvh] transition-transform duration-300 ${fadeOut ? 'scale-95' : 'scale-100'}`}>
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className={`max-w-lg w-full rounded-2xl glass-heavy p-5 sm:p-8 flex flex-col max-h-[90dvh] transition-transform duration-300 outline-none ${fadeOut ? 'scale-95' : 'scale-100'}`}
+      >
         <div className="flex items-center justify-center shrink-0">
           <div className="h-14 w-14 rounded-2xl bg-kaspa-green/10 light:bg-teal-50 border border-kaspa-green/30 light:border-teal-200 flex items-center justify-center">
             <ShieldCheck size={28} className="text-kaspa-green light:text-teal-600" />
           </div>
         </div>
 
-        <h2 className="mt-5 text-xl font-semibold text-white light:text-slate-900 text-center shrink-0">Before you build</h2>
+        <h2 id={titleId} className="mt-5 text-xl font-semibold text-white light:text-slate-900 text-center shrink-0">Before you build</h2>
 
         <div className="mt-5 space-y-3 text-xs text-gray-200 light:text-slate-700 leading-relaxed overflow-y-auto font-mono whitespace-pre-wrap pr-2 min-h-0 flex-1">
           <p className="text-gray-300 light:text-slate-700 font-semibold">

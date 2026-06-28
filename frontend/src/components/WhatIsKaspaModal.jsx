@@ -1,8 +1,11 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
+import { useDialog } from '../lib/useDialog';
 
 const WhatIsKaspa = ({ open, onClose }) => {
-  
+  const titleId = 'what-is-kaspa-title';
+  const dialogRef = useDialog({ open, onClose });
+
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden';
@@ -15,13 +18,20 @@ const WhatIsKaspa = ({ open, onClose }) => {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] bg-[#0a0a0a] overflow-y-auto w-full h-full">
-      
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      className="fixed inset-0 z-[99999] bg-[#0a0a0a] overflow-y-auto w-full h-full outline-none"
+    >
+
       {/* Sticky Header */}
       <div className="sticky top-0 z-50 flex justify-between items-center p-6 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-white/[0.06]">
-        <h2 className="text-xl font-bold text-white">Understanding Kaspa</h2>
-        <button 
-          onClick={onClose} 
+        <h2 id={titleId} className="text-xl font-bold text-white">Understanding Kaspa</h2>
+        <button
+          onClick={onClose}
+          aria-label="Close"
           className="p-2 rounded-lg border border-white/[0.06] text-gray-200 hover:text-white hover:border-white/15 transition-colors"
         >
           <X size={24} />

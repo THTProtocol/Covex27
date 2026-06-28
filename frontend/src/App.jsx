@@ -68,6 +68,10 @@ function LearnMenu() {
     ['What is Kaspa', '/kaspa'],
     ['API Docs', '/docs'],
     ['Whitepaper', '/whitepaper'],
+    // Transparency pages: surfaced in the primary nav (were footer-only and hard to find).
+    // Kept in the footer too.
+    ['Statistics', '/stats'],
+    ['Treasury', '/treasury'],
     // Flagship non-custodial proof: claim your funds directly on Kaspa even if
     // Covex is permanently offline. Was footer-only and nearly undiscoverable.
     ['Claim funds if Covex is down', '/recover'],
@@ -435,6 +439,15 @@ export default function App() {
       <ToastProvider>
       <WalletProvider>
         <BrowserRouter>
+          {/* WCAG 2.4.1 bypass-blocks: the first focusable element is a skip link, visually hidden
+              until focused, that jumps keyboard / screen-reader users straight to <main> past the
+              fixed nav. */}
+          <a
+            href="#main-content"
+            className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:px-4 focus:py-2.5 focus:rounded-xl focus:bg-kaspa-green focus:text-black focus:font-bold focus:text-sm focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-white/40"
+          >
+            Skip to content
+          </a>
           <DagBackground />
           <TermsGate />
           <nav className="fixed top-0 w-full z-40 glass-panel border-b border-white/5 dark:bg-[#0A0A0D]/95 light:bg-white/95 light:border-slate-200">
@@ -446,7 +459,7 @@ export default function App() {
               {/* Desktop Nav */}
               <div className="hidden md:flex items-center gap-6">
                 <NavLink to="/" end className={NL}>Explore</NavLink>
-                <NavLink to="/sandbox" className={NL}>Build</NavLink>
+                <NavLink to="/sandbox" className={NL} title="Create a covenant from any logic type" aria-label="Build: create a covenant from any logic type">Build</NavLink>
                 <NavLink to="/pricing" className={NL}>Pricing</NavLink>
                 <LearnMenu />
                 <StartTourButton />
@@ -474,7 +487,7 @@ export default function App() {
               <div className="md:hidden border-t border-white/10 bg-[#0A0A0D]/95 light:bg-white/98 light:border-slate-200 backdrop-blur-xl">
                 <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-0.5 text-sm">
                   <NavLink to="/" end className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Explore</NavLink>
-                  <NavLink to="/sandbox" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Build</NavLink>
+                  <NavLink to="/sandbox" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)} title="Create a covenant from any logic type" aria-label="Build: create a covenant from any logic type">Build</NavLink>
                   <NavLink to="/pricing" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
                   <div className="mt-2 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Learn</div>
                   <NavLink to="/about" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>About Covex</NavLink>
@@ -482,6 +495,8 @@ export default function App() {
                   <NavLink to="/kaspa" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>What is Kaspa</NavLink>
                   <NavLink to="/docs" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>API Docs</NavLink>
                   <NavLink to="/whitepaper" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Whitepaper</NavLink>
+                  <NavLink to="/stats" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Statistics</NavLink>
+                  <NavLink to="/treasury" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Treasury</NavLink>
                   <NavLink to="/recover" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Claim funds if Covex is down</NavLink>
                   <div className="mt-2 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Network</div>
                   <NetworkSwitcher />
@@ -497,6 +512,9 @@ export default function App() {
                 so it occupies layout height and never overlaps the page heading.
                 It sticks just below the 64px header on scroll. */}
             <BuildStepsRail />
+            {/* Landmark target for the skip link. tabIndex={-1} lets the skip link move focus here
+                without making <main> a tab stop in normal navigation. */}
+            <main id="main-content" tabIndex={-1} className="outline-none">
             <RouteErrorBoundary>
             <Suspense fallback={
               <div className="max-w-3xl mx-auto px-4 py-16 space-y-4" aria-hidden="true">
@@ -555,6 +573,7 @@ export default function App() {
             </Routes>
             </Suspense>
             </RouteErrorBoundary>
+            </main>
           </div>
 
           {/* Global first-covenant tour overlay. Self-activates from ?tour=1 or

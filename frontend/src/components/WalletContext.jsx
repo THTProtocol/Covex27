@@ -1,10 +1,16 @@
-import { createContext, useContext, useCallback, useState, useEffect, useRef } from 'react';
-import wasmBinaryUrl from '@onekeyfe/kaspa-wasm/kaspa_bg.wasm.bin?url';
-import {
-  KaspaWalletProvider as KasFlowProvider,
-  kaswareAdapter,
-  useWallet as useKasFlowWallet,
-} from '@kasflow/wallet-connector/react';
+import { createContext, useContext, useCallback, useState, useEffect, useRef, Suspense, lazy } from 'react';
+// NOTE: kaspa-wasm (the ~15.6MB @onekeyfe/kaspa-wasm module + its ~11.5MB binary) is loaded
+// LAZILY inside loadKaspaWasm() below, never at module-eval time. WalletProvider wraps the
+// whole app (App.jsx), so any STATIC import of the wasm here (the module OR its `?url` binary)
+// would pull the multi-MB vendor-kaspa-wasm chunk into the entry bundle and modulepreload it on
+// every visit. Keeping BOTH imports dynamic (inside loadKaspaWasm) means the wasm is fetched only
+// on first wallet/signing use, and the binary is emitted once (no eager preload, no double-ship).
+//
+// @kasflow/wallet-connector/react is also loaded LAZILY (see KasFlowBoundary below). Its
+// dependency @kasflow/passkey-wallet STATICALLY imports @onekeyfe/kaspa-wasm, so a static import
+// of the connector here would drag the whole vendor-kaspa-wasm chunk back into the entry bundle
+// (and re-trigger the eager modulepreload) even though our own code never touches the wasm at
+// boot. Deferring the connector import keeps WalletProvider mountable with zero wasm in the entry.
 
 const WalletContext = createContext(null);
 
@@ -292,36 +298,30 @@ export async function loadKaspaWasm() {
 
   _wasmInitPromise = (async () => {
     try {
-      const mod = await import('@onekeyfe/kaspa-wasm');
-      // initSync needs a compiled WebAssembly module directly
-      // default() calls __wbg_init which internally does require("./kaspa_bg.wasm.js")
-      // That CJS require fails in Vite's browser bundle
-      // Instead: use the imported wasm URL, fetch+compile it, then call initSync
+      // Both the wasm module AND its binary URL are imported HERE (dynamically) so neither is
+      // pulled into the entry chunk. The `?url` import resolves to the hashed asset URL at runtime;
+      // it is bundled into the same lazily-loaded vendor-kaspa-wasm chunk as the module itself.
+      const [mod, urlMod] = await Promise.all([
+        import('@onekeyfe/kaspa-wasm'),
+        import('@onekeyfe/kaspa-wasm/kaspa_bg.wasm.bin?url'),
+      ]);
+      const wasmBinaryUrl = urlMod?.default || null;
+      // initSync needs a compiled WebAssembly module directly. This is the ONLY working init path
+      // in a Vite browser bundle: default()/__wbg_init internally does require("./kaspa_bg.wasm.js")
+      // (a CJS require that fails in the browser), AND that 15.3MB glue is aliased to an empty stub
+      // in vite.config.js to kill the double-ship of the wasm. So we fetch the `?url` binary, compile
+      // it, and initSync the module - never default(). The module namespace (mod) carries the
+      // Mnemonic/XPrv/PrivateKey classes regardless of how the wasm global was initialized.
       if (typeof mod.initSync === 'function' && wasmBinaryUrl) {
-        try {
-          const resp = await fetch(wasmBinaryUrl);
-          if (resp.ok) {
-            const bytes = await resp.arrayBuffer();
-            const compiled = await WebAssembly.compile(bytes);
-            mod.initSync(compiled);
-            _wasmModuleCtx = mod;
-            return _wasmModuleCtx;
-          }
-        } catch (_) { /* fall through to default() */ }
-      }
-      // initSync path may have silently failed (catch{} above suppresses the error).
-      // Fallback: use default() to initialize the internal wasm global, but return
-      // the MODULE (which has Mnemonic/XPrv/PrivateKey classes), NOT default()'s
-      // return value (which is raw WASM exports - no class constructors on it).
-      if (typeof mod.default === 'function') {
-        await mod.default();         // initializes wasm global, side-effect only
-        _wasmModuleCtx = mod;        // return the module with the classes
-      } else {
-        // Last resort: if initSync worked earlier but we somehow returned, store mod
-        // (Mnemonic et al. are present on mod regardless of init path)
+        const resp = await fetch(wasmBinaryUrl);
+        if (!resp.ok) throw new Error(`kaspa-wasm binary fetch failed: ${resp.status}`);
+        const bytes = await resp.arrayBuffer();
+        const compiled = await WebAssembly.compile(bytes);
+        mod.initSync(compiled);
         _wasmModuleCtx = mod;
+        return _wasmModuleCtx;
       }
-      return _wasmModuleCtx;
+      throw new Error('kaspa-wasm initSync or binary URL unavailable');
     } catch (e) {
       // console.error('Failed to load kaspa-wasm:', e); // cleaned for prod
       _wasmInitPromise = null;
@@ -506,9 +506,19 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
   );
 }
 
-function WalletBridge({ children }) {
-  const kf = useKasFlowWallet();
+// A no-op stand-in for the @kasflow connector while it is still loading (or if it fails to
+// load). Every call site below guards kf in try/catch, so the wallet flow degrades gracefully:
+// the KasWare extension still connects through our own getProvider() path; only the connector's
+// optional kasflow send path is unavailable until the chunk arrives.
+const KF_STUB = {
+  connected: false,
+  address: null,
+  connect: async () => {},
+  disconnect: () => {},
+  sendTransaction: async () => { throw new Error('Wallet connector still loading'); },
+};
 
+function WalletBridge({ children, kf = KF_STUB }) {
   const [injections, setInjections] = useState({ KasWare: false, OKX: false });
   const [pollingActive, setPollingActive] = useState(true);
 
@@ -1077,21 +1087,60 @@ export function useWallet() {
   return ctx;
 }
 
+// Lazily-loaded boundary that mounts the @kasflow connector provider and forwards its live
+// wallet handle (kf) up to WalletBridge. Splitting this out of the entry chunk is what keeps the
+// connector's static @onekeyfe/kaspa-wasm dependency (via @kasflow/passkey-wallet) out of the
+// initial bundle, so the multi-MB vendor-kaspa-wasm chunk is no longer modulepreloaded on boot.
+//
+// React.lazy resolves the connector module, then KasFlowInner (rendered INSIDE the provider)
+// calls useKasFlowWallet() and pushes kf to a parent setter. Until the chunk arrives, WalletBridge
+// runs with KF_STUB so the app boots and the KasWare extension still connects via our own path.
+const LazyKasFlow = lazy(async () => {
+  const mod = await import('@kasflow/wallet-connector/react');
+  const KasFlowProvider = mod.KaspaWalletProvider;
+  const kaswareAdapter = mod.kaswareAdapter;
+  const useKasFlowWallet = mod.useWallet;
+
+  // Bridges the connector hook to the parent: renders nothing, just reports kf upward.
+  function KasFlowInner({ onKf }) {
+    const kf = useKasFlowWallet();
+    useEffect(() => { onKf(kf); }, [kf, onKf]);
+    return null;
+  }
+
+  function KasFlowProviderWrapper({ network, onKf }) {
+    return (
+      <KasFlowProvider
+        config={{
+          appName: 'Covex',
+          network: network === 'mainnet' || network === 'mainnet-1' ? network : 'testnet-12',
+          autoConnect: false,
+          adapters: [kaswareAdapter()],
+        }}
+      >
+        <KasFlowInner onKf={onKf} />
+      </KasFlowProvider>
+    );
+  }
+
+  return { default: KasFlowProviderWrapper };
+});
+
 export function WalletProvider({ children }) {
   const network = getCurrentNetwork();
+  const [kf, setKf] = useState(KF_STUB);
+  const onKf = useCallback((next) => { if (next) setKf(next); }, []);
   return (
-    <KasFlowProvider
-      config={{
-        appName: 'Covex',
-        network: network === 'mainnet' || network === 'mainnet-1' ? network : 'testnet-12',
-        autoConnect: false,
-        adapters: [kaswareAdapter()],
-      }}
-    >
-      <WalletBridge>
+    <>
+      {/* The connector provider mounts in a sibling boundary (Suspense fallback null = invisible
+          while it loads). It carries no UI of its own; it only supplies the kf handle. */}
+      <Suspense fallback={null}>
+        <LazyKasFlow network={network} onKf={onKf} />
+      </Suspense>
+      <WalletBridge kf={kf}>
         {children}
       </WalletBridge>
-    </KasFlowProvider>
+    </>
   );
 }
 

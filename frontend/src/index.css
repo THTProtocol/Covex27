@@ -1450,6 +1450,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
    These are honesty-critical: the violet full-zk chip must stay readable. */
 .light .text-violet-300, .light .text-violet-400 { color: #6d28d9 !important; }
 .light .text-slate-300, .light .text-slate-400 { color: #334155 !important; }
+/* The Tailwind light: variant (light:text-slate-300/400/500) compiles to a different selector
+   than the .light .text-slate-* remap above and evaded it, leaving faint 2.5:1 text on white
+   (e.g. the hero lede). Remap the variant too so all light-mode muted text clears WCAG AA. */
+.light .light\:text-slate-300, .light .light\:text-slate-400, .light .light\:text-slate-500 { color: #334155 !important; }
 .light .text-pink-300 { color: #be185d !important; }
 .light .text-rose-300 { color: #be123c !important; }
 .light .text-teal-300, .light .text-teal-400 { color: #0f766e !important; }

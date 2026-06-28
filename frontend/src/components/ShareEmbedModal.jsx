@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { X, Copy, Check, Code2, Link2, Share2, ExternalLink, Image as ImageIcon } from 'lucide-react';
 import { REALITY_BADGE_LABEL } from '../lib/enforcement-copy';
+import { useDialog } from '../lib/useDialog';
 
 // Share & embed a covenant. Gives a creator (or anyone) a direct link, a copy-paste
 // <iframe> snippet to drop the covenant into their OWN website, and a social share.
@@ -94,13 +95,9 @@ export default function ShareEmbedModal({ open, onClose, id, network, name, real
   const [copied, setCopied] = useState('');
   const [tab, setTab] = useState('direct');
   const tablistRef = useRef(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  // Escape-to-close + focus trap + focus restore (the tablist keeps its own ArrowLeft/Right
+  // handling; useDialog only governs Tab cycling + Escape).
+  const dialogRef = useDialog({ open, onClose });
 
   if (!open) return null;
 
@@ -143,9 +140,15 @@ export default function ShareEmbedModal({ open, onClose, id, network, name, real
   );
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="share-embed-title">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-lg glass-panel rounded-2xl border border-white/10 light:border-slate-300 p-5 sm:p-6 max-h-[90vh] overflow-y-auto">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-embed-title"
+        className="relative w-full max-w-lg glass-panel rounded-2xl border border-white/10 light:border-slate-300 p-5 sm:p-6 max-h-[90vh] overflow-y-auto outline-none"
+      >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">

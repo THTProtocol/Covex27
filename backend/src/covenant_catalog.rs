@@ -9,17 +9,17 @@
 //!   OnChain        - Kaspa consensus enforces the spend condition (a P2SH script).
 //!                    No oracle, no trust. The four covenant_builder primitives
 //!                    (singlesig / hashlock / timelock / multisig) are all OnChain.
-//!   FullZk         - a real Groth16 proof verified fail-closed by the disclosed Covex
-//!                    oracle (off-chain), with the oracle co-signature verified on-chain
-//!                    (Schnorr). NOT trustless and NOT on-chain ZK; stronger than a bare
-//!                    attestation because a tampered proof is rejected.
+//!   FullZk         - a real Groth16 proof verified fail-closed by an external resolver
+//!                    you choose (off-chain), with that resolver's co-signature verified
+//!                    on-chain (Schnorr). NOT trustless and NOT on-chain ZK; stronger than
+//!                    a bare attestation because a tampered proof is rejected.
 //!   Hybrid         - a real on-chain script gates release, but an oracle/data feed
 //!                    supplies an input the script checks (e.g. an oracle Schnorr sig
 //!                    verified by OpCheckSig). Trust the signer set, not pure math.
 //!                    (Reserved for the on-chain-oracle-unlock work, roadmap D1.)
-//!   OracleAttested - the OUTCOME is asserted by the Covex oracle's (real BIP340)
+//!   OracleAttested - the OUTCOME is asserted by an external resolver's (real BIP340)
 //!                    signature, but funds are NOT yet script-gated to it; they move
-//!                    by an ordinary transaction. Trust the oracle. (Games, prediction.)
+//!                    by an ordinary transaction. Trust the disclosed resolver, never Covex.
 //!   Decorative     - no enforcement: a metadata/marker covenant (the legacy self-pay
 //!                    + aa20 payload). The chain enforces nothing about the outcome.
 
@@ -54,13 +54,13 @@ impl EnforcementReality {
                 "Kaspa consensus enforces the spend condition (script-locked). No oracle, no trust."
             }
             EnforcementReality::FullZk => {
-                "A real Groth16 proof verified fail-closed by the disclosed Covex oracle (off-chain). The oracle co-signature is verified on-chain. Not trustless."
+                "A real Groth16 proof verified fail-closed by an external resolver you choose (off-chain). That resolver's co-signature is verified on-chain. Not trustless."
             }
             EnforcementReality::Hybrid => {
                 "An on-chain script gates release but checks an oracle-supplied input."
             }
             EnforcementReality::OracleAttested => {
-                "The outcome is asserted by the Covex oracle's signature; funds are not script-gated to it yet."
+                "The outcome is asserted by an external resolver's signature; funds are not script-gated to it yet."
             }
             EnforcementReality::Decorative => {
                 "Metadata only. The chain does not enforce the outcome."
@@ -341,7 +341,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         reality: EnforcementReality::OracleAttested,
         builder: "oracle",
         params: &["circuit_type", "stake_kas"],
-        summary: "Outcome is signed by the Covex oracle (real BIP340), but funds are not script-gated to the sig. Prefer oracle_enforced for on-chain enforcement.",
+        summary: "Outcome is signed by an external resolver (real BIP340), but funds are not script-gated to the sig. Prefer oracle_enforced for on-chain enforcement.",
     },
     CatalogEntry {
         id: "silverscript_marker",

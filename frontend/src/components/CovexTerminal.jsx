@@ -3743,7 +3743,7 @@ ${gameMeta.outcomeBranches}
           </div>
           <div className="text-right flex flex-col items-end gap-1">
             <div className="text-[11px] text-emerald-400 font-mono">{pokerStake} KAS STAKE • 2% FEE</div>
-            <div className="text-[10px] text-gray-400 light:text-slate-500 -mt-0.5">Each side stakes equally • Oracle attested result</div>
+            <div className="text-[10px] text-gray-400 light:text-slate-500 -mt-0.5">Each side stakes equally • Resolver attested result</div>
           </div>
         </div>
 
@@ -3811,7 +3811,7 @@ ${gameMeta.outcomeBranches}
           </div>
           <div className="text-right flex flex-col items-end gap-1">
             <div className="text-[11px] text-amber-400 font-mono">{bjStake} KAS STAKE • 2% FEE</div>
-            <div className="text-[10px] text-gray-400 light:text-slate-500 -mt-0.5">Each side stakes equally • Oracle attested result</div>
+            <div className="text-[10px] text-gray-400 light:text-slate-500 -mt-0.5">Each side stakes equally • Resolver attested result</div>
           </div>
         </div>
 

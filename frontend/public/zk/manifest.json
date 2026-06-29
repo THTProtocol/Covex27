@@ -147,7 +147,13 @@
     {
       "id": "merkle_membership",
       "vkey": "/zk/merkle_membership/merkle_membership_vkey.json",
-      "demo_proof": null,
+      "demo_proof": "/zk/merkle_membership/demo_proof.json",
+      "provable": true
+    },
+    {
+      "id": "merkle_multi_membership",
+      "vkey": "/zk/merkle_multi_membership/merkle_multi_membership_vkey.json",
+      "demo_proof": "/zk/merkle_multi_membership/demo_proof.json",
       "provable": true
     },
     {
@@ -181,6 +187,12 @@
       "provable": true
     },
     {
+      "id": "nullifier_uniqueness",
+      "vkey": "/zk/nullifier_uniqueness/nullifier_uniqueness_vkey.json",
+      "demo_proof": "/zk/nullifier_uniqueness/demo_proof.json",
+      "provable": true
+    },
+    {
       "id": "nullifier_v1",
       "vkey": "/zk/nullifier_v1/nullifier_v1_vkey.json",
       "demo_proof": "/zk/nullifier_v1/demo_proof.json",
@@ -191,6 +203,12 @@
       "vkey": "/zk/onchain_sig_verify/onchain_sig_verify_vkey.json",
       "demo_proof": "/zk/onchain_sig_verify/demo_proof.json",
       "provable": false
+    },
+    {
+      "id": "pedersen_open_equals",
+      "vkey": "/zk/pedersen_open_equals/pedersen_open_equals_vkey.json",
+      "demo_proof": "/zk/pedersen_open_equals/demo_proof.json",
+      "provable": true
     },
     {
       "id": "poker_equity",
@@ -283,6 +301,12 @@
       "provable": true
     },
     {
+      "id": "sorted_merkle_range",
+      "vkey": "/zk/sorted_merkle_range/sorted_merkle_range_vkey.json",
+      "demo_proof": "/zk/sorted_merkle_range/demo_proof.json",
+      "provable": true
+    },
+    {
       "id": "sorting_proof",
       "vkey": "/zk/sorting_proof/sorting_proof_vkey.json",
       "demo_proof": "/zk/sorting_proof/demo_proof.json",
@@ -293,6 +317,12 @@
       "vkey": "/zk/stealth_address_ownership/stealth_address_ownership_vkey.json",
       "demo_proof": "/zk/stealth_address_ownership/demo_proof.json",
       "provable": false
+    },
+    {
+      "id": "threshold_sig_knowledge",
+      "vkey": "/zk/threshold_sig_knowledge/threshold_sig_knowledge_vkey.json",
+      "demo_proof": "/zk/threshold_sig_knowledge/demo_proof.json",
+      "provable": true
     },
     {
       "id": "tictactoe_v1",
@@ -361,7 +391,7 @@
       "provable": false
     }
   ],
-  "count": 60,
-  "provable_count": 21,
-  "note": "provable == served _final.zkey present (an in-browser prover can generate a real proof). Generated from served artifacts; see zk/circuit_registry.json."
+  "count": 65,
+  "provable_count": 26,
+  "note": "provable == served _final.zkey present (an in-browser prover can generate a real proof). See zk/circuit_registry.json + scripts/check-zk-registry.sh."
 }

@@ -23,25 +23,31 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(6);
 /// Per-RPC-call timeout. Bounds get_balance/get_utxos/submit so a stalled node returns 503.
 const RPC_TIMEOUT: Duration = Duration::from_secs(8);
 
-/// Resolve wRPC for network (on-demand, so /broadcast and balance checks target the chosen net).
-/// connect() is time-bounded and the result is CHECKED via is_connected() (mirrors crawler.rs):
-/// a node that is down or syncing returns a clear error instead of a silently-dead client whose
-/// every RPC then hangs.
-async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String> {
-    let wrpc = if network == "testnet-10" {
+/// Pure wRPC-URL selection for a network (no I/O), so the routing decision can be unit-tested
+/// without a live node. testnet-10 and mainnet each have a dedicated per-net env var with a
+/// distinct local default; everything else (testnet-12 default) prefers the per-net var, then the
+/// global KASPA_WRPC_URL the crawler uses, then a sane local default. is_mainnet routing means any
+/// "mainnet*" network resolves to the mainnet endpoint. (Root cause this fixes for TN12: the old
+/// 17217 default was dead; the live TN12 node is on 17219, reached via KASPA_WRPC_URL.)
+fn wrpc_url_for_network(network: &str) -> String {
+    if network == "testnet-10" {
         std::env::var("KASPA_WRPC_URL_TN10").unwrap_or_else(|_| "ws://127.0.0.1:17210".to_string())
     } else if crate::covenant_builder::is_mainnet(network) {
         std::env::var("KASPA_WRPC_URL_MAINNET")
             .unwrap_or_else(|_| "ws://127.0.0.1:17310".to_string())
     } else {
-        // testnet-12 (default): prefer the per-net var, then the global KASPA_WRPC_URL the
-        // crawler uses, then a sane local default. Root cause of /balance and /utxos
-        // hanging: KASPA_WRPC_URL_TN12 is unset and the old 17217 default is dead (the live
-        // TN12 node is on 17219, reached by the crawler via KASPA_WRPC_URL).
         std::env::var("KASPA_WRPC_URL_TN12")
             .or_else(|_| std::env::var("KASPA_WRPC_URL"))
             .unwrap_or_else(|_| "ws://127.0.0.1:17219".to_string())
-    };
+    }
+}
+
+/// Resolve wRPC for network (on-demand, so /broadcast and balance checks target the chosen net).
+/// connect() is time-bounded and the result is CHECKED via is_connected() (mirrors crawler.rs):
+/// a node that is down or syncing returns a clear error instead of a silently-dead client whose
+/// every RPC then hangs.
+async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String> {
+    let wrpc = wrpc_url_for_network(network);
     let c = kaspa_wrpc_client::KaspaRpcClient::new(
         kaspa_wrpc_client::WrpcEncoding::Borsh,
         Some(&wrpc),
@@ -329,4 +335,125 @@ pub fn broadcast_routes() -> Router {
         .route("/broadcast", post(broadcast_handler))
         .route("/utxos/:address", get(utxos_handler))
         .route("/balance/:address", get(balance_handler))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // wrpc_url_for_network reads process-global env vars, so the env-sensitive cases must not run
+    // concurrently with each other. Serialize them under one mutex and snapshot/restore every var
+    // they touch so they leave the environment exactly as they found it.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    struct EnvGuard {
+        saved: Vec<(&'static str, Option<String>)>,
+    }
+    impl EnvGuard {
+        fn capture(keys: &[&'static str]) -> Self {
+            let saved = keys
+                .iter()
+                .map(|k| (*k, std::env::var(k).ok()))
+                .collect();
+            // Start from a known-clean slate so a value leaking in from the host or another test
+            // cannot change the branch under test.
+            for k in keys {
+                std::env::remove_var(k);
+            }
+            EnvGuard { saved }
+        }
+    }
+    impl Drop for EnvGuard {
+        fn drop(&mut self) {
+            for (k, v) in &self.saved {
+                match v {
+                    Some(val) => std::env::set_var(k, val),
+                    None => std::env::remove_var(k),
+                }
+            }
+        }
+    }
+
+    const ALL_WRPC_KEYS: &[&str] = &[
+        "KASPA_WRPC_URL_TN10",
+        "KASPA_WRPC_URL_MAINNET",
+        "KASPA_WRPC_URL_TN12",
+        "KASPA_WRPC_URL",
+    ];
+
+    /// default_network is the wire default applied when a BroadcastRequest omits `network`.
+    #[test]
+    fn default_network_is_testnet_12() {
+        assert_eq!(default_network(), "testnet-12");
+    }
+
+    /// With no env overrides, each network resolves to its hardcoded local default, and the
+    /// is_mainnet routing sends ANY "mainnet*" label (mainnet, mainnet-1) to the mainnet endpoint.
+    #[test]
+    fn url_selection_defaults_and_mainnet_routing() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _g = EnvGuard::capture(ALL_WRPC_KEYS);
+
+        assert_eq!(wrpc_url_for_network("testnet-10"), "ws://127.0.0.1:17210");
+        // testnet-12 (and any other non-mainnet, non-TN10 label) falls to the TN12 default.
+        assert_eq!(wrpc_url_for_network("testnet-12"), "ws://127.0.0.1:17219");
+        assert_eq!(wrpc_url_for_network("anything-else"), "ws://127.0.0.1:17219");
+        // is_mainnet is a starts_with("mainnet") check, so every mainnet variant routes to the
+        // single mainnet endpoint (never a testnet one).
+        assert_eq!(wrpc_url_for_network("mainnet"), "ws://127.0.0.1:17310");
+        assert_eq!(wrpc_url_for_network("mainnet-1"), "ws://127.0.0.1:17310");
+    }
+
+    /// The per-network env var overrides the default for its own network only.
+    #[test]
+    fn url_selection_honors_per_net_overrides() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _g = EnvGuard::capture(ALL_WRPC_KEYS);
+
+        std::env::set_var("KASPA_WRPC_URL_TN10", "ws://tn10.example:1");
+        std::env::set_var("KASPA_WRPC_URL_MAINNET", "ws://mainnet.example:2");
+        std::env::set_var("KASPA_WRPC_URL_TN12", "ws://tn12.example:3");
+
+        assert_eq!(wrpc_url_for_network("testnet-10"), "ws://tn10.example:1");
+        assert_eq!(wrpc_url_for_network("mainnet"), "ws://mainnet.example:2");
+        assert_eq!(wrpc_url_for_network("mainnet-1"), "ws://mainnet.example:2");
+        assert_eq!(wrpc_url_for_network("testnet-12"), "ws://tn12.example:3");
+    }
+
+    /// For the testnet-12 (default) branch only, the precedence is: KASPA_WRPC_URL_TN12, then the
+    /// global KASPA_WRPC_URL the crawler uses, then the local default. TN10/mainnet do NOT consult
+    /// the global var.
+    #[test]
+    fn url_selection_tn12_precedence_chain() {
+        let _lock = ENV_LOCK.lock().unwrap();
+        let _g = EnvGuard::capture(ALL_WRPC_KEYS);
+
+        // Only the global var set: TN12 falls through to it; TN10/mainnet ignore it.
+        std::env::set_var("KASPA_WRPC_URL", "ws://global.example:9");
+        assert_eq!(wrpc_url_for_network("testnet-12"), "ws://global.example:9");
+        assert_eq!(wrpc_url_for_network("testnet-10"), "ws://127.0.0.1:17210");
+        assert_eq!(wrpc_url_for_network("mainnet"), "ws://127.0.0.1:17310");
+
+        // Per-net TN12 var wins over the global var when both are present.
+        std::env::set_var("KASPA_WRPC_URL_TN12", "ws://tn12.example:3");
+        assert_eq!(wrpc_url_for_network("testnet-12"), "ws://tn12.example:3");
+    }
+
+    /// The broadcast request shaping accepts legacy/forward-compat fields and applies the wire
+    /// default for `network` when it is omitted (no deny_unknown_fields anywhere).
+    #[test]
+    fn broadcast_request_defaults_network_and_ignores_extra_fields() {
+        let parsed: BroadcastRequest = serde_json::from_str(
+            r#"{"tx_hex":"deadbeef","deployer_addr":"kaspatest:qabc","unknown_extra":123}"#,
+        )
+        .expect("legacy + unknown fields must still parse (no deny_unknown_fields)");
+        assert_eq!(parsed.tx_hex, "deadbeef");
+        assert_eq!(parsed.network, "testnet-12", "omitted network -> wire default");
+
+        let parsed2: BroadcastRequest = serde_json::from_str(
+            r#"{"tx_hex":"00","deployer_addr":"x","network":"testnet-10"}"#,
+        )
+        .expect("explicit network must parse");
+        assert_eq!(parsed2.network, "testnet-10");
+    }
 }

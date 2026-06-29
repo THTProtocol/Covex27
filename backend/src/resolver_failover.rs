@@ -83,6 +83,30 @@ fn network_id_for(network: &str) -> Option<NetworkId> {
     NetworkId::from_str(norm).ok()
 }
 
+/// Pure decision for how `build_client` constructs a client for `network`: whether the resolver
+/// is attached (and the constructor url is None so connect(url:None) can fall through to it) or
+/// the client is pinned to the direct URL (no resolver). Extracted so the routing can be
+/// unit-tested without constructing a real wRPC client. A network is resolver-attached ONLY when
+/// it is resolver-eligible AND its network_id parses -- a resolver client without a network_id
+/// panics on connect(url:None), so an unparseable id falls back to direct-pinned.
+#[derive(Debug, PartialEq, Clone, Copy)]
+enum CtorPlan {
+    /// Attach the resolver (ctor url = None); the supervisor can fail this client over later.
+    ResolverAttached,
+    /// Pin the direct URL in the constructor; no resolver path.
+    DirectPinned,
+}
+
+fn ctor_plan_for(network: &str) -> CtorPlan {
+    match (
+        network_is_resolver_eligible(network),
+        network_id_for(network),
+    ) {
+        (true, Some(_)) => CtorPlan::ResolverAttached,
+        _ => CtorPlan::DirectPinned,
+    }
+}
+
 /// Build a wRPC client for `network` that will boot on `direct_url`. Resolver-
 /// eligible networks are constructed with `url: None` + resolver + network_id so
 /// the supervisor can later fail them over to a public node; others are pinned to
@@ -90,15 +114,16 @@ fn network_id_for(network: &str) -> Option<NetworkId> {
 pub fn build_client(network: &str, direct_url: &str) -> Result<Arc<KaspaRpcClient>, String> {
     // Only enable the resolver when the network is eligible AND its network_id
     // parses -- a resolver client without a network_id panics on connect(url:None).
-    let (ctor_url, resolver, net_id) = match (
-        network_is_resolver_eligible(network),
-        network_id_for(network),
-    ) {
+    let (ctor_url, resolver, net_id) = match ctor_plan_for(network) {
         // url:None so resolve_url can fall through to the resolver; network_id
         // is required by the resolver to pick a node for the right network.
-        (true, Some(nid)) => (None, Some(Resolver::default()), Some(nid)),
+        CtorPlan::ResolverAttached => (
+            None,
+            Some(Resolver::default()),
+            network_id_for(network),
+        ),
         // Non-eligible (or unparseable): pin the direct URL, no resolver path.
-        _ => (Some(direct_url), None, None),
+        CtorPlan::DirectPinned => (Some(direct_url), None, None),
     };
     KaspaRpcClient::new(WrpcEncoding::Borsh, ctor_url, resolver, net_id, None)
         .map(Arc::new)
@@ -150,6 +175,40 @@ struct NetState {
     last_reresolve: i64, // last rotation to another public node (independent of mode switches)
     last_no_resolver_warn: i64,
     last_heartbeat: i64,
+}
+
+// ── Pure state-transition decisions (unit-tested without a live node) ──
+//
+// These mirror EXACTLY the booleans the supervisor loop computes; the loop calls them so the
+// behavior and the tests cannot drift. Each takes already-measured timing inputs (so it is pure)
+// and returns whether the corresponding transition should fire this tick.
+
+/// Direct mode: fail over to a public resolver node only when our own node has been un-usable
+/// (serving no block body) for at least UNHEALTHY_AGE, the startup grace has passed (the node was
+/// usable at some point OR we are past STARTUP_GRACE since boot), AND the anti-flap cooldown since
+/// the last mode switch has elapsed. `down_for` is None when the node is currently usable.
+fn should_failover(down_for: Option<i64>, grace_ok: bool, cooled: bool) -> bool {
+    matches!(down_for, Some(d) if d >= UNHEALTHY_AGE) && grace_ok && cooled
+}
+
+/// Whether the startup grace is satisfied: either our node has served a block at least once since
+/// boot, or we are past STARTUP_GRACE seconds of uptime. (A never-yet-usable node is given this
+/// long before its first failover, so a slow-booting node is not failed over prematurely.)
+fn grace_ok(ever_usable: bool, uptime: i64) -> bool {
+    ever_usable || uptime > STARTUP_GRACE
+}
+
+/// Resolver mode: switch BACK to our own node once it has served blocks continuously for at least
+/// RECOVER_STABLE. `recover_for` is None when our node is not currently serving blocks.
+fn should_recover(recover_for: Option<i64>) -> bool {
+    matches!(recover_for, Some(d) if d >= RECOVER_STABLE)
+}
+
+/// Resolver mode: rotate to another public node when the public node we are on is NOT serving
+/// blocks, we are not about to recover to our own node, and the independent re-resolve rate-limit
+/// has elapsed (so a flaky public node does not reset the recovery timer).
+fn should_reresolve(public_ok: bool, do_recover: bool, since_last_reresolve: i64) -> bool {
+    !public_ok && !do_recover && since_last_reresolve >= RERESOLVE_EVERY
 }
 
 /// Spawn the background supervisor. Only actively-supervised networks are probed;
@@ -247,9 +306,8 @@ pub fn spawn_supervisor(nets: Vec<Supervised>) {
                         }
 
                         let down_for = unhealthy_since.map(|t| now - t);
-                        let grace_ok = new_ever_usable || uptime > STARTUP_GRACE;
                         let do_failover =
-                            matches!(down_for, Some(d) if d >= UNHEALTHY_AGE) && grace_ok && cooled;
+                            should_failover(down_for, grace_ok(new_ever_usable, uptime), cooled);
 
                         let do_hb = now - last_hb >= HEARTBEAT_EVERY;
                         if do_hb {
@@ -324,12 +382,12 @@ pub fn spawn_supervisor(nets: Vec<Supervised>) {
                         // continuously for RECOVER_STABLE. No cooldown needed -- RECOVER_STABLE
                         // is the anti-flap, and Direct mode then needs UNHEALTHY_AGE before it
                         // could fail over again.
-                        let do_recover = matches!(recover_for, Some(d) if d >= RECOVER_STABLE);
+                        let do_recover = should_recover(recover_for);
                         // Else, if the public node itself is failing, rotate to another public
                         // node -- rate-limited independently of mode switches so it never
                         // resets the recovery cooldown.
                         let do_reresolve =
-                            !public_ok && !do_recover && (now - last_reresolve >= RERESOLVE_EVERY);
+                            should_reresolve(public_ok, do_recover, now - last_reresolve);
 
                         let do_hb = now - last_hb >= HEARTBEAT_EVERY;
                         if do_hb {
@@ -450,5 +508,149 @@ async fn reconnect(client: &KaspaRpcClient, url: Option<String>) {
     };
     if let Err(e) = client.connect(Some(opts)).await {
         warn!("resolver_failover: reconnect failed (will retry): {}", e);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Only mainnet + testnet-10 have public resolver coverage; testnet-12 (custom Toccata) and
+    /// anything unknown are direct-only. An eligible client is built with the resolver attached
+    /// (ctor url None), so the indexer must never issue a bare connect(None) on these.
+    #[test]
+    fn resolver_eligibility_is_mainnet_and_tn10_only() {
+        assert!(network_is_resolver_eligible("mainnet"));
+        assert!(network_is_resolver_eligible("mainnet-1"));
+        assert!(network_is_resolver_eligible("testnet-10"));
+        // No public resolver coverage:
+        assert!(!network_is_resolver_eligible("testnet-12"));
+        assert!(!network_is_resolver_eligible("testnet-11"));
+        assert!(!network_is_resolver_eligible("simnet"));
+        assert!(!network_is_resolver_eligible(""));
+    }
+
+    /// network_id_for normalizes the mainnet-1 alias to mainnet and rejects junk.
+    #[test]
+    fn network_id_normalizes_mainnet_alias_and_rejects_junk() {
+        assert_eq!(
+            network_id_for("mainnet-1"),
+            network_id_for("mainnet"),
+            "mainnet-1 must normalize to the same NetworkId as mainnet"
+        );
+        assert!(network_id_for("mainnet").is_some());
+        assert!(network_id_for("testnet-10").is_some());
+        assert!(network_id_for("not-a-network").is_none());
+    }
+
+    /// build_client's pure ctor decision: a network is resolver-attached ONLY when it is
+    /// resolver-eligible AND its network_id parses; everything else is pinned to the direct URL
+    /// (no resolver). This is the selection build_client makes before constructing the client.
+    #[test]
+    fn ctor_plan_attaches_resolver_only_for_eligible_parseable_networks() {
+        // Eligible + parseable -> resolver attached (ctor url None, supervisor can fail over).
+        assert_eq!(ctor_plan_for("mainnet"), CtorPlan::ResolverAttached);
+        assert_eq!(ctor_plan_for("mainnet-1"), CtorPlan::ResolverAttached);
+        assert_eq!(ctor_plan_for("testnet-10"), CtorPlan::ResolverAttached);
+        // Eligible-list miss -> direct-pinned (no public coverage).
+        assert_eq!(ctor_plan_for("testnet-12"), CtorPlan::DirectPinned);
+        // Unknown / unparseable -> direct-pinned (and a resolver client with no network_id would
+        // panic on connect(url:None), which this guard avoids).
+        assert_eq!(ctor_plan_for("garbage"), CtorPlan::DirectPinned);
+    }
+
+    /// is_actively_supervised: testnet-10 is always actively supervised; mainnet is only
+    /// supervised once COVEX_MAINNET_COVENANTS_ENABLED=true (so we do not churn failover against
+    /// not-yet-forked nodes before covenant indexing is on); non-eligible networks never are.
+    #[test]
+    fn active_supervision_gates_mainnet_on_env_flag() {
+        // Serialize + restore the env var this test mutates.
+        let saved = std::env::var("COVEX_MAINNET_COVENANTS_ENABLED").ok();
+
+        std::env::set_var("COVEX_MAINNET_COVENANTS_ENABLED", "false");
+        assert!(
+            !is_actively_supervised("mainnet"),
+            "mainnet must NOT be actively supervised while covenant indexing is disabled"
+        );
+        // testnet-10 is supervised regardless of the mainnet flag.
+        assert!(is_actively_supervised("testnet-10"));
+        // Non-eligible networks are never actively supervised.
+        assert!(!is_actively_supervised("testnet-12"));
+
+        std::env::set_var("COVEX_MAINNET_COVENANTS_ENABLED", "true");
+        assert!(
+            is_actively_supervised("mainnet"),
+            "mainnet must be actively supervised once COVEX_MAINNET_COVENANTS_ENABLED=true"
+        );
+        assert!(is_actively_supervised("mainnet-1"));
+
+        // A value other than exactly "true" leaves mainnet unsupervised (fail-closed parse).
+        std::env::set_var("COVEX_MAINNET_COVENANTS_ENABLED", "1");
+        assert!(
+            !is_actively_supervised("mainnet"),
+            "only the exact string 'true' enables mainnet supervision"
+        );
+
+        match saved {
+            Some(v) => std::env::set_var("COVEX_MAINNET_COVENANTS_ENABLED", v),
+            None => std::env::remove_var("COVEX_MAINNET_COVENANTS_ENABLED"),
+        }
+    }
+
+    /// Direct-mode failover decision: fire only when the node has been down for >= UNHEALTHY_AGE
+    /// AND the startup grace is satisfied AND the anti-flap cooldown has elapsed. A currently-
+    /// usable node (down_for None) never fails over.
+    #[test]
+    fn failover_requires_sustained_outage_grace_and_cooldown() {
+        // Healthy node: never fails over.
+        assert!(!should_failover(None, true, true));
+        // Down but not long enough.
+        assert!(!should_failover(Some(UNHEALTHY_AGE - 1), true, true));
+        // Down long enough, grace + cooldown satisfied: fail over.
+        assert!(should_failover(Some(UNHEALTHY_AGE), true, true));
+        assert!(should_failover(Some(UNHEALTHY_AGE + 100), true, true));
+        // Long enough but still in startup grace (never-usable, fresh boot): hold.
+        assert!(!should_failover(Some(UNHEALTHY_AGE + 100), false, true));
+        // Long enough but cooldown not elapsed (just switched): hold (anti-flap).
+        assert!(!should_failover(Some(UNHEALTHY_AGE + 100), true, false));
+    }
+
+    /// grace_ok: satisfied if the node was ever usable, or once uptime passes STARTUP_GRACE.
+    #[test]
+    fn grace_is_open_once_ever_usable_or_past_startup_window() {
+        assert!(grace_ok(true, 0), "ever-usable node is always past grace");
+        assert!(
+            !grace_ok(false, STARTUP_GRACE),
+            "exactly at STARTUP_GRACE is not yet past it (strictly greater)"
+        );
+        assert!(
+            grace_ok(false, STARTUP_GRACE + 1),
+            "a never-usable node opens grace just after STARTUP_GRACE"
+        );
+    }
+
+    /// Resolver-mode recover decision: switch back only after our own node has served blocks
+    /// continuously for >= RECOVER_STABLE. None (own node not serving) never recovers.
+    #[test]
+    fn recover_requires_stable_own_node() {
+        assert!(!should_recover(None));
+        assert!(!should_recover(Some(RECOVER_STABLE - 1)));
+        assert!(should_recover(Some(RECOVER_STABLE)));
+        assert!(should_recover(Some(RECOVER_STABLE + 50)));
+    }
+
+    /// Resolver-mode re-resolve decision: rotate to another public node only when the current
+    /// public node is failing, we are not about to recover, and the rate-limit has elapsed.
+    #[test]
+    fn reresolve_only_when_public_failing_not_recovering_and_rate_limit_elapsed() {
+        // Public node failing, not recovering, rate-limit elapsed: rotate.
+        assert!(should_reresolve(false, false, RERESOLVE_EVERY));
+        assert!(should_reresolve(false, false, RERESOLVE_EVERY + 10));
+        // Public node still serving: do not rotate.
+        assert!(!should_reresolve(true, false, RERESOLVE_EVERY + 10));
+        // About to recover to our own node: prefer recovery over rotating.
+        assert!(!should_reresolve(false, true, RERESOLVE_EVERY + 10));
+        // Rate-limit not yet elapsed: hold (do not thrash public nodes).
+        assert!(!should_reresolve(false, false, RERESOLVE_EVERY - 1));
     }
 }

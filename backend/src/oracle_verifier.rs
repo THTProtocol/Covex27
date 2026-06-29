@@ -1229,38 +1229,37 @@ pub(crate) async fn verify_proof_for_circuit(
 }
 
 /// Dynamic outcome determination (replaces the giant else-if chain).
-/// requested_outcome always wins if supplied (current oracle.rs policy).
-/// Only when absent do we derive from public inputs for the few full-zk circuits
-/// that encode outcome/status in signals.
-/// For the expanded registry (most entries), falls back to 0.
+///
+/// FAIL-CLOSED INTRINSIC (GAP 12): for a circuit backed by a real cryptographic verifier
+/// (Strict/Hybrid Groth16) the outcome is ALWAYS derived from the COMPUTED validity public signal
+/// and the caller-supplied `requested_outcome` is IGNORED. Previously this function returned
+/// `requested_outcome` verbatim for any circuit, and the fail-closed property lived ONLY in the
+/// caller (oracle.rs) remembering to pass `None` on the verified-proof path. That made it one
+/// careless future caller away from a free-outcome hole (pass `Some(0)` for a Strict circuit whose
+/// proof carries valid==0 and the pot drains). Reading the signal here, unconditionally for
+/// Strict/Hybrid, makes the gate intrinsic to the function: no caller can reintroduce the hole.
+///
+/// Game-attested behavior is UNCHANGED: game pots (chess/tictactoe/connect4) resolve their outcome
+/// from the SERVER-recorded result in the oracle handlers (oracle.rs game_row / covenant_builder
+/// game_pot_outcome) and never reach the `requested_outcome` branch below for their payout. The
+/// tictactoe/connect4 winner is still read from publicSignals[4] in the signal-derivation section.
+///
+/// For circuits with NO registered crypto verifier (attested / unknown), `requested_outcome` is
+/// still honored when supplied (the attested model is gated upstream by circuit_requires_crypto_proof
+/// in both oracle handlers, which refuse to sign an attested non-game payout at all).
 pub(crate) fn determine_outcome_for_circuit(
     circuit_type: &str,
     proof: &Value,
     public_inputs: &[String],
     requested_outcome: Option<u32>,
 ) -> u32 {
-    if let Some(req) = requested_outcome {
-        // Clamp per legacy game conventions (most new circuits don't care).
-        if circuit_type.contains("tictactoe") || circuit_type.contains("connect4") {
-            return req.min(2);
-        }
-        if circuit_type.contains("privacy_mixer") {
-            return req.min(1);
-        }
-        return req;
-    }
-
-    // No requested: derive only for circuits that put status in public inputs.
-    // Use registry to decide if worth trying, but keep simple per-circuit for the known full-zk.
-    // (Future: attach derive closures to VerifierSpec.)
+    // Use registry to decide whether the circuit's outcome is a COMPUTED validity signal. This
+    // covers the crypto-proof circuits (Strict/Hybrid) and the SourceOnlyNoZkey DeFi circuits: the
+    // latter never reach here in production (verify_proof_for_circuit fails closed before signing),
+    // but we keep the same fail-closed signal-reading so a valid==0 proof can never yield outcome 0
+    // if they are ever promoted back or reached defensively.
     let reg = get_registry();
     let spec = reg.get(circuit_type);
-
-    // Circuits whose outcome is derived from a COMPUTED validity public signal. This covers the
-    // crypto-proof circuits (Strict/Hybrid) and the SourceOnlyNoZkey DeFi circuits: the latter
-    // never reach here in production (verify_proof_for_circuit fails closed before signing), but
-    // we keep the same fail-closed signal-reading so a valid==0 proof can never yield outcome 0
-    // if they are ever promoted back or reached defensively.
     let reads_validity_signal = matches!(
         spec,
         Some(VerifierSpec::StrictGroth16 { .. })
@@ -1268,7 +1267,16 @@ pub(crate) fn determine_outcome_for_circuit(
             | Some(VerifierSpec::SourceOnlyNoZkey { .. })
     );
 
+    // requested_outcome is honored ONLY for circuits that do NOT read a validity signal (attested /
+    // unknown). For Strict/Hybrid the requested value is IGNORED and we fall through to the
+    // unconditional signal-reading below, so a future caller passing Some(_) cannot mint a free
+    // outcome. tictactoe/connect4/privacy_mixer are Strict/Hybrid, so their requested-outcome clamp
+    // is gone (their production outcome is the server game result or the verified signal, not a
+    // caller value).
     if !reads_validity_signal {
+        if let Some(req) = requested_outcome {
+            return req;
+        }
         return 0;
     }
 
@@ -1565,18 +1573,65 @@ mod tests {
 
     #[test]
     fn outcome_defaults_and_clamp() {
+        // An UNKNOWN circuit (no registered crypto verifier) still honors requested_outcome.
         assert_eq!(
             determine_outcome_for_circuit("foo", &Value::Null, &[], Some(5)),
             5
         );
         // chess_v1 outcome tests removed (circuit deleted)
+        // privacy_mixer_v1 is HybridGroth16, so GAP 12 makes it IGNORE requested_outcome and read
+        // the validity signal: a Null proof + empty signals fail closed to outcome 1 (not the
+        // requested 9). Same result as the old clamp, but now intrinsic, not caller-dependent.
         assert_eq!(
             determine_outcome_for_circuit("privacy_mixer_v1", &Value::Null, &[], Some(9)),
             1
         );
+        // An unknown circuit with no requested outcome defaults to 0.
         assert_eq!(
             determine_outcome_for_circuit("some_new_defi", &Value::Null, &[], None),
             0
+        );
+    }
+
+    /// GAP 12 (fail-closed intrinsic): a Strict/Hybrid circuit whose verified proof carries
+    /// validity==0 MUST yield a FAIL (outcome 1), even if the caller passes requested_outcome=0
+    /// ("claimant wins"). Before this fix, determine_outcome_for_circuit returned requested_outcome
+    /// verbatim, so the fail-closed property lived only in the caller passing None; a future caller
+    /// passing Some(0) for a below-threshold proof would have minted a winning outcome and drained
+    /// the pot. The function now ignores requested_outcome for Strict/Hybrid and reads the signal.
+    #[test]
+    fn strict_circuit_ignores_requested_outcome_and_reads_validity() {
+        let proof = serde_json::json!({ "pi_a": ["1", "2", "3"] });
+
+        // age_verification (StrictGroth16): publicSignals[0] = valid. valid==0 (underage) with a
+        // hostile requested_outcome=0 must STILL fail closed to outcome 1.
+        assert_eq!(
+            determine_outcome_for_circuit(
+                "age_verification",
+                &proof,
+                &["0".to_string(), "commitment".to_string()],
+                Some(0),
+            ),
+            1,
+            "validity==0 must fail closed even when the caller requests outcome 0"
+        );
+        // valid==1 with a hostile requested_outcome=1 ("claim fails") must STILL read the signal
+        // and yield outcome 0 (claimant wins) - the caller value is ignored both ways.
+        assert_eq!(
+            determine_outcome_for_circuit(
+                "age_verification",
+                &proof,
+                &["1".to_string(), "commitment".to_string()],
+                Some(1),
+            ),
+            0,
+            "validity==1 must yield outcome 0 regardless of the requested outcome"
+        );
+        // A second Strict circuit (escrow_2party): same intrinsic behavior, requested ignored.
+        assert_eq!(
+            determine_outcome_for_circuit("escrow_2party", &proof, &["0".to_string()], Some(0)),
+            1,
+            "escrow_2party validity==0 must fail closed even with requested_outcome=0"
         );
     }
 

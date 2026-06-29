@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Link, NavLink, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom';
+import RouteMeta from './components/RouteMeta';
 import ErrorBoundary from './components/ErrorBoundary.jsx';
 
 // Route-level boundary: catches a single page's render/chunk-load error (e.g. a stale
@@ -394,6 +395,7 @@ export default function App() {
       <ToastProvider>
       <WalletProvider>
         <BrowserRouter>
+          <RouteMeta />
           {/* WCAG 2.4.1 bypass-blocks: the first focusable element is a skip link, visually hidden
               until focused, that jumps keyboard / screen-reader users straight to <main> past the
               fixed nav. */}

@@ -1104,7 +1104,11 @@ pub(crate) async fn verify_risc0_stub(
         true
     })
     .await
-    .unwrap_or(true);
+    // Fail closed on a JoinError (the verification task panicked): a panicked verification must
+    // NOT read as "verified". This is defense-in-depth only: Risc0Stub is excluded from
+    // circuit_requires_crypto_proof, so a true verdict here can never mint a money signature on
+    // its own (the oracle gate refuses to sign for non-crypto circuits off a caller outcome).
+    .unwrap_or(false);
 
     Ok(success)
 }

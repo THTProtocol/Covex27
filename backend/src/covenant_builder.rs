@@ -6940,15 +6940,45 @@ pub async fn create_market_handler(
     }))
 }
 
+// ── Market authorization replay protection (GAP 14a) ──
+//
+// The resolve/match handlers verify a creator wallet signature over a message that embeds a
+// caller-chosen `nonce` (covex-market-resolve:{id}:{outcome}:{nonce} / covex-market-match:{id}:
+// {nonce}). The frontend generates a fresh random nonce per action, but nothing recorded or
+// consumed it, so a captured (signer_address, signature, nonce) triple could be replayed: the
+// nonce gave only a false impression of single-use protection. This in-memory set turns it into
+// real single-use protection: each (market_id, nonce) is recorded the first time it verifies and
+// any repeat is rejected. The cache lives only as long as the process; that is sufficient because
+// replay protection only needs to outlive a captured signature's usefulness, and a restart wipes
+// the unsettled in-flight state anyway. Fail-closed: if recording reports the pair was already
+// present, the caller refuses to act.
+fn market_nonce_seen_set() -> &'static std::sync::Mutex<std::collections::HashSet<String>> {
+    static SET: std::sync::OnceLock<std::sync::Mutex<std::collections::HashSet<String>>> =
+        std::sync::OnceLock::new();
+    SET.get_or_init(|| std::sync::Mutex::new(std::collections::HashSet::new()))
+}
+
+/// Atomically claim a market-bound nonce for single use. Returns true the FIRST time a given
+/// (market_id, nonce) is seen and false on every repeat (a replay). A poisoned lock fails closed
+/// (returns false) so a panic elsewhere can never open a replay window.
+fn claim_market_nonce(market_id: &str, nonce: &str) -> bool {
+    let key = format!("{}\u{0}{}", market_id, nonce);
+    match market_nonce_seen_set().lock() {
+        Ok(mut set) => set.insert(key),
+        Err(_) => false,
+    }
+}
+
 #[derive(Deserialize)]
 pub struct ResolveMarketRequest {
     pub market_id: String,
     /// 0 = outcome A won, 1 = outcome B won.
     pub outcome: i64,
     /// Authorization (C2): the resolver's Kaspa address, a wallet signature, and a
-    /// caller-chosen nonce. `signer_address` MUST equal the market's recorded creator,
-    /// and `signature` must be a valid wallet signature of
-    /// `covex-market-resolve:{market_id}:{outcome}:{nonce}` by that address.
+    /// single-use nonce. `signer_address` MUST equal the market's recorded creator, and
+    /// `signature` must be a valid wallet signature of
+    /// `covex-market-resolve:{market_id}:{outcome}:{nonce}` by that address. The nonce is
+    /// claimed once via claim_market_nonce so a captured signature cannot be replayed.
     pub signer_address: String,
     pub signature: String,
     pub nonce: String,
@@ -6996,6 +7026,13 @@ pub async fn resolve_market_handler(
         Ok(true) => {}
         Ok(false) => return err("invalid creator signature for this resolution".into()),
         Err(e) => return err(format!("signature verification failed: {e}")),
+    }
+    // Replay protection (GAP 14a): the nonce in the signed message is single-use. Claim it after
+    // the signature verifies; a repeat (captured-signature replay) is refused fail-closed.
+    if !claim_market_nonce(&req.market_id, &req.nonce) {
+        return err(
+            "this resolution nonce was already used; sign a fresh nonce and try again".into(),
+        );
     }
     if let Some(prev) = m.revealed_outcome {
         if prev != req.outcome {
@@ -7207,7 +7244,8 @@ pub struct MatchMarketRequest {
     /// Authorization (same model as /resolve): only the recorded market creator may trigger a
     /// match, since matching spends the shared dev escrow. `signer_address` MUST equal the
     /// market creator, and `signature` must be a valid wallet signature of
-    /// `covex-market-match:{market_id}:{nonce}` by that address.
+    /// `covex-market-match:{market_id}:{nonce}` by that address. The nonce is single-use
+    /// (claimed via claim_market_nonce) so a captured match signature cannot be replayed.
     #[serde(default)]
     pub signer_address: String,
     #[serde(default)]
@@ -7257,6 +7295,11 @@ pub async fn match_market_handler(
         Ok(true) => {}
         Ok(false) => return err("invalid creator signature for this match".into()),
         Err(e) => return err(format!("signature verification failed: {e}")),
+    }
+    // Replay protection (GAP 14a): single-use nonce. A captured match signature cannot be
+    // replayed to re-trigger escrow-spending matching. Fail-closed on a repeat.
+    if !claim_market_nonce(&req.market_id, &req.nonce) {
+        return err("this match nonce was already used; sign a fresh nonce and try again".into());
     }
     let a_orders = db::list_open_orders_side(&db, &req.market_id, 0);
     let b_orders = db::list_open_orders_side(&db, &req.market_id, 1);
@@ -12656,5 +12699,51 @@ mod tests {
             "must be fail-closed when explicitly disabled"
         );
         std::env::remove_var("COVEX_KIP10_BOUND_ENABLED");
+    }
+
+    /// GAP 14a (market nonce replay protection): a (market_id, nonce) pair may be claimed exactly
+    /// once. The first claim succeeds; any repeat for the same pair is refused. A different nonce
+    /// for the same market, or the same nonce for a different market, is independent and allowed.
+    #[test]
+    fn market_nonce_is_single_use_per_market() {
+        // Use unique market ids so this test never collides with the process-global set when the
+        // suite runs in parallel.
+        let m1 = format!("mkt-{}", uuid::Uuid::new_v4());
+        let m2 = format!("mkt-{}", uuid::Uuid::new_v4());
+        let n = "nonce-abc";
+
+        // First use of (m1, n) is accepted; the immediate replay is refused (fail-closed).
+        assert!(
+            claim_market_nonce(&m1, n),
+            "the first claim of a fresh (market, nonce) must succeed"
+        );
+        assert!(
+            !claim_market_nonce(&m1, n),
+            "replaying the SAME (market, nonce) must be refused"
+        );
+        assert!(
+            !claim_market_nonce(&m1, n),
+            "a third replay of the same pair must also be refused"
+        );
+
+        // A different nonce for the same market is a distinct single-use claim.
+        assert!(
+            claim_market_nonce(&m1, "nonce-xyz"),
+            "a different nonce for the same market is independent and must be accepted once"
+        );
+        assert!(
+            !claim_market_nonce(&m1, "nonce-xyz"),
+            "and that different nonce is then itself single-use"
+        );
+
+        // The SAME nonce string under a DIFFERENT market is independent (the key binds both).
+        assert!(
+            claim_market_nonce(&m2, n),
+            "the same nonce under a different market is a distinct claim and must be accepted once"
+        );
+        assert!(
+            !claim_market_nonce(&m2, n),
+            "and is then single-use within that other market"
+        );
     }
 }

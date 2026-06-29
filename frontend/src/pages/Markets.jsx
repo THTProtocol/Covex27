@@ -166,6 +166,7 @@ function PlaceOrderCard({
         </Button>
       </div>
       <p className="text-[11px] text-gray-500 light:text-slate-500 mt-2">An order backs one side. When the other side has liquidity it's matched into a mini-pool and funded by a conjoined bundle (several on-chain covenants created at once).</p>
+      <p className="text-[11px] text-gray-500 light:text-slate-500 mt-2">You are responsible for compliance in your jurisdiction; this may be regulated as gambling or event-contracts where you live.</p>
     </div>
   );
 }
@@ -287,6 +288,7 @@ function MobileBetRail({
           {!addr && (
             <p className="text-[10.5px] text-gray-500 light:text-slate-500 leading-snug">Set your payout address in the order card above to enable ordering.</p>
           )}
+          <p className="text-[10.5px] text-gray-500 light:text-slate-500 leading-snug">You are responsible for compliance in your jurisdiction; this may be regulated as gambling or event-contracts where you live.</p>
         </div>
       </div>
     </div>

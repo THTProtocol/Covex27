@@ -397,7 +397,7 @@ function ReleaseView({ circuit, loStake, hiStake }) {
               <div key={i} className="rounded-xl border p-4 hover-lift-premium transition-all" style={{ borderColor: `${b.accent}55`, background: `linear-gradient(135deg, ${b.accent}14, rgba(255,255,255,0.02))` }}>
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-black" style={{ color: b.accent }}>{b.label}</span>
-                  <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border" style={{ borderColor: `${b.accent}55`, color: b.accent }}>{b.when}</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border" style={{ borderColor: `${b.accent}55`, color: b.accent }}>{b.when}</span>
                 </div>
                 <div className="text-lg font-black text-white leading-none mb-1">{KAS(released)} KAS <span className="text-[11px] font-medium text-gray-400">to {b.to}</span></div>
                 <div className="text-[11px] text-gray-400 light:text-slate-500 leading-relaxed">{b.to} {b.cond}.</div>

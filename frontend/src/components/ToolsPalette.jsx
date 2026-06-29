@@ -70,7 +70,7 @@ function RealityChip({ reality }) {
   const meta = REALITY_CHIP[reality] || REALITY_CHIP['decorative'];
   return (
     <span
-      className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-wider whitespace-nowrap ${meta.cls}`}
+      className={`inline-flex items-center px-1.5 py-0.5 rounded border text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${meta.cls}`}
       title={`Enforcement reality: ${meta.label}. Verified by an external resolver where applicable.`}
     >
       {meta.label}

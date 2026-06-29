@@ -45,6 +45,7 @@ const SECTIONS = [
   },
   {
     id: 'problem', n: '2 · Problem',
+    takeaway: "In one line: the moment covenants reach mainnet, three gaps open at once - finding them on the DAG, acting on them from a wallet, and authoring them without locking funds in raw script.",
     body: [
       "A programmable UTXO is invisible without infrastructure. At the moment covenants reach mainnet, three gaps appear at once.",
       "Discovery: covenants are not contract accounts; they are spend conditions on outputs. Finding them means walking the DAG and recognizing script envelopes, not reading an account list.",
@@ -54,6 +55,7 @@ const SECTIONS = [
   },
   {
     id: 'design', n: '3 · Design',
+    takeaway: "In one line: independent indexers find every covenant on chain, each gets a wallet-bound page you act on non-custodially, and a no-code Studio builds new ones with no user-authored HTML ever reaching a visitor.",
     body: [
       "Indexing. Three independent background workers per network give defense in depth: a crawler that walks the selected-parent chain recognizing aa20 to aa23 covenant envelopes (aa20 is the only marker emitted today; aa21 to aa23 are reserved forward-compatible variants); a live indexer polling seed addresses every 10 seconds; and a payment guardian watching the treasury to confirm tier payments at six DAA confirmations. Covenants are classified by opcode signature into 17 categories. On mainnet, a bare P2SH commitment is indistinguishable from an ordinary output and is not counted as a covenant until Toccata activation - the explorer stays honest rather than inflating numbers.",
       "Interaction. Every covenant has a page bound to its on-chain address. Visitors connect any Kaspa wallet and act non-custodially. Two-party covenants are the proof of concept: both parties stake into a covenant, the interaction is persisted and synced live over WebSockets, and the outcome is resolved and signed from a publicly-replayable log; the winning party's unlock spends the staked amount on-chain. The platform never custodies the stake.",
@@ -62,6 +64,7 @@ const SECTIONS = [
   },
   {
     id: 'trust', n: '4 · Trust model',
+    takeaway: "In one line: Covex holds no funds and decides no outcome; the deterministic primitives are trustless, and where a real-world fact is needed you trust a named external resolver you chose or run, never Covex.",
     body: [
       "Covex is explicit about what is trustless and what is not.",
       "Custody is non-custodial: the platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet. For oracle-resolved covenants an external resolver the deployer binds by pubkey at deploy (never a Covex key) co-signs the winning branch, so the payout is on-chain enforced but not trustless: trust sits with the disclosed resolver you chose or run. Where the outcome is a real-world fact, you connect or create that external resolver and the real-value covenant binds on-chain to its published hashlock, so Covex provides infrastructure, not the truth, and never attests real-world facts. For the deterministic primitives the payout is trustless.",
@@ -72,6 +75,7 @@ const SECTIONS = [
   },
   {
     id: 'roadmap', n: '5 · Roadmap to trustlessness',
+    takeaway: "In one line: the plan is to shrink the off-chain resolver from trusted signer to optional, move proofs on-chain via KIP-16, and replace the dev trusted-setup with a real multi-party ceremony, with the honest badge showing every step.",
     body: [
       `Today, all ${ZK_TOTAL_WORD} compiled circom circuits in the registry are verified off-chain by you, the counterparty, or any external resolver. For four of them (merkle_membership, age_verification, escrow_2party, range_proof) the proof is verified off-chain; the chain still requires a deployer-bound external resolver's Schnorr co-signature to release funds (there is no proof-to-hashlock binding), so they are not trustless end-to-end. For the rest (timelock, split-math, VRF and so on) only a deployer-bound external resolver's Schnorr co-signature is checked on-chain at unlock, so trust sits with that disclosed resolver, not Covex. Beyond the four self-contained circuits, no circom circuit's ZK proof is enforced end-to-end on Kaspa: there is no circuit-output to hashlock binding in the covenant builder, so the chain never checks those proofs. Toccata's KIP-16 OpZkPrecompile does verify a RISC0-Groth16 proof in consensus, and the settlement covenant migrates onto that on-chain path as its proving keys and a real multi-party ceremony ship; it stays testnet-gated until proven live on mainnet. At the 30 June 2026 mainnet launch the circom set is verified off-chain.`,
       "As that migration completes, the external resolver's role shrinks from trusted signer to liveness helper, and eventually to optional. The honest badge system makes each step visible to users in real time.",
@@ -260,6 +264,7 @@ export default function Whitepaper() {
                 <span className="absolute bottom-0 left-0 h-[2px] w-20 rounded-full" aria-hidden="true" style={{ background: 'linear-gradient(90deg, #49EACB, transparent)' }} />
               </h2>
               <div className="space-y-3">
+                {s.takeaway && <p className="text-sm font-bold text-white light:text-slate-900 leading-relaxed">{s.takeaway}</p>}
                 {s.body.map((p, i) => (
                   <p key={i} className="text-sm text-gray-300 light:text-slate-700 leading-relaxed">{p}</p>
                 ))}

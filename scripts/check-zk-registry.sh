@@ -40,4 +40,22 @@ if ! runnode zk/scripts/check_registry_honesty.js; then fail=1; fi
 # (backend-read sample, kept in sync separately).
 if ! runnode zk/scripts/reconcile_root_samples.js --check; then fail=1; fi
 
+# 6. No INFLATED circuit-count marketing on the honest surfaces. The real suite is 26 provable /
+# 65 served (see circuit_registry.json); claims like "200+", "over 200", "250+", or "~204
+# circuits" wildly overstate it. This greps the USER-FACING surfaces only (frontend/src, README,
+# the served ZK page) - the historical docs/reports + VISION roadmap are grandfathered (they carry
+# a SUPERSEDED header instead). Adding such a count to a shipping surface reds CI.
+COUNT_HITS=$(git grep -nIE "(200|2[0-9][0-9]|250)[[:space:]]*\+|over[[:space:]]+200|~?2[0-9][0-9][[:space:]]+circuits" -- \
+  'frontend/src/**/*.js' 'frontend/src/**/*.jsx' 'README.md' 2>/dev/null \
+  | LC_ALL=C grep -iE "circuit|zk|prov|labeled" \
+  || true)
+if [ -n "$COUNT_HITS" ]; then
+  echo "FAIL: inflated ZK circuit count on a shipping surface (real: 26 provable / 65 served)."
+  echo "Use the honest count from circuit_registry.json, not '200+'/'over 200'/'250+'."
+  echo "------------------------------------------------------------------"
+  printf '%s\n' "$COUNT_HITS" | head -40
+  echo "------------------------------------------------------------------"
+  fail=1
+fi
+
 exit $fail

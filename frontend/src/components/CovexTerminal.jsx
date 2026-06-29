@@ -149,8 +149,8 @@ const ZK_CIRCUIT_TYPES_RAW = [
   // FOUNDATIONAL CRYPTO PRIMITIVES (expanded §4.1 to 25+)
   // Building blocks, multiple proving systems.
   // ═══════════════════════════════════════════
-  { id: 'merkle_membership', name: 'Merkle Membership', description: 'Full ZK: proves a key/value pair exists in a committed Merkle tree. Whitelist eligibility, DAO voting power, airdrop claims, token-gated access. A real Groth16 proof, verified OFF-CHAIN (by you, the counterparty, or any external verifier; snarkjs against the audited vkey). For the circom suite the proof is verified off-chain; the only on-chain check is a 2-of-2 cosign + CSV timeout, not chain-enforced ZK. Real artifacts in zk/ (circom + snarkjs verifier). Reality: full-zk. Use cases: Kaspa DAO/treasury gating, private airdrops. (vision §4.1)', circuit: 'merkle_generic', accent: '#3B82F6', category: 'crypto', reality: 'full-zk', artifacts: true },
-  { id: 'merkle_dao', name: 'Merkle DAO Voting', description: 'Full ZK: voting power = merkle leaf value. Threshold quorum. No individual votes revealed. Uses same artifacts as merkle_membership. Reality: full-zk. Use cases: private weighted voting on Kaspa DAOs.', circuit: 'merkle_dao', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'full-zk', artifacts: true },
+  { id: 'merkle_membership', name: 'Committed-Value Preimage', description: 'Full ZK: proves knowledge of a secret whose MiMC7 hash equals a single committed value (rootHash === MiMC7(secretLeaf)), without revealing the secret. This circuit is a hash-preimage commitment, NOT a Merkle-path proof: it carries no path elements, so it shows you know one committed secret, not that a leaf sits in a multi-member tree. For tree membership without revealing sibling paths use Multi-Member Merkle, Sorted Merkle Range, or Anonymous Membership + Nullifier (those carry a real Merkle path). A real Groth16 proof, verified OFF-CHAIN (by you, the counterparty, or any external verifier; snarkjs against the audited vkey). For the circom suite the proof is verified off-chain; the only on-chain check is a 2-of-2 cosign + CSV timeout, not chain-enforced ZK. Real artifacts in zk/ (circom + snarkjs verifier). Reality: full-zk. Use cases: single-secret eligibility, claim-code gating. (vision §4.1)', circuit: 'merkle_generic', accent: '#3B82F6', category: 'crypto', reality: 'full-zk', artifacts: true },
+  { id: 'merkle_dao', name: 'DAO Voting (committed weight)', description: 'Full ZK: a voter proves knowledge of a secret whose committed value is their voting weight (it reuses the Committed-Value Preimage artifacts, a single-value hash commitment, NOT a Merkle-path proof over a member tree). Threshold quorum. No individual votes revealed. Reality: full-zk. Use cases: private weighted voting on Kaspa DAOs.', circuit: 'merkle_dao', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'full-zk', artifacts: true },
   { id: 'merkle_airdrop', name: 'Merkle Airdrop Claim', description: 'Full ZK: prove eligibility without revealing other claimers. Single-use nullifier per leaf. Same artifacts as membership. Reality: full-zk. Use cases: fair Kaspa token claims.', circuit: 'merkle_airdrop', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'full-zk', artifacts: true },
   { id: 'merkle_sparse', name: 'Merkle Sparse / Verkle Tree', description: 'Membership in sparse/Verkle tree (gas-efficient). Reality: resolver-attested (full-zk planned). Use cases: large set proofs on Kaspa. (vision §4.1)', circuit: 'merkle_sparse', accent: '#3B82F6', category: 'crypto', variant: true, reality: 'oracle-attested' },
   { id: 'range_proof', name: 'Range Proof', description: 'Full ZK: prove a committed value is within [min, max] without revealing it. MiMC7(value) commitment + 64-bit range, generated in your browser (the value never leaves it) and verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). For the circom suite the proof is verified off-chain; the only on-chain check is a 2-of-2 cosign + CSV timeout, not chain-enforced ZK. Use cases: collateral, age, balances on Kaspa covenants.', circuit: 'bulletproofs_v1', accent: '#22C55E', category: 'crypto', reality: 'full-zk' },
@@ -213,7 +213,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'solvency_sum', name: 'Proof of Reserves', description: 'Full ZK: prove the sum of four committed reserve buckets (each C_i = Poseidon(amount_i, salt_i)) meets a public threshold, HIDING every amount. valid is a public output the verifier requires == 1, so a custodian short of the threshold cannot pass the gate. Generated in your browser, verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Dev ceremony keys, not a production MPC. Use cases: exchange / treasury proof of reserves on Kaspa. (vision §4.4)', circuit: 'solvency_sum', accent: '#10B981', category: 'defi', reality: 'full-zk', artifacts: true },
   { id: 'yield_accrual', name: 'Yield Accrual Snapshot', description: 'Resolver-attested: verifiable yield/interest calculation over time. A = P * (1+r)^t. Oracle provides rate attestation + on-chain time proof. ZK for calculation accuracy planned. Reality: resolver-attested. Use cases: Kaspa lending yield claims. (vision §4.4)', circuit: 'yield_accrual', accent: '#FBBF24', category: 'defi', reality: 'oracle-attested' },
   { id: 'yield_compounding', name: 'Compounding Yield Proof', description: 'Resolver-attested: verifiable compound interest over N periods. A = P * (1+r)^n with resolver-attested rate per period. Useful for lending pools, staking rewards, DAO treasury growth. Reality: resolver-attested. Use cases: compound on Kaspa treasuries. (vision §4.4)', circuit: 'yield_compound', accent: '#FBBF24', category: 'defi', variant: true, reality: 'oracle-attested' },
-  { id: 'token_gated', name: 'Token-Gated Access', description: 'Hybrid: prove ownership of a specific token/NFT via merkle + UTXO proof. Gated covenant entry, premium features. Uses merkle_membership artifacts for the ZK part. Reality: hybrid. Use cases: premium Kaspa features gated by holdings. (vision §4.4, §4.8)', circuit: 'token_gated', accent: '#D946EF', category: 'defi', reality: 'hybrid' },
+  { id: 'token_gated', name: 'Token-Gated Access', description: 'Hybrid: prove ownership of a committed secret (the Committed-Value Preimage hash commitment) plus a UTXO proof for the holding. Gated covenant entry, premium features. The ZK part is a single-value hash commitment, not a Merkle-path proof. Reality: hybrid. Use cases: premium Kaspa features gated by holdings. (vision §4.4, §4.8)', circuit: 'token_gated', accent: '#D946EF', category: 'defi', reality: 'hybrid' },
   { id: 'pot_distribution', name: 'Multi-Party Pot Split', description: 'Resolver-attested: verifiable split of total pot among N participants. Weighted by stake, score, or predefined shares. On-chain verifiable math. ZK planned. Reality: resolver-attested. Use cases: all Kaspa pot payouts (games + DeFi). (vision §4.4)', circuit: 'pot_split', accent: '#FB923C', category: 'defi', reality: 'oracle-attested' },
   { id: 'escrow_2party', name: '2-Party Escrow', description: 'Full ZK: DAA timelock escrow - outcome 0 = timeout refund, 1 = still locked. A real Groth16 proof, verified OFF-CHAIN (by you, the counterparty, or any external verifier; snarkjs against the audited vkey). For the circom suite the proof is verified off-chain; the only on-chain check is a 2-of-2 cosign + CSV timeout, not chain-enforced ZK. Dev pot10 Groth16. Use cases: simple Kaspa escrow deals with honest timeout refund. (vision §4.4)', circuit: 'escrow_2party', accent: '#38BDF8', category: 'defi', reality: 'full-zk', artifacts: true },
   { id: 'escrow_multiparty', name: 'Multi-Party Escrow', description: 'Resolver-attested: N-party escrow with M-of-N release threshold. Milestone-based with resolver verification. Combines timelock + multisig. Reality: resolver-attested. Use cases: milestone Kaspa projects. (vision §4.4)', circuit: 'escrow_multi', accent: '#38BDF8', category: 'defi', variant: true, reality: 'oracle-attested' },
@@ -651,10 +651,11 @@ export function generateSilverScriptForConfig(cfg) {
         return {
           covenantName: 'MerkleProofCovenant',
           outcomeEnum: 'Outcome::Proven | Rejected',
-          outcomeBranches: `      // ZK CIRCUIT (merkle_generic): proves a leaf exists in a committed Merkle root
-      // Public inputs: merkle_root, key_hash, value_hash
-      // Private witness: Merkle proof path (sibling hashes + direction bits)
-      // No sensitive data revealed beyond the fact of membership
+          outcomeBranches: `      // ZK CIRCUIT (merkle_generic): proves knowledge of the secret whose MiMC7
+      // hash equals a committed value (a hash-preimage commitment, NOT a Merkle-path proof)
+      // Public inputs: rootHash (the committed MiMC7 value), covenantId
+      // Private witness: secretLeaf (the preimage); no sibling path
+      // Nothing about the secret is revealed beyond the fact you know a matching preimage
       Outcome::Proven => {
         require(VerifyPayout(treasury, claimant, pot), "Proof accepted, payout to claimant");
       }
@@ -1650,10 +1651,11 @@ contract VisualCovenant {
         return {
           covenantName: 'MerkleProofCovenant',
           outcomeEnum: 'Outcome::Proven | Rejected',
-          outcomeBranches: `      // ZK CIRCUIT (merkle_generic): proves a leaf exists in a committed Merkle root
-    // Public inputs: merkle_root, key_hash, value_hash
-    // Private witness: Merkle proof path (sibling hashes + direction bits)
-    // No sensitive data revealed beyond the fact of membership
+          outcomeBranches: `      // ZK CIRCUIT (merkle_generic): proves knowledge of the secret whose MiMC7
+    // hash equals a committed value (a hash-preimage commitment, NOT a Merkle-path proof)
+    // Public inputs: rootHash (the committed MiMC7 value), covenantId
+    // Private witness: secretLeaf (the preimage); no sibling path
+    // Nothing about the secret is revealed beyond the fact you know a matching preimage
     Outcome::Proven => {
       require(
         VerifyPayout(treasury, claimant, pot),
@@ -2978,7 +2980,7 @@ ${gameMeta.outcomeBranches}
             ];
             const circuitDescriptions = {
               chess_blitz: 'Full FIDE chess, resolved by the deterministic server-authoritative engine (it replays the signed move log; anyone can recompute). There is no chess ZK circuit.',
-              merkle_membership: 'Proves a leaf exists in a committed Merkle root without revealing sibling paths.',
+              merkle_membership: 'Proves knowledge of the secret whose MiMC7 hash equals a committed value (a hash-preimage commitment, not a Merkle-path proof).',
               range_proof: 'Proves a committed value lies within [min, max] bounds without revealing the value.',
               age_verification: 'Proves birthdate ≥ threshold years before a reference date. Zero-knowledge KYC alternative.',
               verifiable: 'Proves correct execution of arbitrary computation via RISC Zero VM.',
@@ -3200,14 +3202,14 @@ ${gameMeta.outcomeBranches}
                       };
                     case 'merkle_membership':
                       return {
-                        circuitName: 'Merkle Membership Proof',
+                        circuitName: 'Committed-Value Preimage Proof',
                         circuitId: 'merkle_generic',
                         verifierKey: zkVerifierKey || '0xMERKLE_GENERIC_V1',
-                        publicInputs: ['Merkle root (32 bytes)', 'Key hash (32 bytes)', 'Value hash (32 bytes)'],
-                        privateWitness: ['Sibling hash at each tree level', 'Direction bit (left=0, right=1) for each sibling'],
-                        whatItProves: 'A specific (key, value) pair exists in the tree represented by the committed Merkle root. The tree depth and the exact sibling data remain private.',
-                        gasEstimate: '~50K constraints (depth 20)',
-                        covenantFlow: 'Depositor locks KAS with a Merkle root. Claimant submits a proof that their (address, amount) leaf exists in the tree. On success, KAS is paid to claimant. On failure, returned to depositor after timeout.',
+                        publicInputs: ['rootHash (the committed MiMC7 value)', 'covenantId (binding)'],
+                        privateWitness: ['secretLeaf (the preimage)'],
+                        whatItProves: 'Knowledge of the secret whose MiMC7 hash equals the committed value (rootHash === MiMC7(secretLeaf)), without revealing the secret. This is a single-value hash-preimage commitment, NOT a Merkle-path proof: it carries no sibling path and does not prove a leaf sits in a multi-member tree. For that, use Multi-Member Merkle, Sorted Merkle Range, or Anonymous Membership + Nullifier.',
+                        gasEstimate: 'one MiMC7(91) hash (compact circuit)',
+                        covenantFlow: 'Depositor locks KAS against a committed MiMC7 value. The claimant submits a proof that they know the matching secret. On success, KAS is paid to the claimant; on failure, returned to the depositor after timeout.',
                       };
                     case 'range_proof':
                       return {
@@ -4482,7 +4484,7 @@ ${gameMeta.outcomeBranches}
                   {String(zkCircuit || '').startsWith('chess') &&
                     'Chess outcome is resolver-attested: the server replays the move log to decide the winner and co-signs it. There is no chess ZK circuit - not an on-chain ZK proof, no third-party audit is claimed.'}
                   {zkCircuit === 'merkle_generic' &&
-                    'Proves a key/value pair exists in a committed Merkle tree. Used for whitelists, airdrop eligibility, DAO voting.'}
+                    'Proves knowledge of the secret whose MiMC7 hash equals a committed value (a hash-preimage commitment, not a Merkle-path proof). Used for single-secret eligibility and claim-code gating.'}
                   {zkCircuit === 'bulletproofs_v1' &&
                     'Proves a committed value falls within [min, max] without revealing the value. Logarithmic proof size.'}
                   {zkCircuit === 'age_verify_v1' &&
@@ -4560,7 +4562,7 @@ ${gameMeta.outcomeBranches}
             {gameType === 'range_proof'
               ? 'Paste (or generate) a Groth16 proof for the RangeProof circuit. Proves knowledge of a value inside [min, max] without revealing it. Verified off-chain by you, the counterparty, or any external verifier (snarkjs + the audited vkey). Valid proof (valid=1) produces signed outcome 0 (proven/claimant).'
               : gameType === 'merkle_membership'
-              ? 'Paste a Groth16 proof for the MerkleMembership circuit. The proof is verified off-chain by you, the counterparty, or any external verifier using snarkjs against the audited verification key. A valid proof produces a signed outcome (claimant wins at outcome 0; depositor wins at outcome 1). The deployer-bound resolver co-signature is then used to unlock the covenant on-chain.'
+              ? 'Paste a Groth16 proof for the committed-value preimage circuit. It proves knowledge of the secret whose MiMC7 hash equals the committed value (a hash-preimage commitment, not a Merkle-path proof). The proof is verified off-chain by you, the counterparty, or any external verifier using snarkjs against the audited verification key. A valid proof produces a signed outcome (claimant wins at outcome 0; depositor wins at outcome 1). The deployer-bound resolver co-signature is then used to unlock the covenant on-chain.'
               : gameType === 'age_verification'
               ? 'Generate (or paste) a Groth16 proof for the Age Verification circuit. The MiMC7 birth-year commitment is computed locally and the proof is generated in-browser over the served wasm/zkey artifacts, so your birth year never leaves the device. Proves a birthdate meets an age threshold without revealing the exact date. The proof is verified off-chain by you, the counterparty, or any external verifier (snarkjs + vkey) and a deployer-bound resolver co-signs the outcome.'
               : gameType === 'verifiable'

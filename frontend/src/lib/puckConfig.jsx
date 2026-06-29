@@ -34,10 +34,11 @@ import * as React from 'react';
 import Button from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
-import * as Lucide from 'lucide-react';
+import { Check, Quote, X, MessageCircle, Send, GitBranch, Globe, Trophy, ChevronDown } from 'lucide-react';
 import useEmblaCarousel from 'embla-carousel-react';
 import { renderSafeMarkdown } from './safeMarkdown';
-import { colorField, iconField, imageField, lucideByName } from './puckFields.jsx';
+import { colorField, iconField, imageField } from './puckFields.jsx';
+import { DynamicLucideIcon } from './lucideLazy.jsx';
 import './../styles/covexPuck.css';
 
 const align = (a) => (a === 'center' ? 'text-center mx-auto' : a === 'right' ? 'text-right ml-auto' : 'text-left');
@@ -104,13 +105,12 @@ export const parseVideoEmbed = (raw) => {
 };
 
 // Render a stored lucide icon name -> component, with an optional emoji fallback
-// (legacy blocks stored an emoji string). Honest, inert, no markup injected.
+// (legacy blocks stored an emoji string). Honest, inert, no markup injected. The
+// lucide barrel is loaded LAZILY (see ./lucideLazy.jsx) so it never lands on the
+// homepage critical path; DynamicLucideIcon repaints once the chunk arrives, so a
+// creator's chosen icon always appears on the live covenant page.
 function IconOrEmoji({ name, emoji, size = 22, className }) {
-  const C = lucideByName(name);
-  // eslint-disable-next-line react-hooks/static-components -- dynamic icon render: the capitalized binding is a stateless lucide icon resolved from a fixed name->component map, not a component created in render, so there is no state to reset
-  if (C) return <C size={size} className={className} aria-hidden="true" />;
-  if (emoji && typeof emoji === 'string') return <span className={className} aria-hidden="true">{emoji}</span>;
-  return null;
+  return <DynamicLucideIcon name={name} emoji={emoji} size={size} className={className} />;
 }
 
 // A creator-placed CTA NEVER carries a destination. It posts a typed intent the
@@ -444,7 +444,7 @@ export const puckConfig = {
                   <ul className="mt-3 space-y-1.5 flex-1">
                     {perks.map((p, j) => (
                       <li key={j} className="flex items-start gap-2 text-sm cvx-body">
-                        <Lucide.Check size={15} className="cvx-accent-teal shrink-0 mt-0.5" aria-hidden="true" />
+                        <Check size={15} className="cvx-accent-teal shrink-0 mt-0.5" aria-hidden="true" />
                         <span>{resolveTokens(p, live)}</span>
                       </li>
                     ))}
@@ -485,7 +485,7 @@ export const puckConfig = {
           <div className={`grid grid-cols-1 ${colCls} gap-4 px-2 md:px-4 mb-5`}>
             {(quotes || []).map((q, i) => (
               <Card key={i} className="p-6">
-                <Lucide.Quote size={22} className="cvx-accent-teal mb-3" aria-hidden="true" />
+                <Quote size={22} className="cvx-accent-teal mb-3" aria-hidden="true" />
                 <p className="cvx-body text-base leading-relaxed mb-4">{resolveTokens(q.quote, live)}</p>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-bold cvx-title">{resolveTokens(q.author, live)}</span>
@@ -512,11 +512,11 @@ export const puckConfig = {
         // Only absolute https links render; every anchor is target=_blank + rel hardened.
         // (This lucide build has no Twitter/GitHub brand glyphs; use X + GitBranch.)
         const links = [
-          { url: x, Icon: Lucide.X, label: 'X' },
-          { url: discord, Icon: Lucide.MessageCircle, label: 'Discord' },
-          { url: telegram, Icon: Lucide.Send, label: 'Telegram' },
-          { url: github, Icon: Lucide.GitBranch, label: 'GitHub' },
-          { url: website, Icon: Lucide.Globe, label: 'Website' },
+          { url: x, Icon: X, label: 'X' },
+          { url: discord, Icon: MessageCircle, label: 'Discord' },
+          { url: telegram, Icon: Send, label: 'Telegram' },
+          { url: github, Icon: GitBranch, label: 'GitHub' },
+          { url: website, Icon: Globe, label: 'Website' },
         ].filter((l) => isHttpsLink(l.url));
         if (links.length === 0) return placeholder('Add at least one https social link in the editor.');
         return (
@@ -970,7 +970,7 @@ export const puckConfig = {
             style={win ? { boxShadow: `0 0 24px ${ac}40` } : undefined}>
             <div className="flex items-start justify-between mb-3">
               <span className="text-xs font-semibold uppercase tracking-widest cvx-muted">{resolveTokens(outcomeName, live)}</span>
-              {win && <Lucide.Trophy size={18} style={{ color: ac }} aria-hidden="true" />}
+              {win && <Trophy size={18} style={{ color: ac }} aria-hidden="true" />}
             </div>
             <div className="text-4xl md:text-5xl font-black leading-none" style={{ color: ac }}>{mult ? `${mult}x` : '-'}</div>
             <div className="mt-4 pt-4 border-t cvx-divider">
@@ -1361,7 +1361,7 @@ function AccordionBlock({ title, items, live }) {
             <div key={i} className="cvx-panel rounded-xl overflow-hidden">
               <button type="button" onClick={() => setOpen(isOpen ? -1 : i)} className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left">
                 <span className="text-sm font-bold cvx-title">{resolveTokens(it.q, live)}</span>
-                <Lucide.ChevronDown size={16} className="cvx-muted shrink-0 transition-transform" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} aria-hidden="true" />
+                <ChevronDown size={16} className="cvx-muted shrink-0 transition-transform" style={{ transform: isOpen ? 'rotate(180deg)' : 'none' }} aria-hidden="true" />
               </button>
               {isOpen && <p className="px-4 pb-4 text-xs cvx-muted leading-relaxed">{resolveTokens(it.a, live)}</p>}
             </div>

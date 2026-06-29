@@ -8,8 +8,10 @@
  * ever stored or forwarded.
  *
  * Light + dark + mobile aware: fields use the app's theme tokens and stay usable
- * at 375px. The icon picker renders lucide via its named exports, so a stored name
- * resolves to a real React component at render time (see IconByName in puckConfig).
+ * at 375px. The icon picker loads the lucide barrel LAZILY (see ./lucideLazy.jsx),
+ * so a stored name resolves to a real React component once that chunk arrives. The
+ * barrel (~154KB gzip) is never on the homepage critical path; it is fetched only
+ * when the IconPicker mounts or a creator icon first renders.
  *
  * The image upload is frontend-only: a chosen file is read with FileReader to a
  * `data:image/*` URI (no backend, no network). Non-image files and anything over
@@ -19,8 +21,8 @@
  */
 import * as React from 'react';
 import { HexColorPicker } from 'react-colorful';
-import * as Lucide from 'lucide-react';
 import { SAFE_COLOR } from './puckConfig.jsx';
+import { iconNamesAsync, lucideByNameSync, DynamicLucideIcon } from './lucideLazy.jsx';
 
 // A compact, curated palette of brand + common accents for one-click choice.
 const SWATCHES = ['#49EACB', '#E8AF34', '#A855F7', '#3B82F6', '#F472B6', '#22C55E', '#EF4444', '#22D3EE', '#FB923C', '#FFFFFF'];
@@ -75,30 +77,15 @@ export function ColorField({ onChange, value, field }) {
   );
 }
 
-// Build a stable list of PascalCase lucide icon names once. Lucide also exports
-// helpers / aliases (icons, createLucideIcon, Icon, *Icon suffixed duplicates,
-// LucideX aliases); filter to clean component names so the grid is real, pickable
-// icons only.
-const NON_ICON = new Set(['Icon', 'createLucideIcon']);
-let _iconNames = null;
-function iconNames() {
-  if (_iconNames) return _iconNames;
-  _iconNames = Object.keys(Lucide)
-    .filter((k) =>
-      /^[A-Z][a-zA-Z0-9]*$/.test(k)
-      && !NON_ICON.has(k)
-      && !k.endsWith('Icon')      // drop the *Icon-suffixed duplicates
-      && !k.startsWith('Lucide')  // drop the Lucide* aliases
-      && (typeof Lucide[k] === 'function' || (Lucide[k] && typeof Lucide[k] === 'object')))
-    .sort();
-  return _iconNames;
-}
-
-/** Resolve a stored icon name to a lucide component (or null). Shared with render. */
+/**
+ * Resolve a stored icon name to a lucide component, pulling from the lazily-loaded
+ * barrel if it is ALREADY in memory, else null. Kept as a named export for any
+ * non-render caller; it degrades gracefully (returns null) before the lazy load
+ * resolves rather than forcing the 154KB barrel onto the critical path. Render
+ * paths use DynamicLucideIcon (from lucideLazy) instead, which loads + repaints.
+ */
 export function lucideByName(name) {
-  if (!name || typeof name !== 'string') return null;
-  const C = Lucide[name];
-  return typeof C === 'function' || (C && typeof C === 'object' && C.$$typeof) ? C : null;
+  return lucideByNameSync(name);
 }
 
 /**
@@ -108,19 +95,28 @@ export function lucideByName(name) {
 export function IconPicker({ onChange, value, field }) {
   const [q, setQ] = React.useState('');
   const [open, setOpen] = React.useState(false);
-  const all = iconNames();
+  // The full icon-name catalog loads lazily with the lucide barrel. We populate it
+  // on first mount; until it resolves the grid shows a brief loading state. The
+  // catalog still covers ALL ~1960 pickable icons, so no icon choice is lost.
+  const [all, setAll] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  React.useEffect(() => {
+    let live = true;
+    iconNamesAsync().then((names) => { if (live) { setAll(names); setLoading(false); } });
+    return () => { live = false; };
+  }, []);
   const filtered = React.useMemo(() => {
     const t = q.trim().toLowerCase();
     const base = t ? all.filter((n) => n.toLowerCase().includes(t)) : all;
     return base.slice(0, 120);
   }, [q, all]);
-  const Current = lucideByName(value);
   return (
     <div className="cvx-field">
       {field?.label && <label className="cvx-field-label">{field.label}</label>}
       <button type="button" className="cvx-icon-current" onClick={() => setOpen((o) => !o)}>
-        {/* eslint-disable-next-line react-hooks/static-components -- dynamic icon render: the capitalized binding is a stateless lucide icon resolved from a fixed name-to-component map, not a component created in render, so there is no state to reset */}
-        {Current ? <Current size={16} /> : <span className="cvx-icon-none">None</span>}
+        {value
+          ? <DynamicLucideIcon name={value} size={16} />
+          : <span className="cvx-icon-none">None</span>}
         <span className="cvx-icon-name">{value || 'Choose icon'}</span>
       </button>
       {open && (
@@ -138,14 +134,13 @@ export function IconPicker({ onChange, value, field }) {
             <button type="button" className="cvx-icon-cell" title="None" onClick={() => { onChange(''); setOpen(false); }}>
               <span className="cvx-icon-none">∅</span>
             </button>
-            {filtered.map((n) => {
-              const C = Lucide[n];
-              return (
+            {loading
+              ? <span className="cvx-icon-none" style={{ gridColumn: '1 / -1', padding: '8px 4px' }}>Loading icons...</span>
+              : filtered.map((n) => (
                 <button key={n} type="button" className="cvx-icon-cell" title={n} onClick={() => { onChange(n); setOpen(false); }}>
-                  {C ? <C size={18} /> : null}
+                  <DynamicLucideIcon name={n} size={18} />
                 </button>
-              );
-            })}
+              ))}
           </div>
         </div>
       )}
@@ -275,7 +270,7 @@ export function ImageUploadField({ onChange, value, field }) {
           disabled={busy}
           aria-label="Upload an image from your device"
         >
-          {busy ? <Lucide.Loader2 size={14} className="cvx-img-spin" /> : <Lucide.Upload size={14} />}
+          {busy ? <DynamicLucideIcon name="Loader2" size={14} className="cvx-img-spin" /> : <DynamicLucideIcon name="Upload" size={14} />}
           <span>{busy ? 'Reading' : 'Upload'}</span>
         </button>
         <input
@@ -291,7 +286,7 @@ export function ImageUploadField({ onChange, value, field }) {
           <img src={value} alt="" className="cvx-img-thumb" loading="lazy" decoding="async" />
           <span className="cvx-img-meta">{isData ? 'Uploaded image (stored in this page)' : 'Linked image'}</span>
           <button type="button" className="cvx-img-clear" onClick={() => { setErr(''); onChange(''); }} aria-label="Remove image">
-            <Lucide.X size={13} />
+            <DynamicLucideIcon name="X" size={13} />
           </button>
         </div>
       )}

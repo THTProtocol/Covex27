@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { QRCodeSVG } from 'qrcode.react';
+import QRCodeSVG from './LazyQRCode';
 import { explorerAddressUrl } from '../lib/explorer';
 import { truncateHash } from '../lib/format.js';
 import { Link } from 'react-router-dom';

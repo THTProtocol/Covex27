@@ -55,6 +55,29 @@ const DagBackground = () => {
   const [layers, setLayers] = useState(() => [makeLayer(theme)]);
   const retriesRef = useRef(0);
 
+  // Defer the heavy external DAG iframe off the FIRST-PAINT critical path. The iframe loads
+  // kgi.kaspad.net (a WebGL visualizer) with loading="eager", so creating it during initial render
+  // makes it compete with the app's own first paint. We hold the iframe layers back until the
+  // browser is idle (requestIdleCallback, with a setTimeout fallback for Safari/older engines); the
+  // themed gradient placeholder below renders immediately, so the backdrop is never blank in the
+  // gap. Once idle fires, the iframes mount and cross-fade in exactly as before. SSR-safe: `idle`
+  // starts false and is only flipped inside an effect that runs in the browser.
+  const [idle, setIdle] = useState(false);
+  useEffect(() => {
+    let handle;
+    let timer;
+    const go = () => setIdle(true);
+    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+      handle = window.requestIdleCallback(go, { timeout: 2000 });
+    } else {
+      timer = setTimeout(go, 300);
+    }
+    return () => {
+      if (handle != null && typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(handle);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
   // Mark a layer painted; it becomes (or stays) the newest live layer for its theme.
   const handleLoad = useCallback((id) => {
     retriesRef.current = 0;
@@ -164,7 +187,7 @@ const DagBackground = () => {
         }}
       />
 
-      {layers.map((l) => {
+      {idle && layers.map((l) => {
         const shown = l.id === newestLoadedId;
         return (
           <iframe

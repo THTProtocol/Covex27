@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion, useReducedMotion } from 'framer-motion';
+import usePrefersReducedMotion from '../lib/usePrefersReducedMotion';
+import MotionStaggerGrid from '../components/MotionStaggerGrid';
 import { Database, Search, Sparkles, Play, Coins, Layers, Gamepad2, TrendingUp, ShieldCheck, Zap, ChevronDown, Compass, Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes, ArrowRight, AlertTriangle } from '../lib/icons.js';
 import Spinner from '../components/ui/Spinner';
 import CovenantCardSkeleton from '../components/ui/CovenantCardSkeleton';
@@ -292,13 +293,13 @@ function LiveSnapshotCard({ stats, netLabel, network }) {
 // Lightweight load-time entrance: each card fades + rises 12px, staggered. Drop-in layer
 // around the grid only - it never touches card internals, so the CovenantCard hover-lift
 // still works. Disabled under prefers-reduced-motion.
-const GRID_STAGGER = { hidden: {}, show: { transition: { staggerChildren: 0.025 } } };
-const CARD_RISE = { hidden: { opacity: 0, y: 12 }, show: { opacity: 1, y: 0, transition: { duration: 0.22, ease: [0.16, 1, 0.3, 1] } } };
+// The stagger/rise animation values now live in AnimatedStaggerGrid (loaded lazily through
+// MotionStaggerGrid) so framer-motion stays out of the homepage entry chunk.
 
 export default function Explorer() {
   const { address } = useWallet();
   const navigate = useNavigate();
-  const prefersReduced = useReducedMotion();
+  const prefersReduced = usePrefersReducedMotion();
   const [covenants, setCovenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1006,18 +1007,13 @@ export default function Explorer() {
                     {searchResults.type === 'wallet' ? `Found ${searchResults.data.length} covenant${searchResults.data.length !== 1 ? 's' : ''}` : 'Found covenant'}
                   </span>
                 </div>
-                <motion.div
+                <MotionStaggerGrid
                   className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                  variants={prefersReduced ? undefined : GRID_STAGGER}
-                  initial={prefersReduced ? false : 'hidden'}
-                  animate={prefersReduced ? false : 'show'}
-                >
-                  {searchResults.data.map((c, i) => (
-                    <motion.div key={c.tx_id || i} variants={prefersReduced ? undefined : CARD_RISE}>
-                      <CovenantCard covenant={c} index={i} ownerAddress={address} />
-                    </motion.div>
-                  ))}
-                </motion.div>
+                  prefersReduced={prefersReduced}
+                  items={searchResults.data}
+                  keyFor={(c, i) => c.tx_id || i}
+                  renderItem={(c, i) => <CovenantCard covenant={c} index={i} ownerAddress={address} />}
+                />
               </div>
             )}
           </div>
@@ -1277,18 +1273,13 @@ export default function Explorer() {
                     </div>
                   </div>
                 ) : (
-                  <motion.div
+                  <MotionStaggerGrid
                     className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-7"
-                    variants={prefersReduced ? undefined : GRID_STAGGER}
-                    initial={prefersReduced ? false : 'hidden'}
-                    animate={prefersReduced ? false : 'show'}
-                  >
-                    {filteredCovenants.map((c, i) => (
-                      <motion.div key={c.tx_id || i} variants={prefersReduced ? undefined : CARD_RISE}>
-                        <CovenantCard covenant={c} index={i} ownerAddress={address} />
-                      </motion.div>
-                    ))}
-                  </motion.div>
+                    prefersReduced={prefersReduced}
+                    items={filteredCovenants}
+                    keyFor={(c, i) => c.tx_id || i}
+                    renderItem={(c, i) => <CovenantCard covenant={c} index={i} ownerAddress={address} />}
+                  />
                 )}
                 {hasMore && (
                   <div className="flex justify-center mt-6">

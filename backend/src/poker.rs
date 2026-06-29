@@ -388,7 +388,7 @@ pub fn replay(chips_start: [i64; 2], button: u8, actions: &[PAction]) -> Result<
 // ── storage helpers ──────────────────────────────────────────────────────────
 
 fn seats(db: &crate::db::Db, covenant_id: &str) -> Option<(String, String, String)> {
-    let conn = db.lock().unwrap();
+    let conn = crate::db::conn_or_log(db, "poker::seats")?;
     conn.query_row(
         "SELECT player1, player2, status FROM skill_games WHERE covenant_id = ?1 AND game_type = 'poker'",
         params![covenant_id],
@@ -398,7 +398,7 @@ fn seats(db: &crate::db::Db, covenant_id: &str) -> Option<(String, String, Strin
 }
 
 fn match_row(db: &crate::db::Db, covenant_id: &str) -> Option<(i64, i64, i64, i64, String)> {
-    let conn = db.lock().unwrap();
+    let conn = crate::db::conn_or_log(db, "poker::match_row")?;
     conn.query_row(
         "SELECT chips1, chips2, hand_no, button, status FROM poker_matches WHERE covenant_id = ?1",
         params![covenant_id],
@@ -422,7 +422,7 @@ fn hand_row(
     i64,
     i64,
 )> {
-    let conn = db.lock().unwrap();
+    let conn = crate::db::conn_or_log(db, "poker::hand_row")?;
     conn.query_row(
         "SELECT seed, commitment, phase, actions, result, chips1_start, chips2_start, button \
          FROM poker_hands WHERE covenant_id = ?1 AND hand_no = ?2",
@@ -444,7 +444,7 @@ fn hand_row(
 }
 
 fn token_address(db: &crate::db::Db, covenant_id: &str, token: &str) -> Option<String> {
-    let conn = db.lock().unwrap();
+    let conn = crate::db::conn_or_log(db, "poker::token_address")?;
     conn.query_row(
         "SELECT address FROM poker_sessions WHERE token = ?1 AND covenant_id = ?2 AND expires > unixepoch()",
         params![token, covenant_id],
@@ -537,7 +537,13 @@ fn settle_if_over(
     });
 
     {
-        let conn = db.lock().unwrap();
+        // This write MUST happen to settle the hand, but on sustained pool exhaustion we degrade
+        // safely rather than panic the request thread: skip this attempt and return. The
+        // `result IS NULL` guard makes the settle idempotent, so a later call (or the opponent's
+        // next request) retries it; no double-settle and no value moves on a missed pass.
+        let Some(conn) = crate::db::conn_or_log(db, "poker::settle_if_over") else {
+            return;
+        };
         let updated = conn
             .execute(
                 "UPDATE poker_hands SET phase = 'ended', result = ?1 \
@@ -608,17 +614,17 @@ async fn state_handler(
     let (chips1, chips2, hand_no, button, status) =
         match_row(&db, &covenant_id).unwrap_or((START_CHIPS, START_CHIPS, 1, 0, "active".into()));
 
-    let last_result: Option<serde_json::Value> = {
-        let conn = db.lock().unwrap();
-        conn.query_row(
-            "SELECT result FROM poker_hands WHERE covenant_id = ?1 AND result IS NOT NULL \
-             ORDER BY hand_no DESC LIMIT 1",
-            params![covenant_id],
-            |r| r.get::<_, String>(0),
-        )
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-    };
+    let last_result: Option<serde_json::Value> = crate::db::conn_or_log(&db, "poker::state_handler::last_result")
+        .and_then(|conn| {
+            conn.query_row(
+                "SELECT result FROM poker_hands WHERE covenant_id = ?1 AND result IS NOT NULL \
+                 ORDER BY hand_no DESC LIMIT 1",
+                params![covenant_id],
+                |r| r.get::<_, String>(0),
+            )
+            .ok()
+        })
+        .and_then(|s| serde_json::from_str(&s).ok());
 
     let hand_json = hand_row(&db, &covenant_id, hand_no).and_then(
         |(seed, commitment, phase, actions_raw, result, c1s, c2s, hbtn)| {
@@ -682,7 +688,14 @@ async fn challenge_handler(
     let nonce = uuid::Uuid::new_v4().to_string();
     let message = format!("covex-poker:{}:{}", covenant_id, nonce);
     {
-        let conn = db.lock().unwrap();
+        // The nonce MUST be persisted for the later session step to succeed, so on pool
+        // exhaustion fail closed with a clear error instead of panicking or handing back a nonce
+        // that was never stored.
+        let Some(conn) = crate::db::conn_or_log(&db, "poker::challenge_handler") else {
+            return Json(
+                json!({"success": false, "error": "service busy, please retry the challenge"}),
+            );
+        };
         let _ = conn.execute("DELETE FROM poker_nonces WHERE expires <= unixepoch()", []);
         let _ = conn.execute(
             "INSERT INTO poker_nonces (nonce, covenant_id, address, expires) \
@@ -714,16 +727,20 @@ async fn session_handler(
     if seat_of(&req.address, &p1, &p2).is_none() {
         return Json(json!({"success": false, "error": "this address is not seated at the table"}));
     }
-    // consume the nonce (single use)
-    let nonce_ok = {
-        let conn = db.lock().unwrap();
-        conn.execute(
-            "DELETE FROM poker_nonces WHERE nonce = ?1 AND covenant_id = ?2 AND address = ?3 \
-             AND expires > unixepoch()",
-            params![req.nonce, covenant_id, req.address],
-        )
-        .unwrap_or(0)
-            == 1
+    // consume the nonce (single use). On pool exhaustion fail CLOSED: if we cannot atomically
+    // delete (consume) the nonce, we must not treat it as consumed, so nonce_ok stays false and
+    // the caller is told to request a fresh challenge.
+    let nonce_ok = match crate::db::conn_or_log(&db, "poker::session_handler::nonce") {
+        Some(conn) => {
+            conn.execute(
+                "DELETE FROM poker_nonces WHERE nonce = ?1 AND covenant_id = ?2 AND address = ?3 \
+                 AND expires > unixepoch()",
+                params![req.nonce, covenant_id, req.address],
+            )
+            .unwrap_or(0)
+                == 1
+        }
+        None => false,
     };
     if !nonce_ok {
         return Json(
@@ -742,7 +759,14 @@ async fn session_handler(
     }
     let token = uuid::Uuid::new_v4().to_string();
     {
-        let conn = db.lock().unwrap();
+        // The session token MUST be persisted or the caller holds a token the server never
+        // recorded (every later call would 'invalid session'). On pool exhaustion fail closed
+        // with a clear error instead of panicking.
+        let Some(conn) = crate::db::conn_or_log(&db, "poker::session_handler::mint") else {
+            return Json(
+                json!({"success": false, "error": "service busy, please retry the session"}),
+            );
+        };
         let _ = conn.execute(
             "DELETE FROM poker_sessions WHERE expires <= unixepoch()",
             [],
@@ -819,7 +843,10 @@ async fn deal_handler(
     }
 
     {
-        let conn = db.lock().unwrap();
+        // Match row MUST be initialized before we can deal; fail closed on pool exhaustion.
+        let Some(conn) = crate::db::conn_or_log(&db, "poker::deal_handler::init") else {
+            return Json(json!({"success": false, "error": "service busy, please retry the deal"}));
+        };
         let _ = conn.execute(
             "INSERT OR IGNORE INTO poker_matches (covenant_id, chips1, chips2, hand_no, button, status) \
              VALUES (?1, ?2, ?2, 1, 0, 'active')",
@@ -847,7 +874,11 @@ async fn deal_handler(
     };
     let commitment = hand_commitment(&seed, &covenant_id, hand_no);
     let inserted = {
-        let conn = db.lock().unwrap();
+        // The hand row MUST be persisted to deal; on pool exhaustion fail closed with a clear
+        // 'busy' error rather than panicking or masquerading as 'already in progress'.
+        let Some(conn) = crate::db::conn_or_log(&db, "poker::deal_handler::hand") else {
+            return Json(json!({"success": false, "error": "service busy, please retry the deal"}));
+        };
         conn.execute(
             "INSERT OR IGNORE INTO poker_hands \
              (covenant_id, hand_no, seed, commitment, phase, actions, chips1_start, chips2_start, button) \
@@ -909,7 +940,13 @@ async fn action_handler(
         }
         let winner = if seat == 0 { "black" } else { "white" };
         {
-            let conn = db.lock().unwrap();
+            // Resign concedes the whole match: the finish MUST be recorded. On pool exhaustion
+            // fail closed with a clear error instead of panicking; the caller can retry.
+            let Some(conn) = crate::db::conn_or_log(&db, "poker::action_handler::resign") else {
+                return Json(
+                    json!({"success": false, "error": "service busy, please retry the resign"}),
+                );
+            };
             let _ = conn.execute(
                 "UPDATE poker_matches SET status = 'finished', \
                  chips1 = CASE WHEN ?1 = 0 THEN 0 ELSE chips1 END, \
@@ -962,7 +999,13 @@ async fn action_handler(
 
     // persist the validated log; the WHERE actions = old guards concurrency
     let saved = {
-        let conn = db.lock().unwrap();
+        // The action MUST persist; on pool exhaustion fail closed with a clear 'busy' error
+        // rather than panicking or reporting the concurrency-conflict message below.
+        let Some(conn) = crate::db::conn_or_log(&db, "poker::action_handler::persist") else {
+            return Json(
+                json!({"success": false, "error": "service busy, please retry the action"}),
+            );
+        };
         conn.execute(
             "UPDATE poker_hands SET actions = ?1 \
              WHERE covenant_id = ?2 AND hand_no = ?3 AND actions = ?4 AND result IS NULL",

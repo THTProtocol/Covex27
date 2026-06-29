@@ -3996,13 +3996,19 @@ pub(crate) enum GamePot {
 /// the launch-safe default; adding a game's engine to game_engine re-enables its pots.
 pub(crate) fn game_pot_outcome(db: &db::Db, pot_tx: &str) -> GamePot {
     let row: Option<(String, String, Option<String>, String, Option<String>)> = {
-        let conn = db.lock().unwrap();
-        conn.query_row(
-            "SELECT game_type, moves, winner, status, end_reason FROM skill_games WHERE pot_tx = ?1",
-            rusqlite::params![pot_tx],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
-        )
-        .ok()
+        // Pool exhaustion degrades to `None` here, which lands on the NotAGamePot path below: the
+        // oracle authorizes NO payout when it cannot read the game state. That is the same
+        // fail-closed posture as a missing row, and strictly safer than the old `.unwrap()` panic.
+        match crate::db::conn_or_log(db, "covenant_builder::game_pot_outcome") {
+            Some(conn) => conn
+                .query_row(
+                    "SELECT game_type, moves, winner, status, end_reason FROM skill_games WHERE pot_tx = ?1",
+                    rusqlite::params![pot_tx],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+                )
+                .ok(),
+            None => None,
+        }
     };
     let (gtype, moves_raw, winner, status, end_reason) = match row {
         Some(t) => t,
@@ -4060,13 +4066,18 @@ pub(crate) fn game_pot_outcome(db: &db::Db, pot_tx: &str) -> GamePot {
 /// fail-closed signal to authorize the split, and ONLY the genuine engine draw may authorize it.
 pub(crate) fn game_pot_is_draw(db: &db::Db, pot_tx: &str) -> bool {
     let row: Option<(String, String, String)> = {
-        let conn = db.lock().unwrap();
-        conn.query_row(
-            "SELECT game_type, moves, status FROM skill_games WHERE pot_tx = ?1",
-            rusqlite::params![pot_tx],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-        )
-        .ok()
+        // Pool exhaustion degrades to `None` -> the draw gate returns `false` (no 50/50 split
+        // authorized). Fail closed, same as a missing row, and safer than the old `.unwrap()`.
+        match crate::db::conn_or_log(db, "covenant_builder::game_pot_is_draw") {
+            Some(conn) => conn
+                .query_row(
+                    "SELECT game_type, moves, status FROM skill_games WHERE pot_tx = ?1",
+                    rusqlite::params![pot_tx],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .ok(),
+            None => None,
+        }
     };
     let (gtype, moves_raw, status) = match row {
         Some(t) => t,

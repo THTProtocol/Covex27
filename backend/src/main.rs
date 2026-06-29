@@ -419,8 +419,9 @@ async fn main() {
     let archive_db = db.clone();
     tokio::spawn(async move {
         loop {
-            {
-                let conn = archive_db.lock().unwrap();
+            // Background sweep: on pool exhaustion just skip this cycle (it reruns in 6h) rather
+            // than panicking the archiver task. conn_or_log logs the reason.
+            if let Some(conn) = db::conn_or_log(&archive_db, "archiver::sweep") {
                 let cutoff_sql = "UPDATE covenants SET is_active = 0
                      WHERE is_active = 1
                        AND verified_tier IN ('FREE', 'EXPLORER')
@@ -2549,10 +2550,16 @@ async fn marketplace_publish_handler(
         uuid::Uuid::new_v4().to_string()[..12].to_string()
     );
 
-    // Actually store the template in generated_uis as a published template
-    let conn = db.lock().unwrap();
+    // Actually store the template in generated_uis as a published template. On pool exhaustion
+    // return success:false with a clear error instead of panicking the handler thread.
+    let Some(conn) = db::conn_or_log(&db, "marketplace_publish") else {
+        return Json(json!({
+            "success": false,
+            "error": "service busy, please retry publishing the template"
+        }));
+    };
     let result = conn.execute(
-        "INSERT OR REPLACE INTO generated_uis (covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured) 
+        "INSERT OR REPLACE INTO generated_uis (covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, 1, 0)",
         params![
             id,
@@ -2822,9 +2829,15 @@ async fn consume_auth_token_handler(
     Extension(db): Extension<db::Db>,
     Json(req): Json<ConsumeTokenRequest>,
 ) -> Json<serde_json::Value> {
-    // Look up the token in the DB first, then drop the lock before calling consume.
+    // Look up the token in the DB first, then drop the lock before calling consume. On pool
+    // exhaustion fail CLOSED: never report a token as consumable when we could not read it.
     let (address, network, tier, used): (String, String, String, i32) = {
-        let conn = db.lock().unwrap();
+        let Some(conn) = db::conn_or_log(&db, "consume_auth_token::lookup") else {
+            return Json(json!({
+                "consumed": false,
+                "error": "service busy, please retry"
+            }));
+        };
         match conn.query_row(
             "SELECT address, network, tier, used_for_deploy FROM auth_tokens WHERE token = ?1",
             params![req.token],

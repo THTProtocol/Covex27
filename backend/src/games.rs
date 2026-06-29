@@ -30,29 +30,14 @@ use crate::live;
 /// games lock sites through here means one place defines the policy and a future hardening (e.g.
 /// returning a 503 instead of expecting) is a single edit.
 fn games_conn(db: &crate::db::Db) -> crate::db::DbConn {
-    let mut last_err: Option<r2d2::Error> = None;
-    for attempt in 0..5u32 {
-        match db.lock() {
-            Ok(conn) => return conn,
-            Err(e) => {
-                if attempt + 1 < 5 {
-                    // Brief backoff so a busy slot can be returned before we retry. This is a
-                    // synchronous sleep, but a pool error means there was no free connection
-                    // anyway, so the request was already going to wait.
-                    std::thread::sleep(std::time::Duration::from_millis(20 * (attempt as u64 + 1)));
-                }
-                last_err = Some(e);
-            }
-        }
-    }
-    // Exhausted retries: a sustained pool failure is unrecoverable here, so surface it loudly (the
-    // same outcome the old `.unwrap()` produced, but only after the transient-retry window).
-    panic!(
-        "games_conn: could not check out a DB connection after retries: {}",
-        last_err
-            .map(|e| e.to_string())
-            .unwrap_or_else(|| "unknown pool error".to_string())
-    );
+    // Delegate the retry+backoff policy to the shared `db::conn` helper (the single source of
+    // truth) so the games money path and the rest of the handlers share one definition. The games
+    // path keeps its historical choice of panicking as a true last resort: a sustained pool failure
+    // here is unrecoverable (the same outcome the old `.unwrap()` produced, but only after the
+    // transient-retry window). Read/degrade-tolerant sites use `db::conn_or_log` instead.
+    crate::db::conn(db).unwrap_or_else(|e| {
+        panic!("games_conn: could not check out a DB connection after retries: {e}")
+    })
 }
 
 pub fn games_routes() -> Router {

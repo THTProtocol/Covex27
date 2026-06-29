@@ -24,6 +24,70 @@ impl Db {
     }
 }
 
+/// Number of pool-checkout attempts before `conn`/`conn_or_log` give up. The first
+/// attempt is immediate; the rest are spaced by a short linear backoff so a busy slot
+/// can be returned by another request before we retry.
+const POOL_CHECKOUT_ATTEMPTS: u32 = 5;
+
+/// Check a connection out of the shared pool, surviving a TRANSIENT pool error instead
+/// of panicking on the spot.
+///
+/// `db::Db::lock()` is an r2d2 POOL checkout, NOT a `std::sync::Mutex`: its error is a
+/// pool error (e.g. the connection_timeout elapsing while every slot is busy under load),
+/// never a `PoisonError` - there is no inner guard to recover and `e.into_inner()` does
+/// not exist on it. A bare `.unwrap()` on a request/handler thread turns a momentary
+/// pool-exhaustion blip into a hard panic, which under load can cascade across the
+/// indexer and handlers.
+///
+/// This helper retries the checkout a few times with a short bounded backoff (a slot
+/// frees as soon as another request returns its connection) and returns the LAST pool
+/// error if every attempt fails, so the caller decides how to degrade (read handlers can
+/// return an empty result, money-path gates can fail closed, writes can surface a clear
+/// error). On the happy path (a slot is immediately available) it behaves IDENTICALLY to
+/// `db.lock()` with no extra latency. This is the single source of the retry policy:
+/// `conn_or_log` and `games_conn` both delegate here.
+pub fn conn(db: &Db) -> Result<DbConn, r2d2::Error> {
+    let mut last_err: Option<r2d2::Error> = None;
+    for attempt in 0..POOL_CHECKOUT_ATTEMPTS {
+        match db.lock() {
+            Ok(c) => return Ok(c),
+            Err(e) => {
+                if attempt + 1 < POOL_CHECKOUT_ATTEMPTS {
+                    // Brief backoff so a busy slot can be returned before we retry. A pool
+                    // error means there was no free connection anyway, so the caller was
+                    // already going to wait.
+                    std::thread::sleep(std::time::Duration::from_millis(
+                        20 * (attempt as u64 + 1),
+                    ));
+                }
+                last_err = Some(e);
+            }
+        }
+    }
+    Err(last_err.expect("loop ran at least once so last_err is set on the failure path"))
+}
+
+/// Like [`conn`], but on sustained pool exhaustion logs a clear error tagged with
+/// `context` and returns `None` so the caller can degrade gracefully (skip a background
+/// sweep, return an empty read, or fail a money-path gate CLOSED) instead of panicking.
+/// Use this for request/handler-path sites whose correct degrade is "no result" or
+/// "fail closed". For a write that MUST happen, prefer [`conn`] and surface the error to
+/// the client rather than swallowing it.
+pub fn conn_or_log(db: &Db, context: &str) -> Option<DbConn> {
+    match conn(db) {
+        Ok(c) => Some(c),
+        Err(e) => {
+            tracing::error!(
+                "db pool checkout failed after {} attempts at {}: {}",
+                POOL_CHECKOUT_ATTEMPTS,
+                context,
+                e
+            );
+            None
+        }
+    }
+}
+
 /// Run a synchronous SQLite read on a blocking thread so it never stalls a Tokio
 /// worker. The closure receives a borrowed `&Connection` checked out of the pool.
 /// Use this for the hottest GET read handlers. Do NOT use it for the money-path
@@ -36,7 +100,11 @@ where
 {
     let db = db.clone();
     tokio::task::spawn_blocking(move || {
-        let conn = db.lock().unwrap();
+        // Use the shared retry helper so a momentary pool blip on a hot read does not abort the
+        // blocking task on the first failed checkout. Only `.expect()` after the bounded retry
+        // window (this returns `T` directly, so it cannot surface an Err to its callers without a
+        // signature change across all 10 call sites; the retry window is the harden we add here).
+        let conn = conn(&db).expect("db pool checkout failed after retries in db::blocking");
         f(&conn)
     })
     .await
@@ -3072,6 +3140,84 @@ mod mixer_nullifier_concurrency_tests {
             mixer_record_nullifier(&db, nf, cid).unwrap(),
             0,
             "a third sequential attempt after the race must also be refused"
+        );
+    }
+}
+
+#[cfg(test)]
+mod pool_checkout_helper_tests {
+    use super::*;
+    use std::time::Duration;
+
+    // Build a Db whose pool has exactly ONE slot and a short connection_timeout, so we can
+    // deterministically force pool exhaustion by holding that single connection open. This
+    // mirrors the production failure the helper defends against: every slot busy under load.
+    fn one_slot_db() -> Db {
+        let uri = format!(
+            "file:pool_helper_{}?mode=memory&cache=shared",
+            uuid::Uuid::new_v4().simple()
+        );
+        let manager = SqliteConnectionManager::file(&uri)
+            .with_init(|c| c.execute_batch("PRAGMA busy_timeout=5000;"));
+        let pool = r2d2::Pool::builder()
+            .max_size(1)
+            // Keep the exhaustion window short: with the only slot held, each checkout
+            // attempt blocks for at most this long before erroring, so the 5-attempt retry
+            // window stays well under a second in the test.
+            .connection_timeout(Duration::from_millis(60))
+            .build(manager)
+            .unwrap();
+        Db { pool }
+    }
+
+    // Happy path: a free slot is available, so the retry helper returns a usable connection
+    // and behaves like a direct `db.lock()`.
+    #[test]
+    fn conn_returns_a_usable_connection_when_a_slot_is_free() {
+        let db = one_slot_db();
+        let c = conn(&db).expect("a free slot must yield a connection");
+        // The connection works: a trivial query round-trips.
+        let one: i64 = c.query_row("SELECT 1", [], |r| r.get(0)).unwrap();
+        assert_eq!(one, 1);
+    }
+
+    // Degrade path: with the only slot held for longer than the whole retry window, the
+    // helper exhausts its retries and returns Err (NOT a panic), and conn_or_log returns
+    // None so a caller can fail closed / skip work instead of crashing the thread.
+    #[test]
+    fn conn_errors_and_conn_or_log_degrades_when_pool_is_exhausted() {
+        let db = one_slot_db();
+        // Hold the single connection for the lifetime of this scope on a background thread,
+        // so the main thread's checkout attempts all find the pool empty.
+        let held_db = db.clone();
+        let (tx_acquired, rx_acquired) = std::sync::mpsc::channel::<()>();
+        let (tx_release, rx_release) = std::sync::mpsc::channel::<()>();
+        let holder = std::thread::spawn(move || {
+            let _held = held_db.lock().expect("holder takes the only slot");
+            tx_acquired.send(()).unwrap();
+            // Keep the slot until the test says to release it.
+            let _ = rx_release.recv();
+        });
+        // Wait until the holder actually owns the connection before we probe exhaustion.
+        rx_acquired.recv().unwrap();
+
+        // conn() must surface the pool error after its bounded retries, never panic.
+        assert!(
+            conn(&db).is_err(),
+            "with the only slot held, conn() must return Err (pool exhausted), not a connection"
+        );
+        // conn_or_log() must degrade to None (and log), never panic.
+        assert!(
+            conn_or_log(&db, "pool_exhaustion_test").is_none(),
+            "with the only slot held, conn_or_log() must degrade to None so the caller can fail closed"
+        );
+
+        // Release the held connection; the pool recovers and the next checkout succeeds.
+        tx_release.send(()).unwrap();
+        holder.join().unwrap();
+        assert!(
+            conn(&db).is_ok(),
+            "once the slot is returned, conn() must succeed again (transient exhaustion recovered)"
         );
     }
 }

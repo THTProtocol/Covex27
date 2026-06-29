@@ -742,15 +742,36 @@ async fn verify_and_sign_handler(
     // result is server-authoritative (engine replay for board wins, server-timed
     // timeouts), so no caller can get the oracle to attest a losing player as the winner.
     // Non-game covenants (no skill_games row) fall through to the normal ZK/derive path.
-    let game_row: Option<(String, Option<String>)> = {
-        let conn = db.lock().unwrap();
-        conn.query_row(
+    // FAIL CLOSED on pool exhaustion: we must NOT silently treat the covenant as a non-game and
+    // route around the server-bound game outcome when we simply could not read the table. A real
+    // query that finds no row yields `None` (legitimate non-game); only an unreadable pool refuses
+    // to sign here.
+    let game_conn = match crate::db::conn_or_log(&db, "oracle::verify::game_row") {
+        Some(conn) => conn,
+        None => {
+            return Json(OracleVerifyOutput {
+                success: false,
+                outcome: None,
+                signature: None,
+                timestamp: None,
+                message: None,
+                error: Some(
+                    "oracle could not read game state (service busy); refusing to sign".into(),
+                ),
+                public_inputs: input.public_inputs,
+                circuit_type: Some(input.circuit_type.clone()),
+                covenant_hint: None,
+            });
+        }
+    };
+    let game_row: Option<(String, Option<String>)> = game_conn
+        .query_row(
             "SELECT status, winner FROM skill_games WHERE covenant_id = ?1",
             rusqlite::params![input.covenant_id],
             |r| Ok((r.get::<_, String>(0)?, r.get::<_, Option<String>>(1)?)),
         )
-        .ok()
-    };
+        .ok();
+    drop(game_conn);
     let outcome: u32 = if let Some((status, winner)) = game_row {
         if status != "finished" {
             return Json(OracleVerifyOutput {

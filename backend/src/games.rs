@@ -16,6 +16,45 @@ use std::collections::HashMap;
 use crate::game_engine;
 use crate::live;
 
+/// Check a connection out of the shared pool for a games handler, surviving a TRANSIENT pool
+/// error instead of panicking the request thread on the spot.
+///
+/// GAP 8-lock (robustness): every games money-path site previously called `db.lock().unwrap()`.
+/// `db::Db::lock()` is a pool checkout (r2d2), NOT a `std::sync::Mutex`, so its error is a pool
+/// error (e.g. the connection_timeout elapsing while every slot is busy under load), never a
+/// `PoisonError` - there is no inner guard to recover and `e.into_inner()` does not exist on it. A
+/// bare `.unwrap()` turns a momentary pool-exhaustion blip into a hard panic. This helper retries
+/// the checkout a few times with a short backoff (the error is transient: a slot frees as soon as
+/// another request returns its connection), and only `.expect()`s as a true last resort. On the
+/// happy path (a slot is immediately available) it behaves IDENTICALLY to the old call. Routing all
+/// games lock sites through here means one place defines the policy and a future hardening (e.g.
+/// returning a 503 instead of expecting) is a single edit.
+fn games_conn(db: &crate::db::Db) -> crate::db::DbConn {
+    let mut last_err: Option<r2d2::Error> = None;
+    for attempt in 0..5u32 {
+        match db.lock() {
+            Ok(conn) => return conn,
+            Err(e) => {
+                if attempt + 1 < 5 {
+                    // Brief backoff so a busy slot can be returned before we retry. This is a
+                    // synchronous sleep, but a pool error means there was no free connection
+                    // anyway, so the request was already going to wait.
+                    std::thread::sleep(std::time::Duration::from_millis(20 * (attempt as u64 + 1)));
+                }
+                last_err = Some(e);
+            }
+        }
+    }
+    // Exhausted retries: a sustained pool failure is unrecoverable here, so surface it loudly (the
+    // same outcome the old `.unwrap()` produced, but only after the transient-retry window).
+    panic!(
+        "games_conn: could not check out a DB connection after retries: {}",
+        last_err
+            .map(|e| e.to_string())
+            .unwrap_or_else(|| "unknown pool error".to_string())
+    );
+}
+
 pub fn games_routes() -> Router {
     Router::new()
         .route("/games", get(list_games))
@@ -107,7 +146,7 @@ fn authorize_money_caller(
         return Err("a valid seat token is required to move funds for this match".to_string());
     }
     let (p1_token, p2_token): (Option<String>, Option<String>) = {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(db);
         conn.query_row(
             "SELECT p1_token, p2_token FROM skill_games WHERE covenant_id = ?1",
             params![covenant_id],
@@ -186,7 +225,7 @@ pub fn spawn_timeout_sweeper(db: crate::db::Db) {
         loop {
             tick.tick().await;
             let finalized: Vec<String> = {
-                let conn = db.lock().unwrap();
+                let conn = games_conn(&db);
                 let rows: Vec<(String, String, i64, i64, i64, i64)> = {
                     let mut stmt = match conn.prepare(
                         "SELECT covenant_id, current_turn, p1_time_ms, p2_time_ms, turn_started_at, unixepoch() FROM skill_games WHERE status = 'active' AND turn_started_at > 0",
@@ -276,7 +315,7 @@ fn row_to_game(row: &rusqlite::Row) -> rusqlite::Result<serde_json::Value> {
 const GAME_SELECT: &str = "SELECT covenant_id, game_type, pot_amount_kas, player1, player2, moves, current_turn, winner, status, created_at, updated_at, p1_time_ms, p2_time_ms, turn_started_at, end_reason, unixepoch(), pot_tx, pot_payout_tx, settle_mode FROM skill_games";
 
 fn fetch_game(db: &crate::db::Db, covenant_id: &str) -> Option<serde_json::Value> {
-    let conn = db.lock().unwrap();
+    let conn = games_conn(db);
     conn.query_row(
         &format!("{} WHERE covenant_id = ?1", GAME_SELECT),
         params![covenant_id],
@@ -644,7 +683,7 @@ async fn submit_pot(
                 })
                 .unwrap_or("hashlock")
                 .to_string();
-            let conn = db.lock().unwrap();
+            let conn = games_conn(&db);
             if settle_mode == "hashlock" {
                 let _ = conn.execute(
                     "UPDATE skill_games SET pot_tx = ?1, pot_amount_kas = ?2, settle_mode = 'hashlock', match_id = ?3, updated_at = unixepoch() WHERE covenant_id = ?3",
@@ -700,7 +739,7 @@ async fn settle_pot(
     let gt = game["game_type"].as_str().unwrap_or("chess").to_string();
 
     let (pot_tx, net): (Option<String>, String) = {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(&db);
         let pot: Option<String> = conn
             .query_row(
                 "SELECT pot_tx FROM skill_games WHERE covenant_id = ?1",
@@ -846,7 +885,7 @@ async fn submit_settle(
             .0;
     if v.get("success").and_then(|s| s.as_bool()).unwrap_or(false) {
         if let Some(tx) = v.get("payout_tx_id").and_then(|t| t.as_str()) {
-            let conn = db.lock().unwrap();
+            let conn = games_conn(&db);
             let _ = conn.execute(
                 "UPDATE skill_games SET pot_payout_tx = ?1, updated_at = unixepoch() WHERE covenant_id = ?2",
                 params![tx, covenant_id],
@@ -863,7 +902,7 @@ fn load_hashlock_pot(
     db: &crate::db::Db,
     covenant_id: &str,
 ) -> Result<(String, String, String), String> {
-    let conn = db.lock().unwrap();
+    let conn = games_conn(db);
     let (pot_tx, settle_mode, match_id): (Option<String>, Option<String>, Option<String>) = conn
         .query_row(
             "SELECT pot_tx, settle_mode, match_id FROM skill_games WHERE covenant_id = ?1",
@@ -1123,7 +1162,7 @@ async fn refund_pot_hashlock(
 /// `channel` covenant; once /deploy-zk-settlement re-links it, pot_tx is a `zk_game_settle` covenant
 /// (only then is the on-chain winner-proof spend buildable). settle_zk requires the settlement phase.
 fn load_zk_pot(db: &crate::db::Db, covenant_id: &str) -> Result<(String, String, String), String> {
-    let conn = db.lock().unwrap();
+    let conn = games_conn(db);
     let (pot_tx, settle_mode): (Option<String>, Option<String>) = conn
         .query_row(
             "SELECT pot_tx, settle_mode FROM skill_games WHERE covenant_id = ?1",
@@ -1802,7 +1841,7 @@ async fn bind_channel_pot(
     // Verify the bound tx is a channel covenant funded by player1, so the pot the chain
     // enforces is the 2-of-2 [p1, p2] / p1-refund script for THIS match.
     let (kind, creator): (String, String) = {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(&db);
         match conn.query_row(
             "SELECT redeem_kind, creator_addr FROM p2sh_covenants WHERE tx_id = ?1",
             params![deploy_tx],
@@ -1828,7 +1867,7 @@ async fn bind_channel_pot(
     }
     let pot_kas = game["pot_amount_kas"].as_f64().unwrap_or(0.0);
     {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(&db);
         let _ = conn.execute(
             "UPDATE skill_games SET pot_tx = ?1, updated_at = unixepoch() WHERE covenant_id = ?2",
             params![deploy_tx, covenant_id],
@@ -1879,7 +1918,7 @@ async fn settle_channel(
     let p1 = game["player1"].as_str().unwrap_or("").to_string();
     let p2 = game["player2"].as_str().unwrap_or("").to_string();
     let (pot_tx, net): (Option<String>, String) = {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(&db);
         let pot: Option<String> = conn
             .query_row(
                 "SELECT pot_tx FROM skill_games WHERE covenant_id = ?1",
@@ -2011,7 +2050,7 @@ async fn refund_channel(
         return Json(json!({ "success": false, "error": "game has no funder" }));
     }
     let (pot_tx, net): (Option<String>, String) = {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(&db);
         let pot: Option<String> = conn
             .query_row(
                 "SELECT pot_tx FROM skill_games WHERE covenant_id = ?1",
@@ -2084,7 +2123,7 @@ async fn resign_game(
     Json(req): Json<ResignReq>,
 ) -> Json<serde_json::Value> {
     let result = {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(&db);
         let row: Option<(String, String, String, Option<String>, Option<String>)> = conn
             .query_row(
                 "SELECT player1, player2, status, p1_token, p2_token FROM skill_games WHERE covenant_id = ?1",
@@ -2145,7 +2184,7 @@ async fn claim_timeout(
     Path(covenant_id): Path<String>,
 ) -> Json<serde_json::Value> {
     let result = {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(&db);
         let row: Option<(String, String, i64, i64, i64, i64)> = conn
             .query_row(
                 "SELECT current_turn, status, p1_time_ms, p2_time_ms, turn_started_at, unixepoch() FROM skill_games WHERE covenant_id = ?1",
@@ -2211,7 +2250,7 @@ async fn list_games(
         .and_then(|s| s.parse().ok())
         .unwrap_or(50)
         .clamp(1, 200);
-    let conn = db.lock().unwrap();
+    let conn = games_conn(&db);
     let mut stmt = match conn.prepare(&format!(
         "{} WHERE status = ?1 ORDER BY updated_at DESC LIMIT ?2",
         GAME_SELECT
@@ -2256,7 +2295,7 @@ async fn join_game(
         return Json(json!({"success": false, "error": "player address required"}));
     }
     let result = {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(&db);
         let existing: Option<(String, String, String)> = conn
             .query_row(
                 "SELECT player1, player2, status FROM skill_games WHERE covenant_id = ?1",
@@ -2352,7 +2391,7 @@ async fn make_move(
     Json(req): Json<MoveReq>,
 ) -> Json<serde_json::Value> {
     let result = {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(&db);
         let row: Option<(String, String, String, String, String, String, i64, i64, i64, i64, Option<String>, Option<String>)> = conn
             .query_row(
                 "SELECT player1, player2, moves, current_turn, status, game_type, p1_time_ms, p2_time_ms, turn_started_at, unixepoch(), p1_token, p2_token FROM skill_games WHERE covenant_id = ?1",
@@ -2569,7 +2608,7 @@ mod tests {
         p1_token: &str,
         p2_token: &str,
     ) {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(db);
         conn.execute(
             "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, player2, status, p1_token, p2_token, turn_started_at, p1_time_ms, p2_time_ms) \
              VALUES (?1, 'chess', 0, ?2, ?3, 'active', ?4, ?5, unixepoch(), 300000, 300000)",
@@ -2581,7 +2620,7 @@ mod tests {
     /// Insert a single-player WAITING match (player2 still empty). Mirrors the
     /// row shape `join_game` produces after the first join, before the second.
     fn seed_one_player_waiting(db: &Db, covenant_id: &str, p1: &str, p1_token: &str) {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(db);
         conn.execute(
             "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, player2, status, p1_token) \
              VALUES (?1, 'chess', 0, ?2, '', 'waiting', ?3)",
@@ -2676,7 +2715,7 @@ mod tests {
         // Mark the match finished with a winner so we are testing the auth gate
         // specifically, not the "no winner yet" precondition.
         {
-            let conn = db.lock().unwrap();
+            let conn = games_conn(&db);
             conn.execute(
                 "UPDATE skill_games SET status = 'finished', winner = 'white', end_reason = 'board' WHERE covenant_id = ?1",
                 params!["cov-d"],
@@ -2727,7 +2766,7 @@ mod tests {
         );
         // The row is still active and still belongs to the same mover - the
         // server did NOT flip status to 'finished' or pick a winner.
-        let conn = db.lock().unwrap();
+        let conn = games_conn(&db);
         let (status, winner): (String, Option<String>) = conn
             .query_row(
                 "SELECT status, winner FROM skill_games WHERE covenant_id = ?1",
@@ -2757,7 +2796,7 @@ mod tests {
         end_reason: Option<&str>,
         winner: Option<&str>,
     ) {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(db);
         conn.execute(
             "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, player2, status, p1_token, p2_token, turn_started_at, p1_time_ms, p2_time_ms, pot_tx, settle_mode, match_id, end_reason, winner, moves) \
              VALUES (?1, 'chess', 1.0, ?2, ?3, ?4, 'tok-p1', 'tok-p2', unixepoch(), 300000, 300000, ?5, 'hashlock', ?1, ?6, ?7, '[]')",
@@ -2772,7 +2811,7 @@ mod tests {
     /// mandatory) without standing up a chain. Other columns are filler that the
     /// settle path never reads.
     fn seed_pot_network(db: &Db, pot_tx: &str, network: &str) {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(db);
         conn.execute(
             "INSERT INTO p2sh_covenants (tx_id, network, p2sh_address, redeem_script_hex, redeem_kind, amount_sompi, outpoint_index, owner_addr, created_at) \
              VALUES (?1, ?2, 'p2sh:test', '00', 'binary_oracle_select', 100000000, 0, ?3, unixepoch())",
@@ -2954,7 +2993,7 @@ mod tests {
         // Seed a pot but mark it oracle_escrow (legacy), with a finished decisive
         // board so the ONLY thing that can refuse is the settle_mode guard.
         {
-            let conn = db.lock().unwrap();
+            let conn = games_conn(&db);
             conn.execute(
                 "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, player2, status, p1_token, p2_token, turn_started_at, p1_time_ms, p2_time_ms, pot_tx, settle_mode, end_reason, winner, moves) \
                  VALUES (?1, 'chess', 1.0, ?2, ?3, 'finished', 'tok-p1', 'tok-p2', unixepoch(), 300000, 300000, 'pot-legacy', 'oracle_escrow', 'timeout', 'player1', '[]')",
@@ -3103,7 +3142,7 @@ mod tests {
         game_type: &str,
         moves_json: &str,
     ) {
-        let conn = db.lock().unwrap();
+        let conn = games_conn(db);
         conn.execute(
             "INSERT INTO skill_games (covenant_id, game_type, pot_amount_kas, player1, player2, status, p1_token, p2_token, turn_started_at, p1_time_ms, p2_time_ms, pot_tx, settle_mode, match_id, winner, moves) \
              VALUES (?1, ?8, 1.0, ?2, ?3, ?4, 'tok-p1', 'tok-p2', unixepoch(), 300000, 300000, ?5, 'zk_game_settle', ?1, ?6, ?7)",
@@ -3152,7 +3191,7 @@ mod tests {
             "the refusal must come from the precompile gate, got: {err}"
         );
         // No pot row was linked.
-        let conn = db.lock().unwrap();
+        let conn = games_conn(&db);
         let pot: Option<String> = conn
             .query_row(
                 "SELECT pot_tx FROM skill_games WHERE covenant_id = 'cov-zk-off'",

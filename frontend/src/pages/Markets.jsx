@@ -115,7 +115,7 @@ function OddsRow({ book, odds, resolved, showOpen }) {
 // participant sees price + stake + back-button in one card without scrolling.
 // All request payloads (/order, /match) are passed through unchanged via
 // the onPlaceBet / onMatch callbacks the parent owns.
-function PlaceOrderCard({
+export function PlaceOrderCard({
   book, odds, resolved,
   side, setSide, stake, setStake, addr, setAddr,
   busy, onPlaceBet, onMatch,

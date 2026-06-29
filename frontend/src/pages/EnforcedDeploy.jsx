@@ -41,8 +41,10 @@ const MAINNET_CAPABLE_KINDS = ['singlesig', 'hashlock', 'timelock', 'relative_ti
 // it is shown disabled with a "Gated / testnet-only" badge rather than as a deployable tile that
 // errors. TODO: when /api/covenant/catalog exposes a per-entry `available`/`gated` flag, drive
 // this off that flag instead of hardcoded kind names (the source of truth is the backend gate).
-const GATED_KINDS = ['p2sh_winner_bound', 'escrow_bound', 'zk_game_settle'];
-const isGatedKind = (id) => GATED_KINDS.includes(String(id || '').split(':')[0]);
+// Exported for tests so the gate the deploy() guard and the tile-disable both depend on is
+// unit-checkable; the values are not secret and the predicate has no side effects.
+export const GATED_KINDS = ['p2sh_winner_bound', 'escrow_bound', 'zk_game_settle'];
+export const isGatedKind = (id) => GATED_KINDS.includes(String(id || '').split(':')[0]);
 
 function randomSecretHex() {
   const b = new Uint8Array(24);

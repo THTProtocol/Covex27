@@ -120,7 +120,7 @@ function normalizeKit(obj) {
 // Drives the VERIFIED redeemer: assertSignerForBranch -> buildUnsignedSpend ->
 // signInput (LOCAL) -> assembleSigScript -> broadcast OR exportSignedTxJson.
 // ===========================================================================
-function ClaimFlow({ kit, utxos }) {
+export function ClaimFlow({ kit, utxos }) {
   const wallet = useWallet();
   const net = normNetwork(kit.network);
   const mainnet = isMainnetNet(kit.network);

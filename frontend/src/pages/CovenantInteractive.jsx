@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- this module co-exports its page component with the related redeem-routing constants/helpers (NONCUSTODIAL_REDEEM_KINDS / isLocallySignableRedeem) that tests pin. That only affects dev Fast Refresh granularity, never the production build or tests; the helpers are tiny and live next to the routing they drive. */
 import { useState, useEffect, useMemo, useCallback, Fragment, lazy, Suspense } from 'react';
 import { Render as PuckRender } from '@measured/puck';
 import puckConfig, { BG_PRESETS } from '../lib/puckConfig';
@@ -147,7 +148,17 @@ function GameStakeControl({
 // signs locally like the absolute timelock. Other kinds (oracle_escrow / oracle_enforced /
 // timedecay / deadman) need the redeem-script recovery flow - we must NOT promise local
 // non-custodial signing the spender cannot complete. Routing/copy only; no spend-builder change.
-const NONCUSTODIAL_REDEEM_KINDS = ['singlesig', 'hashlock', 'timelock', 'rcsv', 'multisig', 'htlc', 'channel'];
+// Exported for tests: this set is the load-bearing safety gate that routes a spend to the
+// in-browser "redeem with my key" path vs the "recover with the redeem script" /recover page.
+export const NONCUSTODIAL_REDEEM_KINDS = ['singlesig', 'hashlock', 'timelock', 'rcsv', 'multisig', 'htlc', 'channel'];
+
+// Pure routing predicate the redeem section uses: a redeem_kind (possibly suffixed like
+// 'rcsv:10' or 'oracle_escrow:abcd') is locally signable iff its BASE kind is in the
+// non-custodial set. An oracle/resolver kind is NEVER locally signable, so it must route to the
+// /recover flow rather than offer a non-custodial redeem the spender cannot complete. Exported so
+// this safety decision is unit-tested independent of the heavy component render.
+export const isLocallySignableRedeem = (redeemKind) =>
+  NONCUSTODIAL_REDEEM_KINDS.includes(String(redeemKind || '').split(':')[0]);
 
 const DEFAULT_UI_CONFIG = {
   primaryColor: '#49EACB',
@@ -1664,7 +1675,7 @@ export default function CovenantInteractive() {
                       </div>
                     ) : covenant.redeem_kind && covenant.redeem_script_hex && covenant.spendable !== false && (() => {
                       const redeemKindBase = String(covenant.redeem_kind).split(':')[0];
-                      const localSignable = NONCUSTODIAL_REDEEM_KINDS.includes(redeemKindBase);
+                      const localSignable = isLocallySignableRedeem(covenant.redeem_kind);
                       return (
                         <div className="p-4 rounded-2xl bg-purple-500/[0.06] border border-purple-500/25">
                           <div className="flex items-center gap-2 mb-1.5 flex-wrap">

@@ -1,3 +1,5 @@
+> **SUPERSEDED - HISTORICAL SNAPSHOT.** This document predates the honest ZK circuit count and quotes inflated figures ("200+"/"250+"/"~204 circuits"). The real shipped suite is **26 provable / 65 served** (the single source of truth is `zk/circuit_registry.json`, enforced by `scripts/check-zk-registry.sh`). Read the count claims below as stale; the architecture/notes are kept for history.
+
 # PHASE 3 COMPLETION + "CONTINUE UNTIL FULLY DONE" REPORT
 **Covex27 — Ultimate ZK + Oracle Tool for Kaspa Covenants**
 

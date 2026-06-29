@@ -1,3 +1,5 @@
+> **SUPERSEDED - HISTORICAL SNAPSHOT.** This document predates the honest ZK circuit count and quotes inflated figures ("200+"/"250+"/"~204 circuits"). The real shipped suite is **26 provable / 65 served** (the single source of truth is `zk/circuit_registry.json`, enforced by `scripts/check-zk-registry.sh`). Read the count claims below as stale; the architecture/notes are kept for history.
+
 # Covex27 Comprehensive Audit Report — 2026-06-08
 
 Full-stack adversarial audit: live production (hightable.pro), local codebase, E2E test suite, deploy pipeline, and oracle network. Wallets with real testnet KAS used to deploy PRO and MAX tier covenants.

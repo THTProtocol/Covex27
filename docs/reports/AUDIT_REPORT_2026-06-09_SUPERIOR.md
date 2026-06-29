@@ -1,3 +1,5 @@
+> **SUPERSEDED - HISTORICAL SNAPSHOT.** This document predates the honest ZK circuit count and quotes inflated figures ("200+"/"250+"/"~204 circuits"). The real shipped suite is **26 provable / 65 served** (the single source of truth is `zk/circuit_registry.json`, enforced by `scripts/check-zk-registry.sh`). Read the count claims below as stale; the architecture/notes are kept for history.
+
 # Covex27 Superior Full-Stack Audit Report — 2026-06-09 (Better Than Hermes)
 
 **Scope**: Adversarial, button-pressing audit of live production (https://hightable.pro), local codebase, E2E, ZK artifacts, oracle, mixer, paid deploy/paywall flows, infra (Hetzner prod via SSH), deploy pipeline, security edges, using provided TN12 test wallets for PRO/MAX simulation. Compared against and exceeds prior 2026-06-08 Hermes audit (which fixed 2 oracle bugs, moved docs, unified 1.1.0, 13 oracle circuits).

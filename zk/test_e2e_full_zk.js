@@ -95,7 +95,7 @@ async function main() {
     if (r === 'pass') pass++; else if (r === 'fail') fail++; else skip++;
   }
   console.log(`\nResults: ${pass} pass, ${fail} fail, ${skip} skip (new Phase1/2/3 circuits exercised via hybrid/attested + dummies)`);
-  console.log('See vision doc + circuit_registry for full 200+ inventory and Phase status.');
+  console.log('See circuit_registry.json for the honest inventory (26 provable / 65 served) and Phase status.');
   process.exit(fail > 0 ? 1 : 0);
 }
 main().catch(e => { console.error(e); process.exit(1); });

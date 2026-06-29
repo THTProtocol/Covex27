@@ -248,7 +248,7 @@ export default function Readme() {
             <Card key={p.name}>
               <div className="flex items-start justify-between gap-2 mb-2">
                 <h3 className="text-white font-bold leading-tight break-words min-w-0">{p.name}</h3>
-                <span className={`shrink-0 mt-0.5 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full border ${REALITY_PILL[p.reality] || REALITY_PILL['on-chain']}`}>{p.reality}</span>
+                <span className={`shrink-0 mt-0.5 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded-full border ${REALITY_PILL[p.reality] || REALITY_PILL['on-chain']}`}>{p.reality}</span>
               </div>
               <Script>{p.script}</Script>
               <p className="text-xs text-gray-300 mt-2.5 leading-relaxed">{p.what}</p>

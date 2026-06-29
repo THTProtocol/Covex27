@@ -919,28 +919,28 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
                 {gated ? (
                   <span
                     title="Gated behind a backend feature flag until its on-chain end-to-end is proven (KIP-10 output-binding / KIP-16 on-chain ZK settle). Not deployable yet."
-                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-500/40 bg-slate-500/15 text-slate-300 text-[9px] font-bold uppercase tracking-wider light:border-slate-300 light:bg-slate-200 light:text-slate-600"
+                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-500/40 bg-slate-500/15 text-slate-300 text-[10px] font-bold uppercase tracking-wider light:border-slate-300 light:bg-slate-200 light:text-slate-600"
                   >
                     <span className="h-1 w-1 rounded-full bg-slate-400" aria-hidden="true" /> Gated / testnet-only
                   </span>
                 ) : mainnetUnavailable ? (
                   <span
                     title="Available on testnet. Non-custodial mainnet deploy for this primitive is coming."
-                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-500/40 bg-slate-500/15 text-slate-300 text-[9px] font-bold uppercase tracking-wider light:border-slate-300 light:bg-slate-200 light:text-slate-600"
+                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-500/40 bg-slate-500/15 text-slate-300 text-[10px] font-bold uppercase tracking-wider light:border-slate-300 light:bg-slate-200 light:text-slate-600"
                   >
                     <span className="h-1 w-1 rounded-full bg-slate-400" aria-hidden="true" /> Testnet only
                   </span>
                 ) : isDevWalletKind ? (
                   <span
                     title="Deploys via server-assisted dev wallets, not a non-custodial deploy. Honest demo of the primitive."
-                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-300 text-[9px] font-bold uppercase tracking-wider"
+                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-amber-500/40 bg-amber-500/15 text-amber-300 text-[10px] font-bold uppercase tracking-wider"
                   >
                     <span className="h-1 w-1 rounded-full bg-amber-400" aria-hidden="true" /> Server-assisted demo
                   </span>
                 ) : isMainnetCapable ? (
                   <span
                     title="Non-custodial: your key signs the funding transaction in your browser. Deployable on mainnet (gated until the Toccata hard fork)."
-                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[9px] font-bold uppercase tracking-wider"
+                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase tracking-wider"
                   >
                     <span className="h-1 w-1 rounded-full bg-emerald-400" aria-hidden="true" /> Mainnet-ready
                   </span>

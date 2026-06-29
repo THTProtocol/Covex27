@@ -5,6 +5,58 @@ use kaspa_wrpc_client::KaspaRpcClient;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
+/// Minimum confirmations (DAA depth of the funding UTXO under the virtual DAA score) before a
+/// treasury payment is treated as final and a tier upgrade is applied. Below this, the payment is
+/// pending and MUST NOT upgrade the account. Single source of truth for the gate and its tests.
+pub const MIN_CONFIRMATIONS: u64 = 6;
+
+/// Confirmation depth of a funding UTXO: how far the current virtual DAA score is above the block
+/// that included the UTXO. Saturates at 0 (a UTXO from a block at/after the current virtual score,
+/// e.g. a transient reorg/race, is treated as 0 confirmations, never a negative or wrapped value).
+#[inline]
+pub fn confirmations_for(current_daa: u64, block_daa: u64) -> u64 {
+    current_daa.saturating_sub(block_daa)
+}
+
+/// FAIL-CLOSED finality gate: returns true ONLY when the payment has at least [`MIN_CONFIRMATIONS`]
+/// confirmations. The tier upgrade (which grants paid features) is applied only when this is true.
+#[inline]
+pub fn is_payment_final(confirmations: u64) -> bool {
+    confirmations >= MIN_CONFIRMATIONS
+}
+
+/// Decide whether a treasury UTXO of `amount_sompi` paid by `from_address`, observed at
+/// `confirmations` depth, authorizes a tier upgrade, and to which tier.
+///
+/// This is the pure verification core the background loop runs, factored out so every reject path
+/// is unit-testable and provably FAIL-CLOSED. A payment authorizes an upgrade ONLY when ALL hold:
+///   * the amount maps to a real tier (`tier_from_amount` is `Some`) -- an UNDERPAY below the
+///     smallest tier threshold yields `None` and is REJECTED;
+///   * the payment has reached finality (`is_payment_final`) -- BELOW the confirmation threshold is
+///     REJECTED (pending);
+///   * the payer address is non-empty -- a missing/unknown sender is REJECTED (the loop also binds
+///     the upgrade to `from_address == creator_addr`, so a WRONG address never upgrades a covenant
+///     it did not create).
+///
+/// Returns `Some(tier)` only on the fully-authorized path; `None` on every reject path.
+pub fn authorize_tier_upgrade(
+    amount_sompi: u64,
+    confirmations: u64,
+    from_address: &str,
+) -> Option<&'static str> {
+    // Reject an unknown/empty payer: we can never attribute or bind such a payment.
+    if from_address.is_empty() {
+        return None;
+    }
+    // Reject underpay: an amount below the smallest tier threshold maps to no tier.
+    let tier = tier_from_amount(amount_sompi)?;
+    // Reject pending: below the confirmation threshold the payment is not yet final.
+    if !is_payment_final(confirmations) {
+        return None;
+    }
+    Some(tier)
+}
+
 /// Payment Verifier v2 -- Monitors treasury, matches payments to covenants
 /// by from_address == creator_addr, upgrades covenant record with full
 /// disclosure fields, and triggers enhanced UI regeneration.
@@ -54,11 +106,7 @@ pub async fn run_payment_verifier(
                     let block_daa = entry.utxo_entry.block_daa_score;
 
                     if let Some(tier) = tier_from_amount(amount_sompi) {
-                        let confirmations = if current_daa > block_daa {
-                            current_daa - block_daa
-                        } else {
-                            0
-                        };
+                        let confirmations = confirmations_for(current_daa, block_daa);
 
                         // MATCH payment to covenant by from_address == creator_addr
                         let matched_covenant = match db::get_covenants_by_creator(
@@ -93,7 +141,14 @@ pub async fn run_payment_verifier(
                         // Only run the expensive upgrade + UI-regen ONCE, on the
                         // transition to confirmed. Treasury UTXOs are never swept, so
                         // without this gate every one of them re-ran every cycle forever.
-                        if confirmations >= 6 && !db::is_payment_confirmed(&db, &tx_id) {
+                        // The upgrade authorization runs through the single fail-closed core
+                        // (amount maps to a tier, payment is final, payer is a real address);
+                        // `tier` here already equals the amount-derived tier, so behavior is
+                        // identical to the prior `is_payment_final` gate for any real payer.
+                        let authorized =
+                            authorize_tier_upgrade(amount_sompi, confirmations, &from_address)
+                                .is_some();
+                        if authorized && !db::is_payment_confirmed(&db, &tx_id) {
                             if let Err(e) = db::confirm_payment(&db, &tx_id, confirmations as i64) {
                                 warn!(
                                     "Payment Verifier: confirm_payment failed for {}: {}",
@@ -111,8 +166,13 @@ pub async fn run_payment_verifier(
                                 } else {
                                     info!("Payment Verifier: Upgraded {} to {} tier ({} KAS, {} confs)",
                                         &from_address[..16], tier, amount_sompi as f64 / 100_000_000.0, confirmations);
+                                    // Best-effort activity log: the upgrade itself already
+                                    // succeeded, so if the pool is momentarily exhausted just skip
+                                    // the event row (conn_or_log records why) instead of panicking
+                                    // the background verifier task.
+                                    if let Some(conn) =
+                                        crate::db::conn_or_log(&db, "payment_verifier::tier_upgraded_event")
                                     {
-                                        let conn = db.lock().unwrap();
                                         crate::db::record_event_once(
                                             &conn,
                                             "tier_upgraded",
@@ -232,9 +292,10 @@ pub async fn run_payment_verifier(
                             }
                         } else {
                             debug!(
-                                "Payment Verifier: Pending payment {} ({} confs, needs 6)",
+                                "Payment Verifier: Pending payment {} ({} confs, needs {})",
                                 &tx_id[..16],
-                                confirmations
+                                confirmations,
+                                MIN_CONFIRMATIONS
                             );
                         }
                     }
@@ -268,4 +329,131 @@ pub struct PaymentStatus {
     pub confirmations: u64,
     pub amount_sompi: u64,
     pub tier: Option<&'static str>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Tier thresholds in sompi (1 KAS = 100_000_000 sompi). These mirror the price_sompi
+    // constants in covenant_types::tiers() so the tests pin the real on-chain amounts.
+    const KAS: u64 = 100_000_000;
+    const BUILDER_SOMPI: u64 = 100 * KAS; // 10_000_000_000
+    const PRO_SOMPI: u64 = 500 * KAS; // 50_000_000_000
+    const MAX_SOMPI: u64 = 1000 * KAS; // 100_000_000_000
+
+    const GOOD_ADDR: &str = "kaspatest:qqg5d3l3jq7q9j5xq0example0sender0addr0000000000";
+
+    // ── confirmations_for: depth + saturation ────────────────────────────────────
+
+    #[test]
+    fn confirmations_for_computes_depth() {
+        assert_eq!(confirmations_for(1000, 994), 6);
+        assert_eq!(confirmations_for(1000, 1000), 0);
+    }
+
+    #[test]
+    fn confirmations_for_saturates_when_block_is_ahead() {
+        // A UTXO whose block_daa is at/after the current virtual score (transient race/reorg)
+        // must read as 0 confirmations, never a wrapped/underflowed huge number that could be
+        // mistaken for "final". This is the fail-closed guard on the depth computation.
+        assert_eq!(confirmations_for(900, 1000), 0);
+        assert_eq!(confirmations_for(0, u64::MAX), 0);
+    }
+
+    // ── is_payment_final: the confirmation gate ──────────────────────────────────
+
+    #[test]
+    fn is_payment_final_only_at_or_above_threshold() {
+        assert!(!is_payment_final(0));
+        assert!(!is_payment_final(MIN_CONFIRMATIONS - 1)); // 5 confs: pending
+        assert!(is_payment_final(MIN_CONFIRMATIONS)); // exactly 6: final
+        assert!(is_payment_final(MIN_CONFIRMATIONS + 100));
+    }
+
+    // ── tier_from_amount: accept exact tier amounts, reject underpay ──────────────
+
+    #[test]
+    fn tier_from_amount_accepts_exact_tier_amounts() {
+        assert_eq!(tier_from_amount(BUILDER_SOMPI), Some("BUILDER"));
+        assert_eq!(tier_from_amount(PRO_SOMPI), Some("PRO"));
+        assert_eq!(tier_from_amount(MAX_SOMPI), Some("MAX"));
+    }
+
+    #[test]
+    fn tier_from_amount_rejects_underpay_below_smallest_tier() {
+        // One sompi short of BUILDER must NOT grant any tier (underpay -> None).
+        assert_eq!(tier_from_amount(BUILDER_SOMPI - 1), None);
+        assert_eq!(tier_from_amount(0), None);
+        assert_eq!(tier_from_amount(50 * KAS), None); // half of BUILDER
+    }
+
+    // ── authorize_tier_upgrade: the full FAIL-CLOSED verification core ────────────
+
+    #[test]
+    fn authorize_accepts_exact_amount_and_address_when_final() {
+        // The accept path: exact tier amount + a real payer + final confirmations.
+        assert_eq!(
+            authorize_tier_upgrade(BUILDER_SOMPI, MIN_CONFIRMATIONS, GOOD_ADDR),
+            Some("BUILDER")
+        );
+        assert_eq!(
+            authorize_tier_upgrade(PRO_SOMPI, MIN_CONFIRMATIONS, GOOD_ADDR),
+            Some("PRO")
+        );
+        assert_eq!(
+            authorize_tier_upgrade(MAX_SOMPI, MIN_CONFIRMATIONS + 50, GOOD_ADDR),
+            Some("MAX")
+        );
+    }
+
+    #[test]
+    fn authorize_rejects_underpay() {
+        // REJECT underpay: below the smallest tier, even with a real payer and final confs.
+        assert_eq!(
+            authorize_tier_upgrade(BUILDER_SOMPI - 1, MIN_CONFIRMATIONS, GOOD_ADDR),
+            None,
+            "an amount one sompi below BUILDER must NOT authorize any upgrade"
+        );
+        assert_eq!(
+            authorize_tier_upgrade(0, MIN_CONFIRMATIONS, GOOD_ADDR),
+            None,
+            "a zero payment must NOT authorize any upgrade"
+        );
+    }
+
+    #[test]
+    fn authorize_rejects_below_confirmation_threshold() {
+        // REJECT pending: a fully-funded MAX payment from a real payer is still refused until it
+        // reaches MIN_CONFIRMATIONS. This is the finality gate, fail-closed at every depth below.
+        for confs in 0..MIN_CONFIRMATIONS {
+            assert_eq!(
+                authorize_tier_upgrade(MAX_SOMPI, confs, GOOD_ADDR),
+                None,
+                "a payment with {confs} confs (< {MIN_CONFIRMATIONS}) must NOT authorize an upgrade"
+            );
+        }
+    }
+
+    #[test]
+    fn authorize_rejects_missing_or_unknown_address() {
+        // REJECT a missing/unknown payer: a payment we cannot attribute to a sender must never
+        // authorize an upgrade. The loop additionally binds the upgrade to from_address ==
+        // creator_addr, so a WRONG (non-creator) address can never upgrade a covenant it did not
+        // create; an empty/unknown sender is the strongest form of that reject and is gated here.
+        assert_eq!(
+            authorize_tier_upgrade(MAX_SOMPI, MIN_CONFIRMATIONS, ""),
+            None,
+            "an empty payer address must NOT authorize any upgrade"
+        );
+    }
+
+    #[test]
+    fn authorize_is_fail_closed_on_every_reject_axis_combined() {
+        // Defense in depth: when MULTIPLE reject conditions hold at once, the result is still
+        // None. No single satisfied condition can override another's veto.
+        assert_eq!(authorize_tier_upgrade(0, 0, ""), None);
+        assert_eq!(authorize_tier_upgrade(BUILDER_SOMPI - 1, 0, GOOD_ADDR), None);
+        assert_eq!(authorize_tier_upgrade(MAX_SOMPI, 1, ""), None);
+    }
 }

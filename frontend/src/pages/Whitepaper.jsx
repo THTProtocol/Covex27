@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, ArrowLeft, ExternalLink, ChevronDown, ShieldCheck } from '../lib/routeIcons.js';
+import { FileText, ArrowLeft, ExternalLink } from '../lib/routeIcons.js';
 import Card from '@/components/ui/Card';
-import { vkeyPathFor, VERIFIED_FULL_ZK } from '@/lib/zk/circuits';
+import { VERIFIED_FULL_ZK } from '@/lib/zk/circuits';
 
 // Computed at module load from the canonical set in lib/zk/circuits.js so this
 // page cannot drift from the registry. The derived count is the load-bearing
@@ -19,13 +19,6 @@ const ZK_TOTAL = VERIFIED_FULL_ZK.size;
 const NUM_WORDS = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty','twenty-one','twenty-two','twenty-three','twenty-four','twenty-five','twenty-six','twenty-seven','twenty-eight','twenty-nine','thirty'];
 const numWord = (n) => (n >= 0 && n < NUM_WORDS.length ? NUM_WORDS[n] : String(n));
 const ZK_TOTAL_WORD = numWord(ZK_TOTAL);
-
-// Source the disclosed treasury addresses from the same constant Treasury.jsx renders,
-// duplicated here (single field today: mainnet) rather than cross-importing a page module.
-// Keep in sync with pages/Treasury.jsx -> TREASURIES.
-const TREASURIES = {
-  mainnet: 'kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2',
-};
 
 const SECTIONS = [
   {
@@ -95,115 +88,6 @@ const SECTIONS = [
   },
 ];
 
-// TOC entry for the interactive verification panel. Rendered as a closing appendix
-// (with real fetched data + an honest 404 fallback) so the contents bar still
-// scroll-spies onto it. Kept id 'verify-yourself' so existing anchors stay valid.
-const VERIFY_TOC = { id: 'verify-yourself', n: 'Appendix · Verify yourself' };
-
-// Live-fetch panel: oracle x-only pubkey, served-vkey HEAD probe, disclosed
-// treasury addresses. Real fetches only. Loading + error states are explicit
-// so we never imply success when an endpoint or static path is missing.
-function VerifyYourselfPanel() {
-  const [open, setOpen] = useState(true);
-  const [oraclePk, setOraclePk] = useState({ state: 'loading', value: null });
-  const [vkey, setVkey] = useState({ state: 'loading', url: null });
-
-  // Mirrors the fetch shape used in pages/Markets.jsx ~ line 315 (canonical
-  // xonly_pubkey field, graceful fall-throughs for legacy payloads).
-  useEffect(() => {
-    let alive = true;
-    fetch('/api/oracle/pubkey')
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((j) => {
-        if (!alive) return;
-        const pk = j && (j.xonly_pubkey || j.oracle_xonly_pubkey || j.oracle_pubkey || j.pubkey);
-        setOraclePk(pk ? { state: 'ok', value: pk } : { state: 'error', value: 'response did not include an x-only pubkey field' });
-      })
-      .catch((e) => { if (alive) setOraclePk({ state: 'error', value: String(e && e.message || e) }); });
-    return () => { alive = false; };
-  }, []);
-
-  // Probe the served verification key. The actual layout (per lib/zk/circuits.js
-  // vkeyPathFor) is /zk/<id>/<id>_vkey.json, not /assets/zk/keys/...; if the HEAD
-  // returns 200 we surface the link, otherwise we say so honestly.
-  useEffect(() => {
-    let alive = true;
-    const url = vkeyPathFor('age_verification');
-    fetch(url, { method: 'HEAD' })
-      .then((r) => { if (alive) setVkey(r.ok ? { state: 'ok', url } : { state: 'missing', url: null }); })
-      .catch(() => { if (alive) setVkey({ state: 'missing', url: null }); });
-    return () => { alive = false; };
-  }, []);
-
-  const treasuryEntries = Object.entries(TREASURIES);
-
-  return (
-    <section id={VERIFY_TOC.id} className="scroll-mt-24">
-      <h2 className="relative text-xl font-bold text-white light:text-slate-900 mb-3 pb-2">
-        {VERIFY_TOC.n}
-        <span className="absolute bottom-0 left-0 h-[2px] w-20 rounded-full" aria-hidden="true" style={{ background: 'linear-gradient(90deg, #49EACB, transparent)' }} />
-      </h2>
-      <Card className="p-0 overflow-hidden">
-        <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open}
-          className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-white/[0.02] light:hover:bg-slate-50 transition-colors">
-          <span className="flex items-center gap-2 min-w-0">
-            <ShieldCheck size={16} className="text-kaspa-green shrink-0" />
-            <span className="text-sm font-bold text-white light:text-slate-900">Check the disclosed values yourself</span>
-          </span>
-          <ChevronDown size={16} className={`text-gray-400 light:text-slate-500 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
-        {open && (
-          <div className="px-5 pb-5 pt-1 space-y-5 border-t border-white/[0.06] light:border-slate-200">
-            <p className="text-xs text-gray-400 light:text-slate-500 leading-relaxed">
-              The claims in this paper are checkable. Every value below is fetched live in your browser from this build, with nothing fabricated. If an endpoint or static path is not exposed, the panel says so rather than implying success. This sits at the end on purpose: it is the evidence behind the trust model, not a footnote in the middle of the argument.
-            </p>
-
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 light:text-slate-500 mb-2">Covex games co-sign key (BIP340, testnet)</p>
-              {oraclePk.state === 'loading' && <div className="skeleton h-5 w-72" />}
-              {oraclePk.state === 'ok' && (
-                <p className="text-[11px] font-mono text-kaspa-green break-all">{oraclePk.value}</p>
-              )}
-              {oraclePk.state === 'error' && (
-                <p className="text-[11px] text-amber-300 light:text-amber-700 break-words">Could not fetch /api/oracle/pubkey ({oraclePk.value}). The oracle endpoint is not reachable from this build.</p>
-              )}
-              <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1.5">Source: GET /api/oracle/pubkey. This is the one key Covex holds. It co-signs only the testnet games-replay path, where Covex re-derives the winner from the public signed move log: a deterministic referee anyone can recompute, not a real-world-data oracle, and not trustless. Markets, ZK proofs, and mainnet never use a Covex key. Covex is migrating games to an external-referee model to remove even this.</p>
-            </div>
-
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 light:text-slate-500 mb-2">Served Groth16 verification key (age_verification)</p>
-              {vkey.state === 'loading' && <div className="skeleton h-5 w-72" />}
-              {vkey.state === 'ok' && (
-                <a href={vkey.url} target="_blank" rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-[11px] font-mono text-kaspa-green hover:underline break-all">
-                  <ExternalLink size={11} className="shrink-0" /> {vkey.url}
-                </a>
-              )}
-              {vkey.state === 'missing' && (
-                <p className="text-[11px] text-amber-300 light:text-amber-700">vkey static path not exposed in this build.</p>
-              )}
-              <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1.5">HEAD probe at load. age_verification's Groth16 proof is verified off-chain by you, the counterparty, or any external verifier (snarkjs against this vkey, fail-closed); the only on-chain check is a deployer-bound resolver's Schnorr co-signature.</p>
-            </div>
-
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 light:text-slate-500 mb-2">Disclosed treasury addresses</p>
-              <div className="space-y-1.5">
-                {treasuryEntries.map(([net, addr]) => (
-                  <div key={net} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
-                    <span className="text-[10px] font-bold uppercase tracking-widest text-gray-400 light:text-slate-500 shrink-0 sm:w-16">{net}</span>
-                    <span className="text-[11px] font-mono text-kaspa-green break-all">{addr}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1.5">Source: TREASURIES constant in pages/Treasury.jsx. Every tier payment is an on-chain transaction to this address.</p>
-            </div>
-          </div>
-        )}
-      </Card>
-    </section>
-  );
-}
-
 export default function Whitepaper() {
   // Highlight the section you're reading in the (sticky) contents bar.
   const [activeId, setActiveId] = useState(SECTIONS[0].id);
@@ -211,12 +95,9 @@ export default function Whitepaper() {
     // Direct (rAF-free) scrollspy: the last section whose top has scrolled above the
     // sticky bar is the one you're reading. setActiveId no-ops when the value is unchanged,
     // so re-renders only happen when you actually cross a section boundary.
-    // The verify appendix is its own section appended after the numbered sections,
-    // so the scrollspy walks the sections in render order plus the appendix last.
     const compute = () => {
       let current = SECTIONS[0].id;
-      const ordered = [...SECTIONS, VERIFY_TOC];
-      for (const s of ordered) {
+      for (const s of SECTIONS) {
         const el = document.getElementById(s.id);
         if (el && el.getBoundingClientRect().top <= 130) current = s.id;
       }
@@ -247,7 +128,7 @@ export default function Whitepaper() {
 
       <div className="z-30 glass-panel rounded-2xl p-3 border border-white/[0.06] light:border-slate-200 light:bg-white/90 mb-8 flex flex-wrap gap-x-3 gap-y-1 text-xs backdrop-blur-xl" style={{ position: 'sticky', top: '4rem' }}>
         <span className="kicker w-full mb-0.5">Contents</span>
-        {[...SECTIONS, VERIFY_TOC].map((s) => (
+        {SECTIONS.map((s) => (
           <a key={s.id} href={`#${s.id}`} onClick={() => setActiveId(s.id)}
             className={`transition-colors ${activeId === s.id ? 'text-kaspa-green font-semibold' : 'text-gray-400 light:text-slate-500 hover:text-kaspa-green'}`}>
             {s.n}
@@ -270,9 +151,6 @@ export default function Whitepaper() {
             </div>
           </section>
         ))}
-        {/* Verify-yourself sits at the very end as a labeled appendix: deliberate, live
-            evidence behind the trust model, not a key dump in the middle of the argument. */}
-        <VerifyYourselfPanel />
       </article>
 
       <Card className="mt-12 p-5">

@@ -56,7 +56,7 @@ const FirstCovenantTour = lazy(() => import('./components/FirstCovenantTour'));
 import { ThemeProvider } from './components/ThemeProvider';
 import { ToastProvider } from './components/ToastContext';
 import ThemeToggle from './components/ThemeToggle';
-import { Menu, X, ChevronDown, Download } from 'lucide-react';
+import { Menu, X, ChevronDown, Download } from './lib/icons.js';
 
 // Grouped "Learn" menu so the nav stays clean: informational pages live here instead of
 // crowding the top bar. Opens on hover (desktop).

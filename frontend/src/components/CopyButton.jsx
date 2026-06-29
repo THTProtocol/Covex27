@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check } from '../lib/icons.js';
 import { copyToClipboard, COPY_DWELL_MS } from '../lib/copy';
 
 // One canonical inline copy-to-clipboard button. Drop next to any address / txid /

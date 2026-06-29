@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import {
   X, ShieldCheck, Radio, Link2, ShieldQuestion, ExternalLink, Check, Copy,
   FileKey, Cpu, AlertTriangle, Activity, BadgeCheck,
-} from 'lucide-react';
+} from '../lib/icons.js';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
 import { vkeyPathFor, IN_BROWSER_PROVERS } from '../lib/zk/circuits';
 import { useDialog } from '../lib/useDialog';

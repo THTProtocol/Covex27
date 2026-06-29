@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck } from '../lib/icons.js';
 import { useDialog } from '../lib/useDialog';
 
 export default function LegalModal({ onAccept }) {

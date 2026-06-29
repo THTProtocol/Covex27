@@ -5,7 +5,7 @@ import { explorerAddressUrl } from '../lib/explorer';
 import { truncateHash } from '../lib/format.js';
 import { Link } from 'react-router-dom';
 import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, walletPrimaryAction, isMobile } from './WalletContext';
-import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles, Smartphone, Download, Loader2, QrCode, KeyRound, ShieldCheck } from 'lucide-react';
+import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles, Smartphone, Download, Loader2, QrCode, KeyRound, ShieldCheck } from '../lib/icons.js';
 import { toast } from './ToastContext';
 
 // Dot color must match the Stats.jsx EVENT_META / NETWORKS palette so the network

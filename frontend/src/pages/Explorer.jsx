@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Database, Search, Sparkles, Play, Coins, Layers, Gamepad2, TrendingUp, ShieldCheck, Zap, ChevronDown, Compass, Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Database, Search, Sparkles, Play, Coins, Layers, Gamepad2, TrendingUp, ShieldCheck, Zap, ChevronDown, Compass, Radio, Trophy, Users, Landmark, Lock, Clock, Repeat, KeyRound, Boxes, ArrowRight, AlertTriangle } from '../lib/icons.js';
 import Spinner from '../components/ui/Spinner';
 import CovenantCardSkeleton from '../components/ui/CovenantCardSkeleton';
 import { Button } from '../components/ui/Button';

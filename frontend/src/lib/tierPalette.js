@@ -8,7 +8,7 @@
 // uses a calm blue that does not collide with the brand teal, FREE is neutral
 // slate gray. Icons live alongside colors so tier glyphs stay consistent too.
 
-import { Eye, Terminal, Star, Crown } from 'lucide-react';
+import { Eye, Terminal, Star, Crown } from './icons.js';
 
 export const TIER_PALETTE = {
   FREE:    { color: '#6B7280', icon: Eye,      label: 'FREE'    },

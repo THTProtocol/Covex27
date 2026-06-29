@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- this module intentionally co-exports its component(s) with related constants/hooks/helpers (e.g. a Provider plus its useX hook). That only affects dev Fast Refresh granularity, never the production build or tests; splitting these into separate files is not warranted here. */
 import { useEffect, useRef, useState } from 'react';
-import { Zap, Gamepad2, X, Play } from 'lucide-react';
+import { Zap, Gamepad2, X, Play } from '../lib/icons.js';
 import ChessMini from './chess/ChessMini';
 import { VERIFIED_FULL_ZK } from '../lib/zk/circuits';
 import { PLAYABLE_GAME_KEYS } from '../lib/playableGames';

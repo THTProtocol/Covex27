@@ -8,7 +8,7 @@
 // while a real React provider renders the UI.
 
 import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
-import { CheckCircle2, XCircle, Info, AlertTriangle, X } from 'lucide-react';
+import { CheckCircle2, XCircle, Info, AlertTriangle, X } from '../lib/icons.js';
 
 const ToastContext = createContext(null);
 

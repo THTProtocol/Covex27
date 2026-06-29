@@ -1,5 +1,5 @@
 import { useLocation } from 'react-router-dom';
-import { Check } from 'lucide-react';
+import { Check } from '../lib/icons.js';
 import { useBuildStep, BUILD_STEPS } from '../lib/build-steps.js';
 
 // Single source of truth: BUILD_STEPS. The rail only needs { n, label }.

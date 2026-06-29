@@ -651,6 +651,25 @@ export function assertSignerForBranch(redeemHex, kind, branch, signerXonlyHex) {
 }
 
 /**
+ * Canonical kind-base normalizer (single source of truth for kind aliases). The deploy WIZARD
+ * names the relative-CSV primitive `relative_timelock`, but the backend stores and returns its
+ * redeem_kind as `rcsv:<min_sequence>` (RedeemKind::RelativeTimelock.kind_str()), and EVERY
+ * redeemer table here (SIGNER_INDEX_MAP, KIND_CLAIM_MATRIX, buildSatisfier, the Recover branch
+ * picker) keys on `rcsv`. So any code that derives a kind base from a covenant record / recovery
+ * kit / pasted external-covenant kind MUST fold the wizard alias to the canonical `rcsv`, or a
+ * `relative_timelock` string falls through to the p2sh default and the spend/recovery fails
+ * SILENTLY (the exact GAP-7 fund-lock risk: a wallet user could lock real funds in a covenant
+ * they cannot redeem in-app OR recover). Strips any `:<param>` suffix and lower-cases. Pure.
+ *
+ * @param {string} kind - a kind string, with or without a `:<param>` suffix (e.g. 'rcsv:10').
+ * @returns {string} the canonical base used by every table in this module.
+ */
+export function canonicalKindBase(kind) {
+  const base = String(kind || '').split(':')[0].toLowerCase();
+  return base === 'relative_timelock' ? 'rcsv' : base;
+}
+
+/**
  * Honest per-kind offline-claimability matrix (single source of truth shared by the recovery
  * UI and the recovery-kit export). "Offline-claimable" means a holder can satisfy the branch
  * end-to-end with ONLY a revealed-on-chain secret and/or the named key's signature - no

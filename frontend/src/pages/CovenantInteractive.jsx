@@ -143,10 +143,11 @@ function GameStakeControl({
 }
 
 // Kinds EnforcedDeploy can sign locally end-to-end (mirrors EnforcedDeploy.jsx NONCUSTODIAL).
-// Other kinds (oracle_escrow / oracle_enforced / timedecay / deadman / relative_timelock)
-// need the redeem-script recovery flow - we must NOT promise local non-custodial signing
-// the spender cannot complete. Routing/copy only; no spend-builder change.
-const NONCUSTODIAL_REDEEM_KINDS = ['singlesig', 'hashlock', 'timelock', 'multisig', 'htlc', 'channel'];
+// rcsv is the relative-timelock primitive (the backend stores it as 'rcsv:<min_sequence>'); it
+// signs locally like the absolute timelock. Other kinds (oracle_escrow / oracle_enforced /
+// timedecay / deadman) need the redeem-script recovery flow - we must NOT promise local
+// non-custodial signing the spender cannot complete. Routing/copy only; no spend-builder change.
+const NONCUSTODIAL_REDEEM_KINDS = ['singlesig', 'hashlock', 'timelock', 'rcsv', 'multisig', 'htlc', 'channel'];
 
 const DEFAULT_UI_CONFIG = {
   primaryColor: '#49EACB',

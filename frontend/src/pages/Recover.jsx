@@ -7,7 +7,7 @@ import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
 import { hasPublicApi, fetchAddressBalanceSompi, fetchAddressUtxos, sompiToKas, wrpcNodesFor } from '../lib/kaspaPublicApi';
 import { useWallet } from '../components/WalletContext';
 import {
-  KIND_CLAIM_MATRIX, claimability, assertSignerForBranch,
+  KIND_CLAIM_MATRIX, claimability, assertSignerForBranch, canonicalKindBase,
   buildSatisfier, buildUnsignedSpend, signInput, assembleSigScript, broadcast, exportSignedTxJson,
 } from '../lib/redeemer/covenantRedeemer';
 
@@ -124,7 +124,10 @@ function ClaimFlow({ kit, utxos }) {
   const wallet = useWallet();
   const net = normNetwork(kit.network);
   const mainnet = isMainnetNet(kit.network);
-  const kind = String(kit.redeem_kind || '').split(':')[0] || 'p2sh';
+  // canonicalKindBase folds the wizard alias relative_timelock -> rcsv (the kind every redeemer
+  // table here keys on) so a covenant deployed as relative_timelock recovers instead of silently
+  // falling through to the p2sh default and failing.
+  const kind = canonicalKindBase(kit.redeem_kind) || 'p2sh';
   const matrix = KIND_CLAIM_MATRIX[kind] || null;
 
   const branches = KIND_BRANCHES[kind] || [{ value: 'claim', label: 'Spend with your key' }];
@@ -557,7 +560,7 @@ export default function Recover() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const kind = String(kit?.redeem_kind || '').split(':')[0] || 'p2sh';
+  const kind = canonicalKindBase(kit?.redeem_kind) || 'p2sh';
   const hint = KIND_HINTS[kind] || KIND_HINTS.p2sh;
 
   return (

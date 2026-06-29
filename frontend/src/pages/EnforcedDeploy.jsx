@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
-import { verifyAndSignSpend } from '../lib/redeemer/covenantRedeemer';
+import { verifyAndSignSpend, canonicalKindBase } from '../lib/redeemer/covenantRedeemer';
 import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel, Palette, Share2, AlertTriangle } from 'lucide-react';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import DeployDisclosure from '../components/DeployDisclosure';
@@ -531,12 +531,19 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
     try {
       const myKey = devMode?.privateKeyHex;
       const dest = (c.destOverride && c.destOverride.trim()) || (c.dev ? (address || '') : address);
-      const kindBase = String(c.kind || 'singlesig').split(':')[0];
+      // canonicalKindBase folds the wizard alias relative_timelock -> rcsv: a relative-timelock
+      // deploy is stored/returned by the backend as redeem_kind 'rcsv:<min_sequence>', so c.kind is
+      // already 'rcsv:N' here; the alias also covers a record that carries the raw wizard string.
+      const kindBase = canonicalKindBase(c.kind || 'singlesig');
       // Every DETERMINISTIC primitive is now non-custodially redeemable in the browser:
       // the single-signer kinds AND the multi-party kinds (multisig, HTLC, channel). The
       // chain enforces them and Covex only relays the signed tx. oracle_* still co-sign
       // server-side (the oracle key is consensus-required by design).
-      const NONCUSTODIAL = ['singlesig', 'hashlock', 'timelock', 'multisig', 'htlc', 'channel'];
+      // rcsv (relative timelock, BIP68 CSV): the backend prepare-spend sets the input sequence to
+      // the committed min_sequence in spend_plan.sequence, which the local rebuilder signs over, so
+      // it redeems non-custodially exactly like the absolute timelock - it must be listed or a
+      // relative-timelock holder hits the mainnet refusal and is bounced to Recover (GAP 7).
+      const NONCUSTODIAL = ['singlesig', 'hashlock', 'timelock', 'rcsv', 'multisig', 'htlc', 'channel'];
       // External (non-Covex) covenants carry their own redeem script + outpoint so the
       // server can build the spend with no stored record.
       const external = c.redeem_script_hex
@@ -555,7 +562,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       // before returning. We submit ONLY the verified signature, never a blind wallet blob. This
       // covers the single-signer non-custodial kinds (singlesig / hashlock / timelock); multi-party
       // kinds keep the dev-key co-sign path below.
-      const SINGLE_SIGNER = ['singlesig', 'hashlock', 'timelock'];
+      const SINGLE_SIGNER = ['singlesig', 'hashlock', 'timelock', 'rcsv'];
       if (!myKey && canSignCovenant && SINGLE_SIGNER.includes(kindBase)) {
         const prep = await fetch('/api/covenant/p2sh/prepare-spend', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -651,7 +658,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       // fallback is refused here (only the non-custodial local-signing path above is allowed;
       // for covenant types it doesn't cover, redeem with a wallet extension).
       if ((net === 'mainnet' || net === 'mainnet-1') && !c.dev) {
-        setError('Your key never leaves this device. This covenant type cannot be redeemed non-custodially yet on mainnet; redeem a single-key / hashlock / timelock / multisig / htlc / channel covenant (which sign locally), or use a wallet extension.');
+        setError('Your key never leaves this device. This covenant type cannot be redeemed non-custodially yet on mainnet; redeem a single-key / hashlock / timelock / relative-timelock / multisig / htlc / channel covenant (which sign locally), or use a wallet extension.');
         setRecoverTx(c.tx);
         return;
       }

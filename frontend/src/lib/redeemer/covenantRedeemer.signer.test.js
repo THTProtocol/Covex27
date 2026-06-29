@@ -14,6 +14,7 @@ import {
   OPCODES,
   bytesToHex,
   assertSignerForBranch,
+  canonicalKindBase,
   claimability,
   KIND_CLAIM_MATRIX,
 } from './covenantRedeemer.js';
@@ -70,6 +71,12 @@ const WRONG = k(0x99);
 
 // singlesig: <key> OpCheckSig
 const REDEEM_SINGLESIG = hx(cat(p32(KEY), [OpCheckSig]));
+
+// rcsv (relative timelock, BIP68 CSV): <min_sequence push> OpCheckSequenceVerify <key> OpCheckSig
+// (redeem_relative_timelock in covenant_builder.rs). parseRedeemPubkeys(true) finds the lone key
+// after the CSV operand; the wizard names this kind 'relative_timelock' but the backend returns
+// redeem_kind 'rcsv:<min_sequence>'.
+const REDEEM_RCSV = hx(cat([0x01, 0x90], [OpCheckSequenceVerify], p32(KEY), [OpCheckSig]));
 
 // htlc: OP_IF OpBlake2b <hash> OpEqualVerify <receiver> OpCheckSig OP_ELSE <ltv> <sender> OpCheckSig OP_ENDIF
 // parseRedeemPubkeys(true) -> [receiver, sender] (the hash push is followed by OpEqualVerify, excluded).
@@ -207,6 +214,61 @@ describe('assertSignerForBranch fails closed on the wrong key/branch', () => {
   it('truncated redeem (too few keys for the index) throws', () => {
     // A redeem with only one key but asking for htlc refund (index 1).
     expect(() => assertSignerForBranch(REDEEM_SINGLESIG, 'htlc', 'refund', hx(SENDER))).toThrow(/need index/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GAP 7: relative_timelock (the deploy-wizard name) must canonicalize to rcsv (the kind every
+// redeemer table keys on) so a relative-timelock covenant is redeemable in-app AND recoverable.
+// Without this a holder could lock real funds in a covenant they cannot redeem OR recover: the
+// raw 'relative_timelock' string falls through to the p2sh default and the spend fails silently.
+// ---------------------------------------------------------------------------
+describe('GAP 7: relative_timelock -> rcsv recovery round-trip', () => {
+  it('canonicalKindBase folds the wizard alias and strips the :<min_sequence> suffix', () => {
+    expect(canonicalKindBase('relative_timelock')).toBe('rcsv');
+    // The backend returns redeem_kind 'rcsv:<min_sequence>'; the base must still be 'rcsv'.
+    expect(canonicalKindBase('rcsv:10')).toBe('rcsv');
+    expect(canonicalKindBase('relative_timelock:144')).toBe('rcsv');
+    // Case-insensitive, and unrelated kinds are untouched.
+    expect(canonicalKindBase('RELATIVE_TIMELOCK')).toBe('rcsv');
+    expect(canonicalKindBase('singlesig')).toBe('singlesig');
+    expect(canonicalKindBase('timelock:1000')).toBe('timelock');
+    expect(canonicalKindBase('')).toBe('');
+    expect(canonicalKindBase(undefined)).toBe('');
+  });
+
+  it('the canonical kind has a claim-matrix + signer-index entry (so neither falls to p2sh)', () => {
+    // Recover.jsx / EnforcedDeploy derive the kind via canonicalKindBase; both tables must answer.
+    const canon = canonicalKindBase('relative_timelock');
+    expect(KIND_CLAIM_MATRIX[canon]).toBeDefined();
+    expect(KIND_CLAIM_MATRIX[canon].offlineClaimable).toBe(true);
+    expect(claimability(canon, 'claim').offline).toBe(true);
+    // Honest disclosure: fully script-enforced, no resolver in the path.
+    expect(/no resolver/i.test(claimability(canon, 'claim').liveness)).toBe(true);
+  });
+
+  it('binds the recovery key to the rcsv claim signer (the full recover round-trip core)', () => {
+    // A relative-timelock covenant deployed by KEY: canonicalize, then prove the recovery key is
+    // the exact key the chain OpCheckSigs - the bind assertSignerForBranch performs before signing.
+    const canon = canonicalKindBase('relative_timelock');
+    const bound = assertSignerForBranch(REDEEM_RCSV, canon, 'claim', hx(KEY));
+    expect(bound.index).toBe(0);
+    expect(bound.namedKeyHex).toBe(hx(KEY));
+  });
+
+  it('rejects the WRONG key on the rcsv claim branch (fail-closed bind)', () => {
+    const canon = canonicalKindBase('relative_timelock');
+    expect(() => assertSignerForBranch(REDEEM_RCSV, canon, 'claim', hx(WRONG)))
+      .toThrow(/NOT the rcsv/);
+  });
+
+  it('the raw wizard string is NOT a redeemer key, proving the alias is load-bearing', () => {
+    // Sanity: without canonicalKindBase, the unaliased string has no table entry, so the UI would
+    // fall through to the conservative p2sh default and the spend/recovery would fail silently.
+    expect(KIND_CLAIM_MATRIX.relative_timelock).toBeUndefined();
+    expect(claimability('relative_timelock', 'claim')).toBe(null);
+    expect(() => assertSignerForBranch(REDEEM_RCSV, 'relative_timelock', 'claim', hx(KEY)))
+      .toThrow(/unsupported kind/);
   });
 });
 

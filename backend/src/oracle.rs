@@ -981,6 +981,39 @@ async fn verify_and_sign_handler(
         );
     }
 
+    // SECURITY (GAP-2, money-path): privacy-mixer double-withdraw TOCTOU close.
+    // The leading mixer_nullifier_spent read (a SELECT COUNT) is only a fast-path reject;
+    // it is NOT atomic, so two concurrent requests carrying the SAME valid proof can both
+    // pass that read and both reach signing. The authoritative single gate is this atomic
+    // INSERT OR IGNORE: mixer_record_nullifier inserts exactly one row the first time a
+    // nullifier is seen (rows_inserted == 1) and ZERO rows on any concurrent or later reuse
+    // (rows_inserted == 0). We record BEFORE signing and refuse to sign when the row already
+    // existed, so exactly one of N racing requests for a given nullifier can ever obtain a
+    // signature. (outcome == 0 is the mixer's valid-withdraw verdict; only a successful
+    // withdraw consumes the nullifier. public_inputs[2] is the nullifier, matching the read.)
+    if input.circuit_type == "privacy_mixer_v1" && outcome == 0 {
+        if let Some(nullifier) = input.public_inputs.get(2) {
+            let rows_inserted =
+                crate::db::mixer_record_nullifier(&db, nullifier, &input.covenant_id)
+                    .unwrap_or(0);
+            if rows_inserted == 0 {
+                return Json(OracleVerifyOutput {
+                    success: false,
+                    outcome: None,
+                    signature: None,
+                    timestamp: None,
+                    message: None,
+                    error: Some(
+                        "Nullifier already spent - double-withdraw rejected".to_string(),
+                    ),
+                    public_inputs: input.public_inputs,
+                    circuit_type: Some(input.circuit_type.clone()),
+                    covenant_hint: None,
+                });
+            }
+        }
+    }
+
     // Real BIP340 Schnorr signature over the outcome message (verifiable on-chain).
     let signature = sign_outcome(&message);
 
@@ -1011,11 +1044,9 @@ async fn verify_and_sign_handler(
         );
     }
 
-    if input.circuit_type == "privacy_mixer_v1" && outcome == 0 {
-        if let Some(nullifier) = input.public_inputs.get(2) {
-            let _ = crate::db::mixer_record_nullifier(&db, nullifier, &input.covenant_id);
-        }
-    }
+    // Nullifier was already recorded (record-then-sign) above; recording here would be a
+    // redundant no-op (INSERT OR IGNORE) and, worse, hide the double-withdraw race by signing
+    // first. See the GAP-2 gate before sign_outcome.
 
     Json(OracleVerifyOutput {
         success: true,

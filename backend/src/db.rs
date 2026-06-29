@@ -2971,3 +2971,107 @@ mod generated_ui_masking_tests {
         assert_eq!(tier, "METADATA");
     }
 }
+
+#[cfg(test)]
+mod mixer_nullifier_concurrency_tests {
+    use super::*;
+
+    // Build a Db over a SHARED-CACHE in-memory SQLite so every pooled connection sees the
+    // same database (a plain :memory: gives each pooled connection its OWN empty db). This
+    // lets two threads race INSERT OR IGNORE against the SAME mixer_nullifiers PRIMARY KEY,
+    // exactly as two concurrent verify-and-sign requests for the same nullifier would.
+    fn shared_mem_db() -> Db {
+        // Unique name per test run so parallel test cases never collide on the shared cache.
+        let uri = format!(
+            "file:mixer_toctou_{}?mode=memory&cache=shared",
+            uuid::Uuid::new_v4().simple()
+        );
+        let manager = SqliteConnectionManager::file(&uri).with_init(|c| {
+            c.execute_batch("PRAGMA busy_timeout=5000;")
+        });
+        let pool = r2d2::Pool::builder().max_size(8).build(manager).unwrap();
+        // Hold one connection open for the lifetime of the Db: a shared-cache in-memory
+        // database is destroyed when its LAST connection closes, so we keep the pool warm
+        // by creating the schema on a checked-out connection and immediately reusing the
+        // pool below. Creating the table here is the single migration for the test.
+        {
+            let conn = pool.get().unwrap();
+            conn.execute_batch(
+                "CREATE TABLE IF NOT EXISTS mixer_nullifiers (
+                    nullifier     TEXT PRIMARY KEY,
+                    covenant_id   TEXT NOT NULL,
+                    spent_at      INTEGER NOT NULL DEFAULT (unixepoch())
+                );",
+            )
+            .unwrap();
+        }
+        Db { pool }
+    }
+
+    // GAP-2 (money-path): the atomic INSERT OR IGNORE is the AUTHORITATIVE single gate that
+    // the oracle's record-then-sign now relies on. Sequentially, the first record returns 1
+    // (inserted -> sign allowed) and every reuse returns 0 (already spent -> refuse to sign).
+    #[test]
+    fn mixer_record_nullifier_is_single_use() {
+        let db = shared_mem_db();
+        let nf = "0xnullifier_seq";
+        let cid = "covenantA:0";
+        assert_eq!(
+            mixer_record_nullifier(&db, nf, cid).unwrap(),
+            1,
+            "first record of a fresh nullifier must insert exactly one row"
+        );
+        assert_eq!(
+            mixer_record_nullifier(&db, nf, cid).unwrap(),
+            0,
+            "reusing the same nullifier must insert ZERO rows (already spent)"
+        );
+        assert_eq!(
+            mixer_record_nullifier(&db, nf, "covenantB:0").unwrap(),
+            0,
+            "the nullifier PRIMARY KEY is global: a different covenant cannot re-record it"
+        );
+    }
+
+    // Simulate two concurrent verify-and-sign requests carrying the SAME valid proof/nullifier.
+    // Both threads call the authoritative gate; the PRIMARY KEY guarantees EXACTLY ONE insert
+    // (rows_inserted == 1) and the other observes 0. Under the record-then-sign rule only the
+    // winner (== 1) gets a signature, so the double-withdraw is impossible even when the
+    // non-atomic leading spent-read let both requests through.
+    #[test]
+    fn two_concurrent_same_nullifier_exactly_one_inserts() {
+        let db = shared_mem_db();
+        let nf = "0xnullifier_race";
+        let cid = "covenantRace:0";
+
+        let mut handles = Vec::new();
+        for _ in 0..2 {
+            let dbc = db.clone();
+            let nfc = nf.to_string();
+            let cidc = cid.to_string();
+            handles.push(std::thread::spawn(move || {
+                mixer_record_nullifier(&dbc, &nfc, &cidc).unwrap_or(0)
+            }));
+        }
+        let mut total_inserts = 0usize;
+        for h in handles {
+            total_inserts += h.join().unwrap();
+        }
+        assert_eq!(
+            total_inserts, 1,
+            "exactly one of two concurrent same-nullifier requests may insert (and thus sign); \
+             the other must observe rows_inserted == 0 and be refused"
+        );
+
+        // And the nullifier is now permanently spent for any subsequent attempt.
+        assert!(
+            mixer_nullifier_spent(&db, nf).unwrap(),
+            "after the race the nullifier must read as spent"
+        );
+        assert_eq!(
+            mixer_record_nullifier(&db, nf, cid).unwrap(),
+            0,
+            "a third sequential attempt after the race must also be refused"
+        );
+    }
+}

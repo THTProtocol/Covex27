@@ -1,20 +1,24 @@
 #!/usr/bin/env bash
-# Install Rust + RISC0 zkVM toolchain in WSL for the Covex ZK chess prover.
-set -e
-echo "START"
-if ! command -v rustc >/dev/null 2>&1; then
-  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
-fi
-. "$HOME/.cargo/env" 2>/dev/null || true
-export PATH="$HOME/.cargo/bin:$PATH"
-echo "RUST_OK $(rustc --version)"
-echo "CARGO_OK $(cargo --version)"
-if ! command -v rzup >/dev/null 2>&1; then
-  curl -L https://risczero.com/install | bash
-fi
-export PATH="$HOME/.risc0/bin:$PATH"
-rzup install || rzup install rust || true
-echo "RZUP $(rzup --version 2>/dev/null || echo none)"
-echo "R0VM $(command -v r0vm || echo none)"
-echo "CARGO_RISCZERO $(cargo risczero --version 2>/dev/null || echo none)"
-echo "ALL_DONE"
+# Robust RISC0 install: try rzup curl installer, fall back to cargo install. Logs to /tmp/r0i3.log.
+export PATH="$HOME/.cargo/bin:$HOME/.risc0/bin:$PATH"
+LOG=/tmp/r0i3.log
+{
+  echo "START"
+  echo "--- method 1: rzup curl installer ---"
+  if curl -fsSL https://risczero.com/install -o /tmp/rzup_installer.sh; then
+    echo "installer head:"; head -5 /tmp/rzup_installer.sh
+    bash /tmp/rzup_installer.sh || echo "rzup installer rc=$?"
+  else
+    echo "curl rzup installer FAILED rc=$?"
+  fi
+  export PATH="$HOME/.risc0/bin:$PATH"; hash -r
+  if command -v rzup >/dev/null 2>&1; then echo "rzup found -> rzup install"; rzup install || echo "rzup install rc=$?"; fi
+  echo "--- fallback: cargo install cargo-risczero ---"
+  if ! command -v r0vm >/dev/null 2>&1; then
+    cargo install cargo-risczero || echo "cargo install rc=$?"
+    cargo risczero install || echo "cargo risczero install rc=$?"
+  fi
+  export PATH="$HOME/.risc0/bin:$PATH"; hash -r
+  echo "FINAL rzup=$(command -v rzup||echo no) r0vm=$(command -v r0vm||echo no) cargo-risczero=$(cargo risczero --version 2>&1)"
+  echo "ALL_DONE"
+} > "$LOG" 2>&1

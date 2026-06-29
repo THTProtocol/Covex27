@@ -80,15 +80,15 @@ const WALLET_LOGOS = {
   Kastle:   'https://lh3.googleusercontent.com/byDg7ykj9UUJRur0v8jFr9orcj7N1_M6LuqtwnJxlnVNk4GV0JrhFmS0Xp0U9QRgxGZa4wf7-8M29v7kfEBc-Ha9kg=s128',
   Kasperia: 'https://lh3.googleusercontent.com/b08QPuruZqIwLRmpcTrN54hmxY6YEQgVKS4y1s7LAYiIulTlZAaxvsWRUK2SIivLecsxgoCuoH66jNLnQLzjMWXtFr0=s128',
   OKX:      'https://lh3.googleusercontent.com/2bBevW79q6gRZTFdm42CzUetuEKndq4fn41HQGknMpKMF_d-Ae2sJJzgfFUAVb1bJKCBb4ptZ9EAPp-QhWYIvc35yw=s128',
-  // Higher-res, reliable logos via Google's favicon service (sz=128) for wallets without a
-  // Chrome Web Store CDN image. Falls back to a letter avatar (WalletButton onError) if any
-  // fail, so a bad URL never shows a broken image.
-  Kasanova: 'https://www.google.com/s2/favicons?domain=kasanova.app&sz=128',
-  Kaspium:  'https://www.google.com/s2/favicons?domain=kaspium.io&sz=128',
-  KaspaCom: 'https://www.google.com/s2/favicons?domain=wallet.kaspa.com&sz=128',
-  Tangem:   'https://www.google.com/s2/favicons?domain=tangem.com&sz=128',
-  OneKey:   'https://www.google.com/s2/favicons?domain=onekey.so&sz=128',
-  KSPR:     'https://www.google.com/s2/favicons?domain=kspr.app&sz=128',
+  // Mobile-only wallets have no stable official logo CDN (no Chrome Web Store image), and the
+  // favicon service returned generic/wrong icons that read as fake. They intentionally fall back
+  // to the clean letter-avatar in WalletButton (empty logo) rather than show a wrong/fake image.
+  Kasanova: '',
+  Kaspium:  '',
+  KaspaCom: '',
+  Tangem:   '',
+  OneKey:   '',
+  KSPR:     '',
 };
 
 const WALLET_INSTALL_URLS = {

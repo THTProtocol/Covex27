@@ -572,7 +572,7 @@ export default function CovenantStudio() {
       )}
 
       <div className="relative flex items-center justify-between gap-2 md:gap-3 px-3 md:px-5 py-2 md:py-3 border-b border-white/[0.08] light:border-slate-200 bg-[#0A0A0D] light:bg-white">
-        <Link data-tour="public-page" to={`/covenant/${encodeURIComponent(id)}`} aria-label="Back to covenant" className="flex items-center justify-center md:justify-start gap-1.5 text-xs text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900 shrink-0 whitespace-nowrap h-11 w-11 md:w-auto md:h-10 md:px-1">
+        <Link to={`/covenant/${encodeURIComponent(id)}`} aria-label="Back to covenant" className="flex items-center justify-center md:justify-start gap-1.5 text-xs text-gray-400 light:text-slate-600 hover:text-white light:hover:text-slate-900 shrink-0 whitespace-nowrap h-11 w-11 md:w-auto md:h-10 md:px-1">
           <ArrowLeft size={16} /> <span className="hidden sm:inline">Back to covenant</span>
         </Link>
         <p className="flex-1 min-w-0 text-[11px] md:text-xs font-bold text-white light:text-slate-900 truncate px-1 md:px-2">{covenant.name || 'Covenant'} · Covenant Studio</p>

@@ -1030,7 +1030,7 @@ export default function CovenantInteractive() {
           before the title block. One full-width TrustBadge, sized md with description.
           A small primary Share pill sits inline beside it so visitors get an obvious
           share affordance without having to scroll to the buried header button. */}
-      <div className="mb-6 flex flex-wrap items-start gap-3">
+      <div data-tour="public-page" className="mb-6 flex flex-wrap items-start gap-3">
         <div className="flex-1 min-w-0">
           <TrustBadge covenant={covenant} size="md" showDesc />
         </div>

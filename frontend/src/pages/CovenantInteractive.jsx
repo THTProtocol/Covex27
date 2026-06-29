@@ -1154,7 +1154,7 @@ export default function CovenantInteractive() {
             <div className="py-5">
               <Separator className="mb-5 light:bg-slate-200" />
               <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Covenant Lifecycle</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 light:text-slate-500">Covenant Lifecycle</p>
                 <div className="flex items-center gap-2">
                   {/* Honest finality chip from the backend (derived against the live node tip). */}
                   {covenant.finality === 'final' && (
@@ -1203,10 +1203,10 @@ export default function CovenantInteractive() {
                 ))}
               </div>
               <div className="mt-3 pt-3 border-t border-white/[0.05] flex items-center justify-between flex-wrap gap-2 text-[11px] font-mono">
-                <Link to={`/address/${encodeURIComponent(covenant.creator_addr || covenant.address || '')}`} className="text-gray-400 hover:text-kaspa-green transition-colors">
+                <Link to={`/address/${encodeURIComponent(covenant.creator_addr || covenant.address || '')}`} className="text-gray-400 light:text-slate-600 hover:text-kaspa-green light:hover:text-kaspa-green transition-colors">
                   Creator portfolio: {(covenant.creator_addr || '').slice(0, 22)}...
                 </Link>
-                <span className="text-gray-500">Network: {covenant.network}</span>
+                <span className="text-gray-500 light:text-slate-600">Network: {covenant.network}</span>
               </div>
             </div>
           )}
@@ -1218,7 +1218,7 @@ export default function CovenantInteractive() {
           {actions.length > 0 && (
             <div className="py-5">
               <Separator className="mb-5 light:bg-slate-200" />
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Activity History</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 light:text-slate-500 mb-3">Activity History</p>
               <div className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
                 {actions.slice().reverse().map((a, i) => {
                   const LABELS = {
@@ -1234,9 +1234,9 @@ export default function CovenantInteractive() {
                   return (
                     <div key={i} className="flex items-center justify-between gap-2 sm:gap-3 text-[11px] font-mono">
                       <span className={`font-bold ${l.c} shrink-0`}>{l.t}</span>
-                      <span className="text-gray-500 truncate flex-1 min-w-0">{a.detail}</span>
-                      {a.amount_kaspa > 0 && <span className="text-white shrink-0">{a.amount_kaspa} KAS</span>}
-                      <span className="text-gray-600 shrink-0 hidden sm:inline">{a.timestamp ? new Date(a.timestamp * 1000).toLocaleString() : ''}</span>
+                      <span className="text-gray-500 light:text-slate-600 truncate flex-1 min-w-0">{a.detail}</span>
+                      {a.amount_kaspa > 0 && <span className="text-white light:text-slate-900 shrink-0">{a.amount_kaspa} KAS</span>}
+                      <span className="text-gray-600 light:text-slate-500 shrink-0 hidden sm:inline">{a.timestamp ? new Date(a.timestamp * 1000).toLocaleString() : ''}</span>
                     </div>
                   );
                 })}

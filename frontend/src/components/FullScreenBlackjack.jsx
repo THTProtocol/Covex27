@@ -449,8 +449,8 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
 
             {/* Opponent area - top */}
             <div className="absolute top-[13%] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
-              <div className="text-[12px] text-gray-300 uppercase tracking-[3px] font-mono">
-                {mySeatNum ? 'OPPONENT' : 'O SEAT'} <span className="lowercase tracking-normal text-gray-400">{seat(mySeatNum === 2 ? game?.player1 : game?.player2)}</span>
+              <div className="text-[12px] text-gray-200 uppercase tracking-[3px] font-mono">
+                {mySeatNum ? 'OPPONENT' : 'O SEAT'} <span className="lowercase tracking-normal text-gray-300">{seat(mySeatNum === 2 ? game?.player1 : game?.player2)}</span>
               </div>
               {/* betting circle for the opponent */}
               <div className={`relative flex items-center justify-center ${oppWin ? '' : 'bet-ring'}`}
@@ -505,8 +505,8 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
                 )}
               </div>
               <div className="text-sm font-bold font-mono tabular-nums text-white">{(mySeatNum ? myHand : table.p1).length ? (mySeatNum ? myVal : table.v1) : ''}</div>
-              <div className="text-[12px] text-gray-300 uppercase tracking-[3px] font-mono">
-                {mySeatNum ? 'YOU' : 'X SEAT'} <span className="lowercase tracking-normal text-gray-400">{seat(mySeatNum === 2 ? game?.player2 : game?.player1)}</span>
+              <div className="text-[12px] text-gray-200 uppercase tracking-[3px] font-mono">
+                {mySeatNum ? 'YOU' : 'X SEAT'} <span className="lowercase tracking-normal text-gray-300">{seat(mySeatNum === 2 ? game?.player2 : game?.player1)}</span>
               </div>
             </div>
 
@@ -518,7 +518,7 @@ export default function FullScreenBlackjack({ stake = 100, onClose, covenantId, 
                      : 'none',
                    transition: 'transform 600ms cubic-bezier(0.22,1,0.36,1)',
                  }}>
-              <div className="text-[10px] text-gray-400 uppercase tracking-widest mb-1">POT</div>
+              <div className="text-[10px] text-gray-200 uppercase tracking-widest mb-1">POT</div>
               <ChipStack amount={totalPot} size={36} />
             </div>
           </div>

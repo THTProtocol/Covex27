@@ -47,12 +47,6 @@ const REFEREE_KEY_PLACEHOLDER: &str = "SET_COVEX_REFEREE_KEY__no_referee_key_is_
 const REFEREE_DEV_SEED: &[u8] =
     b"covex-referee-dev-seed:v1:testnet-only:no-secrecy:set-REFEREE_KEY-for-real";
 
-/// True for any network label that is not mainnet. Mirrors the `starts_with`
-/// check used across the codebase (covenant_builder, crawler, indexer).
-fn is_mainnet(network: &str) -> bool {
-    network.starts_with("mainnet")
-}
-
 /// The configured referee secret bytes (32 bytes), fail-closed.
 ///
 /// `REFEREE_KEY` (64-hex) is the source of truth. When it is unset:
@@ -92,7 +86,7 @@ fn referee_secret_bytes(network: &str) -> [u8; 32] {
             out
         }
         _ => {
-            if is_mainnet(network) {
+            if crate::covenant_builder::is_mainnet(network) {
                 panic!(
                     "REFEREE_KEY is not set: the game referee refuses to derive a secret on \
                      mainnet (fail-closed). A publicly-derivable testnet seed must never secure \
@@ -255,5 +249,23 @@ mod tests {
         let pk = referee_xonly_pubkey_hex(NET);
         assert_eq!(pk.len(), 64, "x-only pubkey is 32 bytes / 64 hex chars");
         assert!(hex::decode(&pk).is_ok(), "pubkey hex decodes");
+    }
+
+    /// GAP 9 (single-source-of-truth): the referee's mainnet detection now routes
+    /// through `crate::covenant_builder::is_mainnet` (the codebase-wide
+    /// `starts_with("mainnet")` predicate), not a local re-implementation. This
+    /// proves the wiring classifies exactly the strings the referee fail-closed
+    /// path depends on: every mainnet-ish label (including the "mainnet-foo"
+    /// variant an exact `==` would miss) is mainnet, and the testnets are not.
+    #[test]
+    fn mainnet_predicate_is_canonical() {
+        use crate::covenant_builder::is_mainnet;
+        assert!(is_mainnet("mainnet"), "mainnet is mainnet");
+        assert!(
+            is_mainnet("mainnet-foo"),
+            "a mainnet-prefixed variant must also be mainnet (no exact-match bypass)"
+        );
+        assert!(!is_mainnet("testnet-12"), "testnet-12 is not mainnet");
+        assert!(!is_mainnet("testnet-10"), "testnet-10 is not mainnet");
     }
 }

@@ -358,12 +358,14 @@ pub async fn sign_and_broadcast_handler(
         deployer_addr_str = payload.deployer_addr.clone();
     };
 
-    // Network-aware treasury address
-    let treasury_addr_str: &str = if network == "testnet-10" {
-        dev_wallets::TREASURY_ADDRESS_TN10
-    } else {
-        dev_wallets::TREASURY_ADDRESS_TN12
-    };
+    // Network-aware treasury address. Route through the single-source-of-truth selector so the
+    // mainnet case is handled by the SAME predicate as everywhere else (crate::covenant_builder::
+    // is_mainnet), rather than a local `testnet-10 ? TN10 : TN12` branch that had no mainnet arm and
+    // would silently fall through to the TN12 testnet treasury. On mainnet this handler is already
+    // unreachable (the use_dev_mode and raw-private-key gates above reject every mainnet path before
+    // here), so this is defense-in-depth that keeps the treasury selection correct if those upstream
+    // gates ever change. Testnet behavior is unchanged (testnet-10 -> TN10, else -> TN12).
+    let treasury_addr_str: &str = dev_wallets::treasury_address_for_network(network);
 
     // On-demand client for the *requested* network (key for same-website TN10/TN12 toggle).
     // This ensures the UTXO query and broadcast target the correct kaspad (e.g. 17210 for TN10).

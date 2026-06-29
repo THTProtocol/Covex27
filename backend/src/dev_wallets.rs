@@ -139,3 +139,43 @@ pub fn dev_private_key(wallet: u8, network: &str) -> Result<String, String> {
         )),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// GAP 9 (single-source-of-truth treasury selection): `treasury_address_for_network`
+    /// is the one place that maps a network to its treasury, and signer.rs now routes
+    /// through it instead of a local `testnet-10 ? TN10 : TN12` branch that had no mainnet
+    /// arm. Every mainnet-ish label must resolve to the MAINNET treasury (a mainnet address,
+    /// never a `kaspatest:` one), and the testnets to their own addresses.
+    #[test]
+    fn treasury_routes_each_network_correctly() {
+        assert_eq!(
+            treasury_address_for_network("mainnet"),
+            TREASURY_ADDRESS_MAINNET,
+            "mainnet must route to the mainnet treasury"
+        );
+        // The starts_with("mainnet") predicate also catches mainnet variants, so a
+        // "mainnet-1" label must NOT fall through to the testnet treasury.
+        assert_eq!(
+            treasury_address_for_network("mainnet-1"),
+            TREASURY_ADDRESS_MAINNET,
+            "a mainnet-prefixed variant must also route to the mainnet treasury"
+        );
+        assert!(
+            treasury_address_for_network("mainnet").starts_with("kaspa:"),
+            "the mainnet treasury must be a mainnet (kaspa:) address, never a testnet one"
+        );
+        assert_eq!(
+            treasury_address_for_network("testnet-10"),
+            TREASURY_ADDRESS_TN10,
+            "testnet-10 must route to the TN10 treasury"
+        );
+        assert_eq!(
+            treasury_address_for_network("testnet-12"),
+            TREASURY_ADDRESS_TN12,
+            "testnet-12 must route to the TN12 treasury"
+        );
+    }
+}

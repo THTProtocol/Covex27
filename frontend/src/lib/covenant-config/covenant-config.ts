@@ -155,9 +155,12 @@ export function createDefaultConfig(creatorAddress: string, type: 'chess' | 'esc
   if (type === 'chess') {
     return {
       ...base,
+      // Chess is resolver-attested, NOT a ZK circuit: the deterministic server-authoritative
+      // engine replays the signed move log (anyone can recompute) and a deployer-bound resolver
+      // co-signs the release. There is no chess SNARK, so this carries no ZK verifier key.
       resolution: {
-        mode: 'zk' as const,
-        circuit: { type: 'chess_v1' as const, verifierKey: '0xCHESSv1_8x8_STANDARD' },
+        mode: 'oracle' as const,
+        circuit: { type: 'chess_v1' as const },
         oracle: { provider: 'covex' as const },
         payoutModel: { type: 'winner_takes_all' as const, feeBasisPoints: 200 },
       },

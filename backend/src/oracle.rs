@@ -305,6 +305,24 @@ pub(crate) fn circuit_emits_covenant_binding(circuit_type: &str) -> bool {
             | "solvency_sum"
             | "set_non_membership"
             | "anon_membership_nullifier"
+            // GAP-5 (zk defense-in-depth): these seven StrictGroth16 primitives each declare
+            // covenantId in their .circom main public list (verified against zk/<id>.circom:
+            // merkle_range_membership = [root, lo, hi, covenantId]; merkle_multi_membership =
+            // [root, covenantId]; nullifier_uniqueness = [spentRoot, nullifier, covenantId];
+            // threshold_sig_knowledge = [shareCommit, groupCommit, covenantId]; pedersen_open_equals
+            // = [commitment, expected, covenantId]; sorted_merkle_range = [root, neighborCommit,
+            // covenantId]; equality_of_commitments = [commitmentA, commitmentB, covenantId]). They
+            // are binding-CAPABLE, so a missing binding is a cross-covenant replay / stale proof and
+            // must hard-close. Listing them here also forbids COVEX_ALLOW_NO_BINDING from relaxing
+            // them (the blanket hatch is gated on !circuit_emits_covenant_binding). Their absence was
+            // a defense-in-depth gap: the hatch could have signed an unbound proof for them.
+            | "merkle_range_membership"
+            | "merkle_multi_membership"
+            | "nullifier_uniqueness"
+            | "threshold_sig_knowledge"
+            | "pedersen_open_equals"
+            | "sorted_merkle_range"
+            | "equality_of_commitments"
             // Registry aliases that share a binding-emitting circuit's prover artifacts, so their
             // proofs carry the SAME covenantId public input as the base circuit. Confirmed against
             // oracle_verifier.rs (same StrictGroth16 script + prefix) and the served vkeys whose
@@ -1135,6 +1153,101 @@ mod tests {
         assert!(!circuit_emits_covenant_binding(
             "some_legacy_attested_circuit"
         ));
+    }
+
+    /// GAP-5 drift guard (zk defense-in-depth): derive the binding-CAPABLE StrictGroth16 set
+    /// directly from on-disk truth - the registry (oracle_verifier::get_registry) gives the
+    /// StrictGroth16 circuit ids, and each circuit's own zk/<id>.circom `main` public list says
+    /// whether it commits covenantId. EVERY StrictGroth16 circuit that declares covenantId in its
+    /// circom main MUST be in circuit_emits_covenant_binding, otherwise the COVEX_ALLOW_NO_BINDING
+    /// hatch could relax it (the hatch is gated on !circuit_emits_covenant_binding) and an unbound
+    /// proof could be cross-covenant replayed. Deriving the set from the circom sources means a
+    /// NEW binding-capable circuit that someone forgets to register here fails this test instead of
+    /// silently opening the gap. (Alias circuits - merkle_dao / range_collateral / timelock_abs /
+    /// etc. - have no own circom file; they reuse a base circuit's artifacts and are covered by
+    /// circuit_emits_covenant_binding_covers_strict_aliases above.)
+    #[test]
+    fn every_strict_circuit_emitting_covenant_id_is_registered_as_binding() {
+        let zk_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../zk");
+        if !zk_dir.exists() {
+            eprintln!("Skipping GAP-5 drift guard: zk/ source dir not found at {zk_dir:?}");
+            return;
+        }
+
+        // Read the `public [...]` names from a circom file's `component main { public [..] }`.
+        // Returns None when the file is absent (an alias that reuses another circuit's artifacts)
+        // or has no explicit public list.
+        fn circom_public_signals(path: &std::path::Path) -> Option<Vec<String>> {
+            let src = std::fs::read_to_string(path).ok()?;
+            // Find `component main ... public [ ... ]` and capture the bracket contents.
+            let main_idx = src.find("component main")?;
+            let after = &src[main_idx..];
+            let pub_idx = after.find("public")?;
+            let after_pub = &after[pub_idx..];
+            let lb = after_pub.find('[')?;
+            let rb = after_pub.find(']')?;
+            if rb <= lb {
+                return None;
+            }
+            let inner = &after_pub[lb + 1..rb];
+            Some(
+                inner
+                    .split(',')
+                    .map(|s| s.trim().to_string())
+                    .filter(|s| !s.is_empty())
+                    .collect(),
+            )
+        }
+
+        let registry = crate::oracle_verifier::get_registry();
+        let mut checked = 0usize;
+        let mut emitting = Vec::new();
+        for (id, spec) in registry.iter() {
+            let id: &str = id;
+            if !matches!(spec, crate::oracle_verifier::VerifierSpec::StrictGroth16 { .. }) {
+                continue;
+            }
+            let circom = zk_dir.join(format!("{id}.circom"));
+            // No own circom file -> registry alias reusing a base circuit's artifacts; the alias
+            // coverage test handles those. Skip here (we only derive from real circom sources).
+            let signals = match circom_public_signals(&circom) {
+                Some(s) => s,
+                None => continue,
+            };
+            checked += 1;
+            if signals.iter().any(|s| s == "covenantId") {
+                emitting.push(id.to_string());
+                assert!(
+                    circuit_emits_covenant_binding(id),
+                    "StrictGroth16 circuit '{id}' declares covenantId in its circom main public \
+                     list {signals:?} but is MISSING from circuit_emits_covenant_binding. A missing \
+                     binding for it could be relaxed by COVEX_ALLOW_NO_BINDING and cross-covenant \
+                     replayed. Add it to the matches! arm in circuit_emits_covenant_binding."
+                );
+            }
+        }
+
+        // Sanity: we actually exercised real circom sources (guards against a silently-empty run
+        // if the registry or zk/ layout changes shape).
+        assert!(
+            checked >= 10,
+            "expected to inspect many StrictGroth16 circom sources, only saw {checked}"
+        );
+        // Sanity: the seven GAP-5 primitives are among the emitting set we just proved registered.
+        for c in [
+            "merkle_range_membership",
+            "merkle_multi_membership",
+            "nullifier_uniqueness",
+            "threshold_sig_knowledge",
+            "pedersen_open_equals",
+            "sorted_merkle_range",
+            "equality_of_commitments",
+        ] {
+            assert!(
+                emitting.iter().any(|e| e == c),
+                "GAP-5 primitive '{c}' must be detected as covenantId-emitting from its circom source"
+            );
+        }
     }
 
     /// H4 fail-CLOSED default: the no-binding allowlist must contain ONLY the circuits whose

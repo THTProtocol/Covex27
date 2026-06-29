@@ -124,22 +124,80 @@ const registry = {
 
 const json = JSON.stringify(registry, null, 2) + "\n";
 
+// ---------------------------------------------------------------------------
+// NOT_PROVABLE markers. Every served dir that exposes a vkey is EITHER provable
+// (ships a served _final.zkey -> reality full-zk-offchain) OR must carry a
+// per-dir frontend/public/zk/<id>/NOT_PROVABLE.json so a casual browser of the
+// served paths is told, in-band, that there is no served proving key and the
+// circuit is NOT claimable. No silent middle: a vkey-bearing dir with neither a
+// served zkey nor a marker is a drift the registry gate must red.
+//
+// The marker content is HONEST per reality:
+//   source+vkey : compiled circuit + vkey, but NO served proving key.
+//   vkey-only   : only a vkey is served (no wasm) - legacy placeholder.
+// ---------------------------------------------------------------------------
+const REASONS = {
+  "source+vkey":
+    "compiled circuit (served wasm + vkey) but NO served _final.zkey proving key; a proof cannot be generated from the served artifacts, so this circuit is not claimable yet.",
+  "vkey-only":
+    "only a verification key is served (no wasm, no proving key); legacy placeholder, not runnable or claimable.",
+};
+function markerFor(c) {
+  return JSON.stringify(
+    {
+      id: c.id,
+      provable: false,
+      reality: c.reality,
+      reason: REASONS[c.reality] || "no served proving key; not claimable yet.",
+      note: "Off-chain Groth16 (Kaspa has no on-chain pairing verifier). Trusted setup is a single-contributor Covex dev ceremony, NOT a production MPC. See zk/circuit_registry.json.",
+    },
+    null,
+    2
+  ) + "\n";
+}
+const MARKER = "NOT_PROVABLE.json";
+const nonProvable = circuits.filter((c) => c.reality !== "full-zk-offchain");
+const provableIds = new Set(circuits.filter((c) => c.reality === "full-zk-offchain").map((c) => c.id));
+
 if (process.argv.includes("--check")) {
+  const norm = (s) => s.replace(/\r\n/g, "\n");
   const cur = fs.existsSync(OUT) ? fs.readFileSync(OUT, "utf8") : "";
   // Normalize CRLF -> LF before comparing so the gate does not false-fail on a Windows checkout
   // with core.autocrlf=true (which checks the file out with CRLF while the generator emits LF).
-  const norm = (s) => s.replace(/\r\n/g, "\n");
   if (norm(cur) !== norm(json)) {
     console.error("circuit_registry.json is STALE. Run: node zk/scripts/gen_circuit_registry.js");
     process.exit(1);
   }
-  console.log(`circuit_registry.json up to date (${provable} provable, ${sourceVkey} source+vkey, ${vkeyOnly} vkey-only).`);
+  let bad = 0;
+  // Every non-provable served dir must carry an in-sync NOT_PROVABLE.json marker.
+  for (const c of nonProvable) {
+    const mp = path.join(SERVED_ROOT, c.id, MARKER);
+    if (!fs.existsSync(mp)) { console.error(`MISSING marker: ${c.id}/${MARKER}`); bad++; continue; }
+    if (norm(fs.readFileSync(mp, "utf8")) !== norm(markerFor(c))) {
+      console.error(`STALE marker: ${c.id}/${MARKER} (run gen_circuit_registry.js)`); bad++;
+    }
+  }
+  // No silent middle: a provable dir must NOT carry a marker (would be a false NOT_PROVABLE claim).
+  for (const id of provableIds) {
+    if (fs.existsSync(path.join(SERVED_ROOT, id, MARKER)))
+      { console.error(`STRAY marker: ${id}/${MARKER} on a PROVABLE circuit`); bad++; }
+  }
+  if (bad) { console.error(`NOT_PROVABLE markers: ${bad} problem(s).`); process.exit(1); }
+  console.log(`circuit_registry.json up to date (${provable} provable, ${sourceVkey} source+vkey, ${vkeyOnly} vkey-only); ${nonProvable.length} NOT_PROVABLE markers in sync.`);
   process.exit(0);
 }
 
 fs.writeFileSync(OUT, json);
+// Write/refresh a marker into every non-provable served dir; remove any stray marker on a provable one.
+let wroteMarkers = 0;
+for (const c of nonProvable) { fs.writeFileSync(path.join(SERVED_ROOT, c.id, MARKER), markerFor(c)); wroteMarkers++; }
+for (const id of provableIds) {
+  const mp = path.join(SERVED_ROOT, id, MARKER);
+  if (fs.existsSync(mp)) fs.unlinkSync(mp);
+}
 console.log(`Wrote ${OUT}`);
 console.log(`  full-zk-offchain (provable): ${provable}`);
 console.log(`  source+vkey (not provable):  ${sourceVkey}`);
 console.log(`  vkey-only:                   ${vkeyOnly}`);
 console.log(`  total served-with-vkey:      ${circuits.length}`);
+console.log(`  NOT_PROVABLE markers written: ${wroteMarkers}`);

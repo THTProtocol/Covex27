@@ -33,4 +33,11 @@ fi
 # 2/3/4. cross-check registry claims vs actual served keys vs frontend canonical set.
 if ! runnode zk/scripts/check_registry_honesty.js; then fail=1; fi
 
+# 5. canonical ROOT sample proofs (the ones sync_public_zk_artifacts.sh copies into the served
+# demo_proof.json) must match their freshly-proved, covenant-bound served demos. This catches the
+# class of drift where a root sample pre-dates a covenantId-binding upgrade (e.g. an old 4-signal
+# age_verification_proof.json vs a 5-public-input served vkey). merkle_proof.json is excluded
+# (backend-read sample, kept in sync separately).
+if ! runnode zk/scripts/reconcile_root_samples.js --check; then fail=1; fi
+
 exit $fail

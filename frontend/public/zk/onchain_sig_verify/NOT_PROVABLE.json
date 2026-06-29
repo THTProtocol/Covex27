@@ -1,0 +1,7 @@
+{
+  "id": "onchain_sig_verify",
+  "provable": false,
+  "reality": "vkey-only",
+  "reason": "only a verification key is served (no wasm, no proving key); legacy placeholder, not runnable or claimable.",
+  "note": "Off-chain Groth16 (Kaspa has no on-chain pairing verifier). Trusted setup is a single-contributor Covex dev ceremony, NOT a production MPC. See zk/circuit_registry.json."
+}

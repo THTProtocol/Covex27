@@ -1,0 +1,7 @@
+{
+  "id": "auction_clearing",
+  "provable": false,
+  "reality": "source+vkey",
+  "reason": "compiled circuit (served wasm + vkey) but NO served _final.zkey proving key; a proof cannot be generated from the served artifacts, so this circuit is not claimable yet.",
+  "note": "Off-chain Groth16 (Kaspa has no on-chain pairing verifier). Trusted setup is a single-contributor Covex dev ceremony, NOT a production MPC. See zk/circuit_registry.json."
+}

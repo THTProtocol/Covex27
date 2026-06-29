@@ -3,9 +3,10 @@ name: CI
 # Covex CI. Runs on every push and pull request to master. The build + test +
 # sandbox-guard + frontend-build jobs are the gates that should be marked
 # "required" in the repo's branch-protection settings so they block merge to a
-# live, money-handling deploy. cargo fmt + clippy are now BLOCKING (the Rust tree
-# is clean). eslint + cargo audit + npm audit stay advisory (the eslint tree still
-# reports errors; tighten to blocking once it is clean).
+# live, money-handling deploy. cargo fmt, cargo clippy, AND eslint are all BLOCKING:
+# the Rust tree is fmt-clean and clippy-error-free, and the frontend eslint tree is at
+# 0 errors. cargo audit, npm audit, and the zk-image-id check stay advisory (dependency
+# CVEs and the heavy zk image-id recompute should not hard-fail a deploy build).
 
 on:
   push:
@@ -94,10 +95,8 @@ jobs:
       - name: cargo test --release
         run: cargo test --release
 
-      # Advisory: formatting. The tree currently carries broad rustfmt drift (the earlier
-      # "clean" claim was stale: ~105 files), so a blocking gate would red every commit. Kept
-      # advisory until a dedicated `cargo fmt --all` sweep lands (coordinated, so it does not
-      # clobber concurrent backend work), after which this returns to blocking.
+      # GATE: cargo fmt --check is BLOCKING. The coordinated `cargo fmt --all` sweep landed
+      # 2026-06-29, so the Rust tree is fmt-clean and any new drift now reds the build.
       - name: cargo fmt --check
         run: cargo fmt --all -- --check
 
@@ -144,9 +143,8 @@ jobs:
       - name: vitest
         run: npm test
 
-      # Advisory: eslint. Kept non-blocking because the existing tree reports ~286 errors
-      # (mostly react-hooks/set-state-in-effect + no-unused-vars), so a red gate here would
-      # block every push without a dedicated cleanup. Tighten to blocking once the count is 0.
+      # GATE: eslint is BLOCKING. The cleanup sweep landed 2026-06-29 (real fixes plus a few
+      # justified per-line disables), so the tree is at 0 errors and a lint regression now reds.
       - name: eslint
         run: npm run lint
       # Advisory: known-vulnerable npm dependencies (high severity and up).

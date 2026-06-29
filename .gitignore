@@ -134,3 +134,9 @@ zk/node_modules/
 !frontend/public/zk/threshold_sig_knowledge/threshold_sig_knowledge_final.zkey
 !frontend/public/zk/pedersen_open_equals/pedersen_open_equals_final.zkey
 !frontend/public/zk/sorted_merkle_range/sorted_merkle_range_final.zkey
+
+# Scratch/debug harnesses (never commit; some historically held test mnemonics)
+frontend/_*.mjs
+frontend/_*.txt
+frontend/test-derive*.mjs
+frontend/test-derivation*.cjs

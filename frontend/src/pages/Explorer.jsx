@@ -305,6 +305,8 @@ export default function Explorer() {
   const [covenants, setCovenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Bumped by the error-panel "Try again" button to re-run the covenant-list fetch effect.
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [activeTab, setActiveTab] = useState('explore');
   const [searchQuery, setSearchQuery] = useState('');
@@ -438,7 +440,7 @@ export default function Explorer() {
         setLoading(false);
       })
       .catch(() => { setError('Could not load covenants'); setLoading(false); });
-  }, [kaspaNetwork, activeCategory, buildListUrl]);
+  }, [kaspaNetwork, activeCategory, buildListUrl, reloadKey]);
 
   // Realtime: new covenants stream in over the websocket as the chain is indexed. Prepend them to
   // the top of the grid and bump the live count, so the explorer updates without a page refresh.
@@ -1183,7 +1185,14 @@ export default function Explorer() {
             {error && (
               <div className="glass-panel rounded-2xl p-8 text-center border border-red-500/20">
                 <AlertTriangle size={32} className="mx-auto mb-3 text-red-400 light:text-red-600" aria-hidden="true" />
-                <p className="text-sm font-semibold text-red-400 light:text-red-600">{error}</p>
+                <p className="text-sm font-semibold text-red-400 light:text-red-600 mb-5">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => setReloadKey((k) => k + 1)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
+                >
+                  <Repeat size={15} aria-hidden="true" /> Try again
+                </button>
               </div>
             )}
             {/* Mainnet is genuinely pre-launch: it indexes ZERO covenants until the Toccata launch.

@@ -4145,6 +4145,34 @@ fn enforce_onchain_covenant_binding(
     Ok(())
 }
 
+/// GAP 8 (money-path, fail-closed): refuse to co-sign with the Covex oracle key unless the
+/// covenant's OWN redeem script actually embeds THAT key as its oracle member. Both oracle co-sign
+/// handlers below sign with `oracle::oracle_keypair()` (the Covex-held games co-sign key)
+/// unconditionally. But an `oracle_*` covenant can be deployed bound to an EXTERNAL resolver's
+/// x-only key instead of Covex's (the deploy path lets the caller supply the oracle pubkey). For
+/// such a covenant the chain requires the EXTERNAL key's signature, which Covex does not hold;
+/// Covex's signature is worthless there, and emitting it is both useless and a misleading claim of
+/// authority. Worse, if the build ever drifts so the Covex sig is accepted, Covex would be
+/// co-signing a payout for a covenant it was never meant to control. So before signing we extract
+/// the embedded oracle key (member index 0 of the redeem - the first 0x20<32> push in every oracle
+/// form: `oracle_enforced` = multisig([oracle, winner]); `oracle_escrow` = `<oracle>
+/// OpCheckSigVerify ...`; the `_refundable` variants wrap the same in an outer OP_IF, so the oracle
+/// is still the first pushed key) and compare it to the Covex oracle x-only key. Mismatch =>
+/// explicit refusal, fail-closed.
+fn assert_covenant_bound_to_covex_oracle(redeem: &[u8]) -> Result<(), String> {
+    let members = parse_redeem_pubkeys(redeem, false);
+    let embedded = members.first().ok_or_else(|| {
+        "could not locate the embedded oracle key in the stored redeem (corrupt or unexpected oracle covenant shape); refusing to co-sign".to_string()
+    })?;
+    let covex = crate::oracle::oracle_xonly_pubkey_bytes();
+    if *embedded != covex {
+        return Err(
+            "this covenant is locked to an external resolver; Covex does not hold its key - payout must be co-signed by that resolver".to_string(),
+        );
+    }
+    Ok(())
+}
+
 /// POST /covenant/oracle-payout - release an oracle-enforced 2-of-2 [oracle, winner]
 /// covenant. The oracle co-signs ONLY if the outcome verifies; the chain enforces the
 /// 2-of-2, so the disclosed oracle's signature is consensus-required (roadmap D1).
@@ -4257,6 +4285,10 @@ pub async fn oracle_payout_handler(
         Ok(b) => b,
         Err(e) => return err(format!("corrupt stored redeem: {e}")),
     };
+    // GAP 8: never co-sign with the Covex key for a covenant bound to an EXTERNAL resolver.
+    if let Err(e) = assert_covenant_bound_to_covex_oracle(&redeem) {
+        return err(e);
+    }
     // Resolve the winning party's key. oracle:2 -> the deployer/winner (via the
     // destination's dev resolution). oracle_escrow -> the WINNING player: dev wallet 1
     // (A) or 2 (B) in dev mode, else the explicit private_key_hex.
@@ -4742,6 +4774,11 @@ pub async fn prepare_oracle_payout_handler(
         Ok(b) => b,
         Err(e) => return err(format!("corrupt stored redeem: {e}")),
     };
+    // GAP 8: never produce the Covex oracle signature for a covenant bound to an EXTERNAL resolver.
+    // Same guard as the custodial handler - the embedded oracle key must be the Covex key.
+    if let Err(e) = assert_covenant_bound_to_covex_oracle(&redeem) {
+        return err(e);
+    }
     // Member pubkeys in script order. oracle_enforced = multisig([oracle, winner]) -> every
     // 0x20<32> push (checksig_only=false). oracle_escrow = [oracle, player_a, player_b] -
     // each is directly followed by a checksig(verify), so checksig_only=true keeps all three.
@@ -8540,6 +8577,90 @@ mod tests {
         assert_eq!(restored.deploy_tx_id, "deadbeef");
         assert_eq!(restored.p2sh_address, "kaspatest:qexample");
         assert_eq!(restored.created_at, 1_700_000_000);
+    }
+
+    /// GAP 8 (money-path, fail-closed): the Covex oracle co-sign handlers must REFUSE to sign a
+    /// covenant whose embedded oracle key is NOT the Covex key (i.e. one bound to an external
+    /// resolver). `assert_covenant_bound_to_covex_oracle` is the shared guard both handlers call
+    /// after decoding the stored redeem. This test sets a known COVEX_ORACLE_KEY, derives the Covex
+    /// oracle x-only key from it, and checks every oracle redeem shape: a Covex-bound redeem PASSES,
+    /// an external-bound redeem is REJECTED with the explicit external-resolver message.
+    #[test]
+    fn gap8_refuses_to_cosign_external_resolver_covenants() {
+        // Env-global: save + restore COVEX_ORACLE_KEY (mirrors the games.rs oracle-env tests).
+        let prev = std::env::var("COVEX_ORACLE_KEY").ok();
+        std::env::set_var("COVEX_ORACLE_KEY", "11".repeat(32));
+
+        // The Covex oracle x-only key is derived from COVEX_ORACLE_KEY (sha256 -> secp256k1).
+        let covex_oracle = crate::oracle::oracle_xonly_pubkey_bytes();
+        // An EXTERNAL resolver's key: any key that is not the Covex oracle key.
+        let external = test_keypair(200).x_only_public_key().0.serialize();
+        assert_ne!(
+            external, covex_oracle,
+            "test setup: the external key must differ from the Covex oracle key"
+        );
+        let winner = test_keypair(201).x_only_public_key().0.serialize();
+        let player_b = test_keypair(202).x_only_public_key().0.serialize();
+        let refund = test_keypair(203).x_only_public_key().0.serialize();
+
+        // (1) oracle_enforced = multisig([oracle, winner]). Covex-bound PASSES.
+        let ok_enforced = redeem_multisig(&[covex_oracle, winner], 2).unwrap();
+        assert!(
+            assert_covenant_bound_to_covex_oracle(&ok_enforced).is_ok(),
+            "a Covex-bound oracle_enforced covenant must be co-signable"
+        );
+        // External-bound is REJECTED with the external-resolver message.
+        let ext_enforced = redeem_multisig(&[external, winner], 2).unwrap();
+        let e = assert_covenant_bound_to_covex_oracle(&ext_enforced).unwrap_err();
+        assert!(
+            e.contains("external resolver") && e.contains("does not hold its key"),
+            "external-bound enforced must be refused with the external-resolver message, got: {e}"
+        );
+
+        // (2) oracle_escrow = <oracle> OpCheckSigVerify IF <a> ... ELSE <b> ... . Oracle is push 0.
+        let ok_escrow = redeem_oracle_escrow(&covex_oracle, &winner, &player_b).unwrap();
+        assert!(
+            assert_covenant_bound_to_covex_oracle(&ok_escrow).is_ok(),
+            "a Covex-bound oracle_escrow covenant must be co-signable"
+        );
+        let ext_escrow = redeem_oracle_escrow(&external, &winner, &player_b).unwrap();
+        assert!(
+            assert_covenant_bound_to_covex_oracle(&ext_escrow).is_err(),
+            "external-bound oracle_escrow must be refused"
+        );
+
+        // (3) The _refundable variants wrap the same logic in an outer OP_IF; the oracle is still
+        // the FIRST 0x20<32> push, so the guard still binds it.
+        let ok_enf_ref =
+            redeem_oracle_enforced_refundable(&covex_oracle, &winner, 10, &refund).unwrap();
+        assert!(
+            assert_covenant_bound_to_covex_oracle(&ok_enf_ref).is_ok(),
+            "a Covex-bound oracle_enforced_refundable covenant must be co-signable"
+        );
+        let ext_enf_ref =
+            redeem_oracle_enforced_refundable(&external, &winner, 10, &refund).unwrap();
+        assert!(
+            assert_covenant_bound_to_covex_oracle(&ext_enf_ref).is_err(),
+            "external-bound oracle_enforced_refundable must be refused"
+        );
+
+        let ok_esc_ref =
+            redeem_oracle_escrow_refundable(&covex_oracle, &winner, &player_b, 10, &refund).unwrap();
+        assert!(
+            assert_covenant_bound_to_covex_oracle(&ok_esc_ref).is_ok(),
+            "a Covex-bound oracle_escrow_refundable covenant must be co-signable"
+        );
+        let ext_esc_ref =
+            redeem_oracle_escrow_refundable(&external, &winner, &player_b, 10, &refund).unwrap();
+        assert!(
+            assert_covenant_bound_to_covex_oracle(&ext_esc_ref).is_err(),
+            "external-bound oracle_escrow_refundable must be refused"
+        );
+
+        match prev {
+            Some(v) => std::env::set_var("COVEX_ORACLE_KEY", v),
+            None => std::env::remove_var("COVEX_ORACLE_KEY"),
+        }
     }
 
     #[test]

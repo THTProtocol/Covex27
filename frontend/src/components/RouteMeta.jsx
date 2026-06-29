@@ -2,7 +2,8 @@ import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 
 /*
- * RouteMeta: per-route document.title + meta description.
+ * RouteMeta: per-route document.title, meta description, canonical link, and
+ * Open Graph url/title/description.
  *
  * Client-side only. This improves browser tab titles and JS-executing crawlers
  * (e.g. Googlebot). Static social unfurls for covenants are served per-id by the
@@ -49,13 +50,37 @@ export default function RouteMeta() {
     const title = match ? `${match.t} · ${SITE}` : DEFAULT_TITLE;
     const desc = match ? match.d : DEFAULT_DESC;
     document.title = title;
-    let tag = document.querySelector('meta[name="description"]');
-    if (!tag) {
-      tag = document.createElement('meta');
-      tag.setAttribute('name', 'description');
-      document.head.appendChild(tag);
-    }
-    tag.setAttribute('content', desc);
+
+    // Find-or-create a <head> element, then return it for attribute updates.
+    const upsert = (selector, make) => {
+      let el = document.head.querySelector(selector);
+      if (!el) { el = make(); document.head.appendChild(el); }
+      return el;
+    };
+    const meta = (attr, val) => () => {
+      const m = document.createElement('meta');
+      m.setAttribute(attr, val);
+      return m;
+    };
+
+    upsert('meta[name="description"]', meta('name', 'description')).setAttribute('content', desc);
+
+    // Per-route canonical + Open Graph url/title/description. The SPA serves one
+    // static index.html for every route, so without this every page inherits the
+    // homepage canonical/og:url and collapses onto "/" for JS-executing crawlers.
+    // pathname excludes the query string; strip a trailing slash (except root) so
+    // "/pricing" and "/pricing/" share one canonical.
+    let path = pathname;
+    if (path.length > 1 && path.endsWith('/')) path = path.slice(0, -1);
+    const url = `https://hightable.pro${path}`;
+    upsert('link[rel="canonical"]', () => {
+      const l = document.createElement('link');
+      l.setAttribute('rel', 'canonical');
+      return l;
+    }).setAttribute('href', url);
+    upsert('meta[property="og:url"]', meta('property', 'og:url')).setAttribute('content', url);
+    upsert('meta[property="og:title"]', meta('property', 'og:title')).setAttribute('content', title);
+    upsert('meta[property="og:description"]', meta('property', 'og:description')).setAttribute('content', desc);
   }, [pathname]);
   return null;
 }

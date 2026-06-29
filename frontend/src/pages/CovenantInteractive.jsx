@@ -76,6 +76,12 @@ const TRUNC = (s, n = 6) => (s && s.length > n * 2 + 3 ? `${s.slice(0, n)}...${s
 
 const isVerified = (c) => c?.verified_tier && c.verified_tier !== 'FREE' && c.verified_tier !== 'EXPLORER';
 
+// True for staked games of CHANCE (poker, blackjack, dice). Used only to word the point-of-bet
+// jurisdictional warning honestly: we never assert "skill" for these, and we name them explicitly
+// so a player sees the gambling-regulation note before staking. Skill games (chess, checkers, etc.)
+// still get the generic "staked games may be regulated as gambling" line, just not the chance call-out.
+const IS_CHANCE_GAME = (gameLabel) => /poker|blackjack|dice|baccarat|roulette|slots?/i.test(String(gameLabel || ''));
+
 // Shared stake control for every game lobby (chess + the seven others). Hoisted to
 // module scope so it never remounts on a parent render (would otherwise lose input
 // focus mid-type). Two modes:
@@ -137,6 +143,14 @@ function GameStakeControl({
       <p className="text-center text-[11px] text-gray-400 light:text-slate-600 mt-3 leading-snug">
         The result is computed deterministically by replaying the signed move log (anyone can recompute); on testnet today the recomputable Covex engine re-derives the winner and co-signs the release alongside the winning player, not Kaspa consensus.
         Custody and payout are on-chain. This is not trustless.
+      </p>
+      {/* Point-of-bet jurisdictional warning, matching the one Markets shows. Games of chance
+          (poker, blackjack, dice) are flagged explicitly; we never frame them as games of skill. */}
+      <p className="flex items-start justify-center gap-1.5 text-center text-[11px] text-amber-300/85 light:text-amber-700 mt-3 leading-snug">
+        <AlertTriangle size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
+        <span>
+          Staking real KAS carries risk. You are responsible for compliance in your jurisdiction;{IS_CHANCE_GAME(gameLabel) ? ' games of chance such as poker, blackjack, and dice' : ' staked games'} may be regulated as gambling where you live.
+        </span>
       </p>
       {!walletConnected && (
         <p className="text-center text-[11px] text-gray-500 light:text-slate-500 mt-1">Spectating works without a wallet.</p>

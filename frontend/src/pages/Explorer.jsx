@@ -636,7 +636,9 @@ export default function Explorer() {
   // Category filtering happens server-side (q terms); the loaded list is already filtered.
   const filteredCovenants = allCovenantsSorted;
 
-  // ARENA: only skill games created on Covex where someone is waiting
+  // ARENA: only game covenants created on Covex where someone is waiting. "Game" here spans
+  // both games of skill (chess, checkers) and games of chance (poker, blackjack, dice); we do
+  // not assert skill for any of them - see the jurisdictional/gambling warning in the Arena UI.
   const arenaWaiting = covenants.filter(c => {
     const hasTx = c.tx_id && c.tx_id.length > 20;
     const isGame = isSkillGame(c);
@@ -1041,7 +1043,7 @@ export default function Explorer() {
             <p className="mb-5 flex items-start gap-2 text-[11px] leading-snug text-amber-300/80 light:text-amber-700">
               <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
               <span>
-                Staking real KAS carries risk; you are responsible for compliance in your jurisdiction.
+                Staking real KAS carries risk. You are responsible for compliance in your jurisdiction; staked games (including games of chance such as poker, blackjack, and dice) may be regulated as gambling where you live.
               </span>
             </p>
             {/* Create-a-game entry point: a game is a covenant you deploy. Routes into the

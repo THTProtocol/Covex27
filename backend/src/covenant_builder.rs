@@ -8818,6 +8818,122 @@ mod tests {
         );
     }
 
+    /// GAP-1 (P0): an HTLC spend must declare the input `sig_op_count` that EQUALS the value
+    /// Kaspa STATICALLY computes over the redeem script, or the node rejects the tx as
+    /// WrongSigOpCount and the funds lock forever. The HTLC redeem is
+    /// `IF OpBlake2b <hash> OpEqualVerify <receiver> OpCheckSig
+    ///  ELSE <lock_daa> OpCheckLockTimeVerify <sender> OpCheckSig ENDIF`, which has exactly TWO
+    /// CheckSig ops (Kaspa sums sig-ops across ALL IF/ELSE arms, not just the executed branch),
+    /// and no CheckMultiSig. So the correct declared count is 2. This test re-derives the count
+    /// the same way Kaspa's get_sig_op_count does - one per OpCheckSig (0xac) / OpCheckSigVerify
+    /// (0xad), and the multisig pubkey count per OpCheckMultiSig[Verify] (0xae/0xaf), which is
+    /// zero here - and asserts it matches BOTH SpendKind::Htlc.sig_op_count() AND the value the
+    /// spend handler declares via SpendKind::parse("htlc:<daa>"). A regression to 1 (the original
+    /// defect) makes this fail, so the WrongSigOpCount lock-up cannot silently return.
+    #[test]
+    fn htlc_sig_op_count_matches_static_script_count() {
+        // Re-derive sig ops over a redeem script using Kaspa's static rule. For HTLC there is no
+        // CheckMultiSig, so this reduces to counting CheckSig / CheckSigVerify opcodes. We still
+        // handle the multisig opcodes for completeness (small-int operand preceding the op, else
+        // the default of 20), matching get_sig_op_count.
+        fn static_sig_ops(redeem: &[u8]) -> u64 {
+            // Tokenize the script like Kaspa's get_sig_op_count: walk OPCODES only, and when an
+            // opcode is a data push, SKIP its payload so payload bytes (a pubkey/hash byte can be
+            // 0xac) are never miscounted as a CheckSig opcode. Canonical Kaspa pushes:
+            //   0x01..=0x4b  push that many bytes
+            //   0x4c (OpPushData1)  next 1 byte = len, then len bytes
+            //   0x4d (OpPushData2)  next 2 bytes LE = len, then len bytes
+            //   0x4e (OpPushData4)  next 4 bytes LE = len, then len bytes
+            let mut count = 0u64;
+            let mut prev_op: Option<u8> = None; // last real OPCODE seen (for the multisig operand)
+            let mut i = 0usize;
+            while i < redeem.len() {
+                let op = redeem[i];
+                let payload = match op {
+                    0x01..=0x4b => op as usize,
+                    0x4c => {
+                        let n = *redeem.get(i + 1).unwrap_or(&0) as usize;
+                        i += 1;
+                        n
+                    }
+                    0x4d => {
+                        let n = redeem.get(i + 1).copied().unwrap_or(0) as usize
+                            | ((redeem.get(i + 2).copied().unwrap_or(0) as usize) << 8);
+                        i += 2;
+                        n
+                    }
+                    0x4e => {
+                        let n = redeem.get(i + 1).copied().unwrap_or(0) as usize
+                            | ((redeem.get(i + 2).copied().unwrap_or(0) as usize) << 8)
+                            | ((redeem.get(i + 3).copied().unwrap_or(0) as usize) << 16)
+                            | ((redeem.get(i + 4).copied().unwrap_or(0) as usize) << 24);
+                        i += 4;
+                        n
+                    }
+                    _ => 0,
+                };
+                if payload > 0 {
+                    // It was a data push: skip the opcode + payload, do not count it as a sig op
+                    // and do not let its payload update prev_op.
+                    i += 1 + payload;
+                    continue;
+                }
+                match op {
+                    0xac | 0xad => count += 1, // OpCheckSig / OpCheckSigVerify
+                    0xae | 0xaf => {
+                        // OpCheckMultiSig[Verify]: Kaspa counts the small-int operand pushed
+                        // immediately before it (OpData1..16 => 0x51..0x60 == 1..16), else 20.
+                        count += match prev_op {
+                            Some(b) if (0x51..=0x60).contains(&b) => (b - 0x50) as u64,
+                            _ => 20,
+                        };
+                    }
+                    _ => {}
+                }
+                prev_op = Some(op);
+                i += 1;
+            }
+            count
+        }
+
+        let receiver = test_keypair(81);
+        let sender = test_keypair(82);
+        let rpk = receiver.x_only_public_key().0.serialize();
+        let spk = sender.x_only_public_key().0.serialize();
+        let hash = blake2b256(b"gap1-sig-op-secret");
+        let lock_daa: u64 = 1_234_567;
+        let redeem = redeem_htlc(&hash, &rpk, lock_daa, &spk).unwrap();
+
+        // The HTLC redeem statically counts exactly 2 sig ops (one CheckSig per IF/ELSE arm).
+        assert_eq!(
+            static_sig_ops(&redeem),
+            2,
+            "the HTLC redeem script must contain exactly two static CheckSig ops"
+        );
+        // SpendKind::Htlc declares the same 2 (NOT 1 - declaring 1 was the WrongSigOpCount defect).
+        assert_eq!(
+            SpendKind::Htlc { lock_daa }.sig_op_count(),
+            2,
+            "SpendKind::Htlc.sig_op_count() must declare 2 to match the script (regression guard)"
+        );
+        // The spend handler computes the declared count via SpendKind::parse(redeem_kind); the
+        // stored kind for an HTLC is `htlc:<lock_daa>`. That path must also yield 2 (this is the
+        // exact value committed into the spend input at covenant_builder.rs ~3805).
+        let parsed = SpendKind::parse(&format!("htlc:{lock_daa}"))
+            .expect("htlc:<daa> must parse to SpendKind::Htlc");
+        assert_eq!(
+            parsed.sig_op_count(),
+            static_sig_ops(&redeem) as u8,
+            "the spend handler's declared sig_op_count must equal the static script count (== 2)"
+        );
+
+        // Sanity contrast: a single-sig redeem statically counts 1, and SpendKind::SingleSig
+        // declares 1 - so the HTLC value of 2 is not a blanket constant, it tracks the script.
+        let single = redeem_singlesig(&rpk).unwrap();
+        assert_eq!(static_sig_ops(&single), 1);
+        assert_eq!(SpendKind::SingleSig.sig_op_count(), 1);
+    }
+
     #[test]
     fn deadman_owner_anytime_heir_after_timelock() {
         let owner = test_keypair(91);

@@ -68,13 +68,13 @@ export default function BuildStepsRail({ compact }) {
           const canGo = typeof goTo === 'function' && [1, 2, 3].includes(s.n);
 
           const stateClasses = active
-            ? 'border-kaspa-green/60 bg-kaspa-green text-white light:bg-emerald-700 light:text-white light:border-emerald-700'
+            ? 'border-kaspa-green/60 bg-kaspa-green text-black light:bg-emerald-700 light:text-white light:border-emerald-700'
             : done
             ? 'border-emerald-300/60 ring-1 ring-emerald-300/40 bg-kaspa-green/[0.06] text-emerald-300 light:text-emerald-700 light:ring-emerald-600/40 light:border-emerald-600/40'
             : 'border-white/10 bg-white/10 text-gray-400 hover:border-white/25 light:border-slate-200 light:bg-slate-100 light:text-slate-500';
 
           const dotClasses = active
-            ? 'bg-white/20 text-white light:bg-slate-900/15 light:text-slate-900'
+            ? 'bg-black/15 text-black light:bg-slate-900/15 light:text-slate-900'
             : done
             ? 'bg-emerald-300/20 text-emerald-300 light:text-emerald-700'
             : 'bg-white/10 text-gray-400 light:bg-slate-200 light:text-slate-500';

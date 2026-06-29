@@ -305,7 +305,7 @@ const Pricing = () => {
                 )}
               </Button>
               <p className="flex items-center justify-center gap-1.5 text-[11px] text-gray-500 light:text-slate-500">
-                <ShieldCheck size={13} className="text-[#49EACB] light:text-[#14B8A6]" /> Pay the treasury directly. The tier unlocks for the address you pay from.
+                <ShieldCheck size={13} className="text-[#49EACB] light:text-[#0f766e]" /> Pay the treasury directly. The tier unlocks for the address you pay from.
               </p>
               <button
                 onClick={cancelPayment}
@@ -394,7 +394,7 @@ const Pricing = () => {
           {EXPLAIN.map((x, i) => (
             <div key={i} className="rounded-2xl border border-white/10 bg-white/[0.02] p-5 light:border-slate-200 light:bg-white">
               <div className="flex items-center gap-2.5 mb-2">
-                <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-kaspa-green/10 text-kaspa-green light:bg-emerald-50 light:text-[#14B8A6] shrink-0"><x.icon size={16} aria-hidden="true" /></span>
+                <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-kaspa-green/10 text-kaspa-green light:bg-emerald-50 light:text-[#0f766e] shrink-0"><x.icon size={16} aria-hidden="true" /></span>
                 <h3 className="text-base font-bold text-white light:text-slate-900">{x.title}</h3>
               </div>
               <p className="text-sm leading-relaxed text-gray-300 light:text-slate-600">{x.body}</p>
@@ -402,9 +402,9 @@ const Pricing = () => {
           ))}
         </div>
         <p className="mt-8 text-center text-sm text-gray-400 light:text-slate-500">
-          <Link to="/kaspa" className="text-kaspa-green light:text-[#14B8A6] underline underline-offset-4">Learn about Kaspa</Link>
+          <Link to="/kaspa" className="text-kaspa-green light:text-[#0f766e] underline underline-offset-4">Learn about Kaspa</Link>
           <span className="mx-2 text-gray-600 light:text-slate-600">|</span>
-          <Link to="/treasury" className="text-kaspa-green light:text-[#14B8A6] underline underline-offset-4">Treasury and ranking transparency</Link>
+          <Link to="/treasury" className="text-kaspa-green light:text-[#0f766e] underline underline-offset-4">Treasury and ranking transparency</Link>
         </p>
       </section>
     </div>

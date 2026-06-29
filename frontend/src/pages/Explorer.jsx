@@ -6,6 +6,7 @@ import { Database, Search, Sparkles, Play, Coins, Layers, Gamepad2, TrendingUp, 
 import Spinner from '../components/ui/Spinner';
 import CovenantCardSkeleton from '../components/ui/CovenantCardSkeleton';
 import { Button } from '../components/ui/Button';
+import { readCovenantsResponse } from '../lib/explorerResponse';
 
 // Distinct icon per covenant category so cards are scannable at a glance (not all the same glyph).
 const CATEGORY_ICON = {
@@ -417,12 +418,20 @@ export default function Explorer() {
     fetch(buildListUrl(0))
       .then(res => res.json())
       .then(data => {
-        const list = (Array.isArray(data.covenants) ? data.covenants : []);
+        const { error: respError, covenants: list, total } = readCovenantsResponse(data);
+        if (respError) {
+          // A 200 carrying {error} is a backend failure, NOT an empty network. Surface it
+          // honestly instead of rendering the "no covenants yet" state over a hidden error.
+          setError(respError);
+          setCovenants([]);
+          setLoading(false);
+          return;
+        }
         setCovenants(list);
-        setHasMore((data.total || 0) > list.length);
+        setHasMore(total > list.length);
         setStats(prev => ({
           ...prev,
-          total: data.total || list.length,
+          total: total || list.length,
           paidCount: data.stats?.paid ?? prev.paidCount,
           totalTVL: data.stats?.tvl_kas ?? prev.totalTVL,
         }));
@@ -662,7 +671,7 @@ export default function Explorer() {
   // Derive the label from the active network so the number and the word always match.
   const NET_LABELS = { 'mainnet': 'MAINNET', 'mainnet-1': 'MAINNET', 'testnet-12': 'TN12', 'testnet-10': 'TN10' };
   const netLabel = NET_LABELS[kaspaNetwork] || kaspaNetwork.toUpperCase();
-  const isEmptyMainnet = isMainnet(kaspaNetwork) && !loading && covenants.length === 0;
+  const isEmptyMainnet = isMainnet(kaspaNetwork) && !loading && !error && covenants.length === 0;
 
   return (
     <>
@@ -677,9 +686,13 @@ export default function Explorer() {
             {/* LEFT (phi track): headline, lede, the SilverScript note, the
                 capability chips, and the action row. */}
             <div className="text-center md:text-left">
+              {/* Headline routes through the canonical .h-display token (single source of
+                  truth: clamp(2.5rem,5vw,4rem), weight 900, -0.025em, lh 1.05) instead of a
+                  hand-rolled clamp, which fixes the typography-adoption audit finding. text-balance
+                  keeps the long headline wrapping evenly; max-w + alignment + the house slide-up
+                  are unchanged. */}
               <h1
-                className="font-black text-white light:text-slate-900 mb-6 max-w-[18ch] sm:max-w-3xl md:max-w-none mx-auto md:mx-0 leading-[1.08] sm:leading-[1.05] animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
-                style={{ fontSize: 'clamp(1.9rem, 5vw, 3.85rem)', letterSpacing: '-0.025em', textWrap: 'balance' }}
+                className="h-display text-balance text-white light:text-slate-900 mb-6 max-w-[18ch] sm:max-w-3xl md:max-w-none mx-auto md:mx-0 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_both]"
               >
                 Interactive Covenants for The <span className="text-kaspa-green">Kaspa BlockDAG</span>
               </h1>
@@ -1199,7 +1212,7 @@ export default function Explorer() {
                 </div>
               </div>
             )}
-            {!loading && covenants.length === 0 && !isEmptyMainnet && (
+            {!loading && !error && covenants.length === 0 && !isEmptyMainnet && (
               <div data-tour="explorer-empty" className="relative glass-panel rounded-2xl p-10 text-center overflow-hidden">
                 <div className="covex-aurora" aria-hidden="true" style={{ top: -20, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 380, height: 200, maxWidth: '90vw', opacity: 0.5 }} />
                 <span className="relative z-10 grid place-items-center mx-auto mb-4 h-14 w-14 rounded-2xl border border-kaspa-green/25 bg-kaspa-green/[0.06]">

@@ -63,6 +63,35 @@ jobs:
       - name: ZK circuit registry is honest vs served keys
         run: bash scripts/check-zk-registry.sh
 
+  zk-prove:
+    name: ZK served zkeys are reproducibly provable (drift gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: zk/package-lock.json
+
+      # snarkjs + circomlibjs come from zk/package-lock.json. Needed to generate a real
+      # Groth16 proof for every provable circuit.
+      - name: npm ci (zk)
+        working-directory: zk
+        run: npm ci
+
+      # GATE (reproducibility / pairing-drift): for every circuit the registry marks provable,
+      # generate a REAL proof from the committed SERVED wasm + _final.zkey, verify it ACCEPTS
+      # against the SERVED vkey, and confirm a field-overflow tamper, a proof byte-flip, and a
+      # false-predicate flip are all REJECTED. If a served zkey and its vkey ever drift apart
+      # (e.g. a verifier repointed to a non-paired key, or a re-keyed zkey not re-synced), the
+      # accept step fails and this RED's the build. This is the load-bearing guarantee that the
+      # served proving keys stay reproducibly provable + fail-closed. See zk/scripts/prove_gate.js.
+      - name: Served zkeys prove + verify + tamper-reject
+        run: bash scripts/check-zk-prove-gate.sh
+
   backend:
     name: Backend (build + test + lint)
     runs-on: ubuntu-latest

@@ -54,6 +54,18 @@ Module.prototype.require = function (id) {
   return origRequire.apply(this, arguments);
 };
 
+// Some prove scripts (e.g. prove_range_proof.js) gate on fs.existsSync(<root _final.zkey>)
+// and early-return WITHOUT calling snarkjs when the gitignored root zkey is absent. Our
+// require-hook already forces the SERVED wasm + _final.zkey for the actual prove call, so make
+// existsSync report true for any *_final.zkey / *.wasm probe. This never weakens soundness: the
+// proof is always generated against the committed served artifacts, never a root one.
+const origExists = fs.existsSync.bind(fs);
+fs.existsSync = function (p) {
+  const s = String(p);
+  if (/_final\.zkey$/.test(s) || /\.wasm$/.test(s)) return true;
+  return origExists(p);
+};
+
 // Redirect any *_proof.json write to temp (never clobber committed files) and capture as fallback.
 const origWrite = fs.writeFileSync.bind(fs);
 fs.writeFileSync = function (file, data, ...rest) {

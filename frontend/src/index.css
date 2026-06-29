@@ -2083,3 +2083,26 @@ input[type="range"]:active::-moz-range-thumb { transform: scale(1.24); }
 @keyframes timeline-fill { from { width: 0; } to { width: 100%; } }
 .timeline-fill { width: 100%; animation: timeline-fill 0.6s cubic-bezier(0.16,1,0.3,1) both; }
 @media (prefers-reduced-motion: reduce) { .timeline-fill { animation: none; width: 100%; } }
+
+/* ── GLOBAL prefers-reduced-motion catch-all ───────────────────────────────────
+   The named-class blocks above each disable a specific decorative animation, but
+   inline Tailwind entrances (animate-[slide-up...], the ~23 animate-* utilities,
+   hover transitions) are not covered by any of them. This last-word catch-all
+   neutralizes DURATION for everything so a reduced-motion user lands on the final
+   resting state instantly, with zero motion. It only collapses timing: animations
+   still run to their end frame (iteration-count 1, .001ms duration) and
+   transitions still apply their end value, so functional state changes (opacity
+   toggles, height/width reveals, drawer open/close end states) remain correct -
+   they simply happen without an animated tween. scroll-behavior drops to auto so
+   programmatic scrolls don't smooth-glide. Placed at EOF so it overrides any
+   per-class rule above. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

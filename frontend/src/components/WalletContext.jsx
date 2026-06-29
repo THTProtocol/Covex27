@@ -254,14 +254,22 @@ export function walletCovenantBadge(walletId, appNetwork) {
   return { canSign: true, networkLimited: false, note: null };
 }
 
-// ── KAS → sompi conversion (BigInt-safe, no float precision loss) ──
+// ── KAS to sompi conversion (BigInt-safe, no float precision loss) ──
 function kasToSompi(amountKas) {
   const [whole = '0', frac = ''] = String(amountKas).split('.');
   const paddedFrac = (frac + '00000000').slice(0, 8);
   return BigInt(whole) * 100_000_000n + BigInt(paddedFrac);
 }
 
-function isMobile() { return typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent); }
+function isMobile() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  if (/Mobi|Android|iPhone|iPad|iPod/i.test(ua)) return true;
+  // iPadOS 13+ Safari masquerades as 'Macintosh' (no iPad token) but is a real touch device with
+  // no Chrome-extension support. Treat a Mac UA with a real touchscreen as mobile. Otherwise iPads
+  // get dead desktop-extension install links instead of the honest in-app-browser / key-based flow.
+  return /Macintosh/i.test(ua) && typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 1;
+}
 
 // Humanize a wallet-extension rejection into a one-line, user-facing string. Extensions
 // throw a grab-bag of shapes (Error, { code, message }, plain string, EIP-1193-style 4001
@@ -331,7 +339,10 @@ const ALL_WALLETS = [
   // injected provider is detected and the synthetic "Your Kaspa wallet" entry (added in
   // walletsForDevice) connects it in one tap. openOnly => never probe-connect, so no desktop leak.
   { id: 'Kasanova', name: 'Kasanova', url: WALLET_INSTALL_URLS.Kasanova, logo: WALLET_LOGOS.Kasanova, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.Kasanova, openOnly: true, detect: () => false, provider: () => null },
-  { id: 'KSPR', name: 'KSPR Wallet', url: WALLET_INSTALL_URLS.KSPR, logo: WALLET_LOGOS.KSPR, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.KSPR, openOnly: true, detect: () => false, provider: () => null },
+  // KSPR is a Telegram-bot wallet: its link opens the Telegram bot, NOT a dApp browser that
+  // returns to Covex with an injected provider. nativeOnly => after it foregrounds we say so
+  // honestly instead of a silent dead-end, and we never claim it has an in-app dApp browser.
+  { id: 'KSPR', name: 'KSPR Wallet', url: WALLET_INSTALL_URLS.KSPR, logo: WALLET_LOGOS.KSPR, sub: 'iOS · Android', platform: 'mobile', deepLink: WALLET_DEEP_LINKS.KSPR, openOnly: true, nativeOnly: true, detect: () => false, provider: () => null },
   // Kaspium is a native wallet with no in-app dApp browser that injects a Kaspa provider, so
   // opening it cannot complete an in-page connect here. nativeOnly => after the app foregrounds
   // we say so honestly (no fake "connected") instead of leaving a silent dead-end.
@@ -807,7 +818,7 @@ function WalletBridge({ children, kf = KF_STUB }) {
             // returns into that browser and detection picks it up. For native-only wallets,
             // be honest: there is no provider to connect to in this tab.
             if (wallet.nativeOnly) {
-              setError(`Opened ${wallet.name}. ${wallet.name} is a native app with no in-page connect here yet, so complete the action inside the app. To connect on this site, open it from the in-app browser of a wallet that supports it (KasWare, OKX, Kasanova).`);
+              setError(`Opened ${wallet.name}. ${wallet.name} is a native app with no in-page connect here yet, so complete the action inside the app. To connect on this site, open Covex from the in-app browser of OKX or Kasanova.`);
             }
             return;
           }

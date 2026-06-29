@@ -61,8 +61,8 @@ function MobileConnectHelp({ openWallets, onOpen, pendingId, pageUrl }) {
       </div>
       <p className="text-[12px] text-gray-300 light:text-slate-600 leading-relaxed">
         Kaspa has no WalletConnect and no mobile browser extension. On a phone, signing a covenant
-        works inside a wallet's in-app browser (KasWare / OKX): open Covex there with one of the
-        buttons below, then sign in the wallet popup. Or use a key-based flow that needs no extension.
+        works inside a wallet app's in-app browser. Open Covex there with one of the buttons below,
+        then approve in the wallet. Or use a key-based flow that needs no extension at all.
       </p>
 
       {/* Per-wallet "Open in <app>" deep links (only wallets that actually expose one). */}
@@ -72,12 +72,12 @@ function MobileConnectHelp({ openWallets, onOpen, pendingId, pageUrl }) {
             <button
               key={w.id}
               onClick={() => onOpen(w)}
-              className="w-full flex items-center gap-3 p-2.5 rounded-lg border border-[#1f1f1f] light:border-slate-200 bg-[#111111] light:bg-white hover:border-[#49EACB] transition-all group text-left"
+              className="w-full flex items-center gap-3 p-3 min-h-[44px] rounded-lg border border-[#1f1f1f] light:border-slate-200 bg-[#111111] light:bg-white hover:border-[#49EACB] transition-all group text-left"
             >
               <WalletLogo wallet={w} />
               <div className="flex-1 min-w-0">
                 <div className="text-white light:text-slate-900 font-medium text-[13px] truncate">Open in {w.name.replace(/ Wallet$/, '')}</div>
-                <div className="text-[11px] text-gray-500 truncate">Launches the app's in-app browser</div>
+                <div className="text-[11px] text-gray-500 truncate">{w.nativeOnly ? 'Opens the app (complete the action inside it)' : "Launches the app's in-app browser"}</div>
               </div>
               {pendingId === w.id
                 ? <Loader2 size={15} className="animate-spin text-[#49EACB] shrink-0" />
@@ -91,7 +91,7 @@ function MobileConnectHelp({ openWallets, onOpen, pendingId, pageUrl }) {
           land back on Covex inside that browser, where the injected provider is detected. */}
       <div className="mt-3 flex items-center gap-3 p-3 rounded-lg bg-black/30 light:bg-slate-50 border border-white/[0.06] light:border-slate-200">
         <div className="rounded-lg bg-white p-1.5 shrink-0 ring-1 ring-black/5">
-          <QRCodeSVG value={pageUrl} size={64} level="M" bgColor="#ffffff" fgColor="#000000" aria-label="QR code of this page to open in your wallet's in-app browser" />
+          <QRCodeSVG value={pageUrl} size={92} level="M" bgColor="#ffffff" fgColor="#000000" aria-label="QR code of this page to open in your wallet's in-app browser" />
         </div>
         <div className="min-w-0">
           <div className="text-[12px] font-semibold text-white light:text-slate-900 flex items-center gap-1.5"><QrCode size={12} className="text-[#49EACB] shrink-0" /> Scan in your wallet app</div>
@@ -103,7 +103,7 @@ function MobileConnectHelp({ openWallets, onOpen, pendingId, pageUrl }) {
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link
           to="/recover"
-          className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-semibold text-gray-300 light:text-slate-600 hover:border-[#49EACB]/40 hover:text-[#49EACB] transition-colors"
+          className="flex items-center justify-center gap-1.5 py-2.5 min-h-[44px] rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-semibold text-gray-300 light:text-slate-600 hover:border-[#49EACB]/40 hover:text-[#49EACB] transition-colors"
         >
           <KeyRound size={13} className="shrink-0" /> Recover / claim
         </Link>
@@ -111,14 +111,14 @@ function MobileConnectHelp({ openWallets, onOpen, pendingId, pageUrl }) {
           href="/tools/cold-recovery/"
           target="_blank"
           rel="noreferrer"
-          className="flex items-center justify-center gap-1.5 py-2.5 rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-semibold text-gray-300 light:text-slate-600 hover:border-[#49EACB]/40 hover:text-[#49EACB] transition-colors"
+          className="flex items-center justify-center gap-1.5 py-2.5 min-h-[44px] rounded-lg border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-[12px] font-semibold text-gray-300 light:text-slate-600 hover:border-[#49EACB]/40 hover:text-[#49EACB] transition-colors"
         >
           <ShieldCheck size={13} className="shrink-0" /> Cold tool
         </a>
       </div>
       <p className="mt-2 text-[10px] text-gray-500 leading-relaxed">
-        Key-based flows derive and sign locally in your browser - your private key is never
-        transmitted. They work for claiming covenant funds without any wallet extension.
+        Key-based flows derive and sign locally in your browser, so your private key is never
+        transmitted. They let you claim covenant funds without any wallet extension.
       </p>
     </div>
   );
@@ -404,7 +404,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
               }
             }}
           >
-            <div className="flex justify-between items-center px-4 sm:px-6 py-4 sm:py-5 border-b border-[#1f1f1f] light:border-slate-200 shrink-0">
+            <div className="flex justify-between items-center px-4 sm:px-6 py-4 sm:py-5 pt-[max(1rem,env(safe-area-inset-top))] border-b border-[#1f1f1f] light:border-slate-200 shrink-0">
               <h2 className="text-lg sm:text-xl font-semibold text-white light:text-slate-900">Connect Wallet</h2>
               <button onClick={closeDrawer} className="p-1.5 -mr-1.5 rounded-lg text-gray-200 light:text-slate-500 hover:text-white light:hover:text-slate-900 hover:bg-white/5 transition-colors" aria-label="Close">
                 <X size={22} />
@@ -425,7 +425,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
               )}
 
               {connecting && (
-                <div className="mb-4 p-3 rounded-lg bg-[#49EACB]/[0.06] border border-[#49EACB]/20 text-center">
+                <div className="sticky top-0 z-10 mb-4 p-3 rounded-lg bg-[#49EACB]/[0.06] border border-[#49EACB]/20 text-center">
                   <p className="text-sm text-[#49EACB] flex items-center justify-center gap-2">
                     <Loader2 size={14} className="animate-spin shrink-0" />
                     <span>Approve the connection in your wallet popup</span>
@@ -534,7 +534,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
                 )}
               </div>
 
-              {detected.length === 0 && topPick && (
+              {detected.length === 0 && !showMobileHelp && topPick && (
                 <button
                   onClick={() => handleWalletClick(topPick)}
                   className="mt-5 w-full flex items-center gap-2.5 p-3 rounded-xl border border-[#49EACB]/20 bg-[#49EACB]/[0.04] hover:bg-[#49EACB]/[0.08] hover:border-[#49EACB]/40 transition-all text-left group"
@@ -551,7 +551,8 @@ export default function WalletButton({ fullLabel = false } = {}) {
               )}
 
               <p className="mt-6 text-[11px] text-gray-500 leading-relaxed">
-                Installed wallets connect in one click. On a phone, an installed wallet opens its app; if it is not installed you go to its app page. Covex is non-custodial: keys never leave your wallet, every transaction is signed by you.
+                Installed wallets connect in one click. On a phone, an installed wallet opens its app; if it is not installed you go to its app page.
+                <span className="block mt-1.5">Covex is non-custodial. Your keys never leave your wallet, and every transaction is signed by you.</span>
               </p>
 
               {showMobileHelp && (
@@ -567,7 +568,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
             {/* Tightened footer copy: drop the redundant "Keys stay in your wallet" tail; the
                 drawer body already explains keys never leave the wallet. Footer stays as a
                 quiet network + posture signal, not a recap. */}
-            <div className="p-3 border-t border-[#1f1f1f] light:border-slate-200 text-center text-[10px] font-mono text-gray-500 shrink-0 flex items-center justify-center gap-1.5">
+            <div className="p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-[#1f1f1f] light:border-slate-200 text-center text-[10px] font-mono text-gray-500 shrink-0 flex items-center justify-center gap-1.5">
               <span
                 aria-hidden="true"
                 className="inline-block w-1.5 h-1.5 rounded-full shrink-0"

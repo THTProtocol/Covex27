@@ -124,7 +124,7 @@ async fn oracle_pubkey_handler() -> Json<serde_json::Value> {
         "xonly_pubkey": oracle_xonly_pubkey_hex(),
         "message_format": "covex-oracle:{covenant_id}:{outcome}:{timestamp}",
         "digest": "sha256(message)",
-        "note": "Verify the oracle's outcome signature (BIP340) against this x-only key."
+        "note": "Covex-held co-sign key for the deterministic games-replay path only (testnet); not a real-world resolver, not a trustless verifier. Mainnet oracle covenants are frozen."
     }))
 }
 

@@ -24,7 +24,9 @@ const KINDS = [
   { id: 'relative_timelock', label: 'Relative timelock (CSV)', icon: Timer, blurb: 'Spendable only after the funds have aged a relative number of blocks (OpCheckSequenceVerify, BIP68). Node-enforced: an early spend is rejected.' },
   { id: 'timedecay', label: 'Time-decaying multisig', icon: Hourglass, blurb: 'A high quorum spends now, relaxing to a lower quorum after a deadline. Treasury recovery / inheritance. Demo uses the dev wallets.' },
   { id: 'oracle_enforced', label: 'Resolver-enforced', icon: Scale, blurb: 'A 2-of-2 of a deployer-bound resolver + winner: the chain requires the resolver co-signature, and the resolver co-signs only a verified outcome. On-chain-enforced resolver resolution; the deployer binds the resolver by pubkey at deploy.' },
+  { id: 'oracle_enforced_refundable', label: 'Resolver-enforced + timeout refund', icon: Scale, blurb: 'Like Resolver-enforced (a 2-of-2 of [resolver, winner] the chain co-signs), but wrapped with a relative-timelock (CSV) refund branch so the funder reclaims the stake if the resolver ever goes silent. The safer form: it closes the frozen-funds risk of a mandatory resolver co-signature with no timeout, so you may bind your OWN external resolver. Demo uses the dev wallets.' },
   { id: 'oracle_escrow', label: 'Resolver escrow (2-player)', icon: Gavel, blurb: 'A 2-player pot the chain releases only to the resolver-declared winner: needs the deployer-bound resolver co-signature plus the winning player on their branch. Demo uses the dev wallets.' },
+  { id: 'oracle_escrow_refundable', label: 'Resolver escrow + timeout refund', icon: Gavel, blurb: 'Like Resolver escrow (a 2-player pot the chain releases only to the resolver-declared winner), but wrapped with a relative-timelock (CSV) refund branch so the funder reclaims the pot if the resolver ever goes silent. The safer form: it closes the frozen-funds risk of the non-refundable escrow, so you may bind your OWN external resolver. Demo uses the dev wallets.' },
   { id: 'market', label: 'Conditional outcome', icon: TrendingUp, blurb: 'A parimutuel YES/NO covenant. Participants stake on an outcome; the winning side is paid on-chain via conjoined oracle covenants and the other side gets a rebate. You set the creator fee and rebate.' },
   { id: 'binary_oracle_select', label: 'External-oracle market', icon: Scale, blurb: 'A 2-outcome covenant bound to an EXTERNAL resolver you choose: commit the two published hashlocks and the two winner keys. The chain pays whichever side whose secret the resolver reveals; if neither is revealed, the refund key reclaims after a relative timelock. Covex is not in the payout path and attests nothing.' },
 ];
@@ -156,6 +158,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
     return /^[0-9a-f]{64}$/.test(r) ? r : '';
   })();
   const [resolverKey, setResolverKey] = useState(initialResolver);
+  // Refund key for the *_refundable oracle kinds: the x-only pubkey that can reclaim the stake via
+  // the CSV refund branch if the resolver goes silent. Blank = the backend defaults the refund to
+  // the deployer key (resolve_oracle_xonly falls back to xonly), so a funder always has a fallback.
+  const [refundKey, setRefundKey] = useState('');
   // External-oracle market (binary_oracle_select): the two published hashlocks + winner keys. A
   // resolver can hand the user a ready-to-deploy link (provider-agnostic: just hex hashes + keys).
   const hexParam = (k) => {
@@ -300,7 +306,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   const onchainEntries = useMemo(() => catalog.filter((e) => e.enforcement_reality === 'on-chain'), [catalog]);
   // Multi-party / oracle primitives deploy via server-assisted dev wallets,
   // exactly like the multisig demo. Single-signer kinds stay fully non-custodial.
-  const DEV_WALLET_KINDS = ['multisig', 'htlc', 'channel', 'deadman', 'timedecay', 'oracle_enforced', 'oracle_escrow', 'binary_oracle_select'];
+  const DEV_WALLET_KINDS = ['multisig', 'htlc', 'channel', 'deadman', 'timedecay', 'oracle_enforced', 'oracle_enforced_refundable', 'oracle_escrow', 'oracle_escrow_refundable', 'binary_oracle_select'];
   const usesDevWallets = DEV_WALLET_KINDS.includes(kind);
   // Kinds whose redeem needs an ABSOLUTE unlock DAA (tip + lockBlocks).
   const ABS_LOCK_KINDS = ['timelock', 'htlc', 'channel', 'deadman', 'timedecay'];
@@ -399,6 +405,22 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       redeem.lock_daa = absLock();
       redeem.required = Math.max(1, parseInt(reqNow || '2', 10));   // quorum now
       redeem.req_after = Math.max(1, parseInt(reqAfter || '1', 10)); // quorum after the deadline
+    } else if (kind === 'oracle_enforced_refundable' || kind === 'oracle_escrow_refundable') {
+      // The refundable oracle kinds wrap the oracle 2-of-2 / escrow in a CSV refund tail. The
+      // backend reads lock_daa AS the relative (BIP68) refund min_sequence, so the funder reclaims
+      // after the stake has aged this many blocks if the resolver never co-signs. Clamp to the
+      // 16-bit sequence field (|| 1 guards NaN) so a typo cannot brick the only fallback path.
+      redeem.lock_daa = Math.min(65535, Math.max(1, parseInt(relSeq || '10', 10) || 1));
+      // Optional refund key: who can reclaim via the CSV branch. Blank -> backend defaults to the
+      // deployer key, so a funder always keeps a fallback. Validate as 32-byte x-only hex if set.
+      const rfk = refundKey.trim().toLowerCase();
+      if (rfk) {
+        if (!/^[0-9a-f]{64}$/.test(rfk)) {
+          setError('Refund key must be a 32-byte x-only public key (64 hex chars). Leave blank to default the refund to your deployer key.');
+          return;
+        }
+        redeem.refund_pubkey_hex = rfk;
+      }
     }
     // Bind a creator-chosen EXTERNAL resolver ONLY on a *_refundable kind (see
     // kindAllowsExternalResolver): external cosign is not yet wired, so binding an external key to a
@@ -757,7 +779,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   const KindIcon = KINDS.find((k) => k.id === kind)?.icon || ShieldCheck;
   // Market and the oracle covenants are hybrid: custody/payout settle on-chain, but the
   // deployer-bound resolver decides the outcome. Only the pure P2SH primitives are on-chain-only.
-  const isHybridKind = ['oracle_enforced', 'oracle_escrow', 'market', 'binary_oracle_select'].includes(kind);
+  const isHybridKind = ['oracle_enforced', 'oracle_enforced_refundable', 'oracle_escrow', 'oracle_escrow_refundable', 'market', 'binary_oracle_select'].includes(kind);
   // SAFETY GATE: binding an EXTERNAL resolver key is only safe on a *_refundable kind. The
   // signature-cosign spend path cannot produce an external key's signature, so binding an
   // external key to a NON-refundable oracle kind creates an unspendable payout branch (the
@@ -1111,7 +1133,44 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
         {kind === 'oracle_escrow' && (
           <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-player pot of the dev wallets that the chain releases only to the resolver-declared winner: it needs the resolver co-signature plus the winning player on their branch. This kind uses the default engine-results resolver. Binding your own external resolver needs a refundable kind (external cosign is not wired yet), so the funder can reclaim if the resolver does not act. Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at Toccata.</p>
         )}
-        {(kind === 'oracle_enforced' || kind === 'oracle_escrow') && kindAllowsExternalResolver && (
+        {/* Refundable oracle kinds: the SAFER form. The CSV refund branch lets the funder reclaim
+            if the resolver goes silent, which is exactly why binding YOUR OWN external resolver is
+            allowed here (kindAllowsExternalResolver is true for *_refundable). Surfaces the refund
+            delay + an optional refund key on top of the external-resolver field below. */}
+        {(kind === 'oracle_enforced_refundable' || kind === 'oracle_escrow_refundable') && (
+          <div className="space-y-3">
+            <p className="text-[11px] text-gray-400 light:text-slate-600 leading-snug">
+              {kind === 'oracle_enforced_refundable'
+                ? 'A 2-of-2 of the resolver and the winner (dev wallet 1), wrapped with a relative-timelock (CSV) refund branch. The chain requires the resolver co-signature to pay the winner; if the resolver never acts, the funder reclaims the stake after the refund delay below. Because the funder always keeps that fallback, you may bind your own external resolver. Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at the Toccata hard fork.'
+                : 'A 2-player pot of the dev wallets the chain releases only to the resolver-declared winner, wrapped with a relative-timelock (CSV) refund branch. If the resolver never co-signs, the funder reclaims the pot after the refund delay below. Because the funder always keeps that fallback, you may bind your own external resolver. Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at Toccata.'}
+            </p>
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-gray-300 light:text-slate-700">Refund age (relative blocks)</label>
+              <input
+                type="number"
+                min={1}
+                max={65535}
+                value={relSeq}
+                onChange={(e) => setRelSeq(e.target.value)}
+                className="w-full rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-300 px-3 py-2 text-xs font-mono text-gray-200 light:text-slate-800 focus:outline-none focus:border-kaspa-green/50"
+              />
+              <p className="text-[10px] text-gray-500 light:text-slate-500 leading-snug">The stake must age this many blocks (about {Math.round((parseInt(relSeq || '0', 10) || 0) / 10)} seconds) after being received before the refund branch is spendable; until then only the resolver-co-signed payout can release it.</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] font-medium text-gray-300 light:text-slate-700">Refund key (optional, x-only hex)</label>
+              <input
+                type="text"
+                value={refundKey}
+                onChange={(e) => setRefundKey(e.target.value)}
+                placeholder="blank = refund to your deployer key. Paste a 64-hex x-only key to send the refund elsewhere."
+                className="w-full rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-300 px-3 py-2 text-xs font-mono text-gray-200 light:text-slate-800 placeholder:text-gray-600 light:placeholder:text-slate-400 focus:outline-none focus:border-kaspa-green/50"
+              />
+              <p className="text-[10px] text-gray-500 light:text-slate-500">Who can reclaim via the CSV refund branch if the resolver goes silent. Blank defaults to the deployer key.</p>
+            </div>
+          </div>
+        )}
+        {((kind === 'oracle_enforced' || kind === 'oracle_escrow') && kindAllowsExternalResolver)
+          || kind === 'oracle_enforced_refundable' || kind === 'oracle_escrow_refundable' ? (
           <div className="space-y-1.5">
             <label className="text-[11px] font-medium text-gray-300 light:text-slate-700">External resolver key (optional, x-only hex)</label>
             <input
@@ -1123,7 +1182,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
             />
             <p className="text-[10px] text-gray-500 light:text-slate-500">When set, the deployed covenant embeds THIS key and requires its co-signature to release. Covex is not in the path. Covex does not attest real-world facts; bring your own resolver for those.</p>
           </div>
-        )}
+        ) : null}
         {/* External-resolver-key field is GATED OFF for the non-refundable oracle kinds: binding an
             external key to them would create an unspendable payout branch (external cosign is not
             wired yet) with no refund fallback. Show the disabled field + an honest steer to a

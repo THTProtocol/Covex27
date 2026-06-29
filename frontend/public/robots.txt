@@ -1,0 +1,9 @@
+# Covex - the covenant explorer and studio for Kaspa mainnet
+# https://hightable.pro
+
+User-agent: *
+Allow: /
+# Embed widgets are meant to be iframed on other sites, not indexed standalone.
+Disallow: /embed/
+
+Sitemap: https://hightable.pro/sitemap.xml

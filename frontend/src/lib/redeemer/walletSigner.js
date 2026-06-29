@@ -138,6 +138,89 @@ function inputSigScriptBytes(inp) {
   return null;
 }
 
+// Reduce any pubkey hex to its lowercase 32-byte (64-hex) x-only form for matching. A wallet may
+// key a PSKT partialSigs map (or label a partial-sig entry) by EITHER the 33-byte compressed
+// pubkey (02/03 || x, 66 hex) or the bare 32-byte x-only key (64 hex). We strip a 0x prefix, drop
+// a leading 02/03 compression byte when present (66 -> 64 hex), and lowercase, so a 33-byte map key
+// and the 32-byte signer_xonly from prepare-spend/-deploy compare equal. Returns null for anything
+// that is not a 64- or 66-hex pubkey, so a malformed key never spuriously matches.
+function normalizeXonlyHex(s) {
+  if (typeof s !== 'string') return null;
+  let h = s.trim().replace(/^0x/i, '').toLowerCase();
+  if (h.length === 66 && (h.startsWith('02') || h.startsWith('03'))) h = h.slice(2);
+  return h.length === 64 && /^[0-9a-f]{64}$/.test(h) ? h : null;
+}
+
+// Coerce a per-input partial signature value (the bytes a wallet recorded for one signer) to a
+// Uint8Array, accepting the hex-string / array / Uint8Array shapes wallets use. Returns null when
+// the value is absent or unparseable so the caller fails closed rather than guessing.
+function partialSigBytes(val) {
+  if (val == null) return null;
+  if (val instanceof Uint8Array) return val.length ? val : null;
+  if (Array.isArray(val)) return val.length ? Uint8Array.from(val) : null;
+  if (typeof val === 'string') {
+    const h = val.replace(/^0x/i, '');
+    if (!h) return null;
+    return hexToBytes(h);
+  }
+  // Some wallets nest the bytes under a field (e.g. { signature: '...' } / { sig: [...] }).
+  if (typeof val === 'object') {
+    return partialSigBytes(val.signature ?? val.sig ?? val.signatureHex ?? val.sig_hex ?? null);
+  }
+  return null;
+}
+
+// Pull the 64-byte BIP340 signature for a SPECIFIC signer out of a PSKT input's partial-signature
+// container. A real KasWare / OKX signPskt does NOT finalize the input into a signatureScript; the
+// signature it produced lives in a per-input partialSigs map under the signer's pubkey. We handle
+// BOTH shapes seen across wallets/versions:
+//   1. an OBJECT map:  { "<pubkeyHex>": "<sigHex>", ... }   (xonly OR 33-byte compressed key)
+//   2. an ARRAY:       [{ pubkey|pubKey|publicKey, signature|sig }, ...]
+// We select the entry whose pubkey matches the EXPECTED signer x-only (normalized so a 33-byte
+// compressed map key matches the 32-byte signer_xonly) and return its raw signature bytes. When no
+// expected signer is supplied (e.g. a deploy that signs every input with the SAME deployer key) we
+// accept the sole entry. Returns null when there is no partial-sig container or no matching entry,
+// so extraction falls through to the finalized-sigScript path or fails closed.
+//
+// @param {object} inp                 - one parsed PSKT input
+// @param {string|null} expectedXonly  - the signer's normalized x-only hex (or null to take the sole entry)
+// @returns {Uint8Array|null} the raw signature bytes for that signer (pre-normalizeSig64), or null
+function partialSigForSigner(inp, expectedXonly) {
+  if (!inp || typeof inp !== 'object') return null;
+  const container = inp.partialSigs ?? inp.partial_sigs ?? null;
+  if (container == null) return null;
+  const want = expectedXonly ? normalizeXonlyHex(expectedXonly) : null;
+
+  // Shape 1: object map pubkeyHex -> sigHex.
+  if (!Array.isArray(container) && typeof container === 'object' && !(container instanceof Uint8Array)) {
+    const entries = Object.entries(container);
+    if (entries.length === 0) return null;
+    if (want) {
+      for (const [k, v] of entries) {
+        if (normalizeXonlyHex(k) === want) return partialSigBytes(v);
+      }
+      return null; // expected signer's partial sig absent -> fail closed upstream.
+    }
+    // No expected signer named: accept the single partial sig (multi-entry is ambiguous -> null).
+    return entries.length === 1 ? partialSigBytes(entries[0][1]) : null;
+  }
+
+  // Shape 2: array of { pubkey, signature } records.
+  if (Array.isArray(container)) {
+    if (container.length === 0) return null;
+    const keyOf = (e) => e && (e.pubkey ?? e.pubKey ?? e.publicKey ?? e.public_key ?? e.xonly ?? e.x_only ?? null);
+    const sigOf = (e) => e && (e.signature ?? e.sig ?? e.signatureHex ?? e.sig_hex ?? null);
+    if (want) {
+      for (const e of container) {
+        if (normalizeXonlyHex(keyOf(e)) === want) return partialSigBytes(sigOf(e));
+      }
+      return null;
+    }
+    return container.length === 1 ? partialSigBytes(sigOf(container[0])) : null;
+  }
+  return null;
+}
+
 // Parse the INPUTS array out of a wallet's signed result, which may be:
 //   - a JSON string (KasWare signPskt returns a PSKT JSON string; Kastle signTx returns tx JSON)
 //   - an object with .inputs (a Transaction shape)
@@ -170,20 +253,41 @@ export function parseSignedInputs(signed) {
 // and /submit-signed expect. Throws (fail-closed) if any requested input is unsigned or its
 // signature cannot be normalized to 64 bytes.
 //
-// @param {string|object} signed - the wallet's signed tx / PSKT (JSON string or object)
-// @param {number[]} indices     - input indices to extract (e.g. [0] for a spend)
+// TWO extraction paths, tried in order, so this works on REAL wallets (not only synthetic
+// finalized fixtures):
+//   1. partialSigs: a real KasWare / OKX signPskt returns a PSKT whose produced signature lives in
+//      a per-input partialSigs map (or array) keyed by the signer's pubkey, NOT a finalized
+//      signatureScript. We select the entry matching `expectedSignerXonly` (when given) and
+//      normalize it to 64 bytes. This is the PRIMARY path for the wallet money flow.
+//   2. finalized signatureScript: kept as a FALLBACK for wallets / fixtures that hand back an
+//      already-finalized input (the leading push is the signature).
+// If both are absent for a requested input the wallet did not sign it -> fail closed.
+//
+// @param {string|object} signed              - the wallet's signed tx / PSKT (JSON string or object)
+// @param {number[]} indices                  - input indices to extract (e.g. [0] for a spend)
+// @param {string} [expectedSignerXonly]      - the signer's x-only hex (prepare-spend/-deploy
+//        signer_xonly); selects the right partialSigs entry. Omit it (or pass falsy) to accept a
+//        sole partial-sig entry, the right behavior for a deploy where one key signs every input.
 // @returns {{ index: number, signature_hex: string }[]}
-export function extractWalletSignatures(signed, indices) {
+export function extractWalletSignatures(signed, indices, expectedSignerXonly) {
   const inputs = parseSignedInputs(signed);
   const out = [];
   for (const index of indices) {
     const inp = inputs[index];
     if (!inp) throw new Error(`wallet signed transaction is missing input ${index}`);
-    const sigScript = inputSigScriptBytes(inp);
-    if (!sigScript) {
-      throw new Error(`wallet did not produce a signature for input ${index} (use the recovery key tool)`);
+    // (1) PRIMARY: the per-input partial signature for THIS signer (real signPskt output).
+    let sig64;
+    const partial = partialSigForSigner(inp, expectedSignerXonly);
+    if (partial) {
+      sig64 = normalizeSig64(partial);
+    } else {
+      // (2) FALLBACK: an already-finalized signatureScript (the leading push is the signature).
+      const sigScript = inputSigScriptBytes(inp);
+      if (!sigScript) {
+        throw new Error(`wallet did not produce a signature for input ${index} (use the recovery key tool)`);
+      }
+      sig64 = extractLeadingSig64(sigScript);
     }
-    const sig64 = extractLeadingSig64(sigScript);
     out.push({ index, signature_hex: bytesToHex(sig64) });
   }
   return out;
@@ -314,7 +418,9 @@ export async function signWithKasware(provider, plan, opts = {}) {
   } catch (e) {
     throw new Error(`The wallet could not sign this covenant spend (${e && e.message ? e.message : e}). This can happen when a wallet does not support custom P2SH covenant inputs. Use the recovery key tool.`, { cause: e });
   }
-  const extracted = extractWalletSignatures(signed, [0]);
+  // Pass the covenant signer's x-only so a real signPskt's partialSigs map is read for the RIGHT
+  // key. verifyWalletSignedSpend below re-checks the extracted sig against that same key fail-closed.
+  const extracted = extractWalletSignatures(signed, [0], opts.signerXonly);
   const { signature_hex } = extracted[0];
   await verifyWalletSignedSpend(plan, signature_hex, opts);
   return { signatures: extracted };
@@ -347,7 +453,7 @@ export async function signWithKastle(provider, plan, opts = {}) {
   } catch (e) {
     throw new Error(`The wallet could not sign this covenant spend (${e && e.message ? e.message : e}). This can happen when a wallet does not support custom P2SH covenant inputs. Use the recovery key tool.`, { cause: e });
   }
-  const extracted = extractWalletSignatures(signed, [0]);
+  const extracted = extractWalletSignatures(signed, [0], opts.signerXonly);
   const { signature_hex } = extracted[0];
   await verifyWalletSignedSpend(plan, signature_hex, opts);
   return { signatures: extracted };
@@ -516,7 +622,9 @@ export async function signDeployWithWallet(provider, prep, opts = {}) {
     }
   }
 
-  const extracted = extractWalletSignatures(signed, indices);
+  // Every funding input is the deployer's OWN P2PK, signed by the SAME key, so pass signerXonly to
+  // read the right partialSigs entry on a real signPskt (and fall back to a finalized sigScript).
+  const extracted = extractWalletSignatures(signed, indices, signerXonly);
   // Fail-closed: every funding input must verify against the deployer's own key over the rebuilt tx.
   for (const { index, signature_hex } of extracted) {
     await verifyDeployInputSig(tx, index, signature_hex, signerXonly);

@@ -31,6 +31,7 @@ import {
   normalizeNetworkId,
 } from './walletSigner.js';
 import { push65, pushData, bytesToHex, hexToBytes, buildSatisfier } from './covenantRedeemer.js';
+import { schnorr } from '@noble/curves/secp256k1';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // frontend/src/lib/redeemer -> repo root is five levels up (mirrors the golden test).
@@ -173,6 +174,134 @@ describe('extractWalletSignatures (the { index, signature_hex } shape submit-* e
     const out = extractWalletSignatures(signed, [0, 1]);
     expect(out[0].signature_hex).toBe(SIG_A_HEX);
     expect(out[1].signature_hex).toBe(golden.fixed_inputs.sig_b);
+  });
+});
+
+// ── PSKT partialSigs (the REAL KasWare / OKX signPskt output shape) ──────────────────────────
+// A real signPskt does NOT finalize the input into a signatureScript; the signature it produced
+// lives in a per-input partialSigs map (or array) keyed by the SIGNER'S pubkey. These tests feed
+// that realistic shape and assert (a) a 64-byte sig is extracted and (b) it is the entry for the
+// EXPECTED signer x-only, plus the fail-closed cases where the expected signer's partial sig is
+// absent. SIGNER_XONLY is a real BIP340 x-only key (derived from a throwaway secret) so the
+// pubkey-match logic is exercised against a genuine 32-byte key, not a placeholder.
+const SIGNER_PRIV = '11'.repeat(31) + '07'; // arbitrary valid secp256k1 scalar
+const SIGNER_XONLY = bytesToHex(schnorr.getPublicKey(SIGNER_PRIV)); // 32-byte x-only, 64 hex
+const OTHER_XONLY = bytesToHex(schnorr.getPublicKey('22'.repeat(31) + '09')); // a DIFFERENT signer
+
+// One PSKT input the way KasWare signPskt returns it: a partialSigs MAP of pubkeyHex -> sigHex,
+// and NO finalized signatureScript. `entries` is [pubkeyHex, sigHex][].
+function psktInputWithPartialSigs(entries) {
+  const partialSigs = {};
+  for (const [pk, sig] of entries) partialSigs[pk] = sig;
+  return { partialSigs }; // deliberately no signatureScript: signPskt did not finalize.
+}
+
+describe('extractWalletSignatures - PSKT partialSigs (real signPskt shape)', () => {
+  it('extracts a 64-byte sig from a partialSigs MAP and matches the expected signer x-only', () => {
+    // KasWare signPskt: input 0 carries partialSigs { <signerXonly>: <sig64hex> }, no sigScript.
+    const pskt = JSON.stringify({
+      inputs: [psktInputWithPartialSigs([[SIGNER_XONLY, SIG_A_HEX]])],
+    });
+    const out = extractWalletSignatures(pskt, [0], SIGNER_XONLY);
+    // (a) a 64-byte BIP340 signature was extracted...
+    expect(hexToBytes(out[0].signature_hex).length).toBe(64);
+    // (b) ...and it is the partial sig recorded under the EXPECTED signer's key.
+    expect(out).toEqual([{ index: 0, signature_hex: SIG_A_HEX }]);
+  });
+
+  it('selects the EXPECTED signer entry when the map carries several signers', () => {
+    // Two signers signed; we must pick OUR key's entry, not the other one.
+    const pskt = {
+      inputs: [psktInputWithPartialSigs([
+        [OTHER_XONLY, golden.fixed_inputs.sig_b],
+        [SIGNER_XONLY, SIG_A_HEX],
+      ])],
+    };
+    const out = extractWalletSignatures(pskt, [0], SIGNER_XONLY);
+    expect(out[0].signature_hex).toBe(SIG_A_HEX); // OUR signer, not sig_b
+  });
+
+  it('matches a 33-byte compressed-pubkey map key against the 32-byte signer x-only', () => {
+    // Some wallets key partialSigs by the full 33-byte compressed pubkey (02|03 || x). The
+    // extractor normalizes both sides to the x-only, so the 32-byte signer_xonly still matches.
+    const compressed = '02' + SIGNER_XONLY; // 33-byte compressed form of the same key
+    const pskt = { inputs: [psktInputWithPartialSigs([[compressed, SIG_A_HEX]])] };
+    const out = extractWalletSignatures(pskt, [0], SIGNER_XONLY);
+    expect(out[0].signature_hex).toBe(SIG_A_HEX);
+  });
+
+  it('reads an ARRAY-shaped partialSigs [{ pubkey, signature }]', () => {
+    // The other observed shape: an array of { pubkey, signature } records.
+    const pskt = {
+      inputs: [{ partialSigs: [
+        { pubkey: OTHER_XONLY, signature: golden.fixed_inputs.sig_b },
+        { pubKey: SIGNER_XONLY, sig: SIG_A_HEX }, // camelCase + short key variants too
+      ] }],
+    };
+    const out = extractWalletSignatures(pskt, [0], SIGNER_XONLY);
+    expect(out[0].signature_hex).toBe(SIG_A_HEX);
+  });
+
+  it('reads the snake_case partial_sigs container', () => {
+    const pskt = { inputs: [{ partial_sigs: { [SIGNER_XONLY]: SIG_A_HEX } }] };
+    expect(extractWalletSignatures(pskt, [0], SIGNER_XONLY)[0].signature_hex).toBe(SIG_A_HEX);
+  });
+
+  it('strips the trailing sighash byte of a 65-byte partial sig (normalizeSig64 applied)', () => {
+    // A wallet that appends the sighash type byte gives a 65-byte value; it must normalize to 64.
+    const sig65 = SIG_A_HEX + '01';
+    const pskt = { inputs: [psktInputWithPartialSigs([[SIGNER_XONLY, sig65]])] };
+    expect(extractWalletSignatures(pskt, [0], SIGNER_XONLY)[0].signature_hex).toBe(SIG_A_HEX);
+  });
+
+  it('FAILS CLOSED when the PSKT lacks the expected signer\'s partial sig (only another signer present)', () => {
+    // The wallet signed for a DIFFERENT key (or never signed for ours). There is no finalized
+    // sigScript either, so extraction must throw rather than return the wrong signer's signature.
+    const pskt = JSON.stringify({
+      inputs: [psktInputWithPartialSigs([[OTHER_XONLY, golden.fixed_inputs.sig_b]])],
+    });
+    expect(() => extractWalletSignatures(pskt, [0], SIGNER_XONLY)).toThrow(
+      /did not produce a signature|recovery key/i,
+    );
+  });
+
+  it('FAILS CLOSED on an empty partialSigs map (wallet returned the container but signed nothing)', () => {
+    const pskt = { inputs: [{ partialSigs: {} }] };
+    expect(() => extractWalletSignatures(pskt, [0], SIGNER_XONLY)).toThrow(
+      /did not produce a signature|recovery key/i,
+    );
+  });
+
+  it('does NOT guess when several signers are present but no expected signer is named (ambiguous -> fail closed)', () => {
+    const pskt = { inputs: [psktInputWithPartialSigs([
+      [OTHER_XONLY, golden.fixed_inputs.sig_b],
+      [SIGNER_XONLY, SIG_A_HEX],
+    ])] };
+    // No expectedSignerXonly + multiple entries => ambiguous; must not silently pick one.
+    expect(() => extractWalletSignatures(pskt, [0])).toThrow(/did not produce a signature|recovery key/i);
+  });
+
+  it('accepts a SOLE partial sig with no expected signer (deploy: one key signs every input)', () => {
+    // A deploy signs all inputs with the SAME deployer key; a single-entry map is unambiguous.
+    const pskt = { inputs: [psktInputWithPartialSigs([[SIGNER_XONLY, SIG_A_HEX]])] };
+    expect(extractWalletSignatures(pskt, [0])[0].signature_hex).toBe(SIG_A_HEX);
+  });
+
+  it('still falls back to a finalized signatureScript when there is no partialSigs container', () => {
+    // Regression guard: the synthetic finalized-input path (the original code) must keep working
+    // even with an expected signer passed, so a wallet that DOES finalize is unaffected.
+    const signed = signedTxWithInput0Script(bytesToHex(push65(SIG_A)));
+    expect(extractWalletSignatures(signed, [0], SIGNER_XONLY)[0].signature_hex).toBe(SIG_A_HEX);
+  });
+
+  it('prefers the partialSigs entry over a stale/placeholder signatureScript on the same input', () => {
+    // If both are present, the per-signer partial sig is authoritative (the real wallet output).
+    const input = {
+      partialSigs: { [SIGNER_XONLY]: SIG_A_HEX },
+      signatureScript: bytesToHex(push65(hexToBytes(golden.fixed_inputs.sig_b))),
+    };
+    const out = extractWalletSignatures({ inputs: [input] }, [0], SIGNER_XONLY);
+    expect(out[0].signature_hex).toBe(SIG_A_HEX); // partialSigs wins, not sig_b
   });
 });
 

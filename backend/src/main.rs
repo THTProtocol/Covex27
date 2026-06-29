@@ -540,8 +540,11 @@ async fn main() {
         .route("/marketplace/templates", get(marketplace_templates_handler))
         .route("/marketplace/publish", post(marketplace_publish_handler))
         .layer(Extension(db.clone()))
-        // Covex offers NO first-party mixer (legal/sanctions posture). The /mixer routes and the
-        // mixer.rs implementation are removed (no dead privacy-mixer code is retained); Covex
+        // Covex offers NO first-party mixer (legal/sanctions posture). The /mixer routes, the
+        // mixer.rs implementation, AND the privacy_mixer_v1 verify-and-sign co-sign path (with its
+        // nullifier DB tables/helpers) are all removed (no dead privacy-mixer code is retained);
+        // privacy_mixer_v1 is unregistered, so verify-and-sign fails closed for it.
+        // scripts/check-no-privacy-mixer.sh keeps this disavowal and the code in sync. Covex
         // remains a neutral explorer, so a user-created mixer-style covenant can still be DISPLAYED
         // like any covenant, with the creator carrying all liability.
         .merge(oracle::oracle_routes().layer(Extension(db.clone())))

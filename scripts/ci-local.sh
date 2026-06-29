@@ -17,6 +17,7 @@ run() { echo ""; echo "== $1 =="; shift; "$@"; }
 run "style: no new em/en dashes (gate)" bash scripts/check-no-emdash.sh || fail=1
 run "neutrality: no forbidden project/product names (gate)" bash scripts/check-forbidden-names.sh || fail=1
 run "honesty: no new payment_just_confirmed (gate)" bash scripts/check-no-payment-just-confirmed.sh || fail=1
+run "honesty: no privacy-mixer co-sign dispatch (gate)" bash scripts/check-no-privacy-mixer.sh || fail=1
 run "zk: circuit registry is honest vs served keys (gate)" bash scripts/check-zk-registry.sh || fail=1
 run "zk: served zkeys are reproducibly provable + tamper-reject (gate)" bash scripts/check-zk-prove-gate.sh || fail=1
 run "frontend: sandbox guard (gate)" bash -c 'cd frontend && node scripts/check-sandbox.mjs' || fail=1

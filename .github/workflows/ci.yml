@@ -48,6 +48,12 @@ jobs:
       - name: No forbidden project/product names
         run: bash scripts/check-forbidden-names.sh
 
+      # GATE: the first-party privacy-mixer co-sign path is removed (legal / sanctions posture
+      # disavowed in backend/src/main.rs). This blocks any change that resurrects a signing
+      # dispatch for privacy_mixer_v1, keeping the disavowal and the code from drifting apart.
+      - name: No privacy-mixer co-sign dispatch
+        run: bash scripts/check-no-privacy-mixer.sh
+
       # Setup node so the ZK registry honesty gate (pure node, no snarkjs) can run.
       - name: Setup Node (for zk registry gate)
         uses: actions/setup-node@v4

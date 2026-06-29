@@ -332,10 +332,9 @@ pub(crate) fn circuit_emits_covenant_binding(circuit_type: &str) -> bool {
             // range_proof.circom); timelock_abs is the catalog alias of timelock_absolute
             // (verify_timelock.js / covex_tl, covenantId in timelock_absolute.circom). A missing
             // binding for these is therefore a replay or a stale pre-H4 proof: hard reject, same as
-            // the base circuit. (The game/mixer hybrids tictactoe_v1 / connect4_v1 /
-            // privacy_mixer_v1 are deliberately NOT here: their served vkeys are nPublic 5/5/7 and
-            // their circom public lists omit covenantId, so a hard reject would break every
-            // legitimate hybrid proof.)
+            // the base circuit. (The game hybrids tictactoe_v1 / connect4_v1 are deliberately NOT
+            // here: their served vkeys are nPublic 5/5 and their circom public lists omit
+            // covenantId, so a hard reject would break every legitimate hybrid proof.)
             | "merkle_dao"
             | "merkle_airdrop"
             | "range_collateral"
@@ -349,8 +348,8 @@ pub(crate) fn circuit_emits_covenant_binding(circuit_type: &str) -> bool {
 /// genuinely cannot carry the binding (their circom public list omits covenantId, confirmed
 /// against frontend/public/zk/<id>/<id>_vkey.json nPublic + the .circom main component).
 ///
-/// These are the game / mixer / DeFi-market hybrids: their outcome is derived from their OWN
-/// public signals (e.g. winner index, mixer_valid, [value, valid]), so a cross-covenant replay
+/// These are the game / DeFi-market hybrids: their outcome is derived from their OWN
+/// public signals (e.g. winner index, [value, valid]), so a cross-covenant replay
 /// would merely re-assert the SAME computed result onto another covenant of the exact same type
 /// and economics, not let an attacker pick an arbitrary outcome. Keeping them here preserves
 /// every legitimate hybrid proof; everything NOT on this list now fails closed by default
@@ -360,8 +359,8 @@ pub(crate) fn circuit_emits_covenant_binding(circuit_type: &str) -> bool {
 pub(crate) fn circuit_allows_no_covenant_binding(circuit_type: &str) -> bool {
     matches!(
         circuit_type,
-        // Game / mixer hybrids: served vkeys nPublic 5 / 5 / 7, no covenantId signal.
-        "tictactoe_v1" | "connect4_v1" | "privacy_mixer_v1"
+        // Game hybrids: served vkeys nPublic 5 / 5, no covenantId signal.
+        "tictactoe_v1" | "connect4_v1"
             // DeFi / market hybrids: served vkeys nPublic 2 ([computed_value, valid]); the
             // circom main omits covenantId. Outcome is derived from publicSignals[1] (the
             // validity signal), so a replay re-asserts the same value/valid pair, never an
@@ -428,12 +427,6 @@ fn verify_timelock_script_path() -> PathBuf {
 fn verify_hash_preimage_script_path() -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     path.push("../zk/verify_hash_preimage.js");
-    path
-}
-
-fn verify_privacy_mixer_script_path() -> PathBuf {
-    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    path.push("../zk/verify_privacy_mixer.js");
     path
 }
 
@@ -659,24 +652,10 @@ async fn verify_and_sign_handler(
 ) -> Json<OracleVerifyOutput> {
     let timestamp = chrono::Utc::now().timestamp();
 
-    // Privacy mixer: reject spent nullifiers before ZK verify
-    if input.circuit_type == "privacy_mixer_v1" {
-        if let Some(nullifier) = input.public_inputs.get(2) {
-            if crate::db::mixer_nullifier_spent(&db, nullifier).unwrap_or(false) {
-                return Json(OracleVerifyOutput {
-                    success: false,
-                    outcome: None,
-                    signature: None,
-                    timestamp: None,
-                    message: None,
-                    error: Some("Nullifier already spent - double-withdraw rejected".to_string()),
-                    public_inputs: input.public_inputs,
-                    circuit_type: None,
-                    covenant_hint: None,
-                });
-            }
-        }
-    }
+    // The first-party privacy-mixer co-sign path (privacy_mixer_v1) has been removed for the
+    // legal / sanctions posture documented in main.rs. The circuit is no longer registered, so
+    // it now falls through to the unknown-circuit branch in verify_proof_for_circuit and fails
+    // closed. scripts/check-no-privacy-mixer.sh keeps any signing dispatch from being resurrected.
 
     // === Phase 3 decentralized oracle comment block ===
     // - New GET /api/oracle/liveness (implemented above using spawn_blocking + stubs in zk/)
@@ -1020,38 +999,9 @@ async fn verify_and_sign_handler(
         );
     }
 
-    // SECURITY (GAP-2, money-path): privacy-mixer double-withdraw TOCTOU close.
-    // The leading mixer_nullifier_spent read (a SELECT COUNT) is only a fast-path reject;
-    // it is NOT atomic, so two concurrent requests carrying the SAME valid proof can both
-    // pass that read and both reach signing. The authoritative single gate is this atomic
-    // INSERT OR IGNORE: mixer_record_nullifier inserts exactly one row the first time a
-    // nullifier is seen (rows_inserted == 1) and ZERO rows on any concurrent or later reuse
-    // (rows_inserted == 0). We record BEFORE signing and refuse to sign when the row already
-    // existed, so exactly one of N racing requests for a given nullifier can ever obtain a
-    // signature. (outcome == 0 is the mixer's valid-withdraw verdict; only a successful
-    // withdraw consumes the nullifier. public_inputs[2] is the nullifier, matching the read.)
-    if input.circuit_type == "privacy_mixer_v1" && outcome == 0 {
-        if let Some(nullifier) = input.public_inputs.get(2) {
-            let rows_inserted =
-                crate::db::mixer_record_nullifier(&db, nullifier, &input.covenant_id)
-                    .unwrap_or(0);
-            if rows_inserted == 0 {
-                return Json(OracleVerifyOutput {
-                    success: false,
-                    outcome: None,
-                    signature: None,
-                    timestamp: None,
-                    message: None,
-                    error: Some(
-                        "Nullifier already spent - double-withdraw rejected".to_string(),
-                    ),
-                    public_inputs: input.public_inputs,
-                    circuit_type: Some(input.circuit_type.clone()),
-                    covenant_hint: None,
-                });
-            }
-        }
-    }
+    // (The first-party privacy-mixer co-sign path and its nullifier double-withdraw gate were
+    // removed; privacy_mixer_v1 is no longer a signable circuit. See the note near the top of
+    // this handler and scripts/check-no-privacy-mixer.sh.)
 
     // Real BIP340 Schnorr signature over the outcome message (verifiable on-chain).
     let signature = sign_outcome(&message);
@@ -1064,8 +1014,7 @@ async fn verify_and_sign_handler(
     );
 
     // Surface the resolution in the live activity feed and per-covenant history.
-    // Non-fatal: skip the log if the pool is momentarily exhausted rather than panic AFTER the
-    // nullifier was recorded (a panic here would burn the nullifier without returning a signature).
+    // Non-fatal: skip the log if the pool is momentarily exhausted rather than panic.
     if let Ok(conn) = db.lock() {
         let network: String = conn
             .query_row(
@@ -1083,10 +1032,6 @@ async fn verify_and_sign_handler(
             &input.circuit_type,
         );
     }
-
-    // Nullifier was already recorded (record-then-sign) above; recording here would be a
-    // redundant no-op (INSERT OR IGNORE) and, worse, hide the double-withdraw race by signing
-    // first. See the GAP-2 gate before sign_outcome.
 
     Json(OracleVerifyOutput {
         success: true,
@@ -1165,7 +1110,7 @@ mod tests {
         }
         // Hybrids whose served artifacts genuinely omit covenantId: must stay warn-and-allow
         // (env-gated), never hard-rejected for lacking a binding they never emit.
-        for hybrid in ["tictactoe_v1", "connect4_v1", "privacy_mixer_v1"] {
+        for hybrid in ["tictactoe_v1", "connect4_v1"] {
             assert!(
                 !circuit_emits_covenant_binding(hybrid),
                 "hybrid {hybrid} omits covenantId in its served vkey and must NOT be hard-rejected"
@@ -1273,17 +1218,16 @@ mod tests {
     }
 
     /// H4 fail-CLOSED default: the no-binding allowlist must contain ONLY the circuits whose
-    /// served vkeys genuinely cannot carry covenantId (the game / mixer / DeFi-market hybrids).
+    /// served vkeys genuinely cannot carry covenantId (the game / DeFi-market hybrids).
     /// Everything else - including any future circuit - must be off the allowlist so it fails
     /// closed by default. This is the inversion the off-chain verify-and-sign gate now relies on.
     #[test]
     fn no_binding_allowlist_is_exactly_the_genuine_hybrids() {
         // The genuine no-binding hybrids: their .circom main omits covenantId (served vkey
-        // nPublic 5 / 5 / 7 for the games/mixer, 2 for the DeFi/market pairs).
+        // nPublic 5 / 5 for the games, 2 for the DeFi/market pairs).
         for c in [
             "tictactoe_v1",
             "connect4_v1",
-            "privacy_mixer_v1",
             "collateral_ltv",
             "loan_health",
             "financial_formula",
@@ -1294,6 +1238,12 @@ mod tests {
                 "{c} must be on the no-binding allowlist (its served vkey omits covenantId)"
             );
         }
+        // privacy_mixer_v1 was removed (legal / sanctions posture). It must be OFF the allowlist
+        // so a future resurrection cannot quietly make it Covex-key-signable without a binding.
+        assert!(
+            !circuit_allows_no_covenant_binding("privacy_mixer_v1"),
+            "privacy_mixer_v1 was removed and must not be on the no-binding allowlist"
+        );
         // Binding-emitting circuits and their aliases must NOT be on the allowlist: a missing
         // binding for them is a replay / stale proof and must hard-close.
         for c in [

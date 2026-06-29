@@ -38,8 +38,8 @@
 //       let outcome = determine_outcome_for_circuit(
 //           &input.circuit_type, &input.proof, &input.public_inputs, input.requested_outcome
 //       );
-//     Keep privacy_mixer_v1 nullifier DB guards + multi-oracle sig verification +
-//     final signing in oracle.rs (they need DB Extension / special side effects).
+//     Keep multi-oracle sig verification + final signing in oracle.rs (they need
+//     DB Extension / special side effects).
 //     The old per-circuit verify_*_path() and verify_*_proof() fns can be removed
 //     or deprecated to call through here once refactored.
 //   This keeps oracle.rs as the HTTP + signing orchestrator while verifiers are
@@ -70,7 +70,7 @@ pub(crate) enum VerifierSpec {
         prefix: &'static str,
     },
     /// Groth16 when proof body present (pi_a etc), else treat as oracle-attested success.
-    /// Used for chess_v1, tictactoe_v1, connect4_v1, privacy_mixer_v1 (hybrid per current).
+    /// Used for the game hybrids tictactoe_v1, connect4_v1.
     HybridGroth16 {
         script: &'static str,
         prefix: &'static str,
@@ -204,13 +204,10 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
             prefix: "covex_c4",
         },
     );
-    m.insert(
-        "privacy_mixer_v1",
-        VerifierSpec::HybridGroth16 {
-            script: "verify_privacy_mixer.js",
-            prefix: "covex_mixer",
-        },
-    );
+    // privacy_mixer_v1 is intentionally NOT registered. The first-party privacy-mixer co-sign
+    // path was removed for the legal / sanctions posture documented in main.rs, so the circuit
+    // has no verifier and falls through to the fail-closed unknown-circuit branch in
+    // verify_proof_for_circuit. scripts/check-no-privacy-mixer.sh guards against re-adding it.
 
     // === RISC0 / verifiable compute stubs (per vision §4.6, Phase 0 wire skeleton) ===
     m.insert("verifiable", VerifierSpec::Risc0Stub { guest: "generic" });
@@ -1380,12 +1377,6 @@ pub(crate) fn determine_outcome_for_circuit(
         } else {
             1
         }
-    } else if circuit_type.contains("privacy_mixer") {
-        if proof_has_groth16_body(proof) && public_inputs.first().map(|s| s.as_str()) == Some("1") {
-            0
-        } else {
-            1
-        }
     } else {
         0
     }
@@ -1417,10 +1408,12 @@ mod tests {
             Some(VerifierSpec::StrictGroth16 { .. })
         ));
         // chess_v1 assert removed (circuit deleted)
-        assert!(matches!(
-            r.get("privacy_mixer_v1"),
-            Some(VerifierSpec::HybridGroth16 { .. })
-        ));
+        // privacy_mixer_v1 was removed (legal / sanctions posture): it must NOT be registered, so
+        // it fails closed as an unknown circuit instead of being co-signable.
+        assert!(
+            r.get("privacy_mixer_v1").is_none(),
+            "privacy_mixer_v1 must not be a registered verifier (removed for legal posture)"
+        );
         assert!(matches!(
             r.get("verifiable"),
             Some(VerifierSpec::Risc0Stub { .. })
@@ -1581,12 +1574,12 @@ mod tests {
             5
         );
         // chess_v1 outcome tests removed (circuit deleted)
-        // privacy_mixer_v1 is HybridGroth16, so GAP 12 makes it IGNORE requested_outcome and read
-        // the validity signal: a Null proof + empty signals fail closed to outcome 1 (not the
-        // requested 9). Same result as the old clamp, but now intrinsic, not caller-dependent.
-        assert_eq!(
-            determine_outcome_for_circuit("privacy_mixer_v1", &Value::Null, &[], Some(9)),
-            1
+        // privacy_mixer_v1 was removed: it is no longer a registered circuit, so the real
+        // fail-closed gate is that verify_proof_for_circuit returns the unknown-circuit branch
+        // and the handler refuses to sign before any outcome is computed.
+        assert!(
+            get_registry().get("privacy_mixer_v1").is_none(),
+            "privacy_mixer_v1 must be unregistered so verify-and-sign fails closed for it"
         );
         // An unknown circuit with no requested outcome defaults to 0.
         assert_eq!(

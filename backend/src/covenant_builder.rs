@@ -4172,10 +4172,12 @@ pub async fn oracle_payout_handler(
     // below hex-decodes req.private_key_hex DIRECTLY with no such guard - so a caller could hand the
     // server a raw mainnet winning-player key (the backend half of a custody breach). Refuse it here,
     // at the top, for BOTH branches, gating on the covenant's OWN stored network so a forged
-    // req.network cannot reopen the hole. Testnets are unaffected; dev mode (use_dev_mode) reads keys
-    // from the service environment, never from the request, so it is exempt. is_mainnet() uses
-    // starts_with, so "mainnet-foo" is also refused.
-    if is_mainnet(&cov.network) && !req.use_dev_mode && !req.private_key_hex.trim().is_empty() {
+    // req.network cannot reopen the hole. is_mainnet() uses starts_with, so "mainnet-foo" is also
+    // refused. dev mode is NOT exempt: the escrow branch checks req.private_key_hex BEFORE the dev
+    // fallback, so a raw key would be consumed even with use_dev_mode:true; and dev-deployer keys are
+    // testnet-only regardless. So on mainnet we refuse ANY custodial key path (raw key OR dev mode) -
+    // a mainnet payout must be non-custodial (the winner signs in their browser via prepare/submit).
+    if is_mainnet(&cov.network) && (req.use_dev_mode || !req.private_key_hex.trim().is_empty()) {
         return err("mainnet signing is non-custodial: do not send a private key to the server. Use the prepare/submit flow so your key signs in your browser.".into());
     }
 
@@ -7635,45 +7637,51 @@ mod tests {
         let raw_key = hex::encode([0x11u8; 32]);
 
         for net in ["mainnet", "mainnet-foo"] {
-            let db = fresh_db();
-            let tx_id = format!("deadbeef{net}");
-            db::insert_p2sh_covenant(
-                &db,
-                &tx_id,
-                net,
-                "kaspa:qqplaceholderaddressplaceholderaddressplaceholderaddr",
-                &redeem_hex,
-                "oracle_escrow",
-                100_000_000,
-                0,
-                "kaspa:qqownerplaceholderownerplaceholderownerplaceholderown",
-            )
-            .expect("insert mainnet oracle_escrow covenant");
+            // BOTH dev-mode flags must refuse a raw key. The escrow branch checks private_key_hex
+            // BEFORE the dev fallback, so use_dev_mode:true must NOT smuggle a raw mainnet key past
+            // the guard (the GAP-1 bypass the security review caught). On mainnet, ANY custodial key
+            // path (raw key or dev mode) is refused; the payout must be non-custodial.
+            for dev in [false, true] {
+                let db = fresh_db();
+                let tx_id = format!("deadbeef{net}{dev}");
+                db::insert_p2sh_covenant(
+                    &db,
+                    &tx_id,
+                    net,
+                    "kaspa:qqplaceholderaddressplaceholderaddressplaceholderaddr",
+                    &redeem_hex,
+                    "oracle_escrow",
+                    100_000_000,
+                    0,
+                    "kaspa:qqownerplaceholderownerplaceholderownerplaceholderown",
+                )
+                .expect("insert mainnet oracle_escrow covenant");
 
-            let req = OraclePayoutRequest {
-                network: net.to_string(),
-                deploy_tx_id: tx_id,
-                private_key_hex: raw_key.clone(),
-                use_dev_mode: false,
-                destination_addr: "kaspa:qqdestplaceholderdestplaceholderdestplaceholderdest"
-                    .to_string(),
-                circuit_type: "escrow_2party".to_string(),
-                proof: serde_json::Value::Null,
-                public_inputs: vec![],
-                requested_outcome: Some(0),
-            };
+                let req = OraclePayoutRequest {
+                    network: net.to_string(),
+                    deploy_tx_id: tx_id,
+                    private_key_hex: raw_key.clone(),
+                    use_dev_mode: dev,
+                    destination_addr: "kaspa:qqdestplaceholderdestplaceholderdestplaceholderdest"
+                        .to_string(),
+                    circuit_type: "escrow_2party".to_string(),
+                    proof: serde_json::Value::Null,
+                    public_inputs: vec![],
+                    requested_outcome: Some(0),
+                };
 
-            let resp = oracle_payout_handler(Extension(db.clone()), Json(req)).await;
-            let body = resp.0;
-            assert_eq!(
-                body["success"], serde_json::json!(false),
-                "{net}: a raw mainnet key on the escrow branch must be refused"
-            );
-            let msg = body["error"].as_str().unwrap_or("");
-            assert!(
-                msg.contains("non-custodial") && msg.contains("do not send a private key"),
-                "{net}: refusal must be the standard non-custodial message, got: {msg}"
-            );
+                let resp = oracle_payout_handler(Extension(db.clone()), Json(req)).await;
+                let body = resp.0;
+                assert_eq!(
+                    body["success"], serde_json::json!(false),
+                    "{net} dev={dev}: a raw mainnet key on the escrow branch must be refused"
+                );
+                let msg = body["error"].as_str().unwrap_or("");
+                assert!(
+                    msg.contains("non-custodial") && msg.contains("do not send a private key"),
+                    "{net} dev={dev}: refusal must be the standard non-custodial message, got: {msg}"
+                );
+            }
         }
     }
 

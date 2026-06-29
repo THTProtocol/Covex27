@@ -1,7 +1,7 @@
 import { useMemo, useState, lazy, Suspense } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'framer-motion';
-import { Search, ShieldCheck, Radio, Cpu, Coins, Gamepad2, Fingerprint, Lock, ChevronDown, Check, ArrowUpRight, Info, Eye, X } from 'lucide-react';
+import { Search, ShieldCheck, Radio, Cpu, Coins, Gamepad2, Fingerprint, Lock, ChevronDown, Check, ArrowUpRight, Info, Eye, X } from '../lib/routeIcons.js';
 import TransparencyModal from './TransparencyModal';
 import SandboxCircuitPreview from './SandboxCircuitPreview';
 import { HEADLINE_GAME_CIRCUITS, HEADLINE_GAME_CIRCUIT_SET } from '../lib/playableGames';

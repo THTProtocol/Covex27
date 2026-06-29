@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Search, Check } from 'lucide-react';
+import { Search, Check } from '../lib/routeIcons.js';
 
 // CircuitSelector: a free, searchable, categorized picker over every covenant circuit/primitive.
 // Selecting one drives the whole sandbox live (banner + how-it-resolves + payout simulator + the

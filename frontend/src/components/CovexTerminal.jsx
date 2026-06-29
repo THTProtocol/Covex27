@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { toast } from './ToastContext';
 import { useNavigate } from 'react-router-dom';
-import { Terminal, Settings, Code2, Gavel, Save, ExternalLink, ToggleLeft, ToggleRight, Radio, Shield, Cpu, Zap, AlertTriangle, CheckCircle2, Info, Key, Palette, Upload, Eye, EyeOff, Play, Clipboard, Check, ArrowLeft, Loader, Loader2, Server, XCircle, Clock, BadgeCheck, Globe, Rocket } from 'lucide-react';
+import { Terminal, Settings, Code2, Gavel, Save, ExternalLink, ToggleLeft, ToggleRight, Radio, Shield, Cpu, Zap, AlertTriangle, CheckCircle2, Info, Key, Palette, Upload, Eye, EyeOff, Play, Clipboard, Check, ArrowLeft, Loader, Loader2, Server, XCircle, Clock, BadgeCheck, Globe, Rocket } from '../lib/routeIcons.js';
 import { copyWithFeedback } from '../lib/copy';
 import { Chess } from 'chess.js';
 import { CovexMark } from './CovexLogo';

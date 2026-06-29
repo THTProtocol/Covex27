@@ -4,7 +4,7 @@ import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Terminal, TerminalSquare, Boxes, ShieldCheck, Radio, Lock,
   ArrowRight, ArrowLeft, Wand2, Cpu, Rocket, LayoutTemplate, Compass, FlaskConical,
-} from 'lucide-react';
+} from '../lib/routeIcons.js';
 import CovexTerminal, { ZK_CIRCUIT_TYPES, resolveCircuit } from '../components/CovexTerminal';
 import SandboxCircuitPreview from '../components/SandboxCircuitPreview';
 import { ZkStudioEmbedded } from './ZkStudio';

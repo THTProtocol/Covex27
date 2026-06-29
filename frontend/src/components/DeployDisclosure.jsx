@@ -1,4 +1,4 @@
-import { ShieldCheck, AlertTriangle, KeyRound, Radio, Cpu } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, KeyRound, Radio, Cpu } from '../lib/routeIcons.js';
 import { REALITY_HEADLINE, KNOWN_REALITIES } from '../lib/enforcement-copy';
 
 // In-flow, per-deploy honesty disclosure shown AT THE MOMENT OF DEPLOY (not only later

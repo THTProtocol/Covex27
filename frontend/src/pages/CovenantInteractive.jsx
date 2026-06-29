@@ -1,7 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- this module co-exports its page component with the related redeem-routing constants/helpers (NONCUSTODIAL_REDEEM_KINDS / isLocallySignableRedeem) that tests pin. That only affects dev Fast Refresh granularity, never the production build or tests; the helpers are tiny and live next to the routing they drive. */
 import { useState, useEffect, useMemo, useCallback, Fragment, lazy, Suspense } from 'react';
-import { Render as PuckRender } from '@measured/puck';
-import puckConfig, { BG_PRESETS } from '../lib/puckConfig';
 import { useParams, Link, useSearchParams } from 'react-router-dom';
 import TrustBadge from '../components/TrustBadge';
 import CovenantDetailSkeleton from '../components/ui/CovenantDetailSkeleton';
@@ -14,6 +12,10 @@ import { explorerTxUrl } from '../lib/explorer';
 // activeTab === 'terminal' branch below (gated by isCreator), so we lazy-load its chunk
 // to keep the initial covenant page load lean for regular viewers.
 const CovexTerminal = lazy(() => import('../components/CovexTerminal'));
+// The @measured/puck runtime + puckConfig (~115KB gz) only render for covenants that published
+// creator puck_data (creatorSurface === 'puck'). Lazy-load that chunk so the vast majority of
+// covenant views (games, plain metadata, legacy iframe pages) never download it.
+const PuckSurface = lazy(() => import('../lib/PuckSurface'));
 import FullScreenChess from '../components/FullScreenChess';
 import FullScreenPoker from '../components/FullScreenPoker';
 import FullScreenReversi from '../components/FullScreenReversi';
@@ -42,13 +44,13 @@ const GAME_REGISTRY = {
 assertGamesInSync(Object.keys(GAME_REGISTRY), 'GAME_REGISTRY');
 import { Chessboard } from 'react-chessboard';
 import { gameLookFromConfig } from '../lib/gameTheme';
-import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, Code2, Check, Save, Share2, Clock, Wallet } from 'lucide-react';
+import { Layers, Terminal, Lock, ArrowLeft, Cpu, ShieldCheck, ExternalLink, AlertTriangle, BadgeCheck, Palette, LayoutTemplate, Eye, Code2, Check, Save, Share2, Clock, Wallet } from '../lib/routeIcons.js';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import CopyButton from '../components/CopyButton';
 import RecoveryKitModal from '../components/RecoveryKitModal';
 import StickyActionRail from '../components/StickyActionRail';
 import WalletButton from '../components/WalletButton';
-import { LifeBuoy } from 'lucide-react';
+import { LifeBuoy } from '../lib/routeIcons.js';
 import DevWalletModal from '../components/DevWalletModal';
 import OnChainLockSection from '../components/OnChainLockSection';
 import ZkClaimPanel from '../components/ZkClaimPanel';
@@ -906,7 +908,9 @@ export default function CovenantInteractive() {
   // a single definition so the two paths never drift. The iframe keeps its exact
   // security model: sandbox="allow-scripts", only earned by custom_ui_source==='creator'.
   const fullBleedCreatorSurface = creatorSurface === 'puck' ? (
-    <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} metadata={{ live: liveData }} />
+    <Suspense fallback={<div className="min-h-[40vh]" aria-hidden="true" />}>
+      <PuckSurface data={covenant.custom_ui_config.puck_data} liveData={liveData} />
+    </Suspense>
   ) : creatorSurface === 'iframe' ? (
     <iframe
       srcDoc={covenant.custom_ui_html}
@@ -1036,7 +1040,9 @@ export default function CovenantInteractive() {
           full-bleed creator surface above (hasCustomSurface), so it never doubles up. */}
       {!hasCustomSurface && creatorSurface === 'puck' && (
         <div className="mb-10 rounded-3xl overflow-hidden border border-white/[0.06]">
-          <PuckRender config={puckConfig} data={covenant.custom_ui_config.puck_data} metadata={{ live: liveData }} />
+          <Suspense fallback={<div className="min-h-[40vh]" aria-hidden="true" />}>
+            <PuckSurface data={covenant.custom_ui_config.puck_data} liveData={liveData} />
+          </Suspense>
         </div>
       )}
 
@@ -1120,13 +1126,17 @@ export default function CovenantInteractive() {
 
           {/* Page-level branding: the creator's chosen background preset (from the Puck
               page root) tints the whole covenant page, so the design carries beyond the
-              custom section. Skipped when a custom background image is set below. */}
+              custom section. Skipped when a custom background image is set below. The preset
+              -> css map lives in the lazy puck chunk, so resolving it (and rendering nothing
+              for an unknown preset) happens there; we only gate on a preset being set. */}
           {!covenant?.custom_ui_config?.theme?.background_image
-            && BG_PRESETS[covenant?.custom_ui_config?.puck_data?.root?.props?.backgroundPreset] && (
-            <div
-              className="fixed inset-0 -z-10 pointer-events-none"
-              style={{ background: BG_PRESETS[covenant.custom_ui_config.puck_data.root.props.backgroundPreset].css }}
-            />
+            && covenant?.custom_ui_config?.puck_data?.root?.props?.backgroundPreset && (
+            <Suspense fallback={null}>
+              <PuckSurface
+                mode="background"
+                backgroundPresetKey={covenant.custom_ui_config.puck_data.root.props.backgroundPreset}
+              />
+            </Suspense>
           )}
 
           {/* Creator-set background image behind the covenant page, dimmed for readability */}

@@ -20,9 +20,13 @@
  * ShieldQuestion -> shield-question-mark). The named exports here are drop-in compatible
  * with the old barrel named imports, so call sites change only the import specifier.
  *
+ * This file is for the EAGER SHELL only. Lazy code-split routes/panels deep-import their icons
+ * from the sibling lib/routeIcons.js (which the shell never imports), so growing the route set
+ * never reshuffles the entry chunk's shared graph.
+ *
  * To add an icon to the eager shell: add its line here mapped to the correct kebab module
- * (grep `default as <Name>` in node_modules/lucide-react/dist/esm/lucide-react.mjs to find
- * the canonical module). Do NOT re-introduce a static `from 'lucide-react'` in the shell.
+ * (grep `default as <Name>` in node_modules/lucide-react/dist/esm/lucide-react.mjs to find the
+ * canonical module). Do NOT re-introduce a static `from 'lucide-react'` in the shell.
  */
 export { default as Activity } from 'lucide-react/dist/esm/icons/activity.mjs';
 export { default as AlertTriangle } from 'lucide-react/dist/esm/icons/triangle-alert.mjs';

@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { X, Copy, Check, Code2, Link2, Share2, ExternalLink, Image as ImageIcon } from 'lucide-react';
+import { X, Copy, Check, Code2, Link2, Share2, ExternalLink, Image as ImageIcon } from '../lib/routeIcons.js';
 import { REALITY_BADGE_LABEL } from '../lib/enforcement-copy';
 import { useDialog } from '../lib/useDialog';
 

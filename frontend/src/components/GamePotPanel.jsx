@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { Coins, Lock, Trophy, ExternalLink, Loader2, ShieldCheck, AlertTriangle, Wallet, RotateCcw, Cpu } from 'lucide-react';
+import { Coins, Lock, Trophy, ExternalLink, Loader2, ShieldCheck, AlertTriangle, Wallet, RotateCcw, Cpu } from '../lib/routeIcons.js';
 import { useWallet } from './WalletContext';
 import { lockPot, settlePot, settlePotHashlock, settlePotZkOnchain, refundPotHashlock, potState, zkOnchainGamesEnabled } from '../lib/gamePot';
 import { explorerTxUrl } from '../lib/explorer';

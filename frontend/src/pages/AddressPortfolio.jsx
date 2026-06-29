@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Wallet, Layers, Coins, Crown, ArrowLeft, ExternalLink } from 'lucide-react';
+import { Wallet, Layers, Coins, Crown, ArrowLeft, ExternalLink } from '../lib/routeIcons.js';
 import CopyButton from '../components/CopyButton';
 import { explorerAddressUrl } from '../lib/explorer';
 

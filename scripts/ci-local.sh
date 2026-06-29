@@ -21,6 +21,7 @@ run "honesty: no privacy-mixer co-sign dispatch (gate)" bash scripts/check-no-pr
 run "zk: circuit registry is honest vs served keys (gate)" bash scripts/check-zk-registry.sh || fail=1
 run "zk: served zkeys are reproducibly provable + tamper-reject (gate)" bash scripts/check-zk-prove-gate.sh || fail=1
 run "frontend: sandbox guard (gate)" bash -c 'cd frontend && node scripts/check-sandbox.mjs' || fail=1
+run "perf: no static lucide-react barrel imports (gate)" bash scripts/check-no-lucide-barrel.sh || fail=1
 run "frontend: vitest (gate)" bash -c 'cd frontend && npx vitest run' || fail=1
 run "frontend: vite build (gate)" bash -c 'cd frontend && npm run build' || fail=1
 run "cold-tool: claimability matrix matches KIND_CLAIM_MATRIX (gate)" bash -c 'cd frontend && npm run check:cold-tool' || fail=1

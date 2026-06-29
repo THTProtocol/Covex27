@@ -1,4 +1,4 @@
-import { Dices } from 'lucide-react';
+import { Dices } from '../../lib/routeIcons.js';
 
 const DiceMini = () => {
   return (

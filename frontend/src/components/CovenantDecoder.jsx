@@ -11,7 +11,7 @@ import {
   ChevronDown,
   ChevronRight,
   Cpu,
-} from 'lucide-react';
+} from '../lib/routeIcons.js';
 import { CopyChip, Section } from './TransparencyModal';
 
 /**

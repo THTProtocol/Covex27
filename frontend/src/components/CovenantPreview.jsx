@@ -1,5 +1,5 @@
 import { useId } from 'react';
-import { QrCode } from 'lucide-react';
+import { QrCode } from '../lib/routeIcons.js';
 
 /**
  * Strictly sanitize + SCOPE a creator's custom CSS before it is ever injected.

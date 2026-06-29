@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Chess } from 'chess.js';
 import { Chessboard } from 'react-chessboard';
-import { X, Clock, Trophy, Flag } from 'lucide-react';
+import { X, Clock, Trophy, Flag } from '../lib/routeIcons.js';
 import useGameSync from '../hooks/useGameSync';
 import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';

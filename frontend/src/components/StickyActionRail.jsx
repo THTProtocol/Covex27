@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Share2, ArrowRight } from 'lucide-react';
+import { Share2, ArrowRight } from '../lib/routeIcons.js';
 import WalletButton from '../components/WalletButton';
 
 /**

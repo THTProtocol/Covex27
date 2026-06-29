@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from 'react';
-import { Eye, FileSearch, Sparkles, ArrowRight, Code2, Copy, Check, Info, FlaskConical, ChevronDown } from 'lucide-react';
+import { Eye, FileSearch, Sparkles, ArrowRight, Code2, Copy, Check, Info, FlaskConical, ChevronDown } from '../lib/routeIcons.js';
 import { Link } from 'react-router-dom';
 import ResolutionSimulator from '../lib/covenant-config/ResolutionSimulator';
 import TransparencyModal from './TransparencyModal';

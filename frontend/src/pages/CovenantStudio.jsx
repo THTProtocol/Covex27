@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Puck, Render as PuckRender } from '@measured/puck';
 import '@measured/puck/puck.css';
-import { ArrowLeft, ArrowRight, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check, Settings, Coins, MoreHorizontal, Mail, Copy, Wrench, Info, Lock } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Save, Eye, Sparkles, Zap, Search, Palette, LayoutTemplate, Smartphone, Monitor, X, Check, Settings, Coins, MoreHorizontal, Mail, Copy, Wrench, Info, Lock } from '../lib/routeIcons.js';
 import { useWallet } from '../components/WalletContext';
 import { toast } from '../components/ToastContext';
 import { signCovenantOwnership } from '../lib/ownership';

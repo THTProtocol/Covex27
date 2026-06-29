@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, deriveFromMnemonic, deriveFromPrivateKey, loadKaspaWasm, walletPrimaryAction } from './WalletContext';
 import { useDialog } from '../lib/useDialog';
-import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ShieldCheck, ArrowRight, Check, Smartphone, Download } from 'lucide-react';
+import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ShieldCheck, ArrowRight, Check, Smartphone, Download } from '../lib/routeIcons.js';
 
 // ── Standalone Dev Wallet Modal ──
 // Covex is mainnet-only, so this always presents the mainnet connect flow (real wallet

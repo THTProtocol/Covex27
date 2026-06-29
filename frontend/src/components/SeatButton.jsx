@@ -1,4 +1,4 @@
-import { Users, Wallet } from 'lucide-react';
+import { Users, Wallet } from '../lib/routeIcons.js';
 import { useWallet } from './WalletContext';
 
 /**

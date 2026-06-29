@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import { Play } from 'lucide-react';
+import { Play } from '../lib/routeIcons.js';
 import useGameSync from '../hooks/useGameSync';
 import PlayingCard from './games/PlayingCard';
 import { ChipStack } from './games/Chips';

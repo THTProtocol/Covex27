@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { FileKey, Lock, Check, AlertTriangle, ExternalLink, MapPin } from 'lucide-react';
+import { FileKey, Lock, Check, AlertTriangle, ExternalLink, MapPin } from '../lib/routeIcons.js';
 import { CopyChip, Section } from './TransparencyModal';
 import CovenantDecoder from './CovenantDecoder';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';

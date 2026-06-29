@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 import {
   ShieldCheck, Lock, Cpu, Radio, KeyRound, Boxes, Zap, CheckCircle2,
   FileCode2, Layers, ArrowRight, Sparkles, Network, Eye, Workflow, Hash, Gavel, Coins,
-} from 'lucide-react';
+} from '../lib/routeIcons.js';
 import { VERIFIED_FULL_ZK } from '../lib/zk/circuits.js';
 
 // Honest count pulled from the single source of truth (lib/zk/circuits.js).

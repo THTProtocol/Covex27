@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   ShieldCheck,
   FileCode2,
-} from 'lucide-react';
+} from '../lib/routeIcons.js';
 
 /**
  * SilverTerminal - the PRO mode of the Sandbox: a raw covenant terminal for experienced

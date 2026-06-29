@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Link2, Check } from 'lucide-react';
+import { Link2, Check } from '../lib/routeIcons.js';
 
 /**
  * "Copy invite link" for a game waiting on an opponent. Copies the covenant page

@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2 } from '../lib/routeIcons.js';
 import useGameSync from '../hooks/useGameSync';
 import SeatButton, { TrustNote } from './SeatButton';
 import InviteLink from './InviteLink';

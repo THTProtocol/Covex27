@@ -1,4 +1,4 @@
-import { Check, Sparkles, ShieldCheck, ArrowUpRight } from 'lucide-react';
+import { Check, Sparkles, ShieldCheck, ArrowUpRight } from '../lib/routeIcons.js';
 
 // TierTransparency
 // ─────────────────

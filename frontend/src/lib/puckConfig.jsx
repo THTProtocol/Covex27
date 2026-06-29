@@ -34,7 +34,7 @@ import * as React from 'react';
 import Button from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
-import { Check, Quote, X, MessageCircle, Send, GitBranch, Globe, Trophy, ChevronDown } from 'lucide-react';
+import { Check, Quote, X, MessageCircle, Send, GitBranch, Globe, Trophy, ChevronDown } from './routeIcons.js';
 import useEmblaCarousel from 'embla-carousel-react';
 import { renderSafeMarkdown } from './safeMarkdown';
 import { colorField, iconField, imageField } from './puckFields.jsx';

@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Check, Loader2, ArrowLeft, Terminal, Star, Crown, Eye, Copy, ShieldCheck } from 'lucide-react';
+import { Check, Loader2, ArrowLeft, Terminal, Star, Crown, Eye, Copy, ShieldCheck } from '../lib/routeIcons.js';
 import QRCodeSVG from '../components/LazyQRCode';
 import { useWallet } from '../components/WalletContext';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';

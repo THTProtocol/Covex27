@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Scale, Clock, Users, Shuffle, X } from 'lucide-react';
+import { Scale, Clock, Users, Shuffle, X } from '../routeIcons.js';
 import { Card } from '@/components/ui/Card';
 
 /**

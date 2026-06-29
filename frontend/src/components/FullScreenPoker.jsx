@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ShieldCheck, ShieldAlert, RefreshCw } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, RefreshCw } from '../lib/routeIcons.js';
 import { useWallet, getCurrentNetwork } from './WalletContext';
 import useGameSync from '../hooks/useGameSync';
 import SeatButton, { TrustNote } from './SeatButton';

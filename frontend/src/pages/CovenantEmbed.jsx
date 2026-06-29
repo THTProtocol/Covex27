@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { ShieldCheck, ExternalLink, Cpu, Lock, Radio, FileText, ArrowUpRight } from 'lucide-react';
+import { ShieldCheck, ExternalLink, Cpu, Lock, Radio, FileText, ArrowUpRight } from '../lib/routeIcons.js';
 import { formatKas } from '../lib/format.js';
 
 // Embeddable covenant widget. Designed to be dropped into ANY external website via an

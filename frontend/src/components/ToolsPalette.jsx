@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, ChevronDown, ChevronRight, Box, Blocks, Plus, ExternalLink, X, Info, GripVertical } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, Box, Blocks, Plus, ExternalLink, X, Info, GripVertical } from '../lib/routeIcons.js';
 import { LOGIC_PRIMITIVES, PAGE_BLOCKS } from '../lib/tools-catalog.js';
 
 // Two-section searchable palette over covenant LOGIC primitives + page-design BLOCKS.

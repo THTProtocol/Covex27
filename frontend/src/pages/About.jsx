@@ -20,7 +20,7 @@ import {
   Compass, MousePointerClick, Hammer, ShieldCheck, ArrowRight, Layout,
   Boxes, Gamepad2, TrendingUp, Lock, Sparkles, Eye, KeyRound, Cpu,
   Palette, Smartphone, Globe, CheckCircle2, CircleDashed, Network,
-} from 'lucide-react';
+} from '../lib/routeIcons.js';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';

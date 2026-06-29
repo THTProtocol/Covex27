@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
 import { verifyAndSignSpend, canonicalKindBase } from '../lib/redeemer/covenantRedeemer';
-import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel, Palette, Share2, AlertTriangle } from 'lucide-react';
+import { ShieldCheck, Lock, KeyRound, Clock, Users, Loader2, ExternalLink, Copy, Check, Download, TrendingUp, ArrowLeftRight, Network, HeartPulse, Timer, Hourglass, Scale, Gavel, Palette, Share2, AlertTriangle } from '../lib/routeIcons.js';
 import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import DeployDisclosure from '../components/DeployDisclosure';
 import ShareEmbedModal from '../components/ShareEmbedModal';

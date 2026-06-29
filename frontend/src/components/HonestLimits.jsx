@@ -1,4 +1,4 @@
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle } from '../lib/routeIcons.js';
 
 /**
  * HonestLimits - the always-visible "What this does NOT prove" block, shown on EVERY

@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- this module intentionally co-exports its component(s) with related constants/hooks/helpers (e.g. a Provider plus its useX hook). That only affects dev Fast Refresh granularity, never the production build or tests; splitting these into separate files is not warranted here. */
 import { useMemo } from 'react';
-import { Clock, FileSearch, Code2, Globe, Info, Copy, Check, Palette } from 'lucide-react';
+import { Clock, FileSearch, Code2, Globe, Info, Copy, Check, Palette } from '../lib/routeIcons.js';
 import { BOARD_THEMES, PIECE_SETS, resolveBoardTheme, resolvePieceSet, DEFAULT_BOARD_THEME, DEFAULT_PIECE_SET } from '../lib/chessTheme';
 
 // ChessPreviewConfig: the configure-then-preview surface for a chess covenant in the Sandbox.

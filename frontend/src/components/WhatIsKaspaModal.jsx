@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X } from '../lib/routeIcons.js';
 import { useDialog } from '../lib/useDialog';
 
 const WhatIsKaspa = ({ open, onClose }) => {

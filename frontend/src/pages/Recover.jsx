@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   LifeBuoy, ShieldCheck, KeyRound, Copy, Check, ExternalLink, Search,
   Upload, AlertTriangle, ArrowLeft, Coins, Loader2, Wallet, Send, Download, Snowflake,
-} from 'lucide-react';
+} from '../lib/routeIcons.js';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
 import { hasPublicApi, fetchAddressBalanceSompi, fetchAddressUtxos, sompiToKas, wrpcNodesFor } from '../lib/kaspaPublicApi';
 import { useWallet } from '../components/WalletContext';

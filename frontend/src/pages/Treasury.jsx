@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Landmark, ArrowUpRight, Scale, Coins, ExternalLink } from 'lucide-react';
+import { Landmark, ArrowUpRight, Scale, Coins, ExternalLink } from '../lib/routeIcons.js';
 import Card from '@/components/ui/Card';
 import { explorerTxUrl } from '@/lib/explorer';
 

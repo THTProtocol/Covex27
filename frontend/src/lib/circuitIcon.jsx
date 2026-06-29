@@ -12,7 +12,7 @@ import {
   Coins, Ban, PieChart, KeyRound, Clock, Users, ArrowLeftRight, Gavel, TrendingUp,
   TrendingDown, ShieldCheck, IdCard, Radio, BookMarked, EyeOff, Cpu, Sparkles, Layers,
   Gamepad2, Banknote, Box, Swords,
-} from 'lucide-react';
+} from './routeIcons.js';
 
 // First matching rule (tested against "id name circuit", lowercased) wins.
 const RULES = [

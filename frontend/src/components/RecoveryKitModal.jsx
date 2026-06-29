@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { X, ShieldCheck, Download, LifeBuoy, KeyRound, ArrowRight, Snowflake } from 'lucide-react';
+import { X, ShieldCheck, Download, LifeBuoy, KeyRound, ArrowRight, Snowflake } from '../lib/routeIcons.js';
 import { KIND_CLAIM_MATRIX } from '../lib/redeemer/covenantRedeemer';
 
 // Focus-trap selector parity with CovenantStudio's drawer trap: keep Tab cycling

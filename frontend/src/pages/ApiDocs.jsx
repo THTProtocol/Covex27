@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Code2, Copy, Check, BookOpen, Play } from 'lucide-react';
+import { Code2, Copy, Check, BookOpen, Play } from '../lib/routeIcons.js';
 
 /**
  * Builder-facing API documentation rendered from the live /api/openapi.json.

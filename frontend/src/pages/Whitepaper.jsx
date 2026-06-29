@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, ArrowLeft, ExternalLink, ChevronDown, ShieldCheck } from 'lucide-react';
+import { FileText, ArrowLeft, ExternalLink, ChevronDown, ShieldCheck } from '../lib/routeIcons.js';
 import Card from '@/components/ui/Card';
 import { vkeyPathFor, VERIFIED_FULL_ZK } from '@/lib/zk/circuits';
 

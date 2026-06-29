@@ -7,7 +7,7 @@ import {
   TEMPLATE_CATEGORIES,
   getTemplatesByCategory,
 } from '../lib/templates/templates';
-import { X, ArrowRight } from 'lucide-react';
+import { X, ArrowRight } from '../lib/routeIcons.js';
 import { useWallet } from './WalletContext';
 import SandboxCircuitPreview from './SandboxCircuitPreview';
 

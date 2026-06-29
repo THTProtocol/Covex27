@@ -1,4 +1,4 @@
-import { Info, ArrowRight, ChevronDown } from 'lucide-react';
+import { Info, ArrowRight, ChevronDown } from '../lib/routeIcons.js';
 import { Link } from 'react-router-dom';
 
 /**

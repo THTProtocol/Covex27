@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, Database, Coins, BadgeCheck, ArrowLeft } from 'lucide-react';
+import { Activity, Database, Coins, BadgeCheck, ArrowLeft } from '../lib/routeIcons.js';
 import { TIER_COLOR as TIER_PALETTE_COLOR } from '../lib/tierPalette';
 import { Card } from '@/components/ui/Card';
 

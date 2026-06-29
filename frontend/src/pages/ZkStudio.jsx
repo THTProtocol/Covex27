@@ -4,7 +4,7 @@ import {
   ShieldCheck, Cpu, Loader, CheckCircle2, XCircle, Eye, EyeOff, Info, ArrowLeft,
   Fingerprint, EyeOff as PrivacyIcon, Coins, Vote, Dices, Image as ImageIcon,
   Scale, Lock, Sparkles, Terminal, ChevronDown,
-} from 'lucide-react';
+} from '../lib/routeIcons.js';
 import { ZK_CIRCUIT_TYPES } from '../components/CovexTerminal';
 import { IN_BROWSER_PROVERS } from '../lib/zk/circuits';
 import {

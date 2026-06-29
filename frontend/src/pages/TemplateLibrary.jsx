@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight } from '../lib/routeIcons.js';
 import TemplateGrid from '../components/TemplateGrid';
 
 /**

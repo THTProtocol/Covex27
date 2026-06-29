@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Terminal, ExternalLink, BookOpen, Cpu, Shield, Zap, GitBranch, Award, Timer, TrendingUp, Coins, Fingerprint, Calendar, CheckCircle2, Code2, FileCode, Scissors, FlaskConical } from 'lucide-react';
+import { Terminal, ExternalLink, BookOpen, Cpu, Shield, Zap, GitBranch, Award, Timer, TrendingUp, Coins, Fingerprint, Calendar, CheckCircle2, Code2, FileCode, Scissors, FlaskConical } from '../lib/routeIcons.js';
 import BlockDagViz from '../components/BlockDagViz';
 
 export default function WhatIsKaspaPage() {

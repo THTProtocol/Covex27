@@ -227,11 +227,16 @@ export default function FirstCovenantTour() {
     fetch('/api/covenants?limit=1', { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error('http'))))
       .then((data) => {
-        // Tolerate either an array response or { items: [...] }.
-        const list = Array.isArray(data) ? data : (data && data.items) || [];
+        // The list endpoint wraps the rows under `covenants` ({ covenants: [...],
+        // total, ... }); tolerate a bare array or an { items: [...] } shape too. The
+        // prior fix only checked `items`, so the list stayed empty against the real
+        // `covenants` payload and demoId never resolved.
+        const list = Array.isArray(data)
+          ? data
+          : (data && (data.covenants || data.items || data.results)) || [];
         const first = list[0];
         // The covenants API returns the id under `tx_id`; keep the other spellings as
-        // fallbacks. Without tx_id here, demoId stayed null and the studio-block +
+        // fallbacks. Without an id here, demoId stayed null and the studio-block +
         // public-page steps (6 and 7) silently skipped, leaving only 5 working steps.
         const id =
           (first && (first.tx_id || first.covenant_id || first.id || first.txid)) || null;

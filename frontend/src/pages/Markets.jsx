@@ -10,7 +10,7 @@ import Spinner from '../components/ui/Spinner';
 import {
   ShieldCheck, AlertTriangle, ArrowLeft, Trophy, Clock,
   ExternalLink, Layers, Check, Coins, ChevronDown, ArrowRight,
-} from 'lucide-react';
+} from '../lib/routeIcons.js';
 
 // Tabular-numeric mono utility - shared .num class from index.css so columns
 // align across light/dark and small/large screens. Single source of truth.
@@ -144,7 +144,7 @@ export function PlaceOrderCard({
         <input value={stake} onChange={(e) => setStake(e.target.value)} type="number" min="1" step="0.5"
           className={`hidden sm:block w-full sm:w-28 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm ${num}`} placeholder="KAS" />
         <input value={addr} onChange={(e) => setAddr(e.target.value)}
-          className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm font-mono text-[11px]" placeholder="your kaspatest:q... address" />
+          className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-black/30 light:bg-white border border-white/10 light:border-slate-200 text-white light:text-slate-900 text-sm font-mono text-[11px]" placeholder="your kaspa:q... payout address" />
       </div>
       <div className="hidden sm:flex gap-2">
         <Button
@@ -178,7 +178,7 @@ export function PlaceOrderCard({
 function ResolvePayout({ book, busy, onResolve }) {
   return (
     <div className="glass-panel rounded-2xl border border-emerald-500/25 p-6 mb-6">
-      <div className="text-white light:text-slate-900 font-semibold mb-1">Resolve &amp; pay out</div>
+      <div className="text-white light:text-slate-900 font-semibold mb-1">Resolve and pay out</div>
       <p className="text-[11px] text-gray-500 light:text-slate-500 mb-3">When the real result is in, click the winner: Covex reveals that one committed secret (single-secret policy) and immediately settles every funded leg on-chain.</p>
       <p className="text-[11px] text-emerald-200/90 light:text-emerald-700 mb-3 flex items-start gap-1.5">
         <ShieldCheck size={13} className="text-emerald-400 light:text-emerald-600 shrink-0 mt-0.5" />

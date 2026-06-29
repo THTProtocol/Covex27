@@ -699,11 +699,11 @@ export default function Explorer() {
                 Interactive Covenants for The <span className="text-kaspa-green">Kaspa BlockDAG</span>
               </h1>
               <p className="lede max-w-2xl mx-auto md:mx-0 mb-4 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.07s_both]">
-                Index every covenant on Kaspa and build your own in the Sandbox, free: escrows, timelocks, HTLCs, vesting, and real ZK proofs you generate in your browser. Deploy non-custodially, give your covenant a custom website in the Studio, and claim from your own wallet. No account.
+                Every covenant on Kaspa, indexed and inspectable. Build your own for free in the Sandbox: escrows, timelocks, HTLCs, vesting, and real ZK proofs you generate in your browser.
               </p>
               <p className="text-[12px] text-white/45 light:text-slate-600 max-w-xl mx-auto md:mx-0 mb-7 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.09s_both]">
                 <span title="SilverScript is Kaspa's covenant scripting language. Covenants are spend conditions on UTXOs (unspent outputs), enforced by the BlockDAG at about 10 blocks per second.">
-                  Powered by SilverScript covenants on programmable UTXOs at 10 blocks per second. Building is free; paid tiers add priority placement and the premium template library.
+                  Powered by SilverScript covenants on programmable UTXOs at 10 blocks per second. Building is always free; paid tiers add priority placement and the premium template library.
                 </span>
               </p>
               {/* Capability chip strip: makes the breadth VISIBLE and REACHABLE. Each chip
@@ -758,7 +758,7 @@ export default function Explorer() {
                   to="/readme"
                   className="inline-flex items-center gap-2 px-2 py-3 text-sm font-medium text-white/60 light:text-slate-500 hover:text-white light:hover:text-slate-900 underline-offset-4 hover:underline transition-colors duration-300"
                 >
-                  How It Works
+                  See how it works
                 </Link>
               </div>
 
@@ -819,22 +819,69 @@ export default function Explorer() {
         </div>
 
         {showCategoryPanel && (
-          <div className="max-w-4xl mx-auto mb-8 p-4 rounded-2xl glass-panel border border-white/10 light:border-slate-200">
-            <div className="text-[10px] uppercase tracking-widest text-white/40 light:text-slate-500 mb-3 text-center">Filter by Covenant Type, click any to apply</div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 text-xs">
-              {ALL_CATEGORIES.map(cat => (
+          <div className="max-w-4xl mx-auto mb-8 p-4 sm:p-5 rounded-2xl glass-panel border border-white/10 light:border-slate-200">
+            {/* Header row: title + live count on the left, a proper ghost Clear chip on the right.
+                Clear is shown only when a category is active, and resets to 'All'. */}
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div className="flex items-baseline gap-2 min-w-0">
+                <span className="text-sm font-semibold text-white light:text-slate-900">Filter by type</span>
+                <span className="text-[11px] font-medium text-white/45 light:text-slate-500 tabular-nums">
+                  {ALL_CATEGORIES.length - 1} types
+                </span>
+              </div>
+              {activeCategory !== 'All' && (
                 <button
-                  key={cat}
-                  onClick={() => { setActiveCategory(cat); setShowCategoryPanel(false); }}
-                  className={`px-3 py-2 rounded-xl border text-left transition-[color,background-color,border-color,box-shadow,transform] duration-200 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 focus-visible:border-kaspa-green/40 ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white text-white/70 light:text-slate-600 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/5 light:hover:bg-slate-50 hover:-translate-y-px'}`}
+                  type="button"
+                  onClick={() => { setActiveCategory('All'); setShowCategoryPanel(false); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border border-white/10 light:border-slate-200 bg-white/[0.03] light:bg-white text-white/70 light:text-slate-600 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 transition-surface outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 shrink-0"
                 >
-                  {CATEGORY_LABEL[cat] || cat}
+                  Clear
                 </button>
-              ))}
+              )}
             </div>
-            <div className="text-center mt-3">
-              <button onClick={() => { setActiveCategory('All'); setShowCategoryPanel(false); }} className="text-[10px] text-white/50 light:text-slate-500 hover:text-white light:hover:text-slate-900 underline">Clear / Show All Types</button>
-            </div>
+
+            {/* Grouped, scannable sections. The named groups cover the curated order; any
+                ALL_CATEGORIES key not placed in a named group is collected into an "Other"
+                bucket at runtime so NOTHING is ever hidden. */}
+            {(() => {
+              const GROUPS = [
+                { group: 'Utility and custody', categories: ['Escrow & Custody', 'Milestone Escrows', 'Structured Settlement', 'Vesting & Timelocks', 'Timelocks', 'Multi-sig', 'Multi-sig Safes', 'Atomic Swaps', 'P2SH Commitments', 'Membership Claims'] },
+                { group: 'Privacy and ZK', categories: ['ZK Proofs', 'ZK Oracle Tools', 'Nullifier / Unlinkable'] },
+                { group: 'DeFi and governance', categories: ['DeFi', 'Yield & Compounding', 'Governance & DAO', 'Oracle', 'Flash Covenants', 'Community Pools', 'Custom Logic', 'General'] },
+                { group: 'Conditional outcomes', categories: ['Predictive Markets', 'Prediction Pools', 'Lotteries & Pots', 'Auctions'] },
+                { group: 'Two-party and games', categories: ['Games & Matches', 'Verifiable Games', 'Contests', 'Tournaments', 'Chess', 'Poker', 'Blackjack', 'Dice & VRF', 'RPS & Games', 'Connect4', 'Reversi', 'Tic-Tac-Toe'] },
+              ];
+              const placed = new Set(GROUPS.flatMap(g => g.categories));
+              const other = ALL_CATEGORIES.filter(cat => cat !== 'All' && !placed.has(cat));
+              const sections = other.length ? [...GROUPS, { group: 'Other', categories: other }] : GROUPS;
+              // Only render group categories that actually exist in ALL_CATEGORIES (guards against drift).
+              const known = new Set(ALL_CATEGORIES);
+              return (
+                <div className="space-y-4">
+                  {sections.map(({ group, categories }) => {
+                    const cats = categories.filter(c => known.has(c));
+                    if (!cats.length) return null;
+                    return (
+                      <div key={group}>
+                        <div className="text-[10px] font-semibold uppercase tracking-widest text-white/35 light:text-slate-400 mb-2">{group}</div>
+                        <div className="flex flex-wrap gap-2">
+                          {cats.map(cat => (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => { setActiveCategory(cat); setShowCategoryPanel(false); }}
+                              className={`px-3 py-1.5 rounded-xl border text-xs transition-[color,background-color,border-color,box-shadow,transform] duration-200 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 focus-visible:border-kaspa-green/40 ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white text-white/70 light:text-slate-600 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/5 light:hover:bg-slate-50 hover:-translate-y-px'}`}
+                            >
+                              {CATEGORY_LABEL[cat] || cat}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
       </section>
@@ -848,8 +895,7 @@ export default function Explorer() {
           className="group inline-flex items-center gap-2 text-sm font-medium text-white/60 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors"
         >
           <ShieldCheck size={15} className="text-white/50 light:text-slate-600 group-hover:text-kaspa-green light:group-hover:text-emerald-700 transition-colors" />
-          Or deploy an on-chain enforced primitive
-          <span aria-hidden="true" className="opacity-60 group-hover:translate-x-0.5 transition-transform">&rarr;</span>
+          Prefer a consensus-enforced primitive? Deploy one directly.
         </Link>
       </div>
 
@@ -1556,7 +1602,7 @@ function CovenantCard({ covenant: c }) {
             {timestamp}
           </span>
           <span className={`shrink-0 inline-flex items-center gap-1 font-semibold ${isPaid ? cfg.text : 'text-kaspa-green/90'} group-hover:gap-1.5 transition-surface`}>
-            View <span className="group-hover:translate-x-0.5 transition-transform">{'→'}</span>
+            View
           </span>
         </div>
       </div>

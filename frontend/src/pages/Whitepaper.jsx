@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { FileText, ArrowLeft, ExternalLink, ChevronDown, ShieldCheck } from '../lib/routeIcons.js';
 import Card from '@/components/ui/Card';
@@ -16,7 +16,7 @@ const ZK_TOTAL = VERIFIED_FULL_ZK.size;
 // Small number-to-word helper so the prose reads naturally without hard-coding
 // the count. Falls back to digits past the table, which is fine for any future
 // registry growth and keeps the diff surgical.
-const NUM_WORDS = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty','twenty-one','twenty-two','twenty-three','twenty-four','twenty-five'];
+const NUM_WORDS = ['zero','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen','twenty','twenty-one','twenty-two','twenty-three','twenty-four','twenty-five','twenty-six','twenty-seven','twenty-eight','twenty-nine','thirty'];
 const numWord = (n) => (n >= 0 && n < NUM_WORDS.length ? NUM_WORDS[n] : String(n));
 const ZK_TOTAL_WORD = numWord(ZK_TOTAL);
 
@@ -31,70 +31,74 @@ const SECTIONS = [
   {
     id: 'abstract', n: 'Abstract',
     body: [
-      "Kaspa's Toccata hard fork turns a 10 BPS proof-of-work BlockDAG into a covenant-capable Layer 1: native, stateful, multi-transaction programs over UTXOs. For the circom proof suite Covex ships, zero-knowledge proofs are verified off-chain by you, the counterparty, or any external resolver, and a deployer-bound resolver's Schnorr co-signature is what the chain checks at unlock; Toccata's KIP-16 verification opcode adds a separate on-chain proof-checking path that stays testnet-gated until proven live on mainnet. The missing layer is human: a place to see every covenant, interact with any of them from your own wallet, and create them without writing raw script. Covex is that layer.",
-      "This paper describes the problem, the design, the trust model, and the honest mainnet guarantee today: on-chain Schnorr verification of a deployer-bound resolver's co-signature, with circom ZK proofs verified off-chain by you, the counterparty, or any external resolver.",
+      "Kaspa's Toccata hard fork turns a 10 BPS proof-of-work BlockDAG into a covenant-capable Layer 1: native, stateful, multi-transaction programs over UTXOs. What is missing is the human layer. There is no single place to see every covenant on chain, act on any of them from your own wallet, and create new ones without writing raw script. Covex is that layer.",
+      "Covex is non-custodial. Keys stay in your wallet, the platform holds no funds, and it signs nothing on your behalf. The circom proof suite Covex ships is verified off chain by anyone, and the only thing the chain checks at unlock is a deployer-bound external resolver's Schnorr co-signature. Toccata's KIP-16 verification opcode adds a separate on-chain proof path that stays testnet-gated until it is proven on mainnet. This paper sets out the problem, the design, the trust model, and exactly what is guaranteed today.",
     ],
   },
   {
     id: 'background', n: '1 · Background: covenants on Kaspa',
     body: [
-      "Kaspa is a proof-of-work BlockDAG using the GHOSTDAG / DAGKNIGHT ordering protocol. Since the Crescendo hard fork (mainnet, ~May 2025) it produces 10 blocks per second while preserving Nakamoto-style security, with a roadmap toward 100 BPS. Crescendo also shipped KIP-10 transaction-introspection opcodes, the first step toward covenants.",
-      "The Toccata hard fork completes the covenant story. It activates on Kaspa mainnet at DAA score 474,165,565 (expected ~30 June 2026), and bundles four improvement proposals: KIP-17 (extended script-engine opcodes, the covenant backbone), KIP-20 (covenant IDs for stable identity and lineage), KIP-16 (a zero-knowledge verification opcode set, including the OpZkPrecompile that verifies a RISC0-Groth16 proof in consensus), and KIP-21 (partitioned sequencing commitments). For real-value settlement today Covex does not yet rely on the on-chain proof-verification opcode: the achievable mainnet guarantee is on-chain Schnorr verification of a deployer-bound resolver's co-signature, with the circom ZK proof verified off-chain by you, the counterparty, or any external resolver. The KIP-16 on-chain path is live on the Toccata testnets and stays testnet-gated for settlement until proven live on mainnet.",
-      "SilverScript, a CashScript-inspired language and compiler, compiles covenants to Kaspa script. Covex builds directly on this stack and is being readied for the Toccata mainnet activation scheduled for 30 June 2026, when covenants settle with real funds.",
+      "Kaspa is a proof-of-work BlockDAG ordered by the GHOSTDAG and DAGKNIGHT protocols. Since the Crescendo hard fork (mainnet, around May 2025) it produces 10 blocks per second while preserving Nakamoto-style security, with a roadmap toward 100 BPS. Crescendo also shipped the KIP-10 transaction-introspection opcodes, the first step toward covenants.",
+      "Toccata completes the covenant story. It activates on Kaspa mainnet at DAA score 474,165,565 (expected around 30 June 2026) and bundles four improvement proposals: KIP-17, the extended script-engine opcodes that form the covenant backbone; KIP-20, covenant IDs that give stable identity and lineage; KIP-16, a zero-knowledge opcode set whose OpZkPrecompile verifies a RISC0-Groth16 proof in consensus; and KIP-21, partitioned sequencing commitments.",
+      "For real-value settlement today, Covex does not yet rely on that on-chain proof opcode. The KIP-16 path is live on the Toccata testnets and stays testnet-gated for settlement until it is proven on mainnet. Until then, the guarantee Covex offers is on-chain Schnorr verification of a deployer-bound resolver's co-signature, with the circom proof verified off chain. The trust model section sets this out in full.",
+      "SilverScript, a CashScript-inspired language and compiler, compiles covenants down to Kaspa script. Covex builds directly on this stack and is being readied for the Toccata mainnet activation on 30 June 2026, when covenants begin settling with real funds.",
     ],
   },
   {
     id: 'problem', n: '2 · Problem',
-    takeaway: "In one line: the moment covenants reach mainnet, three gaps open at once - finding them on the DAG, acting on them from a wallet, and authoring them without locking funds in raw script.",
+    takeaway: "The moment covenants reach mainnet, three gaps open at once: finding them on the DAG, acting on them from a wallet, and authoring them without locking funds in raw script.",
     body: [
-      "A programmable UTXO is invisible without infrastructure. At the moment covenants reach mainnet, three gaps appear at once.",
-      "Discovery: covenants are not contract accounts; they are spend conditions on outputs. Finding them means walking the DAG and recognizing script envelopes, not reading an account list.",
-      "Interaction: a covenant is only useful if counterparties can act on it - fund it, join it, prove an outcome, claim a payout. That requires a UI bound to a wallet and to the covenant's real on-chain parameters.",
-      "Authorship: writing correct script is hard and unforgiving; one mistake locks funds forever. Most people who want a covenant should never touch raw opcodes.",
+      "A programmable UTXO is invisible without infrastructure. The day covenants reach mainnet, three gaps appear together.",
+      "Discovery. Covenants are not contract accounts. They are spend conditions on outputs, so finding them means walking the DAG and recognizing script envelopes, not reading an account list.",
+      "Interaction. A covenant is only useful if counterparties can act on it: fund it, join it, prove an outcome, claim a payout. That takes a UI bound to a wallet and to the covenant's real on-chain parameters.",
+      "Authorship. Writing correct script is hard and unforgiving. One mistake can lock funds forever, so most people who want a covenant should never touch raw opcodes.",
     ],
   },
   {
     id: 'design', n: '3 · Design',
-    takeaway: "In one line: independent indexers find every covenant on chain, each gets a wallet-bound page you act on non-custodially, and a no-code Studio builds new ones with no user-authored HTML ever reaching a visitor.",
+    takeaway: "Independent indexers find every covenant on chain, each one gets a wallet-bound page you act on non-custodially, and a no-code Studio builds new ones without any user-authored HTML ever reaching a visitor.",
     body: [
-      "Indexing. Three independent background workers per network give defense in depth: a crawler that walks the selected-parent chain recognizing aa20 to aa23 covenant envelopes (aa20 is the only marker emitted today; aa21 to aa23 are reserved forward-compatible variants); a live indexer polling seed addresses every 10 seconds; and a payment guardian watching the treasury to confirm tier payments at six DAA confirmations. Covenants are classified by opcode signature into 17 categories. On mainnet, a bare P2SH commitment is indistinguishable from an ordinary output and is not counted as a covenant until Toccata activation - the explorer stays honest rather than inflating numbers.",
-      "Interaction. Every covenant has a page bound to its on-chain address. Visitors connect any Kaspa wallet and act non-custodially. Two-party covenants are the proof of concept: both parties stake into a covenant, the interaction is persisted and synced live over WebSockets, and the outcome is resolved and signed from a publicly-replayable log; the winning party's unlock spends the staked amount on-chain. The platform never custodies the stake.",
-      "Authorship and the Studio. Creators compose a covenant's public page from a fixed catalog of platform-authored blocks using a drag-and-drop builder, or type a theme in a design-code terminal; 240 procedural presets give instant starting points. Because pages serialize to validated JSON rendered through an allow-listed component set, no user-authored HTML or JavaScript ever reaches a visitor's DOM, eliminating the phishing and XSS surface that plagues open page builders on financial sites.",
+      "Indexing. Three independent background workers per network give defense in depth. A crawler walks the selected-parent chain recognizing aa20 to aa23 covenant envelopes (aa20 is the only marker emitted today; aa21 to aa23 are reserved forward-compatible variants). A live indexer polls seed addresses every 10 seconds. A payment guardian watches the treasury and confirms tier payments at six DAA confirmations. Covenants are classified by opcode signature into 17 categories. On mainnet, a bare P2SH commitment is indistinguishable from an ordinary output, so it is not counted as a covenant until Toccata activation. The explorer stays honest rather than inflating numbers.",
+      "Interaction. Every covenant has a page bound to its on-chain address. Visitors connect any Kaspa wallet and act non-custodially. Two-party covenants are the proof of concept: both parties stake into the covenant, the interaction is persisted and synced live over WebSockets, and the outcome is resolved and signed from a publicly replayable log. The winning party's own unlock spends the staked amount on chain. Covex never custodies the stake.",
+      "Authorship and the Studio. Creators compose a covenant's public page from a fixed catalog of platform-authored blocks, using a drag-and-drop builder or a design-code terminal where they simply type a theme; 240 procedural presets give instant starting points. Pages serialize to validated JSON rendered through an allow-listed component set, so no user-authored HTML or JavaScript ever reaches a visitor's DOM. That removes the phishing and XSS surface that plagues open page builders on financial sites.",
     ],
   },
   {
     id: 'trust', n: '4 · Trust model',
-    takeaway: "In one line: Covex holds no funds and decides no outcome; the deterministic primitives are trustless, and where a real-world fact is needed you trust a named external resolver you chose or run, never Covex.",
+    takeaway: "Covex holds no funds and decides no outcome. The deterministic primitives are trustless; where a real-world fact is needed you trust a named external resolver you chose or run, never a Covex key.",
     body: [
-      "Covex is explicit about what is trustless and what is not.",
-      "Custody is non-custodial: the platform reads UTXOs and verifies payments; it holds no keys and cannot move funds. Every value-moving action is signed by the user's wallet. For oracle-resolved covenants an external resolver the deployer binds by pubkey at deploy (never a Covex key) co-signs the winning branch, so the payout is on-chain enforced but not trustless: trust sits with the disclosed resolver you chose or run. Where the outcome is a real-world fact, you connect or create that external resolver and the real-value covenant binds on-chain to its published hashlock, so Covex provides infrastructure, not the truth, and never attests real-world facts. For the deterministic primitives the payout is trustless.",
-      "Discovery and display are verifiable against the chain: every listed covenant is a real on-chain object you can independently check on the block explorer, and nothing is fabricated. The honesty gate on mainnet enforces this. The enforcement label itself is computed by Covex, so we reserve the word trustless for custody.",
-      `Resolution. There are ${ZK_TOTAL_WORD} ZK circuits in the Covex circom registry, and all ${ZK_TOTAL_WORD} of their Groth16 proofs are verified OFF-CHAIN by you, the counterparty, or any external resolver (snarkjs against the audited vkey, fail-closed). For the four self-contained circuits (merkle_membership, age_verification, escrow_2party, range_proof) the proof is verified off-chain; the chain still requires an external resolver's Schnorr co-signature to release funds (there is no proof-to-hashlock binding), so they are not trustless end-to-end. For every other circom circuit a valid proof gates a deployer-bound external resolver's 2-of-2 cosign plus a CSV timeout, the chain enforces only that co-signature, and trust sits with the disclosed resolver you chose or run, not Covex and not the chain. Two-party outcomes, on testnet today, settle when Covex re-derives the result from the publicly-replayable signed log (anyone can recompute it) and co-signs the payout; Covex does not decide the result, and the chain still requires the winning party's own signature. The chain-enforced, no-Covex-key path (the same external-resolver hashlock the conditional-outcome covenants use) is rolling out. Real-world-outcome covenants bind to an external resolver the creator names by pubkey at deploy, since Covex never attests real-world facts. For the circom suite, beyond the four self-contained circuits, the proof is verified off-chain; only the resolver's BIP340 co-signature is what the chain checks at unlock, and each covenant page states this via a trust badge. Separately, Toccata's KIP-16 OpZkPrecompile verifies a RISC0-Groth16 proof in consensus; the settlement covenant targets that on-chain path, and it stays testnet-gated until proven live on mainnet. The trusted setup is a single-contributor dev ceremony, not a production multi-party MPC. This is the trust assumption today, and it is disclosed, not hidden.`,
-      "Visibility: the ranking formula is public and deterministic; paid placement is labeled, never disguised as organic.",
+      "Covex is precise about what is trustless and what is not, and the word trustless is reserved for custody and the deterministic on-chain primitives only.",
+      "Custody is non-custodial. The platform reads UTXOs and verifies payments. It holds no user keys and cannot move funds, and every value-moving action is signed by the user's own wallet. For the deterministic primitives (hashlock, timelocks, HTLC, multisig, channels) the payout is fully trustless: the chain alone enforces it.",
+      `Outcomes that depend on a fact or a proof are not trustless, and Covex says so plainly. There are ${ZK_TOTAL_WORD} ZK circuits in the Covex circom registry, and every one of their Groth16 proofs is verified off chain (snarkjs against the served verification key, fail-closed) by you, the counterparty, or any external resolver. There is no proof-to-hashlock binding, so the chain never checks these proofs directly. Instead, a valid proof gates a deployer-bound external resolver's BIP340 Schnorr co-signature, a 2-of-2 cosign with a CSV timeout, and that co-signature is the single thing the chain enforces at unlock. Trust therefore sits with the disclosed resolver the deployer chose or runs, never with Covex and never with a Covex key. Each covenant page states this through a trust badge.`,
+      "This applies uniformly. The four self-contained circuits (merkle_membership, age_verification, escrow_2party, range_proof) verify off chain like the rest and still require the resolver's co-signature to release funds, so they are not trustless end to end either. Real-world-outcome covenants bind on chain to an external resolver the creator names by pubkey at deploy, because Covex never attests real-world facts: it provides the infrastructure, not the truth.",
+      "Two-party game outcomes, on testnet today, are the one place a Covex key appears. Covex re-derives the result from the publicly replayable signed move log, which anyone can recompute, and co-signs the payout; it does not decide the result, and the chain still requires the winning party's own signature. Covex is migrating these to an external-referee model to remove even that key. Markets, ZK proofs, and mainnet never use a Covex key.",
+      "Two things are on the horizon, not in force. The chain-enforced, no-Covex-key path (the same external-resolver hashlock the conditional-outcome covenants use) is rolling out, and Toccata's KIP-16 OpZkPrecompile, which verifies a RISC0-Groth16 proof in consensus, is the on-chain path the settlement covenant targets once it is proven on mainnet. The trusted setup behind today's circom proofs is a single-contributor development ceremony, not a production multi-party MPC. This is the trust assumption today, disclosed rather than hidden.",
+      "Visibility. The ranking formula is public and deterministic, and paid placement is always labeled, never disguised as organic. Because the enforcement label is itself computed by Covex, we keep the word trustless for custody alone.",
     ],
   },
   {
     id: 'roadmap', n: '5 · Roadmap to trustlessness',
-    takeaway: "In one line: the plan is to shrink the off-chain resolver from trusted signer to optional, move proofs on-chain via KIP-16, and replace the dev trusted-setup with a real multi-party ceremony, with the honest badge showing every step.",
+    takeaway: "Shrink the off-chain resolver from trusted signer to optional, move proofs on chain via KIP-16, and replace the development trusted setup with a real multi-party ceremony, with the honest badge tracking every step.",
     body: [
-      `Today, all ${ZK_TOTAL_WORD} compiled circom circuits in the registry are verified off-chain by you, the counterparty, or any external resolver. For four of them (merkle_membership, age_verification, escrow_2party, range_proof) the proof is verified off-chain; the chain still requires a deployer-bound external resolver's Schnorr co-signature to release funds (there is no proof-to-hashlock binding), so they are not trustless end-to-end. For the rest (timelock, split-math, VRF and so on) only a deployer-bound external resolver's Schnorr co-signature is checked on-chain at unlock, so trust sits with that disclosed resolver, not Covex. Beyond the four self-contained circuits, no circom circuit's ZK proof is enforced end-to-end on Kaspa: there is no circuit-output to hashlock binding in the covenant builder, so the chain never checks those proofs. Toccata's KIP-16 OpZkPrecompile does verify a RISC0-Groth16 proof in consensus, and the settlement covenant migrates onto that on-chain path as its proving keys and a real multi-party ceremony ship; it stays testnet-gated until proven live on mainnet. At the 30 June 2026 mainnet launch the circom set is verified off-chain.`,
-      "As that migration completes, the external resolver's role shrinks from trusted signer to liveness helper, and eventually to optional. The honest badge system makes each step visible to users in real time.",
-      "Beyond resolution: multi-resolver threshold signing for whatever remains attested off-chain, a real MPC ceremony or STARK paths to replace the development powers-of-tau, KCC-20 token indexing, a pay-per-call API revenue layer, and a PostgreSQL migration when covenant volume demands it.",
+      `Today, all ${ZK_TOTAL_WORD} compiled circom circuits in the registry are verified off chain, and the chain enforces only a deployer-bound external resolver's Schnorr co-signature at unlock, exactly as the trust model describes. No circom proof is enforced end to end on Kaspa, because the covenant builder contains no circuit-output to hashlock binding. At the 30 June 2026 mainnet launch the circom set is verified off chain.`,
+      "KIP-16's OpZkPrecompile does verify a RISC0-Groth16 proof in consensus, and the settlement covenant migrates onto that on-chain path as its proving keys and a real multi-party ceremony ship. It stays testnet-gated until it is proven on mainnet.",
+      "As that migration lands, the external resolver's role shrinks from trusted signer to liveness helper, and eventually to optional. The honest badge system makes each step visible to users in real time.",
+      "Beyond resolution: multi-resolver threshold signing for whatever remains attested off chain, a real MPC ceremony or STARK paths to replace the development powers-of-tau, KCC-20 token indexing, a pay-per-call API revenue layer, and a PostgreSQL migration when covenant volume demands it.",
     ],
   },
   {
-    id: 'why-now', n: '7 · Why now',
+    id: 'why-now', n: '6 · Why now',
     body: [
       "The platform that indexes mainnet covenants best at the moment they appear becomes the default explorer for the category. Covex has proven its indexer at scale and is provisioning its mainnet node ahead of the Toccata activation on 30 June 2026.",
-      "The goal of this codebase is to be ready - correct, honest, and complete - on day one of covenants on Kaspa mainnet.",
+      "The goal of this codebase is simple: to be ready, correct, honest, and complete, on day one of covenants on Kaspa mainnet.",
     ],
   },
 ];
 
-// TOC entry for the interactive verification panel. Rendered as its own section
+// TOC entry for the interactive verification panel. Rendered as a closing appendix
 // (with real fetched data + an honest 404 fallback) so the contents bar still
-// scroll-spies onto it.
-const VERIFY_TOC = { id: 'verify-yourself', n: '6 · Verify yourself' };
+// scroll-spies onto it. Kept id 'verify-yourself' so existing anchors stay valid.
+const VERIFY_TOC = { id: 'verify-yourself', n: 'Appendix · Verify yourself' };
 
 // Live-fetch panel: oracle x-only pubkey, served-vkey HEAD probe, disclosed
 // treasury addresses. Real fetches only. Loading + error states are explicit
@@ -151,7 +155,7 @@ function VerifyYourselfPanel() {
         {open && (
           <div className="px-5 pb-5 pt-1 space-y-5 border-t border-white/[0.06] light:border-slate-200">
             <p className="text-xs text-gray-400 light:text-slate-500 leading-relaxed">
-              Nothing here is fabricated. Each value is fetched live in your browser from this build. If an endpoint or static path is not exposed, the panel says so.
+              The claims in this paper are checkable. Every value below is fetched live in your browser from this build, with nothing fabricated. If an endpoint or static path is not exposed, the panel says so rather than implying success. This sits at the end on purpose: it is the evidence behind the trust model, not a footnote in the middle of the argument.
             </p>
 
             <div>
@@ -207,11 +211,11 @@ export default function Whitepaper() {
     // Direct (rAF-free) scrollspy: the last section whose top has scrolled above the
     // sticky bar is the one you're reading. setActiveId no-ops when the value is unchanged,
     // so re-renders only happen when you actually cross a section boundary.
-    // The verify panel is its own section, inserted between section 5 and 7,
-    // so the scrollspy must walk both ordered lists or it will skip-highlight.
+    // The verify appendix is its own section appended after the numbered sections,
+    // so the scrollspy walks the sections in render order plus the appendix last.
     const compute = () => {
       let current = SECTIONS[0].id;
-      const ordered = [...SECTIONS.slice(0, SECTIONS.length - 1), VERIFY_TOC, SECTIONS[SECTIONS.length - 1]];
+      const ordered = [...SECTIONS, VERIFY_TOC];
       for (const s of ordered) {
         const el = document.getElementById(s.id);
         if (el && el.getBoundingClientRect().top <= 130) current = s.id;
@@ -237,13 +241,13 @@ export default function Whitepaper() {
         </div>
         <div className="min-w-0">
           <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white light:text-slate-900">Covex Whitepaper</h1>
-          <p className="text-sm text-gray-400 light:text-slate-500 break-words">A Covenant Explorer and Studio for Kaspa Mainnet · v1.3 · 2026-06-29</p>
+          <p className="text-sm text-gray-400 light:text-slate-500 break-words">A Covenant Explorer and Studio for Kaspa Mainnet · v1.4 · 2026-06-30</p>
         </div>
       </Card>
 
       <div className="z-30 glass-panel rounded-2xl p-3 border border-white/[0.06] light:border-slate-200 light:bg-white/90 mb-8 flex flex-wrap gap-x-3 gap-y-1 text-xs backdrop-blur-xl" style={{ position: 'sticky', top: '4rem' }}>
         <span className="kicker w-full mb-0.5">Contents</span>
-        {[...SECTIONS.slice(0, SECTIONS.length - 1), VERIFY_TOC, SECTIONS[SECTIONS.length - 1]].map((s) => (
+        {[...SECTIONS, VERIFY_TOC].map((s) => (
           <a key={s.id} href={`#${s.id}`} onClick={() => setActiveId(s.id)}
             className={`transition-colors ${activeId === s.id ? 'text-kaspa-green font-semibold' : 'text-gray-400 light:text-slate-500 hover:text-kaspa-green'}`}>
             {s.n}
@@ -252,26 +256,23 @@ export default function Whitepaper() {
       </div>
 
       <article className="space-y-10">
-        {SECTIONS.map((s, idx) => (
-          // The interactive verify panel sits between section 5 (roadmap) and
-          // the final why-now section, matching the renumbered TOC. Wrapped in
-          // a keyed Fragment so React's list-key invariant is preserved.
-          <Fragment key={s.id}>
-            {idx === SECTIONS.length - 1 && <VerifyYourselfPanel />}
-            <section id={s.id} className="scroll-mt-24">
-              <h2 className="relative text-xl font-bold text-white light:text-slate-900 mb-3 pb-2">
-                {s.n}
-                <span className="absolute bottom-0 left-0 h-[2px] w-20 rounded-full" aria-hidden="true" style={{ background: 'linear-gradient(90deg, #49EACB, transparent)' }} />
-              </h2>
-              <div className="space-y-3">
-                {s.takeaway && <p className="text-sm font-bold text-white light:text-slate-900 leading-relaxed">{s.takeaway}</p>}
-                {s.body.map((p, i) => (
-                  <p key={i} className="text-sm text-gray-300 light:text-slate-700 leading-relaxed">{p}</p>
-                ))}
-              </div>
-            </section>
-          </Fragment>
+        {SECTIONS.map((s) => (
+          <section key={s.id} id={s.id} className="scroll-mt-24">
+            <h2 className="relative text-xl font-bold text-white light:text-slate-900 mb-3 pb-2">
+              {s.n}
+              <span className="absolute bottom-0 left-0 h-[2px] w-20 rounded-full" aria-hidden="true" style={{ background: 'linear-gradient(90deg, #49EACB, transparent)' }} />
+            </h2>
+            <div className="space-y-3">
+              {s.takeaway && <p className="text-sm font-bold text-white light:text-slate-900 leading-relaxed">{s.takeaway}</p>}
+              {s.body.map((p, i) => (
+                <p key={i} className="text-sm text-gray-300 light:text-slate-700 leading-relaxed">{p}</p>
+              ))}
+            </div>
+          </section>
         ))}
+        {/* Verify-yourself sits at the very end as a labeled appendix: deliberate, live
+            evidence behind the trust model, not a key dump in the middle of the argument. */}
+        <VerifyYourselfPanel />
       </article>
 
       <Card className="mt-12 p-5">

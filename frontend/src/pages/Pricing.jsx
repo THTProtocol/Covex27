@@ -79,7 +79,7 @@ const TIERS = [
     price: 500,
     desc: 'Featured placement and better visibility on the Explorer, plus the full premium template library.',
     features: [
-      'Everything in Builder tier',
+      'Everything in Builder, plus:',
       'Featured placement on Explorer',
       'Higher ranking in lists',
     ],
@@ -95,7 +95,7 @@ const TIERS = [
     price: 1000,
     desc: 'Maximum visibility with top placement and TVL-weighted ranking boost.',
     features: [
-      'Everything in PRO tier',
+      'Everything in PRO, plus:',
       'Top placement on Explorer',
       'TVL-weighted ranking advantage',
     ],

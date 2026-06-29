@@ -18,7 +18,7 @@ import { useDialog } from '../lib/useDialog';
  *   - covenant : opened from an explorer / detail TrustBadge     (props.covenant = the covenant object)
  */
 
-// The 14 circuits with a real, working in-browser Groth16 prover are now defined once in
+// The circuits with a real, working in-browser Groth16 prover are now defined once in
 // lib/zk/circuits.js (IN_BROWSER_PROVERS) and imported above, so this modal can never drift
 // out of sync with the terminal / OnChainLockSection / ZkClaimPanel.
 

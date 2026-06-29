@@ -42,7 +42,7 @@ const REALITY = {
   'full-zk': {
     label: 'full-zk',
     variant: 'full-zk',
-    note: 'A real Groth16 proof. The circom suite is verified off-chain by an external resolver you choose or run (not Covex); the four self-contained circuits reduce to pure on-chain primitives. Toccata KIP-16 adds a separate on-chain ZK path, testnet-gated until proven live.',
+    note: 'A real Groth16 proof, verified off-chain by you, the counterparty, or any external resolver you choose or run (never Covex). The four self-contained circuits verify off-chain too and still need that resolver co-signature to release funds, so they are not trustless end to end. Toccata KIP-16 adds a separate on-chain ZK path, testnet-gated until proven live.',
   },
   metadata: {
     label: 'metadata',

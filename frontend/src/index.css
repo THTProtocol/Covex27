@@ -1018,7 +1018,7 @@ body {
   background-color: rgba(15, 23, 42, 0.04) !important;
 }
 
-/* Light mode: hover glow shadows on green buttons → use teal */
+/* Light mode: hover glow shadows on green buttons, use teal */
 .light .hover\:shadow-\[0_0_25px_rgba\(73\2c 234\2c 203\2c 0\.35\)\],
 .light .hover\:shadow-\[0_0_30px_rgba\(73\2c 234\2c 203\2c 0\.4\)\] {
   box-shadow: 0 0 25px rgba(15, 118, 110, 0.3) !important;
@@ -1272,7 +1272,7 @@ body {
 /* (text-emerald-400 / -300 consolidated into the token-driven accent block
    near the foot of the light layer; the duplicates that were here are removed.) */
 
-/* ── details/summary → work in light ── */
+/* details/summary fixes for light mode */
 .light details summary { color: #475569 !important; }
 .light details pre { background: #f1f5f9 !important; color: #334155 !important; }
 
@@ -1427,7 +1427,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
    is finite to dodge the catch-all that previously killed hover deltas. */
 /* White-alpha elevation ramp -> named recessed surface steps. Now includes the
    faintest alphas (.005/.008/.01) that previously fell through and rendered as
-   invisible whisper-panels on white (Readme/WhatIsKaspa/ApiDocs inner tiles). */
+   invisible whisper-panels on white (Readme/WhatIsKaspa inner tiles). */
 .light .bg-white\/\[0\.005\],
 .light .bg-white\/\[0\.008\],
 .light .bg-white\/\[0\.01\],

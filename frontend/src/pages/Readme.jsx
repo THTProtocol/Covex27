@@ -130,7 +130,7 @@ export default function Readme() {
           <div className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-kaspa-green/30 text-kaspa-green tracking-widest mb-5">
             <Network size={12} /> KASPA MAINNET
           </div>
-          <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.1] mb-5">
+          <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.15] pt-1 mb-5">
             How <span className="text-kaspa-green">Covex</span> Works
           </h1>
           <p className="text-base sm:text-lg text-gray-200 leading-relaxed mb-6">
@@ -192,7 +192,7 @@ export default function Readme() {
             <p className="text-xs text-gray-400 mt-3">On mainnet these resolve to <span className="font-mono text-kaspa-green">kaspa:p…</span> addresses. The redeem script stays hidden until spend.</p>
           </div>
           <Card className="!p-6">
-            <div className="text-[11px] uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2"><Workflow size={14} className="text-kaspa-green" /> Deploy → lock → spend</div>
+            <div className="text-[11px] uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2"><Workflow size={14} className="text-kaspa-green" /> Deploy, lock, spend</div>
             <ol className="space-y-3">
               {[
                 ['Build', 'Your redeem script is built and verified against Kaspa’s real transaction-script engine before any funds move.'],
@@ -288,7 +288,7 @@ export default function Readme() {
             </p>
           </div>
           <Card className="!p-6">
-            <div className="text-[11px] uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2"><Cpu size={14} className="text-kaspa-green" /> Proof → verify → pay</div>
+            <div className="text-[11px] uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2"><Cpu size={14} className="text-kaspa-green" /> Proof, verify, pay</div>
             <ol className="space-y-3">
               {[
                 ['Prove', 'You generate a Groth16 proof of the statement (e.g. “my committed value is in range”). Your secret never leaves your machine.'],
@@ -353,7 +353,7 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
               Kaspa mainnet activated the <strong className="text-white">KIP-10 introspection opcodes</strong> at the Crescendo
               hard fork. A script can now read the transaction spending it (input/output counts, amounts, and script-pubkeys),
-              enabling real vault, vesting and spend-constraint covenants on mainnet now.
+              enabling real vault, vesting, and spend-constraint covenants on mainnet now.
             </p>
             <div className="flex flex-wrap gap-1.5">
               {KIP10.map(([n, h]) => (

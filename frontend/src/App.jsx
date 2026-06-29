@@ -40,7 +40,6 @@ const Terms = lazy(() => import('./pages/Terms'));
 const Privacy = lazy(() => import('./pages/Privacy'));
 const EnforcedDeploy = lazy(() => import('./pages/EnforcedDeploy'));
 const AddressPortfolio = lazy(() => import('./pages/AddressPortfolio'));
-const ApiDocs = lazy(() => import('./pages/ApiDocs'));
 const Whitepaper = lazy(() => import('./pages/Whitepaper'));
 const Treasury = lazy(() => import('./pages/Treasury'));
 const Stats = lazy(() => import('./pages/Stats'));
@@ -67,7 +66,6 @@ function LearnMenu() {
     ['About Covex', '/about'],
     ['How it Works', '/readme'],
     ['What is Kaspa', '/kaspa'],
-    ['API Docs', '/docs'],
     ['Whitepaper', '/whitepaper'],
     // Transparency pages: surfaced in the primary nav (were footer-only and hard to find).
     // Kept in the footer too.
@@ -275,7 +273,7 @@ function LiveStatus() {
   );
 }
 
-// One-time consent gate. The dead-code LegalModal is mounted here so first-time
+// One-time consent gate. The LegalModal is mounted here so first-time
 // visitors must read and accept the Terms (and the no-liability disclaimer) before
 // using the platform. Acceptance is persisted in localStorage and never re-shown.
 // Skipped on /embed routes so the chrome-free covenant widget embedded on external
@@ -452,7 +450,6 @@ export default function App() {
                   <NavLink to="/about" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>About Covex</NavLink>
                   <NavLink to="/readme" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>How it Works</NavLink>
                   <NavLink to="/kaspa" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>What is Kaspa</NavLink>
-                  <NavLink to="/docs" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>API Docs</NavLink>
                   <NavLink to="/whitepaper" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Whitepaper</NavLink>
                   <NavLink to="/stats" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Statistics</NavLink>
                   <NavLink to="/treasury" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Treasury</NavLink>
@@ -519,7 +516,6 @@ export default function App() {
               <Route path="/recover" element={<Recover />} />
               <Route path="/advanced" element={<Navigate to="/sandbox?phase=logic" replace />} />
               <Route path="/address/:addr" element={<AddressPortfolio />} />
-              <Route path="/docs" element={<ApiDocs />} />
               <Route path="/whitepaper" element={<Whitepaper />} />
               <Route path="/treasury" element={<Treasury />} />
               <Route path="/stats" element={<Stats />} />
@@ -548,7 +544,6 @@ export default function App() {
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
                 {[
                   ['How it Works', '/readme'],
-                  ['API', '/docs'],
                   ['Whitepaper', '/whitepaper'],
                   ['Treasury', '/treasury'],
                   // Discoverable entry for "I have a redeem script, spend any covenant":

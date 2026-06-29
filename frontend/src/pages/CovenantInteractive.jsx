@@ -731,8 +731,8 @@ export default function CovenantInteractive() {
         <p class="subtitle">${desc}</p>
         ${vision ? `<p style="max-width:580px; margin: 0 auto 28px; color:#CBD5E1; font-size:15px;">${vision}</p>` : ''}
         <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap;">
-          <button onclick="document.getElementById('interact').scrollIntoView({behavior:'smooth'})" class="btn">Interact with Covenant</button>
-          <a href="${explorerTx}" target="_blank" class="btn btn-outline">View on Explorer →</a>
+          <button onclick="document.getElementById('interact').scrollIntoView({behavior:'smooth'})" class="btn">Interact with this covenant</button>
+          <a href="${explorerTx}" target="_blank" class="btn btn-outline">View on Explorer</a>
         </div>
       </div>
     `;

@@ -127,7 +127,7 @@ pub fn zk_reality_for_circuit(circuit_id: &str) -> Option<EnforcementReality> {
     if circuit_id.is_empty() || circuit_id == "none" {
         return None;
     }
-    if VERIFIED_FULL_ZK_CIRCUITS.iter().any(|&c| c == circuit_id) {
+    if VERIFIED_FULL_ZK_CIRCUITS.contains(&circuit_id) {
         return Some(EnforcementReality::FullZk);
     }
     None

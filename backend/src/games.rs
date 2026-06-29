@@ -400,6 +400,9 @@ async fn lock_pot(
         );
     }
     let stake = req.get("stake_kas").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    // Intentionally negated: `!(stake > 0.0)` also rejects NaN (NaN > 0.0 is false), whereas the
+    // clippy-suggested `stake <= 0.0` would let a NaN stake slip through. Fail closed on NaN.
+    #[allow(clippy::neg_cmp_op_on_partial_ord)]
     if !(stake > 0.0) {
         return Json(json!({ "success": false, "error": "stake_kas must be > 0" }));
     }
@@ -1730,6 +1733,9 @@ async fn lock_channel(
         );
     }
     let stake = req.get("stake_kas").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    // Intentionally negated: `!(stake > 0.0)` also rejects NaN (NaN > 0.0 is false), whereas the
+    // clippy-suggested `stake <= 0.0` would let a NaN stake slip through. Fail closed on NaN.
+    #[allow(clippy::neg_cmp_op_on_partial_ord)]
     if !(stake > 0.0) {
         return Json(json!({ "success": false, "error": "stake_kas must be > 0" }));
     }
@@ -2102,6 +2108,9 @@ struct ResignReq {
 /// moves are not yet wallet-authenticated, so a resign is only trustworthy between
 /// cooperating clients; the pot gate therefore does NOT settle a pot on a resign
 /// (only on server-timed timeouts or an engine-decisive board), see game_pot_outcome.
+// The local row tuple mirrors the SELECTed skill_games columns; a type alias for a single use would
+// only add indirection.
+#[allow(clippy::type_complexity)]
 async fn resign_game(
     Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
@@ -2370,6 +2379,9 @@ struct MoveReq {
 
 /// POST /games/:id/move : append a move, flip the turn, optionally finish.
 /// Turn enforcement: player1 moves on 'white', player2 on 'black'.
+// The local row tuple mirrors the SELECTed skill_games columns; a type alias for a single use would
+// only add indirection.
+#[allow(clippy::type_complexity)]
 async fn make_move(
     Extension(db): Extension<crate::db::Db>,
     Path(covenant_id): Path<String>,
@@ -2493,9 +2505,9 @@ async fn make_move(
                             match outcome {
                                 Err(e) => Err(e),
                                 Ok((finished, winner, reason)) => {
-                                    let next = if finished {
-                                        turn.as_str()
-                                    } else if req.keep_turn.unwrap_or(false) {
+                                    // A finished game or an explicit keep_turn both leave the turn
+                                    // with the same player; otherwise it alternates.
+                                    let next = if finished || req.keep_turn.unwrap_or(false) {
                                         turn.as_str()
                                     } else if turn == "white" {
                                         "black"

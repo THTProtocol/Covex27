@@ -45,6 +45,8 @@ pub struct ProverSettleSpend {
     pub covenant_id: String,
     /// 0 = player1, 1 = player2 (a draw is rejected upstream).
     pub winner_code: u8,
+    /// Echoed from the prover journal; retained on the struct but not consumed here.
+    #[allow(dead_code)]
     pub stake_sompi: u64,
     /// The frozen guest image id (for the caller's pinning sanity check).
     #[serde(default)]

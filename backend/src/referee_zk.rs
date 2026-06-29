@@ -183,12 +183,11 @@ fn base64_decode(s: &str) -> Result<Vec<u8>, String> {
 ///
 /// Decision table (`required` = `zk_required_for_network(network)`):
 ///   * receipt present + binary present -> verify; on success Verified, else Refused.
-///   * receipt present + NO binary       -> Refused (cannot verify a supplied proof;
-///                                           never accept an UNVERIFIED proof as if real).
-///   * receipt absent  + required        -> Refused (a real proof is mandatory; on
-///                                           mainnet this is unconditional).
-///   * receipt absent  + not required    -> SkippedAllowed (server gate stands alone,
-///                                           testnet only).
+///   * receipt present + NO binary -> Refused (cannot verify a supplied proof; never accept an
+///     UNVERIFIED proof as if real).
+///   * receipt absent + required -> Refused (a real proof is mandatory; on mainnet this is
+///     unconditional).
+///   * receipt absent + not required -> SkippedAllowed (server gate stands alone, testnet only).
 pub fn run_gate_for_network(
     receipt: Option<&[u8]>,
     network: &str,
@@ -318,10 +317,8 @@ fn verify_receipt(
     // valid proof of a DIFFERENT game cannot release this pot.
     let expected_digest_hex = hex::encode(server_moves_digest(moves));
     if committed_digest_hex != expected_digest_hex {
-        return Err(format!(
-            "zkVM proof verifies, but its committed moves_digest does not match this match's \
-             recorded move log (proof is for a different game); refusing to reveal the secret"
-        ));
+        return Err("zkVM proof verifies, but its committed moves_digest does not match this match's \
+             recorded move log (proof is for a different game); refusing to reveal the secret".to_string());
     }
 
     Ok(format!(

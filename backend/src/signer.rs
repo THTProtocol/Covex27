@@ -44,6 +44,8 @@ use crate::dev_wallets;
 // ── Constants ─────────────────────────────────────────────────────
 
 /// Treasury address - all tier fees go here
+// Kept for reference; signer paths resolve the treasury per-network via dev_wallets helpers.
+#[allow(dead_code)]
 const TREASURY_ADDRESS: &str = dev_wallets::TREASURY_ADDRESS;
 
 /// Minimum tx fee (10,000 sompi = 0.0001 KAS)
@@ -90,9 +92,13 @@ pub struct SignAndBroadcastRequest {
     // but accepting them here prevents silent drops and allows logging/forwarding.
     #[serde(default)]
     pub description: Option<String>,
+    // Accepted on the wire so the frontend's free-tier visual fields are not silently dropped;
+    // the canonical handling is /api/covenant-metadata, so they are not read here.
     #[serde(default)]
+    #[allow(dead_code)]
     pub accent: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub ui_preset: Option<String>,
 
     /// When true (from "Pay XXX KAS" tier upgrade buttons), perform a minimal treasury-only
@@ -106,7 +112,10 @@ pub struct SignAndBroadcastRequest {
     pub covenant_type: Option<String>,
     #[serde(default)]
     pub category: Option<String>,
+    // Accepted on the wire for forward-compat; canonical UI config goes through
+    // /api/covenant-metadata, so this is not read here.
     #[serde(default)]
+    #[allow(dead_code)]
     pub custom_ui_config: Option<serde_json::Value>,
 
     /// Mainnet honesty gate (roadmap B6): this legacy path produces a DECORATIVE
@@ -223,18 +232,18 @@ fn to_utxo_entry(entry: &RpcUtxosByAddressesEntry) -> UtxoEntry {
 
 // ── The handler ───────────────────────────────────────────────────
 
-/// POST /sign-and-broadcast
-///
-/// Steps:
-/// 1. Resolve private key (dev mode → dev_wallets.rs, otherwise from request)
-/// 2. Fetch deployer UTXOs from wRPC
-/// 3. Determine tier fee and compute outputs
-/// 4. Build unsigned Transaction (native subnetwork, version 0)
-/// 5. Create SignableTransaction with UTXO entries
-/// 6. Sign with schnorr via sign_with_multiple_v2
-/// 7. Finalize AFTER signing
-/// 8. Broadcast via wRPC
-/// 9. Return tx_id
+// POST /sign-and-broadcast
+//
+// Steps:
+// 1. Resolve private key (dev mode → dev_wallets.rs, otherwise from request)
+// 2. Fetch deployer UTXOs from wRPC
+// 3. Determine tier fee and compute outputs
+// 4. Build unsigned Transaction (native subnetwork, version 0)
+// 5. Create SignableTransaction with UTXO entries
+// 6. Sign with schnorr via sign_with_multiple_v2
+// 7. Finalize AFTER signing
+// 8. Broadcast via wRPC
+// 9. Return tx_id
 
 /// Resolve wRPC endpoint for a given network (on-demand client per deploy, so TN10 deploys
 /// go to the TN10 node even if this backend process was primarily started for TN12).

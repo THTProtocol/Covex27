@@ -636,6 +636,9 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
     Ok(Db { pool })
 }
 
+// One positional arg per covenant column; folding into a struct would churn every call site on the
+// indexer/money path for no behavior change.
+#[allow(clippy::too_many_arguments)]
 pub fn insert_covenant(
     db: &Db,
     tx_id: &str,
@@ -939,12 +942,12 @@ pub fn get_all_covenants(db: &Db, network: Option<&str>) -> anyhow::Result<Vec<D
     let mut stmt = conn.prepare(&sql)?;
     let mut result = Vec::new();
     if let Some(net) = network {
-        let rows = stmt.query_map(params![net], |row| row_to_covenant(row))?;
+        let rows = stmt.query_map(params![net], row_to_covenant)?;
         for r in rows {
             result.push(r?);
         }
     } else {
-        let rows = stmt.query_map([], |row| row_to_covenant(row))?;
+        let rows = stmt.query_map([], row_to_covenant)?;
         for r in rows {
             result.push(r?);
         }
@@ -1073,6 +1076,8 @@ pub fn count_events_conn(conn: &Connection, network: Option<&str>) -> anyhow::Re
 
 /// Paginated, filterable covenant query. Returns (page, total_matching).
 /// q matches name/type, description, category, tx_id and address (prefix or substring).
+// Each filter is its own positional arg; a struct would churn the call sites for no behavior change.
+#[allow(clippy::too_many_arguments)]
 pub fn query_covenants(
     db: &Db,
     network: Option<&str>,
@@ -1171,7 +1176,7 @@ pub fn query_covenants_conn(
         COVENANT_SELECT, where_sql, limit.clamp(1, 200), offset.max(0)
     );
     let mut stmt = conn.prepare(&sql)?;
-    let rows = stmt.query_map(params_ref.as_slice(), |row| row_to_covenant(row))?;
+    let rows = stmt.query_map(params_ref.as_slice(), row_to_covenant)?;
     let mut result = Vec::new();
     for r in rows {
         result.push(r?);
@@ -1409,6 +1414,7 @@ pub fn platform_stats(db: &Db, network: Option<&str>) -> anyhow::Result<serde_js
 /// coexist with the real published UI for the same covenant:
 ///   - save_ui_trust_config -> tier 'TRUSTED'
 ///   - save_covenant_metadata_handler -> tier 'METADATA' (also flips `featured`)
+///
 /// Without the non-empty preference, such a row is the NEWEST and a plain
 /// `ORDER BY ui_generated_at DESC` returns its empty ui_html, BLANKING a creator's
 /// published website on the detail page (observed live: featuring a covenant erased its
@@ -1542,7 +1548,7 @@ pub fn get_covenant_by_txid_conn(
 ) -> anyhow::Result<Option<DbCovenant>> {
     let sql = format!("{} WHERE tx_id = ?1", COVENANT_SELECT);
     let mut stmt = conn.prepare(&sql)?;
-    let mut rows = stmt.query_map(params![tx_id], |row| row_to_covenant(row))?;
+    let mut rows = stmt.query_map(params![tx_id], row_to_covenant)?;
     let mut one: Option<DbCovenant> = rows.next().transpose()?;
     if let Some(c) = one.as_mut() {
         annotate_finality(std::slice::from_mut(c));
@@ -1570,12 +1576,12 @@ pub fn get_covenants_by_creator(
     let mut stmt = conn.prepare(&sql)?;
     let mut result = Vec::new();
     if let Some(net) = network {
-        let rows = stmt.query_map(params![creator_addr, net], |row| row_to_covenant(row))?;
+        let rows = stmt.query_map(params![creator_addr, net], row_to_covenant)?;
         for r in rows {
             result.push(r?);
         }
     } else {
-        let rows = stmt.query_map(params![creator_addr], |row| row_to_covenant(row))?;
+        let rows = stmt.query_map(params![creator_addr], row_to_covenant)?;
         for r in rows {
             result.push(r?);
         }
@@ -1632,6 +1638,8 @@ pub fn upgrade_covenant_record(
 }
 
 // Payment functions
+// One positional arg per payment column; a struct would churn the money-path call sites.
+#[allow(clippy::too_many_arguments)]
 pub fn insert_payment(
     db: &Db,
     tx_id: &str,
@@ -1743,6 +1751,9 @@ pub fn get_account_tier(db: &Db, address: &str, network: &str) -> anyhow::Result
 }
 
 // Generated UI functions
+// One positional arg per generated_uis column; a struct would churn the call sites for no behavior
+// change.
+#[allow(clippy::too_many_arguments)]
 pub fn save_generated_ui(
     db: &Db,
     covenant_id: &str,
@@ -1865,9 +1876,7 @@ pub fn get_all_generated_uis_map(
 pub fn get_generated_uis(db: &Db, owner: Option<&str>) -> anyhow::Result<Vec<serde_json::Value>> {
     let conn = db.lock().unwrap();
     let sql = if let Some(_owner_addr) = owner {
-        format!(
-            "SELECT covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured, ui_generated_at, created_at FROM generated_uis WHERE owner_address = ?1 ORDER BY ui_generated_at DESC"
-        )
+        "SELECT covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured, ui_generated_at, created_at FROM generated_uis WHERE owner_address = ?1 ORDER BY ui_generated_at DESC".to_string()
     } else {
         "SELECT covenant_id, owner_address, tier, ui_html, ui_config, slug, is_published, featured, ui_generated_at, created_at FROM generated_uis ORDER BY ui_generated_at DESC".to_string()
     };
@@ -2493,7 +2502,7 @@ pub fn validate_auth_token(
     let mut rows = stmt.query_map(params![token, address, network, now], |row| {
         Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
     })?;
-    Ok(rows.next().transpose()?.map(|(addr, tier)| (addr, tier)))
+    Ok(rows.next().transpose()?)
 }
 
 /// Consume an auth token (mark as used for deployment). Returns tokens_remaining.

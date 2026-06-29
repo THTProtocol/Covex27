@@ -69,11 +69,10 @@ impl CovenantCategory {
         }
 
         // Multi-sig: OpCheckMultiSig family present
-        if has_opcodes && (script_hex.contains("ae") && script_hex.contains("51")) && raw_len > 36 {
-            if script_hex.matches("21").count() >= 2 {
+        if has_opcodes && (script_hex.contains("ae") && script_hex.contains("51")) && raw_len > 36
+            && script_hex.matches("21").count() >= 2 {
                 return CovenantCategory::Multisig;
             }
-        }
 
         // HTLC / atomic swap: hash-op plus locktime verify in one script
         if has_opcodes && script_hex.contains("a8") && script_hex.contains("b1") {
@@ -288,7 +287,7 @@ pub fn get_tiers() -> Vec<TierInfo> {
             name: "BUILDER".into(),
             label: "Builder".into(),
             price_kas: 100,
-            price_sompi: 10_000_000_00,
+            price_sompi: 1_000_000_000,
             features: vec![
                 "Everything in Explorer".into(),
                 "Full disclosure: all fields, logic summary".into(),
@@ -304,7 +303,7 @@ pub fn get_tiers() -> Vec<TierInfo> {
             name: "PRO".into(),
             label: "PRO".into(),
             price_kas: 500,
-            price_sompi: 50_000_000_00,
+            price_sompi: 5_000_000_000,
             features: vec![
                 "Everything in Builder".into(),
                 "Featured listing placement".into(),
@@ -320,7 +319,7 @@ pub fn get_tiers() -> Vec<TierInfo> {
             name: "MAX".into(),
             label: "MAX".into(),
             price_kas: 1000,
-            price_sompi: 100_000_000_00,
+            price_sompi: 10_000_000_000,
             features: vec![
                 "Everything in PRO".into(),
                 "Maximum visibility - top placement".into(),

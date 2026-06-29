@@ -85,12 +85,19 @@ async fn client_for_network(network: &str) -> Result<Arc<KaspaRpcClient>, String
 #[derive(Deserialize, Debug)]
 pub struct BroadcastRequest {
     pub tx_hex: String,
+    // Legacy/forward-compat wire fields: covenants are discovered natively on the DAG (see the
+    // module note above), so the broadcast handler no longer reads these. Kept so older clients
+    // that still send them are accepted (no deny_unknown_fields anywhere).
+    #[allow(dead_code)]
     pub deployer_addr: String,
     #[serde(default)]
+    #[allow(dead_code)]
     pub script_hex: String,
     #[serde(default)]
+    #[allow(dead_code)]
     pub script_name: Option<String>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub tier: Option<String>,
     /// Network for this broadcast. Allows a TN12-primary backend to broadcast to TN10 node.
     #[serde(default = "default_network")]

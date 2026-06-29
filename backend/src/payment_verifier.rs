@@ -308,6 +308,9 @@ pub async fn run_payment_verifier(
     }
 }
 
+// Single-tx payment status probe, kept as a stub for a future /payment-status endpoint; the live
+// verifier scans the treasury in run_payment_verifier instead, so nothing calls this yet.
+#[allow(dead_code)]
 pub async fn verify_payment(
     _client: &KaspaRpcClient,
     tx_id: &str,

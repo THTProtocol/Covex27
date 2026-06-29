@@ -319,6 +319,8 @@ fn emit_chess(unit: &CompileUnit) -> String {
 }
 
 /// Emit SilverScript for Chess v2 (4 outcomes: Win, Loss, Draw, Stalemate).
+// Reserved emitter for the 4-outcome chess variant; no compile path selects it yet.
+#[allow(dead_code)]
 fn emit_chess_v2(unit: &CompileUnit) -> String {
     emit_generic_game(unit, 3) // outcomes: 0=PlayerAWins, 1=PlayerBWin, 2=Draw, 3=Stalemate
 }
@@ -371,6 +373,7 @@ fn emit_verifiable(unit: &CompileUnit) -> String {
 /// The outcome variable gates two branches:
 ///   - outcome == 0 → claimant/player_a wins (claimant branch)
 ///   - outcome == 1 → depositor/player_b loses (depositor branch)
+///
 /// Additional outcomes (2+) for multi-outcome games map accordingly.
 ///
 /// LIMITATION: silverc v0.1.0 has no VerifyPayout opcode, so the actual fund

@@ -32,8 +32,9 @@
 //!        OpCat/OpSubStr/OpMul/OpBlake3/OpCheckSigFromStack, KIP-20 covenant IDs, and
 //!        KIP-16's OpZkPrecompile 0xa6) is GATED on the Toccata fork (mainnet ~mid-2026)
 //!        and is NOT live on mainnet yet. These carry `mainnet_live: false`.
-//!    Both groups are flagged `introspection: true` only when `toccata = true`, so the
-//!    UI never presents Toccata names as live-today.
+//!
+//! Both groups are flagged `introspection: true` only when `toccata = true`, so the
+//! UI never presents Toccata names as live-today.
 
 use serde::Serialize;
 

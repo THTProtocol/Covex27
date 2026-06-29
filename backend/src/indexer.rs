@@ -6,11 +6,11 @@ use kaspa_wrpc_client::KaspaRpcClient;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
-/// Live covenant indexer. After EVERY successful covenant detection,
-/// immediately triggers basic UI generation (fire-and-forget tokio spawn).
-///
-/// Also determines tier by scanning UTXO entries for treasury payments.
-/// THIS INDEXER IS THE ONLY CODE ALLOWED TO WRITE TO covex.db.
+// Live covenant indexer. After EVERY successful covenant detection,
+// immediately triggers basic UI generation (fire-and-forget tokio spawn).
+//
+// Also determines tier by scanning UTXO entries for treasury payments.
+// THIS INDEXER IS THE ONLY CODE ALLOWED TO WRITE TO covex.db.
 
 // Tier thresholds in sompi
 const MAX_THRESHOLD: u64 = 100_000_000_000;
@@ -270,6 +270,8 @@ pub async fn run_indexer(
     }
 }
 
+// P2SH covenant-script heuristic kept for reference/tests; the live indexer path no longer calls it.
+#[allow(dead_code)]
 fn is_covenant_script(script_hex: &str) -> bool {
     script_hex.starts_with("aa20")
         || script_hex.contains("aa20")

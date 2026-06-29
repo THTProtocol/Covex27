@@ -193,7 +193,7 @@ pub fn evaluate7(cards: &[u8; 7]) -> (u8, Vec<u8>) {
                 }
             }
             let score = evaluate5(&five);
-            if best.as_ref().map_or(true, |b| score > *b) {
+            if best.as_ref().is_none_or(|b| score > *b) {
                 best = Some(score);
             }
         }

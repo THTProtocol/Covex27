@@ -30,7 +30,7 @@
 // NEVER change these addresses without coordinated redeployment of all covenant
 // contracts (and a matching key rotation in the environment).
 
-/// ─── TN12 (testnet-12) wallets ────────────────────────────────────────
+// ─── TN12 (testnet-12) wallets ────────────────────────────────────────
 
 /// Wallet 1 - Primary Dev Deployer (TN12). Private key: env COVEX_DEV_WALLET_1_KEY_TN12.
 /// Rotated 2026-06-16 (old key qrh603...549cd5 compromised + funds swept).
@@ -47,10 +47,10 @@ pub const DEV_WALLET_2_ADDRESS_TN12: &str =
 pub const TREASURY_ADDRESS_TN12: &str =
     "kaspatest:qpyfz03k6quxwf2jglwkhczvt758d8xrq99gl37p6h3vsqur27ltjhn68354m";
 
-/// ─── TN10 (testnet-10) wallets ────────────────────────────────────────
-/// TN10 uses the same treasury as TN12 - the private key derives the same address
-/// on both testnet chains. Backend indexers tag rows with network=testnet-10,
-/// so data stays fully isolated even though the treasury address is identical.
+// ─── TN10 (testnet-10) wallets ────────────────────────────────────────
+// TN10 uses the same treasury as TN12 - the private key derives the same address
+// on both testnet chains. Backend indexers tag rows with network=testnet-10,
+// so data stays fully isolated even though the treasury address is identical.
 
 /// Wallet 1 - Primary Dev Deployer (TN10). Private key: env COVEX_DEV_WALLET_1_KEY_TN10.
 /// Same keypair as TN12 (derives the same address on both testnets).
@@ -66,24 +66,26 @@ pub const DEV_WALLET_2_ADDRESS_TN10: &str =
 /// Same address as TN12: kaspatest:qpyfz03... - valid on both testnet-10 and testnet-12.
 pub const TREASURY_ADDRESS_TN10: &str = TREASURY_ADDRESS_TN12;
 
-/// ─── Mainnet wallets ───────────────────────────────────────────────────
-/// Mainnet treasury address is the only hardcoded value (public, where KAS is sent).
-/// Private keys are NEVER in source - all mainnet signing goes through wallet extensions.
-/// Seed addresses are empty: mainnet covenants are discovered via the crawler, not UTXO polling.
+// ─── Mainnet wallets ───────────────────────────────────────────────────
+// Mainnet treasury address is the only hardcoded value (public, where KAS is sent).
+// Private keys are NEVER in source - all mainnet signing goes through wallet extensions.
+// Seed addresses are empty: mainnet covenants are discovered via the crawler, not UTXO polling.
 
 pub const TREASURY_ADDRESS_MAINNET: &str =
     "kaspa:qr6vs4wy4m3za6mzchj05x3902qrtklkyn8s0u8g2gv6mrctzdzx7pnhqxka2";
 
-/// ─── Backward-compatible address aliases (TN12, kept for existing code) ──────
-/// Address only - the matching private key is read from the environment via
-/// `dev_private_key()`, never stored in source.
+// ─── Backward-compatible address aliases (TN12, kept for existing code) ──────
+// Address only - the matching private key is read from the environment via
+// `dev_private_key()`, never stored in source.
 
 pub const DEV_WALLET_1_ADDRESS: &str = DEV_WALLET_1_ADDRESS_TN12;
 pub const DEV_WALLET_2_ADDRESS: &str = DEV_WALLET_2_ADDRESS_TN12;
 
+// Back-compat alias kept for external callers; network-aware code uses treasury_address_for_network.
+#[allow(dead_code)]
 pub const TREASURY_ADDRESS: &str = TREASURY_ADDRESS_TN12;
 
-/// ─── Network-aware helpers ───────────────────────────────────────────
+// ─── Network-aware helpers ───────────────────────────────────────────
 
 /// Return the treasury address for the given network
 pub fn treasury_address_for_network(network: &str) -> &'static str {
@@ -102,9 +104,10 @@ pub fn treasury_address_for_network(network: &str) -> &'static str {
 /// Keys are NEVER stored in source. They are configured per wallet per testnet via:
 ///   - `COVEX_DEV_WALLET_1_KEY_TN12` / `COVEX_DEV_WALLET_1_KEY_TN10`
 ///   - `COVEX_DEV_WALLET_2_KEY_TN12` / `COVEX_DEV_WALLET_2_KEY_TN10`
-/// (mirroring how the treasury/oracle config is env-driven - see the covex-backend
-/// systemd drop-ins). The configured key MUST derive the matching `DEV_WALLET_*_ADDRESS_*`
-/// constant above.
+///
+/// Mirroring how the treasury/oracle config is env-driven (see the covex-backend
+/// systemd drop-ins). The configured key MUST derive the matching
+/// `DEV_WALLET_*_ADDRESS_*` constant above.
 ///
 /// Hard-fails (returns `Err`) when:
 ///   - `network` is mainnet - dev-deployer keys are testnet-only and must never be

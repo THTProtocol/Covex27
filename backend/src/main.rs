@@ -2534,9 +2534,12 @@ async fn marketplace_templates_handler() -> Json<serde_json::Value> {
 #[derive(Deserialize)]
 struct MarketplacePublishInput {
     name: String,
+    // Accepted on the wire but not persisted by the publish handler yet.
+    #[allow(dead_code)]
     description: Option<String>,
     author: String,
     #[serde(default)]
+    #[allow(dead_code)]
     price_kas: u64,
     config: Option<serde_json::Value>,
 }
@@ -2547,7 +2550,7 @@ async fn marketplace_publish_handler(
 ) -> Json<serde_json::Value> {
     let id = format!(
         "tmpl_{}",
-        uuid::Uuid::new_v4().to_string()[..12].to_string()
+        &uuid::Uuid::new_v4().to_string()[..12]
     );
 
     // Actually store the template in generated_uis as a published template. On pool exhaustion
@@ -2630,7 +2633,7 @@ struct PayoutBreakdown {
 
 async fn compute_payout_handler(
     Path(covenant_id): Path<String>,
-    Extension(db): Extension<db::Db>,
+    Extension(_db): Extension<db::Db>,
     Json(input): Json<ComputePayoutInput>,
 ) -> Json<serde_json::Value> {
     // 1. Verify the oracle's BIP340 Schnorr signature over the outcome message.
@@ -2689,14 +2692,14 @@ async fn compute_payout_handler(
         "Covenant ID: {}\nOutcome: {}\nOracle Signature (BIP340 schnorr): {}\nOracle Pubkey (x-only): {}\nSigned Message: {}\nTimestamp: {}\n\n\
          To unlock: include this signature as witness data in your Kaspa spend transaction.\n\
          The covenant script verifies this Schnorr signature against the oracle pubkey (OpCheckSig at Toccata) and releases funds.\n\
-         Winner receives: {} KAS (the full pot minus the network fee - Covex takes no cut)",
+         Winner receives: {:.2} KAS (the full pot minus the network fee - Covex takes no cut)",
         covenant_id,
         input.outcome,
         input.oracle_signature,
         oracle::oracle_xonly_pubkey_hex(),
         message,
         input.oracle_timestamp.unwrap_or(0),
-        format!("{:.2}", winner_share),
+        winner_share,
     );
 
     let payout = PayoutBreakdown {
@@ -3037,7 +3040,7 @@ async fn save_covenant_metadata_handler(
     match db::save_generated_ui(
         &db,
         &input.tx_id,
-        &input.network.as_deref().unwrap_or("unknown"),
+        input.network.as_deref().unwrap_or("unknown"),
         "METADATA",
         "",
         &metadata_json.to_string(),

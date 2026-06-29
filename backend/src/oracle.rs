@@ -531,7 +531,7 @@ fn verify_merkle_proof(
 
     // Run verification synchronously - this is fine because the handler
     // wraps us in tokio::task::spawn_blocking.
-    let output = Command::new(node_binary.to_string())
+    let output = Command::new(node_binary)
         .arg(script.to_str().unwrap_or("zk/verify.js"))
         .arg(&tmp_path)
         .output()
@@ -600,7 +600,7 @@ fn verify_range_proof(proof: &serde_json::Value, public_inputs: &[String]) -> Re
         "node"
     };
 
-    let output = Command::new(node_binary.to_string())
+    let output = Command::new(node_binary)
         .arg(script.to_str().unwrap_or("zk/verify_range.js"))
         .arg(&tmp_path)
         .output()

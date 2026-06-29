@@ -26,7 +26,7 @@ use serde::Serialize;
 
 use crate::covenant_builder::{
     blake2b256, redeem_binary_oracle_select, redeem_channel, redeem_deadman, redeem_hashlock,
-    redeem_htlc, redeem_multisig, redeem_oracle_enforced_refundable, redeem_oracle_escrow,
+    redeem_htlc, redeem_oracle_enforced_refundable, redeem_oracle_escrow,
     redeem_oracle_escrow_refundable, redeem_relative_timelock, redeem_singlesig, redeem_timelock,
     RedeemKind,
 };
@@ -872,7 +872,7 @@ pub fn commitment_matches(redeem: &[u8], commitment: &[u8]) -> Option<bool> {
         && commitment[1] == 0x20
         && commitment[34] == 0x87
     {
-        Some(&commitment[2..34] == h)
+        Some(commitment[2..34] == h)
     } else {
         None
     }

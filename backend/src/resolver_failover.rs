@@ -21,15 +21,15 @@
 //! catch-up walk) always serves a recent block instantly, so it is never falsely
 //! failed over.
 //!
-//! Mechanism (kaspa-wrpc-client 0.15): the `url` passed to `connect()` "overrides
-//! the use of resolver". So a resolver-eligible client is built with `url: None`
-//! + `Resolver::default()` + `network_id`; it boots PINNED to the direct URL
-//! (`connect` with `url: Some(direct)`), and the supervisor fails over by
-//! reconnecting with `url: None` (-> resolver) and recovers with
+//! Mechanism (kaspa-wrpc-client 0.15): the `url` passed to `connect()` overrides
+//! the use of the resolver. So a resolver-eligible client is built with
+//! `url: None` + `Resolver::default()` + `network_id`; it boots PINNED to the
+//! direct URL (`connect` with `url: Some(direct)`), and the supervisor fails over
+//! by reconnecting with `url: None` (resolver) and recovers with
 //! `url: Some(direct)`. The supervisor is the SOLE caller of `connect()` for
 //! eligible clients (the indexer skips its own reconnect for them, see
 //! indexer.rs), so nothing fights it over the target; the client's background
-//! Retry loop reconnects toward whatever target the supervisor last set.
+//! retry loop reconnects toward whatever target the supervisor last set.
 
 use std::collections::HashMap;
 use std::str::FromStr;
@@ -388,7 +388,7 @@ async fn serves_blocks(client: &KaspaRpcClient) -> bool {
         _ => return false,
     };
     let hash = match dag.virtual_parent_hashes.first() {
-        Some(h) => h.clone(),
+        Some(h) => *h,
         None => return false,
     };
     matches!(

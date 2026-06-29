@@ -475,6 +475,8 @@ impl RedeemKind {
     /// adding a RedeemKind variant forces giving it a catalog id - and the catalog test
     /// `catalog_has_an_entry_for_every_builder_kind` then forces an actual CATALOG row,
     /// so a deployable kind can never silently go missing from the explorer/wizard.
+    // Exercised by the catalog completeness test, not called in the non-test build.
+    #[allow(dead_code)]
     pub fn catalog_id(&self) -> &'static str {
         match self {
             RedeemKind::SingleSig { .. } => "p2sh_singlesig",
@@ -852,6 +854,9 @@ fn push_data_raw(out: &mut Vec<u8>, data: &[u8]) -> BResult<()> {
 /// sequence is: in_{n-1}, .., in_0, n, proof, VK, tag. This function emits exactly that. It is the
 /// all-baked P2SH used for the Stage-3 on-chain proof (a known-good vector verifies; a forged proof
 /// is rejected by consensus) and for the byte-layout unit tests against docs/zk_precompile_abi.md.
+// KIP-16 on-chain-ZK scaffolding: exercised by the byte-layout unit tests and the Stage-3 golden
+// vector, not yet wired into a live deploy path, so it reads as dead code in the non-test build.
+#[allow(dead_code)]
 pub fn redeem_zk_precompile_verify_core(
     vk: &[u8],
     proof: &[u8],
@@ -891,6 +896,9 @@ pub fn redeem_zk_precompile_verify_core(
 /// `OpToAltStack <in4..in0> <n> OpFromAltStack <vk> OpData1 0x20 0xa6` and the spend witness pushes
 /// just the proof (no OP_IF here: there is no branch, so no selector). On a good proof the opcode
 /// leaves a single TRUE on the stack (the spend succeeds); a forged proof aborts the script.
+// KIP-16 on-chain-ZK scaffolding for the witness-proof TN12 e2e; not yet wired into a live deploy
+// path, so it reads as dead code in the non-test build.
+#[allow(dead_code)]
 pub fn redeem_zk_precompile_verify_core_witness_proof(
     vk: &[u8],
     inputs: &[[u8; 32]],
@@ -921,6 +929,9 @@ pub fn redeem_zk_precompile_verify_core_witness_proof(
 /// Build the witness (signature_script) for `redeem_zk_precompile_verify_core_witness_proof`: it
 /// pushes ONLY the proof (no signature, no selector - the redeem has no branch). The on-chain
 /// OpZkPrecompile leaves the truthy result that satisfies the spend.
+// KIP-16 on-chain-ZK scaffolding paired with the witness-proof redeem above; not yet wired into a
+// live deploy path, so it reads as dead code in the non-test build.
+#[allow(dead_code)]
 pub fn build_zk_verify_core_witness_proof_satisfier(
     proof: &[u8],
     redeem: &[u8],
@@ -1024,6 +1035,7 @@ pub fn redeem_zk_game_settle(
 ///      bottom until the trailing OpCheckSig consumes it.
 ///   2. `<proof>`       - the ark-compressed Groth16 proof. OpToAltStack lifts THIS first.
 ///   3. `OP_TRUE`       - the OP_IF selector (takes the winner branch).
+///
 /// The VK + the 5 public inputs + the winner pubkey are BAKED in the redeem, not here, so a spender
 /// cannot substitute them.
 pub fn build_zk_game_settle_winner_satisfier(
@@ -1670,6 +1682,9 @@ pub fn redeem_deadman(owner: &[u8; 32], heir: &[u8; 32], lock_daa: u64) -> BResu
 /// `owner_branch`=false takes the ELSE branch (heir claims after the timelock: satisfier
 /// sig, OP_FALSE) - the spend tx must then set lock_time >= lock_daa and a non-final
 /// sequence. `keypair` is the owner (IF) or the heir (ELSE) key.
+// Dead-man's-switch spend builder kept for the offline/cold-claim path and its parity tests; not
+// reached by a live handler today, so it reads as dead code in the non-test build.
+#[allow(dead_code)]
 pub fn build_deadman_signature_script(
     signable: &SignableTransaction,
     idx: usize,
@@ -1787,7 +1802,9 @@ pub fn select_utxos_for<T>(
     amount_of: impl Fn(&T) -> u64,
 ) -> Result<Vec<&T>, String> {
     let mut sorted: Vec<&T> = utxos.iter().collect();
-    sorted.sort_by(|a, b| amount_of(b).cmp(&amount_of(a)));
+    // Largest-first: Reverse so the key sort descends (sort_by_key evaluates amount_of once
+    // per element instead of twice per comparison).
+    sorted.sort_by_key(|a| std::cmp::Reverse(amount_of(a)));
     let mut selected: Vec<&T> = Vec::new();
     let mut sum: u64 = 0;
     for u in sorted {
@@ -2029,6 +2046,9 @@ fn parse_zk_game_settle_keys(redeem: &[u8]) -> Option<([u8; 32], [u8; 32])> {
 /// - `sigs`: signer x-only pubkey hex -> 64-byte signature, as each wallet produced it.
 /// - `solo`: the single signature for one-signer kinds (singlesig/hashlock/timelock and the
 ///   single-signer HTLC/channel branches), when the caller passed `signature_hex`.
+// Each spend input is its own positional arg; folding into a struct would obscure the satisfier's
+// shape and churn the call site on the fund-spend path for no behavior change.
+#[allow(clippy::too_many_arguments)]
 fn assemble_noncustodial_satisfier(
     kind_base: &str,
     branch_refund: bool,
@@ -2096,7 +2116,7 @@ fn assemble_noncustodial_satisfier(
                 // refund: p1 (members[0]) sig then OP_FALSE.
                 let s = members
                     .first()
-                    .and_then(|p| sig_for(p))
+                    .and_then(&sig_for)
                     .or_else(|| solo.copied())
                     .ok_or_else(|| {
                         "channel refund needs the funder (player1) signature".to_string()
@@ -2178,7 +2198,7 @@ fn assemble_noncustodial_satisfier(
                 // 2-of-2 multisig's [oracle, winner]); accept solo for the funder's wallet sig.
                 let rsig = members
                     .get(2)
-                    .and_then(|p| sig_for(p))
+                    .and_then(&sig_for)
                     .or_else(|| solo.copied())
                     .ok_or_else(|| {
                         "oracle_enforced_refundable refund needs the funder/refund key signature"
@@ -2213,7 +2233,7 @@ fn assemble_noncustodial_satisfier(
                 // [oracle, player_a, player_b, refund]; members[3] is the refund key. Accept solo.
                 let rsig = members
                     .get(3)
-                    .and_then(|p| sig_for(p))
+                    .and_then(&sig_for)
                     .or_else(|| solo.copied())
                     .ok_or_else(|| {
                         "oracle_escrow_refundable refund needs the funder/refund key signature"
@@ -2344,7 +2364,7 @@ fn assemble_noncustodial_satisfier(
                     } else {
                         1usize
                     };
-                    members.get(idx).and_then(|p| sig_for(p))
+                    members.get(idx).and_then(sig_for)
                 })
                 .ok_or_else(|| {
                     "escrow_bound spend needs the claiming party's signature (signature_hex)"
@@ -3979,6 +3999,9 @@ pub struct OraclePayoutRequest {
 }
 
 /// Result of checking whether a covenant being paid out is a skill_games pot.
+// `NotAGamePot` reads clearly at the match sites on the payout gate; renaming it to drop the
+// enum-name suffix would only obscure intent, so keep the name and silence the style lint.
+#[allow(clippy::enum_variant_names)]
 pub(crate) enum GamePot {
     /// The covenant is not linked to any match; use the request's outcome as-is.
     NotAGamePot,
@@ -3994,6 +4017,9 @@ pub(crate) enum GamePot {
 /// have no server-side replay engine yet FAIL CLOSED: the oracle cannot prove who won, so
 /// it refuses to co-sign any payout (no value ever moves on an unproven outcome). This is
 /// the launch-safe default; adding a game's engine to game_engine re-enables its pots.
+// The row tuple mirrors the SELECTed columns one-to-one and is the clearest local shape here; a
+// type alias would only add indirection for a single use.
+#[allow(clippy::type_complexity)]
 pub(crate) fn game_pot_outcome(db: &db::Db, pot_tx: &str) -> GamePot {
     let row: Option<(String, String, Option<String>, String, Option<String>)> = {
         // Pool exhaustion degrades to `None` here, which lands on the NotAGamePot path below: the
@@ -4504,6 +4530,7 @@ struct OnChainUtxoView {
 ///   - outpoint absent  => spent / reorged out / already claimed
 ///   - amount differs   => a different UTXO reused the outpoint or a reorg replaced it
 ///   - script differs   => the locked output is not the covenant we verified at prepare
+///
 /// The oracle signature must never be applied to an input that no longer matches what was
 /// verified and signed at prepare, so the caller drops the session and refuses to broadcast
 /// on any Err.
@@ -4595,7 +4622,7 @@ fn oracle_payout_sessions() -> &'static Mutex<std::collections::HashMap<String, 
 /// sighash before/after and asserts it is byte-identical). All byte fields are stored as hex and
 /// the Vec<[u8;32]> member list as a JSON array of hex strings, each an exact reversible encoding.
 /// Any (de)serialization error FAILS CLOSED (the caller refuses to sign / broadcast).
-
+///
 /// Serialize an in-memory PendingOraclePayout into the DB row form. Returns Err on any
 /// serde_json failure so prepare can fail closed rather than persist a corrupt session.
 fn persisted_from_pending(
@@ -5755,14 +5782,10 @@ pub async fn submit_signed_handler(
         .next()
         .unwrap_or(&pending.kind)
         .to_string();
-    let preimage: Option<Vec<u8>> = match req
+    let preimage: Option<Vec<u8>> = req
         .preimage_hex
         .as_ref()
-        .and_then(|p| hex::decode(p.trim()).ok())
-    {
-        Some(b) => Some(b),
-        None => None,
-    };
+        .and_then(|p| hex::decode(p.trim()).ok());
     // zk_game_settle takes a different witness shape (proof, not preimage; alt-stack choreography),
     // so it is assembled by its own builders rather than the generic satisfier. The WINNER branch
     // needs the winner's signature + the Groth16 proof; the REFUND branch needs only the refund sig.
@@ -6505,7 +6528,7 @@ pub async fn bundle_deploy_handler(
     };
 
     // Beneficiary keys: A bettor (winner if A), B bettor (winner if B), treasury (fee).
-    let dec_addr_xonly = |addr: &str| -> BResult<[u8; 32]> {
+    let _dec_addr_xonly = |addr: &str| -> BResult<[u8; 32]> {
         let a = Address::try_from(addr).map_err(|e| format!("invalid address '{addr}': {e}"))?;
         a.payload
             .as_slice()
@@ -7173,9 +7196,13 @@ pub async fn place_order_handler(
 #[derive(Deserialize)]
 pub struct MatchMarketRequest {
     pub market_id: String,
+    // Accepted on the wire for forward-compat (a future per-match fee/rebate), but the match
+    // handler does not consume them yet, so they read as never-used fields.
     #[serde(default)]
+    #[allow(dead_code)]
     pub fee_bps: Option<u64>,
     #[serde(default)]
+    #[allow(dead_code)]
     pub rebate_bps: Option<u64>,
     /// Authorization (same model as /resolve): only the recorded market creator may trigger a
     /// match, since matching spends the shared dev escrow. `signer_address` MUST equal the

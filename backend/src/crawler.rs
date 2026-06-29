@@ -8,18 +8,18 @@ use kaspa_wrpc_client::KaspaRpcClient;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
-/// Historic BlockDAG Crawler - walks the selected-parent chain backward from tip.
-///
-/// Detects *ALL* possible covenants (to match/exceed the official Kaspa TN12 explorer)
-/// by scanning BOTH tx.payload AND every output's script_public_key for the
-/// Toccata covenant opcodes (aa20/aa21/aa22/aa23).
-///
-/// Raw/non-Covex covenants get "EXPLORER" tier + basic auto UI.
-/// Covex-enhanced ones (treasury payment) get full tiered treatment + rich UIs.
-///
-/// Tier determined by Output[1] → treasury P2PKH address (Covex-specific).
-///
-/// THIS IS THE ONLY CODE ALLOWED TO WRITE TO covex.db.
+// Historic BlockDAG Crawler - walks the selected-parent chain backward from tip.
+//
+// Detects *ALL* possible covenants (to match/exceed the official Kaspa TN12 explorer)
+// by scanning BOTH tx.payload AND every output's script_public_key for the
+// Toccata covenant opcodes (aa20/aa21/aa22/aa23).
+//
+// Raw/non-Covex covenants get "EXPLORER" tier + basic auto UI.
+// Covex-enhanced ones (treasury payment) get full tiered treatment + rich UIs.
+//
+// Tier determined by Output[1] → treasury P2PKH address (Covex-specific).
+//
+// THIS IS THE ONLY CODE ALLOWED TO WRITE TO covex.db.
 
 const MAX_WALK_DISTANCE: u64 = 5_000_000; // Increased to catch more historic covenants on TN10/TN12 (full DAG coverage)
                                           // Forward-tail window (C3): when the watermark is far below the tip, walk only this many
@@ -90,12 +90,12 @@ fn determine_tier_from_outputs(tx: &RpcTransaction, treasury_script: &str) -> (S
             && treasury_script.len() >= 46
             && spk_hex.starts_with("76a914")
             && spk_hex.ends_with("88ac")
-            && &spk_hex[6..46] == &treasury_script[6..46])
+            && spk_hex[6..46] == treasury_script[6..46])
         || (spk_hex.len() == 68
             && treasury_script.len() >= 66
             && spk_hex.starts_with("20")
             && spk_hex.ends_with("ac")
-            && &spk_hex[2..66] == &treasury_script[2..66]);
+            && spk_hex[2..66] == treasury_script[2..66]);
     if !is_treasury {
         return ("EXPLORER".to_string(), 0); // Raw / unverified covenant visible to all
     }
@@ -262,7 +262,7 @@ pub async fn run_crawler(
             scan_daa
         };
         let tip_hash = match dag.virtual_parent_hashes.first() {
-            Some(h) => h.clone(),
+            Some(h) => *h,
             None => {
                 warn!("Crawler: no tip");
                 tokio::time::sleep(std::time::Duration::from_secs(30)).await;
@@ -296,7 +296,7 @@ pub async fn run_crawler(
             // finishes syncing.
             let block = match tokio::time::timeout(
                 std::time::Duration::from_secs(12),
-                client.get_block(cur.clone(), true),
+                client.get_block(cur, true),
             )
             .await
             {
@@ -421,7 +421,7 @@ pub async fn run_crawler(
                     _ => "TN-12",
                 };
                 let summary = auto_summary(&ctype, &cat, amt, nlabel);
-                if total_found % 100 == 0 {
+                if total_found.is_multiple_of(100) {
                     info!(
                         "[CRAWLER-{}] discovered {} covenants so far (latest DAA {})",
                         network, total_found, daa

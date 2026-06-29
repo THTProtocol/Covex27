@@ -1282,7 +1282,7 @@ pub(crate) fn determine_outcome_for_circuit(
 
     // Derivations for the wired full-zk / hybrid circuits (exact same logic as legacy).
     if circuit_type == "merkle_membership" || circuit_type.contains("merkle_") {
-        if public_inputs.len() >= 1 && public_inputs[0] == "1" {
+        if !public_inputs.is_empty() && public_inputs[0] == "1" {
             0
         } else {
             1
@@ -1393,6 +1393,8 @@ pub(crate) fn determine_outcome_for_circuit(
 
 /// Convenience: return a sorted list of all circuit types known to the registry.
 /// Useful for diagnostics, /oracle/status, or future registry export.
+// Diagnostic helper not wired to a live endpoint yet.
+#[allow(dead_code)]
 pub(crate) fn list_all_registered_circuit_types() -> Vec<&'static str> {
     let mut v: Vec<_> = get_registry().keys().copied().collect();
     v.sort();

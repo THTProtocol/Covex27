@@ -10,6 +10,7 @@ import DeployDisclosure from '../components/DeployDisclosure';
 import ShareEmbedModal from '../components/ShareEmbedModal';
 import { toast } from '../components/ToastContext';
 import { enforcementSummary } from '../lib/enforcement-copy';
+import { isMainnet as isMainnetNetwork } from '../lib/network';
 
 // The on-chain-enforced covenant primitives (covenant_builder), plus the parimutuel
 // conditional-outcome covenant, which is itself settled on-chain by conjoined oracle covenants.
@@ -104,7 +105,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
     activeWalletId, walletMeta,
   } = useWallet();
   const net = getCurrentNetwork();
-  const isMainnet = net === 'mainnet' || net === 'mainnet-1';
+  const isMainnet = isMainnetNetwork(net);
   // True when a raw in-browser key is available (dev path). The wallet-extension path
   // (canSignCovenant) is a SEPARATE capability; canSign below is the OR of the two so the
   // form unlocks for a connected sign-capable wallet too.
@@ -681,7 +682,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       // On mainnet a generated/imported wallet's key must NEVER leave the device, so the
       // fallback is refused here (only the non-custodial local-signing path above is allowed;
       // for covenant types it doesn't cover, redeem with a wallet extension).
-      if ((net === 'mainnet' || net === 'mainnet-1') && !c.dev) {
+      if (isMainnetNetwork(net) && !c.dev) {
         setError('Your key never leaves this device. This covenant type cannot be redeemed non-custodially yet on mainnet; redeem a single-key / hashlock / timelock / relative-timelock / multisig / htlc / channel covenant (which sign locally), or use a wallet extension.');
         setRecoverTx(c.tx);
         return;

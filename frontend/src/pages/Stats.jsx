@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Activity, Database, Coins, BadgeCheck, ArrowLeft } from '../lib/routeIcons.js';
 import { TIER_COLOR as TIER_PALETTE_COLOR } from '../lib/tierPalette';
 import { Card } from '@/components/ui/Card';
+import { isMainnet } from '../lib/network';
 
 // Public platform statistics, all computed live from the covenants, payments,
 // and events tables (GET /api/stats). Real on-chain data only; the activity
@@ -16,7 +17,7 @@ const NETWORKS = [
 ];
 
 const NETWORK_LABEL = (slug) => {
-  if (slug === 'mainnet' || slug === 'mainnet-1') return 'Mainnet';
+  if (isMainnet(slug)) return 'Mainnet';
   if (slug === 'testnet-10') return 'TN10';
   if (slug === 'testnet-12') return 'TN12';
   return slug;
@@ -295,7 +296,7 @@ export default function Stats() {
               // Only show the "intentionally empty" note while the mainnet row is
               // actually empty; once it is populated the note would contradict the table.
               const mainnetRow = (data.by_network || []).find(
-                (n) => n.network === 'mainnet' || n.network === 'mainnet-1'
+                (n) => isMainnet(n.network)
               );
               const mainnetEmpty = !mainnetRow || !mainnetRow.covenants;
               if (!mainnetEmpty) return null;

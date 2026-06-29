@@ -33,6 +33,7 @@ import CopyButton from '../components/CopyButton';
 
 import { TIER_PALETTE, TIER_COLOR } from '../lib/tierPalette';
 import { formatKas, formatCount, truncateMiddle as truncMiddle } from '../lib/format.js';
+import { isMainnet } from '../lib/network';
 
 // Middle-truncate a long address/hash for a compact resolved-chip readout
 // (kaspa:qpz2…n4uk5a) via the shared formatter, so the ellipsis and head/tail
@@ -661,7 +662,7 @@ export default function Explorer() {
   // Derive the label from the active network so the number and the word always match.
   const NET_LABELS = { 'mainnet': 'MAINNET', 'mainnet-1': 'MAINNET', 'testnet-12': 'TN12', 'testnet-10': 'TN10' };
   const netLabel = NET_LABELS[kaspaNetwork] || kaspaNetwork.toUpperCase();
-  const isEmptyMainnet = (kaspaNetwork === 'mainnet' || kaspaNetwork === 'mainnet-1') && !loading && covenants.length === 0;
+  const isEmptyMainnet = isMainnet(kaspaNetwork) && !loading && covenants.length === 0;
 
   return (
     <>

@@ -5,6 +5,7 @@ import {
 } from '../lib/routeIcons.js';
 import { explorerAddressUrl, explorerTxUrl } from '../lib/explorer';
 import { hasPublicApi, fetchAddressBalanceSompi, fetchAddressUtxos, sompiToKas, wrpcNodesFor } from '../lib/kaspaPublicApi';
+import { isMainnet } from '../lib/network';
 import { useWallet } from '../components/WalletContext';
 import {
   KIND_CLAIM_MATRIX, claimability, assertSignerForBranch, canonicalKindBase,
@@ -20,7 +21,9 @@ import {
 
 // Normalize the kit network to what buildUnsignedSpend/broadcast accept.
 const normNetwork = (n) => (n === 'mainnet-1' ? 'mainnet' : (n || 'mainnet'));
-const isMainnetNet = (n) => normNetwork(n) === 'mainnet';
+// Mainnet GATE: prefix-based (shared isMainnet) so any 'mainnet-*' suffix is caught, not just
+// the exact 'mainnet'/'mainnet-1' normNetwork knows. normNetwork stays for the broadcast API map.
+const isMainnetNet = (n) => isMainnet(n);
 
 // Default per-network fee in sompi (the SOLE output value is utxo.amount - fee, derived in buildUnsignedSpend).
 const DEFAULT_FEE_SOMPI = 2000n;

@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, deriveFromMnemonic, deriveFromPrivateKey, loadKaspaWasm, walletPrimaryAction } from './WalletContext';
 import { useDialog } from '../lib/useDialog';
+import { isMainnet as isMainnetNetwork } from '../lib/network';
 import { Key, Terminal, X, AlertTriangle, Wand2, Wallet, ShieldCheck, ArrowRight, Check, Smartphone, Download } from '../lib/routeIcons.js';
 
 // ── Standalone Dev Wallet Modal ──
@@ -69,7 +70,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
     setDerivedAddr(null);
     setDeriving(true);
 
-    const isMainLocal = network === 'mainnet' || network === 'mainnet-1';
+    const isMainLocal = isMainnetNetwork(network);
     if (isMainLocal) {
       setError('Dev mode (mnemonic or hex) is disabled on mainnet. Connect using a real wallet extension instead.');
       setDeriving(false);
@@ -129,7 +130,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
 
   const isConnected = isDevMode && currentAddr;
   const netLabel = NETWORK_LABELS[network] || network;
-  const isMainnet = network === 'mainnet' || network === 'mainnet-1';
+  const isMainnet = isMainnetNetwork(network);
 
   // Tailwind v4 only emits classes that appear as literal strings, so dynamic
   // bg-${accentColor}-* interpolation renders blank. Use full literal class

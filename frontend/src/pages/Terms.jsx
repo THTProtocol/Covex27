@@ -87,9 +87,9 @@ export default function Terms() {
           <p>
             Any stake is locked in an on-chain covenant between the participants. Covex never
             custodies the stake. Funds are released by Kaspa consensus to the recipient the script
-            determines. Where a covenant's outcome depends on an attested result, the
+            determines. Where a real-value covenant's outcome depends on an attested result, the
             consensus-required co-signature comes from an external resolver that the covenant's
-            deployer binds by public key, <strong className="text-white light:text-slate-900">never a Covex key</strong>. Covex operates no oracle
+            deployer binds by public key: <strong className="text-white light:text-slate-900">Covex never holds the key that attests a real-world fact, and mainnet oracle covenants are frozen</strong>. The only Covex-held co-sign key is on the deterministic games-replay path on testnet, where it co-signs only a result anyone can recompute from the signed move log. Covex operates no oracle
             for real-value settlement.
           </p>
         </section>

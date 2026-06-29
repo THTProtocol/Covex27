@@ -883,11 +883,11 @@ body {
   
   /* Explorer / filters */
   .glass-panel.rounded-2xl.p-3 { padding: 0.75rem !important; }
-  .grid-cols-2.sm\\:grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .grid-cols-2.sm\:grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
   
   /* Full game arenas: scale boards, stack clocks */
-  .fixed.inset-0.z-\\[100\\] { padding-bottom: env(safe-area-inset-bottom, 0); }
-  [class*="min\\(94vw,420px\\)"] { width: min(96vw, 380px) !important; }
+  .fixed.inset-0.z-\[100\] { padding-bottom: env(safe-area-inset-bottom, 0); }
+  [class*="min(94vw,420px)"] { width: min(96vw, 380px) !important; }
 }
 
 /* Light mode mobile refinements - even nicer on small bright screens */

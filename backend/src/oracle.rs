@@ -1042,9 +1042,10 @@ async fn verify_and_sign_handler(
         input.circuit_type
     );
 
-    // Surface the resolution in the live activity feed and per-covenant history
-    {
-        let conn = db.lock().unwrap();
+    // Surface the resolution in the live activity feed and per-covenant history.
+    // Non-fatal: skip the log if the pool is momentarily exhausted rather than panic AFTER the
+    // nullifier was recorded (a panic here would burn the nullifier without returning a signature).
+    if let Ok(conn) = db.lock() {
         let network: String = conn
             .query_row(
                 "SELECT network FROM covenants WHERE tx_id = ?1",

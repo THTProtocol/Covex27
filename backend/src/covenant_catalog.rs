@@ -209,6 +209,67 @@ pub struct CatalogEntry {
     pub builder: &'static str,
     pub params: &'static [&'static str],
     pub summary: &'static str,
+    /// Which runtime deploy gate (if any) this kind is fail-closed behind. The catalog is a
+    /// `const`, so it cannot call the env-reading gate functions directly; instead each entry
+    /// declares WHICH gate applies and `catalog_handler` evaluates the SAME function the deploy
+    /// path checks (kip10_introspection_available / zk_precompile_deploy_allowed) at request time
+    /// to surface `available` + `gated_reason`. So a client learns which kinds actually deploy
+    /// today instead of discovering the gate only on a failed deploy. (GAP 6.)
+    pub gate: DeployGate,
+}
+
+/// The runtime deploy gate a catalog entry is fail-closed behind, if any. Each variant maps to the
+/// EXACT function the deploy path calls, so the catalog's reported availability cannot drift from
+/// the real gate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DeployGate {
+    /// No runtime gate: the kind always deploys (subject to the usual network/mainnet rules).
+    None,
+    /// Fail-closed behind `COVEX_KIP10_BOUND_ENABLED` (crate::covenant_builder::
+    /// kip10_introspection_available). The KIP-10 output-bound kinds.
+    Kip10Bound,
+    /// Fail-closed behind `KASPA_ZK_PRECOMPILE_ENABLED` and frozen on mainnet
+    /// (crate::covenant_builder::zk_precompile_deploy_allowed). The on-chain ZK settle kind.
+    ZkPrecompile,
+}
+
+impl DeployGate {
+    /// Evaluate this gate at request time and return `(available, gated_reason)`. `available` is
+    /// true iff a deploy of the gated kind would pass its runtime gate RIGHT NOW; when false,
+    /// `gated_reason` carries the SAME caller-surfaceable message the deploy path returns, so the
+    /// catalog and a failed deploy never disagree.
+    ///
+    /// Each variant calls the EXACT function the deploy path checks:
+    ///   * `Kip10Bound`   -> `kip10_introspection_available()` (env `COVEX_KIP10_BOUND_ENABLED`).
+    ///   * `ZkPrecompile` -> `zk_precompile_deploy_allowed(net)`. This kind is ALSO frozen on
+    ///     mainnet (Toccata not live), and `/covenant/catalog` is not network-scoped, so we probe
+    ///     the testnet path (where it can deploy today) for the env-flag verdict and append the
+    ///     standing mainnet-freeze caveat to the reason regardless.
+    pub fn availability(&self) -> (bool, Option<String>) {
+        match self {
+            DeployGate::None => (true, None),
+            DeployGate::Kip10Bound => {
+                match crate::covenant_builder::kip10_introspection_available() {
+                    Ok(()) => (true, None),
+                    Err(e) => (false, Some(e)),
+                }
+            }
+            DeployGate::ZkPrecompile => {
+                // Probe the testnet path for the env-flag verdict (mainnet is always frozen for
+                // this kind, so probing mainnet would mask whether the operator enabled the flag).
+                match crate::covenant_builder::zk_precompile_deploy_allowed("testnet-12") {
+                    Ok(()) => (
+                        true,
+                        Some(
+                            "deployable on testnet only; frozen on mainnet until the Toccata hard fork ships the OpZkPrecompile opcode"
+                                .to_string(),
+                        ),
+                    ),
+                    Err(e) => (false, Some(e)),
+                }
+            }
+        }
+    }
 }
 
 pub const CATALOG: &[CatalogEntry] = &[
@@ -220,6 +281,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas"],
         summary: "Funds lock to a script hash, spendable only by the key holder. The minimal real covenant.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "p2sh_hashlock",
@@ -229,6 +291,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "preimage_hex"],
         summary: "Release requires revealing a secret preimage plus a signature. The HTLC building block.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "p2sh_timelock",
@@ -238,6 +301,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "lock_daa"],
         summary: "Funds are spendable only once the chain DAA score reaches lock_daa. Vesting, dispute windows.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "p2sh_multisig",
@@ -247,6 +311,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "pubkeys_hex", "required"],
         summary: "Release requires `required` of M listed keys. DAO treasuries, 2-of-3 escrow.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "p2sh_htlc",
@@ -256,6 +321,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "preimage_hex", "lock_daa", "receiver_pubkey_hex", "sender_pubkey_hex"],
         summary: "Receiver claims by revealing a preimage; sender refunds after a timelock. Cross-party / cross-chain atomic swaps.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "p2sh_channel",
@@ -265,6 +331,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "pubkeys_hex", "lock_daa"],
         summary: "A 2-of-2 cooperative-close pot with a funder refund after a timelock. The chain pays the agreed winner; no oracle, and Covex is never in the payout path.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "p2sh_deadman",
@@ -274,6 +341,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "pubkeys_hex", "lock_daa"],
         summary: "The owner spends or refreshes at any time; the heir can claim only after the timelock DAA, so funds pass on if the owner goes silent. No oracle.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "p2sh_rcsv",
@@ -283,6 +351,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "lock_daa"],
         summary: "Spendable only once the funds have aged a relative number of units, via OpCheckSequenceVerify on the input sequence. Node-enforced (BIP68): the node rejects an early spend.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "p2sh_timedecay",
@@ -292,6 +361,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "pubkeys", "req_now", "req_after", "lock_daa"],
         summary: "req_now-of-n now, relaxing to req_after-of-n after an absolute DAA deadline (OpCheckLockTimeVerify). Treasury recovery / inheritance: a high quorum spends immediately, a lower quorum unlocks after the timeout. Two real multisigs spliced into an IF/ELSE - node-enforced on both branches.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "p2sh_binary_oracle_select",
@@ -301,6 +371,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "preimage_hex", "preimage_b_hex", "pubkeys_hex", "lock_daa"],
         summary: "Two hashlock branches + a relative-timelock refund: reveal the preimage of H_A and winner_a claims, reveal H_B and winner_b claims, else the refund key reclaims after the CSV delay. The outcome is assigned by which single secret an oracle reveals, but every branch is gated by a specific key's signature, so no Covex key is in the redeem - pure on-chain custody, amounts, and destinations. The per-match building block of a 30%-fee / 50%-loser-rebate parimutuel bundle.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "oracle_enforced",
@@ -310,6 +381,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "circuit_type"],
         summary: "A 2-of-2 of [oracle, winner]. The chain requires the disclosed oracle's co-signature, and the oracle co-signs only a verified outcome - on-chain-enforced oracle resolution.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "oracle_escrow",
@@ -319,6 +391,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "circuit_type", "player_a_pubkey", "player_b_pubkey"],
         summary: "A 2-player pot the chain releases only to the oracle-declared winner: requires the oracle co-signature AND the winning player's signature on their branch.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "oracle_enforced_refundable",
@@ -328,6 +401,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "circuit_type", "lock_daa", "refund_pubkey_hex"],
         summary: "Like oracle_enforced (a 2-of-2 of [oracle, winner] the chain co-signs), but wrapped with a relative-timelock (CSV) refund branch so the funder reclaims the stake if the oracle ever goes silent. Closes the frozen-funds risk of a mandatory oracle co-signature with no timeout.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "oracle_escrow_refundable",
@@ -337,6 +411,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "circuit_type", "player_a_pubkey", "player_b_pubkey", "lock_daa", "refund_pubkey_hex"],
         summary: "Like oracle_escrow (a 2-player pot the chain releases only to the oracle-declared winner), but wrapped with a relative-timelock (CSV) refund branch so the funder reclaims the pot if the oracle ever goes silent. Closes the frozen-funds risk of the non-refundable form.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "p2sh_zk_game_settle",
@@ -346,6 +421,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "vk_hex", "public_inputs_hex", "winner_pubkey_hex", "lock_daa", "refund_pubkey_hex"],
         summary: "The covenant verifies the winner's RISC0->Groth16 game proof ON-CHAIN via the Kaspa KIP-16 OpZkPrecompile opcode (tag 0x20, BN254 Groth16), then requires the winner's signature; a relative-timelock (CSV) refund branch reclaims the pot if no winning proof is ever produced. Kaspa consensus, not a Covex key, verifies the proof, so a loser cannot forge a win and no referee or co-sign is in the payout path. Gated behind KASPA_ZK_PRECOMPILE_ENABLED and testnet-only for now (the Toccata hard fork that ships the opcode is not yet live on mainnet).",
+        gate: DeployGate::ZkPrecompile,
     },
     CatalogEntry {
         id: "p2sh_winner_bound",
@@ -355,6 +431,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "winner_pubkey_hex", "fee_sompi", "require_sig"],
         summary: "The pot can ONLY ever flow to the winner: the spend is valid only if the tx has exactly one output paying (input amount - fee) to the winner's P2PK address, enforced on-chain by the KIP-10 introspection opcodes (OpTxOutputCount / OpTxOutputAmount / OpTxOutputSpk). Any redirect or skim spend is consensus-rejected. No oracle and no Covex key are in the path. KIP-10 is live on Kaspa mainnet since Crescendo; these kinds are gated behind COVEX_KIP10_BOUND_ENABLED until their lock/redirect-reject/valid-spend e2e is run.",
+        gate: DeployGate::Kip10Bound,
     },
     CatalogEntry {
         id: "p2sh_escrow_bound",
@@ -364,6 +441,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "covenant_builder",
         params: &["stake_kas", "pubkeys_hex", "fee_sompi", "lock_daa", "refund_pubkey_hex"],
         summary: "Either party claims the pot to THEMSELVES (party A or party B, each authorizing their own claim), with the released amount + recipient bound on-chain by KIP-10 introspection so neither can redirect it; a relative-timelock (CSV) refund returns the funds to the funder if neither claim happens. No oracle and no Covex key. Gated behind COVEX_KIP10_BOUND_ENABLED until the e2e is run.",
+        gate: DeployGate::Kip10Bound,
     },
     CatalogEntry {
         id: "oracle_game",
@@ -373,6 +451,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "oracle",
         params: &["circuit_type", "stake_kas"],
         summary: "Outcome is signed by an external resolver (real BIP340), but funds are not script-gated to the sig. Prefer oracle_enforced for on-chain enforcement.",
+        gate: DeployGate::None,
     },
     CatalogEntry {
         id: "silverscript_marker",
@@ -382,6 +461,7 @@ pub const CATALOG: &[CatalogEntry] = &[
         builder: "signer",
         params: &["script_hex"],
         summary: "A metadata/marker covenant. The chain does not enforce the outcome. Not for value at stake.",
+        gate: DeployGate::None,
     },
 ];
 
@@ -389,6 +469,10 @@ async fn catalog_handler() -> Json<serde_json::Value> {
     let entries: Vec<serde_json::Value> = CATALOG
         .iter()
         .map(|e| {
+            // GAP 6: surface whether this kind actually deploys today, derived from the SAME
+            // runtime gate the deploy path checks (not from prose). `available=false` means a
+            // deploy would be rejected right now; `gated_reason` carries why.
+            let (available, gated_reason) = e.gate.availability();
             serde_json::json!({
                 "id": e.id,
                 "label": e.label,
@@ -398,6 +482,8 @@ async fn catalog_handler() -> Json<serde_json::Value> {
                 "builder": e.builder,
                 "params": e.params,
                 "summary": e.summary,
+                "available": available,
+                "gated_reason": gated_reason,
             })
         })
         .collect();
@@ -734,6 +820,92 @@ mod tests {
                 "CATALOG has no entry for builder kind '{}'",
                 k.catalog_id()
             );
+        }
+    }
+
+    /// GAP 6 (builder honesty): the catalog declares a `gate` for every kind that is fail-closed
+    /// behind a runtime deploy gate, and ONLY those three. The KIP-10 output-bound kinds carry
+    /// `Kip10Bound`, the on-chain ZK settle kind carries `ZkPrecompile`, and everything else is
+    /// ungated. This is the structural half of the honesty fix (the availability VALUE is asserted
+    /// separately, below, against the live gate functions).
+    #[test]
+    fn gated_kinds_declare_the_right_gate() {
+        let gate_of = |id: &str| {
+            CATALOG
+                .iter()
+                .find(|e| e.id == id)
+                .unwrap_or_else(|| panic!("catalog missing {id}"))
+                .gate
+        };
+        assert_eq!(gate_of("p2sh_winner_bound"), DeployGate::Kip10Bound);
+        assert_eq!(gate_of("p2sh_escrow_bound"), DeployGate::Kip10Bound);
+        assert_eq!(gate_of("p2sh_zk_game_settle"), DeployGate::ZkPrecompile);
+        // No OTHER kind is gated: an ungated kind must always report available.
+        for e in CATALOG.iter() {
+            if !matches!(
+                e.id,
+                "p2sh_winner_bound" | "p2sh_escrow_bound" | "p2sh_zk_game_settle"
+            ) {
+                assert_eq!(
+                    e.gate,
+                    DeployGate::None,
+                    "{} must be ungated (DeployGate::None)",
+                    e.id
+                );
+                let (available, reason) = e.gate.availability();
+                assert!(available, "ungated {} must always be available", e.id);
+                assert!(reason.is_none(), "ungated {} must have no gated_reason", e.id);
+            }
+        }
+    }
+
+    /// GAP 6: `DeployGate::availability()` is wired to the SAME env-reading functions the deploy
+    /// path checks, so the catalog's reported availability tracks the real gate. With the gate envs
+    /// OFF, the bound + zk kinds report unavailable with a reason; flipping the env ON flips the
+    /// verdict. (Env-global test: save + restore both vars; mirrors the covenant_builder gate tests.)
+    #[test]
+    fn gate_availability_tracks_the_runtime_env_gates() {
+        let prev_kip10 = std::env::var("COVEX_KIP10_BOUND_ENABLED").ok();
+        let prev_zk = std::env::var("KASPA_ZK_PRECOMPILE_ENABLED").ok();
+
+        // Gates OFF -> gated kinds are unavailable, each with a non-empty reason.
+        std::env::remove_var("COVEX_KIP10_BOUND_ENABLED");
+        std::env::remove_var("KASPA_ZK_PRECOMPILE_ENABLED");
+        let (kip_avail, kip_reason) = DeployGate::Kip10Bound.availability();
+        assert!(!kip_avail, "Kip10Bound must be unavailable when the env flag is off");
+        assert!(
+            kip_reason.map(|r| !r.is_empty()).unwrap_or(false),
+            "an unavailable gate must carry a non-empty reason"
+        );
+        let (zk_avail, zk_reason) = DeployGate::ZkPrecompile.availability();
+        assert!(!zk_avail, "ZkPrecompile must be unavailable when the env flag is off");
+        assert!(
+            zk_reason.map(|r| !r.is_empty()).unwrap_or(false),
+            "an unavailable gate must carry a non-empty reason"
+        );
+
+        // Gates ON -> gated kinds become available. ZkPrecompile stays mainnet-frozen, so its
+        // reason persists even when available (the catalog must keep telling that truth).
+        std::env::set_var("COVEX_KIP10_BOUND_ENABLED", "1");
+        std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "1");
+        let (kip_avail, kip_reason) = DeployGate::Kip10Bound.availability();
+        assert!(kip_avail, "Kip10Bound must be available when COVEX_KIP10_BOUND_ENABLED=1");
+        assert!(kip_reason.is_none(), "an available ungated-by-mainnet kind has no reason");
+        let (zk_avail, zk_reason) = DeployGate::ZkPrecompile.availability();
+        assert!(zk_avail, "ZkPrecompile must be available on testnet when the env flag is on");
+        assert!(
+            zk_reason.map(|r| r.contains("mainnet")).unwrap_or(false),
+            "ZkPrecompile must keep noting the standing mainnet freeze even when available"
+        );
+
+        // Restore the prior environment so we do not perturb sibling tests.
+        match prev_kip10 {
+            Some(v) => std::env::set_var("COVEX_KIP10_BOUND_ENABLED", v),
+            None => std::env::remove_var("COVEX_KIP10_BOUND_ENABLED"),
+        }
+        match prev_zk {
+            Some(v) => std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", v),
+            None => std::env::remove_var("KASPA_ZK_PRECOMPILE_ENABLED"),
         }
     }
 }

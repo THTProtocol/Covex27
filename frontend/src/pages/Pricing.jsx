@@ -38,7 +38,7 @@ const TIERS = [
     id: 'FREE',
     name: 'Free',
     price: 0,
-    desc: 'Almost everything is here: build and deploy ANY covenant - escrows, ZK proofs, vesting, custom logic, conditional payments - and give it a custom website. No cap, ever.',
+    desc: 'Almost everything is here: build any covenant, deploy the on-chain primitives (escrows, timelocks, HTLCs, vesting), generate real ZK proofs in your browser, and give it a custom website. No cap on the amount you lock, ever.',
     features: [
       'Build any covenant type (all builders free)',
       'Lock any amount, no maximum',
@@ -325,7 +325,7 @@ const Pricing = () => {
   // numbers. These carry the same claims the old banner/transparency block did:
   // building is free, paid only adds visibility, and there is no cap.
   const EXPLAIN = [
-    { icon: Eye, title: 'Free to build, free to ship', body: 'Build and deploy any covenant - escrows, ZK proofs, vesting, custom logic - give it a custom website in the Studio, and claim non-custodially. No account, no cap.' },
+    { icon: Eye, title: 'Free to build, free to ship', body: 'Build any covenant in the Sandbox, deploy the on-chain primitives non-custodially (escrows, timelocks, HTLCs, vesting), generate real ZK proofs in your browser, give it a custom website in the Studio, and claim from your own wallet. No account.' },
     { icon: Star, title: 'Pay only for the spotlight', body: 'Builder unlocks the full premium website template library. PRO adds featured placement on the Explorer. MAX adds top placement and a TVL-weighted ranking boost.' },
     { icon: ShieldCheck, title: 'No cap. Ever.', body: 'Any covenant on any tier, including free, can lock any amount. Tiers only change how visible your covenant is, never how much you can lock.' },
     { icon: Crown, title: 'One payment, one wallet', body: 'A one-time KAS payment to the treasury. The tier unlocks for the wallet address you pay from, so pay from the wallet you will deploy with.' },

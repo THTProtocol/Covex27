@@ -132,8 +132,10 @@ function ClaimFlow({ kit, utxos }) {
   const claim = useMemo(() => claimability(kind, branch), [kind, branch]);
 
   // Signing source: a dev/imported wallet holds its private key in this browser and CAN sign a
-  // covenant input; a wallet extension exposes no covenant-input signing API, so for it (and the
-  // offline case) the holder pastes the branch key, which is used locally and cleared after.
+  // covenant input directly. Supported wallet extensions (KasWare signPskt, Kastle signTx with a
+  // P2SH script) sign covenant spends in the normal deploy/redeem flow; this recovery page is the
+  // fallback for the offline case, an older wallet that cannot sign a P2SH input, or when you only
+  // hold the branch private key, so here the holder pastes the branch key, used locally and cleared after.
   const canUseDevKey = wallet.isDevMode && wallet.devMode?.privateKeyHex && (!mainnet || true);
   const [signMode, setSignMode] = useState(canUseDevKey ? 'wallet' : 'paste');
   const [privKey, setPrivKey] = useState('');
@@ -165,7 +167,7 @@ function ClaimFlow({ kit, utxos }) {
   // Resolve the private key for this signing attempt. NEVER transmitted; lives only here.
   const resolvePrivKey = () => {
     if (signMode === 'wallet') {
-      if (!canUseDevKey) throw new Error('This wallet cannot sign a covenant input here. Paste the branch private key, or use the cold-recovery tool.');
+      if (!canUseDevKey) throw new Error('No in-browser key is loaded on this recovery page. Supported wallets sign covenant spends in the normal deploy/redeem flow; here, paste the branch private key or use the cold-recovery tool.');
       return wallet.devMode.privateKeyHex;
     }
     const k = String(privKey || '').trim().replace(/^0x/i, '');
@@ -335,7 +337,7 @@ function ClaimFlow({ kit, utxos }) {
           <p className="text-[11px] text-gray-500 light:text-slate-600 mt-1.5">
             {canUseDevKey
               ? 'Your in-browser wallet signs the covenant input locally. The key never leaves this device.'
-              : 'A wallet extension cannot sign a covenant P2SH input here (no such API). Use Paste key or the cold-recovery tool.'}
+              : 'No in-browser key is loaded here. Supported wallets (KasWare, Kastle) sign covenant spends in the normal deploy and redeem flow; on this recovery page, use Paste key or the cold-recovery tool.'}
           </p>
         ) : (
           <div className="mt-2">

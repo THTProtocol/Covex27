@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- this module intentionally co-exports its component(s) with related constants/hooks/helpers (e.g. a Provider plus its useX hook). That only affects dev Fast Refresh granularity, never the production build or tests; splitting these into separate files is not warranted here. */
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { schnorr } from '@noble/curves/secp256k1';
 import { bytesToHex } from '@noble/hashes/utils';
 import { verifyAndSignSpend } from '../lib/redeemer/covenantRedeemer';
@@ -33,6 +33,16 @@ const KINDS = [
 // the browser) and are therefore mainnet-capable, gated only by the Toccata hard fork. Kept in
 // sync with the mainnet banner copy and the per-tile "Mainnet-ready" chip.
 const MAINNET_CAPABLE_KINDS = ['singlesig', 'hashlock', 'timelock', 'relative_timelock'];
+
+// Catalog kinds the backend gates behind a feature flag and refuses to deploy until their
+// on-chain e2e is proven (KIP-10 output-binding: COVEX_KIP10_BOUND_ENABLED; KIP-16 on-chain ZK
+// settle: KASPA_ZK_PRECOMPILE_ENABLED). They are NOT in the KINDS picker today, so no tile here
+// fails; this set + isGatedKind() exist so that if any of them is ever surfaced as a deploy tile
+// it is shown disabled with a "Gated / testnet-only" badge rather than as a deployable tile that
+// errors. TODO: when /api/covenant/catalog exposes a per-entry `available`/`gated` flag, drive
+// this off that flag instead of hardcoded kind names (the source of truth is the backend gate).
+const GATED_KINDS = ['p2sh_winner_bound', 'escrow_bound', 'zk_game_settle'];
+const isGatedKind = (id) => GATED_KINDS.includes(String(id || '').split(':')[0]);
 
 function randomSecretHex() {
   const b = new Uint8Array(24);
@@ -163,6 +173,9 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   const [mrebate, setMrebate] = useState('50');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  // When a wallet cannot sign a spend/redeem, we surface a link to the named cold-recovery
+  // tool (/recover) pre-targeted at the covenant that failed, so the fallback is reachable.
+  const [recoverTx, setRecoverTx] = useState(null);
   const [mine, setMine] = useState([]); // deploys this session: {tx, p2sh, kind, kas, preimage, dev, lock_daa, spent}
   // The just-deployed tx id, so its row in "Your enforced covenants" gets a one-shot
   // arrival flourish (motion-safe). Cleared after the entrance finishes; purely visual.
@@ -339,6 +352,12 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   async function deploy() {
     setError(null);
     if (kind === 'market') { await createMarket(); return; }
+    // Backend-gated kinds are refused server-side until their on-chain e2e is proven; refuse here
+    // too so a programmatic deploy can never hit that gate error. The tiles are already disabled.
+    if (isGatedKind(kind)) {
+      setError('This covenant kind is gated behind a backend feature flag until its on-chain end-to-end is proven (KIP-10 output-binding / KIP-16 on-chain ZK settle). It is not deployable yet.');
+      return;
+    }
     // MAINNET DEAD-END GUARD: the dev-wallet kinds (multisig/htlc/channel/deadman/timedecay/
     // oracle_*/binary_oracle_select) deploy via use_dev_mode, which the backend rejects on
     // mainnet. Refuse here too so a programmatic deploy can never hit that server error; the
@@ -507,6 +526,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
 
   async function redeem(c) {
     setError(null);
+    setRecoverTx(null);
     setBusy(true);
     try {
       const myKey = devMode?.privateKeyHex;
@@ -553,6 +573,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           walletRes = await signCovenantSpend(prep.spend_plan, { intendedDest: dest, signerXonly });
         } catch (e) {
           setError(`Wallet could not sign this covenant spend: ${e && e.message ? e.message : e}`);
+          setRecoverTx(c.tx);
           return;
         }
         const subBody = { session_id: prep.session_id, signature_hex: walletRes.signatures[0].signature_hex };
@@ -631,6 +652,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       // for covenant types it doesn't cover, redeem with a wallet extension).
       if ((net === 'mainnet' || net === 'mainnet-1') && !c.dev) {
         setError('Your key never leaves this device. This covenant type cannot be redeemed non-custodially yet on mainnet; redeem a single-key / hashlock / timelock / multisig / htlc / channel covenant (which sign locally), or use a wallet extension.');
+        setRecoverTx(c.tx);
         return;
       }
       // Server-assisted fallback (HTLC/multisig/channel kinds, dev-wallet covenants, or a
@@ -821,14 +843,17 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           // mainnet-capable; market is a hybrid creation flow.
           const isDevWalletKind = DEV_WALLET_KINDS.includes(k.id);
           const isMainnetCapable = MAINNET_CAPABLE_KINDS.includes(k.id);
+          // Backend-gated kinds (KIP-10 output-binding / KIP-16 on-chain ZK settle) are refused by
+          // the backend until their e2e is proven, so never offer them as a deployable tile.
+          const gated = isGatedKind(k.id);
           // MAINNET DEAD-END GUARD: on mainnet, only the non-custodial single-signer kinds can
           // actually deploy. The dev-wallet kinds (multisig/htlc/channel/deadman/timedecay/
           // oracle_*/binary_oracle_select) route through use_dev_mode, which the backend rejects
           // on mainnet ("dev mode is disabled on mainnet"); the parimutuel market can be created
           // as a DB anchor but can never be funded (the matcher is testnet dev-escrow only). So
           // rather than render an advertised tile that errors on deploy, disable it on mainnet
-          // with an honest note. Testnets keep every tile.
-          const mainnetUnavailable = isMainnet && !isMainnetCapable;
+          // with an honest note. Testnets keep every tile. Gated kinds are disabled on every network.
+          const mainnetUnavailable = (isMainnet && !isMainnetCapable) || gated;
           return (
             <button
               key={k.id}
@@ -859,7 +884,14 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
                 >
                   <Icon size={18} className={active && !mainnetUnavailable ? 'text-kaspa-green' : 'text-gray-300 light:text-slate-700'} />
                 </span>
-                {mainnetUnavailable ? (
+                {gated ? (
+                  <span
+                    title="Gated behind a backend feature flag until its on-chain end-to-end is proven (KIP-10 output-binding / KIP-16 on-chain ZK settle). Not deployable yet."
+                    className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-500/40 bg-slate-500/15 text-slate-300 text-[9px] font-bold uppercase tracking-wider light:border-slate-300 light:bg-slate-200 light:text-slate-600"
+                  >
+                    <span className="h-1 w-1 rounded-full bg-slate-400" aria-hidden="true" /> Gated / testnet-only
+                  </span>
+                ) : mainnetUnavailable ? (
                   <span
                     title="Available on testnet. Non-custodial mainnet deploy for this primitive is coming."
                     className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-500/40 bg-slate-500/15 text-slate-300 text-[9px] font-bold uppercase tracking-wider light:border-slate-300 light:bg-slate-200 light:text-slate-600"
@@ -1176,6 +1208,13 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           </button>
         )}
         {error && <p className="text-sm text-red-400">{error}</p>}
+        {recoverTx && (
+          <p className="text-xs text-gray-400 light:text-slate-500 mt-1">
+            Cannot sign here? Open the{' '}
+            <Link to={`/recover?id=${encodeURIComponent(recoverTx)}`} className="text-kaspa-green hover:underline font-semibold">cold-recovery tool</Link>{' '}
+            for this covenant to claim with your branch key or the offline tool.
+          </p>
+        )}
       </div>
 
       {/* This session's enforced covenants. Hidden in embedded mode: the host owns the

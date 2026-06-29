@@ -1571,7 +1571,15 @@ export default function CovenantInteractive() {
                               <tr><td className="p-2 font-semibold">Verify</td><td className="p-2">Server-authoritative engine, outcome resolver-attested (BIP340 Schnorr)</td></tr>
                             </tbody>
                           </table>
-                          <div className="text-[11px] text-emerald-300/80 light:text-emerald-700 mt-1 text-center">Transparent · Custody on-chain · Outcome resolver-attested</div>
+                          {/* Honesty palette: custody IS on-chain (emerald), but the outcome is
+                              resolver-attested, not chain-enforced - so that half must NOT read as
+                              on-chain. Splitting the colors keeps the chip from overclaiming the way
+                              a single emerald "Custody on-chain · Outcome resolver-attested" string did. */}
+                          <div className="text-[11px] mt-1 text-center">
+                            <span className="text-emerald-300/80 light:text-emerald-700">Transparent · Custody on-chain</span>
+                            <span className="text-gray-500 light:text-slate-400"> · </span>
+                            <span className="text-amber-300/90 light:text-amber-700">Outcome resolver-attested</span>
+                          </div>
                         </div>
                       </div>
                     </div>

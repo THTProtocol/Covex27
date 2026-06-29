@@ -243,6 +243,33 @@ function kasToSompi(amountKas) {
 
 function isMobile() { return typeof navigator !== 'undefined' && /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent); }
 
+// Humanize a wallet-extension rejection into a one-line, user-facing string. Extensions
+// throw a grab-bag of shapes (Error, { code, message }, plain string, EIP-1193-style 4001
+// user-rejection). We surface the REAL reason (e.g. "insufficient funds", "you rejected the
+// request") instead of the generic "no wallet connected" fallback, which is actively
+// misleading when a wallet IS connected and simply declined or failed the send.
+function humanizeExtensionError(err) {
+  const code = err && (err.code ?? err?.error?.code);
+  // 4001 (EIP-1193) and assorted "user rejected/denied/cancelled" messages all mean the same thing.
+  const raw = (
+    (err && (err.message || err.error?.message)) ||
+    (typeof err === 'string' ? err : '') ||
+    ''
+  ).trim();
+  const low = raw.toLowerCase();
+  if (code === 4001 || /reject|denied|declin|cancel|user (?:closed|dismiss)/.test(low)) {
+    return 'You declined the transaction in your wallet.';
+  }
+  if (/insufficient|not enough|balance/.test(low)) {
+    return 'Your wallet reported insufficient funds for this payment.';
+  }
+  if (/locked|unlock/.test(low)) {
+    return 'Your wallet is locked. Unlock it and try again.';
+  }
+  if (raw) return `Your wallet could not complete the payment: ${raw}`;
+  return 'Your wallet could not complete the payment. Open the wallet and try again.';
+}
+
 // ── All wallets unified ──
 // `platform` is now a SORT PRIORITY, not a hard exclusion: the picker always lists every
 // wallet, ordered so the platform-appropriate ones come first. `deepLink` (mobile open-app
@@ -977,6 +1004,10 @@ function WalletBridge({ children, kf = KF_STUB }) {
       return { success: false, error: 'This wallet never sends its key off your device. Deploy covenants non-custodially (your key signs locally) or use a wallet extension for tier payments.' };
     }
     const provider = getActiveProvider();
+    // When a provider IS connected, a thrown error means the SEND failed (rejected / insufficient
+    // funds / locked), not that there is no wallet. Capture the humanized reason so we surface it
+    // below instead of the misleading generic "no wallet connected" fallback.
+    let extensionError = null;
     if (provider && activeAddress) {
       try {
         const amountSompi = kasToSompi(amountKas);
@@ -991,14 +1022,20 @@ function WalletBridge({ children, kf = KF_STUB }) {
           txid = result.txId || result.txid;
         }
         if (txid) return { success: true, method: 'extension', txid };
-      } catch { /* best-effort; failure is non-fatal here */ }
+      } catch (e) { extensionError = humanizeExtensionError(e); }
     }
     if (kf.connected && kf.address) {
       try {
         const amountSompi = kasToSompi(amountKas);
         const result = await kf.sendTransaction({ to: recipient, amount: amountSompi });
         return { success: true, method: 'kasflow', txid: result.txId };
-      } catch { /* best-effort; failure is non-fatal here */ }
+      } catch (e) { if (!extensionError) extensionError = humanizeExtensionError(e); }
+    }
+    // A provider was connected but the send threw (or returned no txid): surface the real,
+    // humanized extension reason with method:'extension' so the caller never tells the user to
+    // "connect a wallet" when one IS connected and simply declined or failed.
+    if (extensionError) {
+      return { success: false, error: extensionError, method: 'extension' };
     }
     // No wallet available to sign (no dev mode, no extension, no kasflow connection). Do NOT
     // open a dead protocol tab: a kaspa: URI has no browser handler, so window.open
@@ -1309,4 +1346,4 @@ export function WalletProvider({ children }) {
   );
 }
 
-export { ALL_WALLETS, detectWallet, getProvider, DevConnectPanelBase, NETWORK_LABELS, walletPrimaryAction, isMobile };
+export { ALL_WALLETS, detectWallet, getProvider, DevConnectPanelBase, NETWORK_LABELS, walletPrimaryAction, isMobile, humanizeExtensionError };

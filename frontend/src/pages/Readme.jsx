@@ -383,9 +383,11 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
           <p className="text-sm text-gray-300 leading-relaxed">
             On mainnet every transaction is signed by your own wallet extension. The server builds the unsigned funding and
             spend transactions and verifies the result, but never holds a key. Hardcoded dev keys are hard-blocked on mainnet.
-            Covex operates no oracle for real-value settlement: oracle-co-signed covenant kinds are frozen on mainnet, real-value
-            covenants bind instead to an external resolver's published hashlock the chain enforces, and the legacy Covex co-sign
-            survives only on testnet two-party settlements while the chain-enforced rebind rolls out.
+            Covex runs no real-world-data oracle and holds no key on the markets, ZK, or mainnet paths: oracle-co-signed
+            covenant kinds are frozen on mainnet, and real-value covenants bind instead to an external resolver's published
+            hashlock the chain enforces. The single exception is one Covex-held co-sign key on the testnet games-replay path,
+            where Covex re-derives the winner from the public signed move log (a publicly-recomputable referee, not a real-world
+            oracle); it is being removed as the chain-enforced rebind rolls out.
           </p>
         </Card>
       </Section>

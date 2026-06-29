@@ -151,7 +151,7 @@ function VerifyYourselfPanel() {
             </p>
 
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 light:text-slate-500 mb-2">Oracle x-only pubkey (BIP340)</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 light:text-slate-500 mb-2">Covex games co-sign key (BIP340, testnet)</p>
               {oraclePk.state === 'loading' && <div className="skeleton h-5 w-72" />}
               {oraclePk.state === 'ok' && (
                 <p className="text-[11px] font-mono text-kaspa-green break-all">{oraclePk.value}</p>
@@ -159,7 +159,7 @@ function VerifyYourselfPanel() {
               {oraclePk.state === 'error' && (
                 <p className="text-[11px] text-amber-300 light:text-amber-700 break-words">Could not fetch /api/oracle/pubkey ({oraclePk.value}). The oracle endpoint is not reachable from this build.</p>
               )}
-              <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1.5">Source: GET /api/oracle/pubkey. This is a Covex-held key that co-signs only the deterministic games-replay path (testnet); not a deployer-bound external resolver, not trustless. Mainnet oracle covenants are frozen.</p>
+              <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1.5">Source: GET /api/oracle/pubkey. This is the one key Covex holds. It co-signs only the testnet games-replay path, where Covex re-derives the winner from the public signed move log: a deterministic referee anyone can recompute, not a real-world-data oracle, and not trustless. Markets, ZK proofs, and mainnet never use a Covex key. Covex is migrating games to an external-referee model to remove even this.</p>
             </div>
 
             <div>

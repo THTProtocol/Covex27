@@ -539,9 +539,10 @@ async fn main() {
         .route("/marketplace/templates", get(marketplace_templates_handler))
         .route("/marketplace/publish", post(marketplace_publish_handler))
         .layer(Extension(db.clone()))
-        // Covex offers NO first-party mixer (legal/sanctions posture). The /mixer routes are
-        // removed; Covex remains a neutral explorer, so a user-created mixer-style covenant can
-        // still be DISPLAYED like any covenant, with the creator carrying all liability.
+        // Covex offers NO first-party mixer (legal/sanctions posture). The /mixer routes and the
+        // mixer.rs implementation are removed (no dead privacy-mixer code is retained); Covex
+        // remains a neutral explorer, so a user-created mixer-style covenant can still be DISPLAYED
+        // like any covenant, with the creator carrying all liability.
         .merge(oracle::oracle_routes().layer(Extension(db.clone())))
         .merge(covenant_builder::p2sh_routes().layer(Extension(db.clone())))
         .merge(covenant_catalog::catalog_routes())

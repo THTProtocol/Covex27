@@ -86,6 +86,33 @@ export default function WhatIsKaspaPage() {
           </div>
         </section>
 
+        {/* Transaction Lifecycle (model adapted from the independent explainer kaspaexplained.com) */}
+        <section className="mb-12">
+          <h2 className="text-2xl font-bold text-white mb-2 flex items-center gap-2"><CheckCircle2 size={20} className="text-[#49EACB]" /> The Life of a Transaction</h2>
+          <p className="text-sm text-gray-400 mb-6 max-w-3xl">Five steps from your wallet to settled history. Creating and broadcasting work exactly like Bitcoin; the BlockDAG only changes how blocks are ordered (steps 3 to 5).</p>
+          <div className="glass-panel rounded-2xl p-6 border border-white/10">
+            <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+              {[
+                { n: '01', icon: FileCode, title: 'Create', body: 'Your wallet builds and signs a UTXO transaction locally. Your keys never leave the device.' },
+                { n: '02', icon: Zap, title: 'Broadcast', body: 'It is gossiped across the peer-to-peer network and lands in mempools on nodes worldwide.' },
+                { n: '03', icon: Cpu, title: 'Mine', body: 'A miner includes it in a block. At 10 BPS, several blocks are produced in parallel every second.' },
+                { n: '04', icon: GitBranch, title: 'Order', body: 'GHOSTDAG merges the parallel blocks into one deterministic order, so no honest work is orphaned.' },
+                { n: '05', icon: CheckCircle2, title: 'Confirm', body: 'The deeper it is buried in the ordering, the more infeasible a reversal becomes. Practical finality in 5 to 10 seconds.' },
+              ].map((s, i) => (
+                <div key={i} className="rounded-xl border border-white/10 bg-white/[0.01] p-4 hover:border-[#49EACB]/30 transition-colors">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-mono text-[10px] text-[#49EACB]">{s.n}</span>
+                    <s.icon size={16} className="text-[#49EACB]" />
+                  </div>
+                  <div className="text-white font-semibold text-sm mb-1">{s.title}</div>
+                  <div className="text-[11px] text-gray-400 leading-relaxed">{s.body}</div>
+                </div>
+              ))}
+            </div>
+            <p className="text-[10px] text-gray-500 mt-4 leading-relaxed">Model adapted from the independent explainer <a href="https://kaspaexplained.com" target="_blank" rel="noreferrer" className="text-[#49EACB] hover:underline">kaspaexplained.com</a>. Confirmation is probabilistic, not instant settlement: very fast inclusion still carries a short reorg window, so deeper burial means stronger finality.</p>
+          </div>
+        </section>
+
         {/* GHOSTDAG & Core Consensus */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold text-white mb-4">GHOSTDAG: The Heart of Kaspa Consensus</h2>
@@ -225,7 +252,7 @@ export default function WhatIsKaspaPage() {
               { icon: Calendar, label: 'Launch Date', value: '7 Nov 2021', sub: 'Fair launch: zero premine, zero ICO', badge: 'VERIFIED' },
               { icon: CheckCircle2, label: 'Practical Finality', value: '5-10 sec', sub: 'Strong probabilistic confirmation; usable for payments', badge: 'VERIFIED' },
               { icon: Code2, label: 'Primary Node', value: 'rusty-kaspa', sub: 'Production Rust implementation, high performance', badge: null },
-              { icon: FileCode, label: 'Covenants', value: 'SilverScript', sub: 'Native Kaspa covenants, activating on mainnet via the Toccata hard fork in the 2026 window (no confirmed day)', badge: 'TOCCATA' },
+              { icon: FileCode, label: 'Covenants', value: 'SilverScript', sub: 'Native Kaspa covenants, activating on mainnet at the Toccata hard fork: DAA score 474,165,565, expected ~30 June 2026.', badge: 'TOCCATA' },
               { icon: Scissors, label: 'Pruning', value: 'Active', sub: 'Aggressive NIPoW pruning; nodes retain ~30-42 hours of recent history', badge: 'VERIFIED' },
               { icon: FlaskConical, label: 'Covenant Fork', value: 'Toccata', sub: 'The covenant-centric hard fork bringing SilverScript to Kaspa mainnet', badge: 'TARGET' },
             ].map((s, i) => (
@@ -265,6 +292,7 @@ export default function WhatIsKaspaPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
               { title: "Kaspa Official Website", desc: "News, ecosystem, stats, and high-level vision", href: "https://kaspa.org" },
+              { title: "Kaspa Explained (independent)", desc: "A status-categorized explainer: every claim labeled live / testnet / roadmap / research, with a claims checker and an honest risks section", href: "https://kaspaexplained.com" },
               { title: "Publications & Research", desc: "The canonical list of all whitepapers and academic output", href: "https://kaspa.org/publications/" },
               { title: "Developments & Roadmap", desc: "Protocol upgrades, DAGKNIGHT status, pruning, and upcoming features", href: "https://kaspa.org/developments/" },
               { title: "Mainnet BlockDAG Explorer", desc: "Live visualization of the DAG, blocks, and transactions", href: "https://kaspa.stream" },

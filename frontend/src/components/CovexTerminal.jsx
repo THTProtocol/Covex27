@@ -577,14 +577,25 @@ export function resolveCircuit(raw, kind) {
   return kind === 'oracle' ? 'oracle_single' : 'merkle_membership';
 }
 
+// Fold any chess catalog variant (chess_blitz / chess_bullet / chess_legal_move / ...) onto the
+// canonical chess gameMeta key chess_blitz, so the script-generator switch resolves to the chess
+// covenant shell for every chess circuit instead of falling through to the custom default. The
+// deleted chess_v1 id is also mapped, so an older saved config still resolves. Non-chess ids pass
+// through unchanged. Exported for the GAP-11 regression test.
+export function canonicalGameMetaKey(gameType) {
+  const g = String(gameType || '');
+  if (g === 'chess_v1' || g.startsWith('chess')) return 'chess_blitz';
+  return g;
+}
+
 // ── Standalone SilverScript Generator (exported for the premium builder flow) ──
 export function generateSilverScriptForConfig(cfg) {
   const {
-    gameType = 'chess_v1',
+    gameType = 'chess_blitz',
     feePercent = 2,
     resolutionMode = 'oracle',
     customOracleKey = '',
-    zkCircuit = 'chess_v1',
+    zkCircuit = 'chess_blitz',
     zkVerifierKey = '',
     reusable = true,
     allowTopups = false,
@@ -598,8 +609,11 @@ export function generateSilverScriptForConfig(cfg) {
   const feeCreator = 10000 - feePlatform;
 
   const gameMeta = (() => {
-    switch (gameType) {
-      case 'chess_v1':
+    // Every chess catalog variant (chess_blitz is the canonical playable one) shares the chess
+    // covenant shell; chess is resolved by the deterministic server-authoritative engine, NOT a
+    // ZK circuit (there is no chess SNARK).
+    switch (canonicalGameMetaKey(gameType)) {
+      case 'chess_blitz':
         return {
           covenantName: 'ChessDuelCovenant',
           outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw',
@@ -714,7 +728,7 @@ export function generateSilverScriptForConfig(cfg) {
   let effectiveResolution = resolutionMode;
   switch (effectiveResolution) {
     case 'zk':
-      resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier: ${zkVerifierKey || 'built-in'}\n  ;; Full FIDE chess ruleset proven (castling/en-passant/checkmate/50-move/repetition)\n  OpZkVerify ${zkVerifierKey || '0xCHESSv1_8x8_STANDARD'} ;; circuit: ${zkCircuit}`;
+      resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier: ${zkVerifierKey || 'built-in'}\n  ;; The proof is verified OFF-CHAIN (snarkjs against the audited vkey, fail-closed); a deployer-bound resolver co-signs the release.\n  OpZkVerify ${zkVerifierKey || '0x... (set the circuit verifier key)'} ;; circuit: ${zkCircuit}`;
       break;
     case 'custom_oracle':
       resolveBlock = `\n  ;; ── Resolution: Custom Oracle\n  ;; Key: ${(customOracleKey || '').slice(0, 16)}...`;
@@ -986,7 +1000,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
   // Visual live editor integrated directly here (no separate page)
   const [visualConfig, setVisualConfig] = useState({
     feePercent: 2.0,
-    selectedCircuits: ['chess_v1'],
+    selectedCircuits: ['chess_blitz'],
     resolutionMode: 'hybrid',
     minStake: 10,
     maxStake: 0, // 0 = no maximum stake (any amount allowed)
@@ -1238,7 +1252,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
     const totalFee = fee + creatorCut;
     const winnerShare = Math.max(0, 100 - totalFee);
     const hasMaxStake = Number(cfg.maxStake) > 0;
-    const circuits = cfg.selectedCircuits.length ? cfg.selectedCircuits : ['chess_v1'];
+    const circuits = cfg.selectedCircuits.length ? cfg.selectedCircuits : ['chess_blitz'];
     const circuitList = circuits.map(id => {
       const c = ZK_CIRCUIT_TYPES.find(x => x.id === id);
       return c ? `${c.name} (${c.reality || 'hybrid'})` : id;
@@ -1294,11 +1308,15 @@ contract VisualCovenant {
   // ── Section C: Outcome Resolution ──
   const [resolutionMode, setResolutionMode] = useState('oracle');
   const [customOracleKey, setCustomOracleKey] = useState('');
-  const [zkCircuit, setZkCircuit] = useState('chess_v1');
+  // Default to a REAL shipping catalog circuit. chess_v1 was deleted (the ZK circuit was removed;
+  // chess is resolved by the server-authoritative engine, not a SNARK), so chess_blitz - the
+  // canonical playable chess builder entry in lib/playableGames.js - is the live default the
+  // gallery, the arena gate, and the script generator all resolve against.
+  const [zkCircuit, setZkCircuit] = useState('chess_blitz');
   const [zkVerifierKey, setZkVerifierKey] = useState('');
 
   // ── Section 0: Game Type ──
-  const [gameType, setGameType] = useState('chess_v1');
+  const [gameType, setGameType] = useState('chess_blitz');
   const [infoCircuit, setInfoCircuit] = useState(null); // circuit being inspected in the TransparencyModal
 
   // eslint-disable-next-line react-hooks/preserve-manual-memoization -- the only deps the compiler infers as missing are stable useState setters (identity never changes), so this manual useCallback/useMemo memoization is correct as written; adding them is a no-op at best and a TDZ reference at worst (some setters are declared lower in this large component)
@@ -1325,10 +1343,10 @@ contract VisualCovenant {
       // Auto-configure ZK resolution mode when a circuit type is selected
       setResolutionMode('zk');
       setZkCircuit(gt.circuit);
-      // Pre-fill verifier key for known circuits
-      if (gt.circuit === 'chess_v1') {
-        setZkVerifierKey('0xCHESSv1_8x8_STANDARD');
-      } else if (gt.circuit === 'merkle_generic') {
+      // Pre-fill verifier key for known circuits. Chess is intentionally absent: it has no ZK
+      // circuit (resolved by the server-authoritative engine), so a chess selection leaves the
+      // key blank (the else branch) rather than suggesting a non-existent chess verifier key.
+      if (gt.circuit === 'merkle_generic') {
         setZkVerifierKey('0xMERKLE_GENERIC_V1');
       } else if (gt.circuit === 'bulletproofs_v1') {
         setZkVerifierKey('0xBULLETPROOFS_V1');
@@ -1350,11 +1368,11 @@ contract VisualCovenant {
   const [generatedScript, setGeneratedScript] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // ── Chess ZK Arena State (only for chess_v1) ──
+  // ── Chess Arena State (only for the canonical playable chess id, chess_blitz) ──
   const [chessStake, setChessStake] = useState(50);
   const [chessMatchState, setChessMatchState] = useState('idle'); // idle | posted | matched | playing | finished
   const [chessGame, setChessGame] = useState(() => new Chess());
-  // Proving mode selector exposed in UI for chess_v1 (persisted in terminal config / passed to oracle proofs)
+  // Proving mode selector exposed in UI for chess (persisted in terminal config / passed to oracle proofs)
   const [chessPlayerColor, setChessPlayerColor] = useState('w');
   const [chessOpponent, setChessOpponent] = useState('');
   const [chessResult, setChessResult] = useState(null); // { outcome: 'white'|'black'|'draw', method: 'checkmate'|'resign'|'draw' }
@@ -1582,13 +1600,14 @@ contract VisualCovenant {
 
     // ── ZK circuit-specific covenant definitions ──
   const gameMeta = (() => {
-    switch (gameType) {
-      case 'chess_v1':
+    switch (canonicalGameMetaKey(gameType)) {
+      case 'chess_blitz':
         return {
           covenantName: 'ChessDuelCovenant',
           outcomeEnum: 'Outcome::PlayerAWins | PlayerBWin | Draw',
           outcomeBranches: `      // 2% platform fee already taken at resolution (winner takes all minus fee)
-    // ZK CIRCUIT (chess_v1) ENFORCES THE COMPLETE FIDE RULESET:
+    // FIDE RULESET (enforced by the deterministic server-authoritative engine, NOT a ZK circuit;
+    // there is no chess SNARK - the result is recomputed by replaying the signed move log):
     // • Standard 8x8 starting position + all piece movement rules
     // • Pawn: forward only, double-step from rank 2/7, captures diagonally, en passant
     // • Knight: L-shape (2,1), can jump
@@ -1605,7 +1624,7 @@ contract VisualCovenant {
     // • Threefold repetition: identical position repeated 3 times → draw
     // • Insufficient material: K vs K, K+B vs K, K+N vs K → draw
     // • Promotion: pawn reaching last rank must promote to Q/R/B/N
-    // The ZK proof commits to the full PGN + final FEN and proves every transition was legal.
+    // The server engine validates the full PGN + final FEN, checking every transition is legal.
     Outcome::PlayerAWins => {
       require(
         VerifyPayout(treasury, player_a, pot),
@@ -1738,7 +1757,7 @@ contract VisualCovenant {
         resolveBlock = `\n  ;; ── Resolution: External Resolver (bring your own)\n  ;; Resolver x-only pubkey: ${customOracleKey || '(not set)'}\n  ;; Deploy this as an Oracle Escrow in Enforced Deploy with this key, and the covenant locks on-chain to THIS resolver: releasing funds needs the resolver's co-signature, and Covex's key is not in the path. Covex does not attest real-world facts.`;
         break;
       case 'zk':
-        resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier key: ${zkVerifierKey || '(built-in)'}\n  ;; Full FIDE chess ruleset proven (castling/en-passant/checkmate/50-move/repetition)\n  OpZkVerify ${zkVerifierKey || '0x00'} ;; circuit: ${zkCircuit}`;
+        resolveBlock = `\n  ;; ── Resolution: ZK Proof (${zkCircuit})\n  ;; Verifier key: ${zkVerifierKey || '(built-in)'}\n  ;; The proof is verified OFF-CHAIN (snarkjs against the audited vkey, fail-closed); a deployer-bound resolver co-signs the release.\n  OpZkVerify ${zkVerifierKey || '0x00'} ;; circuit: ${zkCircuit}`;
         break;
       default:
         resolveBlock = `\n  ;; ── Resolution: deployer-bound resolver co-signature\n  OpCheckSig resolver_pubkey ;; resolver_pubkey (deployer-bound)`;
@@ -1757,7 +1776,7 @@ contract VisualCovenant {
 ;; SilverScript: ${gameMeta.covenantName}
 ;; Game Type: ${GAME_TYPES.find(g => g.id === gameType)?.name || gameType}
 ;; Generated by Covex Terminal
-;; ${gameType.startsWith('chess') ? 'ZK proves complete FIDE ruleset (see unlock() for full list)' : ''}
+;; ${gameType.startsWith('chess') ? 'Chess: the server-authoritative engine enforces the full FIDE ruleset (see unlock() for the list); there is no chess ZK circuit' : ''}
 ;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Covenant ${gameMeta.covenantName} {
@@ -1801,7 +1820,7 @@ ${gameMeta.outcomeBranches}
     if (!gameType.startsWith('chess')) return '';
     try {
       return generateSilverScriptForConfig({
-        gameType: 'chess_v1', // chess variants all map to the same FIDE covenant template
+        gameType: 'chess_blitz', // chess variants all map to the same FIDE covenant template
         feePercent,
         potReturnPercent,
         resolutionMode: 'oracle',
@@ -2185,7 +2204,7 @@ ${gameMeta.outcomeBranches}
           if (cfg.resolution_mode) setResolutionMode(cfg.resolution_mode);
           if (cfg.custom_oracle_key) setCustomOracleKey(cfg.custom_oracle_key);
           if (cfg.zk_circuit) setZkCircuit(cfg.zk_circuit);
-          if (cfg.zk_circuit === 'chess_v1' && typeof cfg.proving_mode === 'number') setChessProvingMode(cfg.proving_mode);
+          if (String(cfg.zk_circuit || '').startsWith('chess') && typeof cfg.proving_mode === 'number') setChessProvingMode(cfg.proving_mode);
           if (cfg.timelock?.mode) setTimelockMode(cfg.timelock.mode);
           if (cfg.timelock?.max_delta_daa != null) setMaxDeltaDaa(cfg.timelock.max_delta_daa);
           if (cfg.timelock?.lock_duration_daa != null) setLockDurationDaa(cfg.timelock.lock_duration_daa);
@@ -2309,7 +2328,10 @@ ${gameMeta.outcomeBranches}
           ? 'merkle_membership'
           : gameType.startsWith('age') ? 'age_verification'
           : gameType === 'verifiable' ? 'verifiable'
-          : gameType === 'chess_v1' ? 'chess_v1'
+          // The resolver's wire protocol alias for chess is 'chess_v1' (game_engine.rs
+          // game_type_for_circuit maps chess_v1 -> the replayable "chess" engine); keep that
+          // value on the wire even though the UI circuit id is chess_blitz.
+          : gameType.startsWith('chess') ? 'chess_v1'
           : gameType === 'tictactoe_v1' ? 'tictactoe_v1'
           : gameType === 'connect4_v1' ? 'connect4_v1'
           : 'custom';
@@ -2334,7 +2356,7 @@ ${gameMeta.outcomeBranches}
         custom_oracle_key: resolutionMode === 'custom' ? customOracleKey : null,
         zk_circuit: zkCircuit,
         zk_verifier_key: zkVerifierKey || (circuitType === 'range_proof' ? '0xBULLETPROOFS_V1' : circuitType === 'merkle_membership' ? '0xMERKLE_GENERIC_V1' : circuitType === 'age_verification' ? '0xAGE_VERIFY_V1' : circuitType === 'verifiable' ? '0xRISC0_GENERIC_V1' : '0xCUSTOM_V1'),
-        ...(zkCircuit === 'chess_v1' ? { proving_mode: chessProvingMode } : {}),
+        ...(gameType.startsWith('chess') ? { proving_mode: chessProvingMode } : {}),
         ...(gameType.startsWith('chess') ? {
           time_control: { base_minutes: chessBaseMinutes, increment_seconds: chessIncrementSeconds },
           custom_ui_config: chessUiConfig,
@@ -2442,7 +2464,7 @@ ${gameMeta.outcomeBranches}
       custom_oracle_key: resolutionMode === 'custom' ? customOracleKey : null,
       zk_circuit: resolutionMode === 'zk' ? zkCircuit : null,
       zk_verifier_key: resolutionMode === 'zk' ? zkVerifierKey : null,
-      ...(resolutionMode === 'zk' ? { proving_mode: zkCircuit === 'chess_v1' ? chessProvingMode : undefined, timelock: buildTimelockConfig() } : {}),
+      ...(resolutionMode === 'zk' ? { proving_mode: String(zkCircuit || '').startsWith('chess') ? chessProvingMode : undefined, timelock: buildTimelockConfig() } : {}),
       signer_address: addr || undefined,
       signature: sig || undefined,
       nonce: nonce || undefined,
@@ -2820,14 +2842,14 @@ ${gameMeta.outcomeBranches}
                   return (
                     <button key={c.id} onClick={() => {
                       const next = active ? visualConfig.selectedCircuits.filter(x => x !== c.id) : [...visualConfig.selectedCircuits, c.id];
-                      updateVisual({ selectedCircuits: next.length ? next : ['chess_v1'] });
+                      updateVisual({ selectedCircuits: next.length ? next : ['chess_blitz'] });
                     }} title={isProd ? 'Production: real prover/verifier wired' : 'Roadmap: resolver-attested, no dedicated prover yet'} className={`inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-lg border transition ${active ? 'bg-[#49EACB]/10 border-[#49EACB] text-white light:text-slate-900 light:bg-[#49EACB]/15' : 'border-white/10 hover:bg-white/5 text-gray-300 light:border-slate-300 light:text-slate-600 light:hover:bg-slate-100'}`}>
                       <span aria-hidden="true" className={`w-1.5 h-1.5 rounded-full ${isProd ? 'bg-emerald-400' : 'bg-violet-400'}`} />
                       {c.name}
                     </button>
                   );
                 };
-                const POPULAR = ['chess_v1', 'chess_blitz', 'poker_v1', 'merkle_membership', 'range_proof'];
+                const POPULAR = ['chess_blitz', 'poker_v1', 'merkle_membership', 'range_proof'];
                 const collapsed = ZK_CIRCUIT_TYPES.filter(c => visualConfig.selectedCircuits.includes(c.id) || POPULAR.includes(c.id));
                 const TITLE = { crypto: 'Zero-knowledge & crypto', oracle: 'Resolvers & data feeds', defi: 'DeFi & lending', game: 'Games', identity: 'Identity & gating', gating: 'Identity & gating', compute: 'Verifiable compute', general: 'Primitives & timelocks' };
                 const groups = {};
@@ -2948,14 +2970,14 @@ ${gameMeta.outcomeBranches}
           {(() => {
             const popular = [
               // Games (resolver-attested, live)
-              'chess_v1', 'chess_blitz', 'poker_v1', 'blackjack_v1', 'checkers_v1', 'connect4_v1', 'tictactoe_v1', 'reversi_v1',
+              'chess_blitz', 'poker_v1', 'blackjack_v1', 'checkers_v1', 'connect4_v1', 'tictactoe_v1', 'reversi_v1',
               // Real ZK / crypto primitives (Groth16-backed)
               'merkle_membership', 'range_proof', 'hash_preimage', 'age_verification', 'escrow_2party', 'timelock_absolute',
               // DeFi / oracle covenants
               'prediction_market', 'pot_distribution', 'auction_dutch', 'parametric_insurance', 'anti_sybil',
             ];
             const circuitDescriptions = {
-              chess_v1: 'Proves every legal move and terminal condition according to official FIDE chess rules on 8×8 board.',
+              chess_blitz: 'Full FIDE chess, resolved by the deterministic server-authoritative engine (it replays the signed move log; anyone can recompute). There is no chess ZK circuit.',
               merkle_membership: 'Proves a leaf exists in a committed Merkle root without revealing sibling paths.',
               range_proof: 'Proves a committed value lies within [min, max] bounds without revealing the value.',
               age_verification: 'Proves birthdate ≥ threshold years before a reference date. Zero-knowledge KYC alternative.',
@@ -3128,13 +3150,20 @@ ${gameMeta.outcomeBranches}
                   <div className="flex items-center gap-3 pt-1.5 border-t border-kaspa-green/15 light:border-emerald-200">
                     <span className="text-[10px] text-gray-200 light:text-slate-700 font-mono light:text-slate-600">Auto-suggested Verifier Key</span>
                     <code className="text-[11px] font-mono text-kaspa-green/90 bg-kaspa-green/[0.06] px-2 py-0.5 rounded truncate max-w-[280px]">
-                      {zkVerifierKey || activeCircuit.circuit === 'chess_v1' ? '0xCHESSv1_8x8_STANDARD' :
+                      {/* Show the user's own key when set, else the per-circuit suggestion. The
+                          parens around the per-circuit ladder are load-bearing: the old
+                          `zkVerifierKey || circuit === 'chess_v1' ? ...` parsed as
+                          `(zkVerifierKey || (circuit==='chess_v1')) ? A : B` (|| binds looser than
+                          ===), so ANY set key forced the chess suggestion. Chess has no ZK circuit,
+                          so it now suggests no key rather than a dead 0xCHESSv1 string. */}
+                      {zkVerifierKey ? zkVerifierKey : (
                        activeCircuit.circuit === 'merkle_generic' ? '0xMERKLE_GENERIC_V1' :
                        activeCircuit.circuit === 'bulletproofs_v1' ? '0xBULLETPROOFS_V1' :
                        activeCircuit.circuit === 'age_verify_v1' ? '0xAGE_VERIFY_V1' :
                        activeCircuit.circuit === 'risc0_generic' ? '0xRISC0_GENERIC_V1' :
                        activeCircuit.circuit === 'custom' ? '(manual entry required)' :
-                       'CIRCUIT_VERIFIER_KEY'}
+                       String(activeCircuit.circuit || '').startsWith('chess') ? '(none - chess is server-authoritative, no ZK key)' :
+                       'CIRCUIT_VERIFIER_KEY')}
                     </code>
                   </div>
                 </div>
@@ -3157,17 +3186,17 @@ ${gameMeta.outcomeBranches}
               </div>
               {(() => {
                 const details = (() => {
-                  switch (gameType) {
-                    case 'chess_v1':
+                  switch (canonicalGameMetaKey(gameType)) {
+                    case 'chess_blitz':
                       return {
-                        circuitName: 'Chess v1 (FIDE Complete)',
-                        circuitId: 'chess_v1',
-                        verifierKey: zkVerifierKey || '0xCHESSv1_8x8_STANDARD',
+                        circuitName: 'Chess (server-authoritative engine, not a ZK circuit)',
+                        circuitId: 'chess_blitz',
+                        verifierKey: '(none - chess has no ZK circuit; resolved by a deployer-bound resolver)',
                         publicInputs: ['PGN game transcript (moves in algebraic notation)', 'Final FEN position', 'Player A pubkey hash', 'Player B pubkey hash'],
-                        privateWitness: ['Full move-by-move board state', 'Castling rights vector', 'En passant target square', '50-move rule counter', 'Threefold repetition hash chain'],
-                        whatItProves: 'Every move in the PGN is a legal chess move according to FIDE rules, the final position matches the claimed outcome, and the outcome is one of: Win/Loss/Draw.',
-                        gasEstimate: '~2.1M constraints',
-                        covenantFlow: 'Player A commits KAS to covenant. Player B matches stake. Players play off-chain. Loser (or draw-trigger) submits ZK proof of outcome to unlock funds. Winner receives pot minus platform fee.',
+                        privateWitness: ['(none - the full move log is public; anyone can recompute the result)'],
+                        whatItProves: 'There is no chess SNARK. The deterministic engine replays the signed move log to confirm every move is legal per FIDE and to derive the outcome (Win/Loss/Draw); the counterparty or a deployer-bound external resolver co-signs the release. Anyone can recompute the result from the public move log.',
+                        gasEstimate: 'n/a (off-chain engine, no proof)',
+                        covenantFlow: 'Player A commits KAS to the covenant. Player B matches the stake. Players play; the move log is signed. The server-authoritative engine derives the outcome and a deployer-bound resolver co-signs the on-chain release. Winner receives the pot minus the platform fee.',
                       };
                     case 'merkle_membership':
                       return {
@@ -3520,8 +3549,8 @@ ${gameMeta.outcomeBranches}
         </section>
       )}
 
-      {/* ─── FULL CHESS ZK ARENA (only for chess_v1) ─── */}
-      {(gameType === 'chess_v1') && (
+      {/* ─── FULL CHESS ARENA (only for the canonical playable chess id, chess_blitz) ─── */}
+      {(gameType === 'chess_blitz') && (
         <section className={`${SECTION_BASE} border-[#49EACB]/30 bg-[#0a1412] ring-1 ring-[#49EACB]/20`}>
           <div className="flex items-center justify-between">
             <div className={SECTION_HEADER}>
@@ -3949,7 +3978,7 @@ ${gameMeta.outcomeBranches}
       </div>
 
       {/* PROFESSIONAL FULL-SCREEN CHESS ARENA (chess.com quality) - mobile-first responsive */}
-      {showFullScreenChess && gameType === 'chess_v1' && (
+      {showFullScreenChess && gameType === 'chess_blitz' && (
         <div className="fixed inset-0 z-[999] flex flex-col bg-[#050505] bg-[radial-gradient(circle_at_50%_20%,#0a0f0d_0%,#050505_70%)] light:bg-slate-100 light:bg-[radial-gradient(circle_at_50%_20%,#e7edf2_0%,#f1f5f9_70%)]">
           {/* Pro top bar - compact on mobile */}
           <div className="h-10 sm:h-14 border-b border-white/10 flex items-center justify-between px-2 sm:px-4 text-xs sm:text-sm bg-black/60 backdrop-blur-xl shrink-0">
@@ -4436,7 +4465,7 @@ ${gameMeta.outcomeBranches}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-purple-300">
-                        {zkCircuit === 'chess_v1' ? 'Chess v1 (Standard 8×8)' :
+                        {String(zkCircuit || '').startsWith('chess') ? 'Chess (server-authoritative engine, no ZK circuit)' :
                          zkCircuit === 'merkle_generic' ? 'Merkle Membership Proof' :
                          zkCircuit === 'bulletproofs_v1' ? 'Range Proof (Bulletproofs)' :
                          zkCircuit === 'age_verify_v1' ? 'Age Verification (ZK-KYC)' :
@@ -4450,8 +4479,8 @@ ${gameMeta.outcomeBranches}
                   </div>
                 </div>
                 <p className="text-[11px] text-gray-200 light:text-slate-700 leading-relaxed">
-                  {zkCircuit === 'chess_v1' &&
-                    'Chess outcome is resolver-attested: the server replays the move log (shakmaty) to decide the winner and co-signs it. Not an on-chain ZK proof - no third-party audit is claimed.'}
+                  {String(zkCircuit || '').startsWith('chess') &&
+                    'Chess outcome is resolver-attested: the server replays the move log to decide the winner and co-signs it. There is no chess ZK circuit - not an on-chain ZK proof, no third-party audit is claimed.'}
                   {zkCircuit === 'merkle_generic' &&
                     'Proves a key/value pair exists in a committed Merkle tree. Used for whitelists, airdrop eligibility, DAO voting.'}
                   {zkCircuit === 'bulletproofs_v1' &&
@@ -4472,9 +4501,7 @@ ${gameMeta.outcomeBranches}
                   value={zkVerifierKey}
                   onChange={(e) => setZkVerifierKey(e.target.value)}
                   placeholder={
-                    zkCircuit === 'chess_v1'
-                      ? '0xCHESSv1_8x8_STANDARD'
-                      : zkCircuit === 'merkle_generic'
+                    zkCircuit === 'merkle_generic'
                       ? '0xMERKLE_GENERIC_V1'
                       : zkCircuit === 'bulletproofs_v1'
                       ? '0xBULLETPROOFS_V1'
@@ -4482,6 +4509,8 @@ ${gameMeta.outcomeBranches}
                       ? '0xAGE_VERIFY_V1'
                       : zkCircuit === 'risc0_generic'
                       ? '0xRISC0_GENERIC_V1'
+                      : String(zkCircuit || '').startsWith('chess')
+                      ? '(none - chess is server-authoritative, no ZK key)'
                       : '0x... (paste your verifier key)'
                   }
                   className={`${INPUT} font-mono text-xs ${

@@ -2651,6 +2651,411 @@ pub struct P2shDeployRequest {
     pub redeem: RedeemSpec,
 }
 
+/// GAP 3 (single source of truth for the deployable redeem-kind set): the ONE parser both deploy
+/// handlers call to turn a `RedeemSpec` (the request's `redeem` field) into a `RedeemKind` enum
+/// value. Before this, the custodial dev path (`p2sh_deploy_handler`) and the non-custodial wallet
+/// path (`build_redeem_from_spec`) had DISJOINT, hand-maintained match statements, so a kind could
+/// be deployable on one path and unknown on the other, and the catalog advertised oracle_*_refundable
+/// kinds that deployed through NEITHER. Routing both handlers through this function makes the
+/// deployable set IDENTICAL regardless of path (a UNION of everything either path supported, plus
+/// the two refundable kinds the catalog already advertises and whose redeem-script/enum/spend
+/// support already exist).
+///
+/// `owner_xonly` is the deployer's own x-only key (the default single-signer / refund / winner key).
+/// `dev_xonly` is `Some(&[k1, k2, ...])` only for the custodial dev-mode path (the two dev wallets'
+/// x-only pubkeys, pre-derived); it is `None` for the wallet path, so the dev fallbacks error exactly
+/// as the old wallet builder did when explicit pubkeys were omitted. `network` is used ONLY by the
+/// zk_game_settle gate (which is itself network-aware). Mainnet / activation gates that need the
+/// request context (oracle-freeze, binary_oracle_select external-hash, mainnet_covenants_enabled)
+/// stay in the HANDLERS and run BEFORE this parser, so they are unchanged.
+///
+/// The kind STRINGS persisted with the covenant come from `RedeemKind::kind_str()` (the single
+/// source of truth), which is byte-identical to the strings both old paths produced, so existing
+/// rows keep round-tripping through the spend path's `SpendKind::parse`.
+fn parse_redeem_spec(
+    spec: &RedeemSpec,
+    owner_xonly: &[u8; 32],
+    dev_xonly: Option<&[[u8; 32]]>,
+    network: &str,
+) -> BResult<RedeemKind> {
+    let xonly = *owner_xonly;
+    // Resolve [a, b] player/member keys for a 2-party kind: explicit pubkeys_hex win; else the two
+    // dev wallets (custodial dev-mode only); else a clear error. Mirrors the per-arm logic verbatim.
+    let two_party = |what: &str| -> BResult<([u8; 32], [u8; 32])> {
+        if let Some(pks) = &spec.pubkeys_hex {
+            if pks.len() >= 2 {
+                Ok((decode_xonly_hex(&pks[0])?, decode_xonly_hex(&pks[1])?))
+            } else {
+                Err(format!("{what} needs pubkeys_hex=[a, b]"))
+            }
+        } else if let Some(dk) = dev_xonly {
+            if dk.len() >= 2 {
+                Ok((dk[0], dk[1]))
+            } else {
+                Err(format!("{what} dev mode needs two dev wallets"))
+            }
+        } else {
+            Err(format!("{what} requires pubkeys_hex=[a, b] (or use_dev_mode)"))
+        }
+    };
+    match spec.kind.as_str() {
+        "singlesig" => Ok(RedeemKind::SingleSig { xonly_pubkey: xonly }),
+        "hashlock" => {
+            let preimage_hex = spec
+                .preimage_hex
+                .as_ref()
+                .ok_or("hashlock requires preimage_hex")?;
+            let preimage =
+                hex::decode(preimage_hex.trim()).map_err(|e| format!("bad preimage_hex: {e}"))?;
+            Ok(RedeemKind::HashLock {
+                hash: blake2b256(&preimage),
+                xonly_pubkey: xonly,
+            })
+        }
+        "timelock" => {
+            let lock_daa = spec.lock_daa.ok_or("timelock requires lock_daa")?;
+            Ok(RedeemKind::Timelock {
+                lock_daa,
+                xonly_pubkey: xonly,
+            })
+        }
+        "multisig" => {
+            let pubkeys: Vec<[u8; 32]> = if let Some(pks) = &spec.pubkeys_hex {
+                let mut v = Vec::new();
+                for p in pks {
+                    v.push(decode_xonly_hex(p)?);
+                }
+                v
+            } else if let Some(dk) = dev_xonly {
+                dk.to_vec()
+            } else {
+                return Err(
+                    "multisig requires pubkeys_hex (or use_dev_mode for the two dev wallets)".into(),
+                );
+            };
+            let required = spec.required.unwrap_or(pubkeys.len());
+            Ok(RedeemKind::Multisig { pubkeys, required })
+        }
+        "htlc" => {
+            let preimage_hex = spec.preimage_hex.as_ref().ok_or("htlc requires preimage_hex")?;
+            let preimage =
+                hex::decode(preimage_hex.trim()).map_err(|e| format!("bad preimage_hex: {e}"))?;
+            let hash = blake2b256(&preimage);
+            let lock_daa = spec.lock_daa.ok_or("htlc requires lock_daa (refund deadline)")?;
+            // receiver (claim) and sender (refund) pubkeys: explicit, or dev wallets (receiver=dev
+            // wallet 2, sender=dev wallet 1, matching the old per-arm dev mapping).
+            let (receiver, sender) = if let (Some(r), Some(s)) =
+                (&spec.receiver_pubkey_hex, &spec.sender_pubkey_hex)
+            {
+                (decode_xonly_hex(r)?, decode_xonly_hex(s)?)
+            } else if let Some(dk) = dev_xonly {
+                if dk.len() >= 2 {
+                    (dk[1], dk[0])
+                } else {
+                    return Err("htlc dev mode needs two dev wallets".into());
+                }
+            } else {
+                return Err(
+                    "htlc requires receiver_pubkey_hex + sender_pubkey_hex (or use_dev_mode)".into(),
+                );
+            };
+            Ok(RedeemKind::Htlc {
+                hash,
+                receiver_pubkey: receiver,
+                lock_daa,
+                sender_pubkey: sender,
+            })
+        }
+        "oracle_enforced" => {
+            let oracle = resolve_oracle_xonly(&spec.oracle_pubkey_hex)?;
+            Ok(RedeemKind::OracleEnforced {
+                oracle,
+                winner: xonly,
+            })
+        }
+        "oracle_escrow" => {
+            let oracle = resolve_oracle_xonly(&spec.oracle_pubkey_hex)?;
+            let (pa, pb) = two_party("oracle_escrow")?;
+            Ok(RedeemKind::OracleEscrow {
+                oracle,
+                player_a: pa,
+                player_b: pb,
+            })
+        }
+        // GAP 3: oracle_enforced_refundable / oracle_escrow_refundable are advertised by the catalog
+        // and fully supported by RedeemKind + redeem_script + SpendKind::parse, but were deployable
+        // through NEITHER handler. Wire them here so the catalog stops advertising undeployable kinds.
+        // They wrap the existing oracle 2-of-2 / escrow with a CSV refund tail (refund defaults to the
+        // deployer; min_sequence from lock_daa).
+        "oracle_enforced_refundable" => {
+            let oracle = resolve_oracle_xonly(&spec.oracle_pubkey_hex)?;
+            let min_sequence = spec
+                .lock_daa
+                .ok_or("oracle_enforced_refundable requires lock_daa (the CSV refund min_sequence)")?;
+            let refund = match &spec.refund_pubkey_hex {
+                Some(h) if !h.trim().is_empty() => decode_xonly_hex(h)?,
+                _ => xonly,
+            };
+            Ok(RedeemKind::OracleEnforcedRefundable {
+                oracle,
+                winner: xonly,
+                min_sequence,
+                refund,
+            })
+        }
+        "oracle_escrow_refundable" => {
+            let oracle = resolve_oracle_xonly(&spec.oracle_pubkey_hex)?;
+            let (pa, pb) = two_party("oracle_escrow_refundable")?;
+            let min_sequence = spec
+                .lock_daa
+                .ok_or("oracle_escrow_refundable requires lock_daa (the CSV refund min_sequence)")?;
+            let refund = match &spec.refund_pubkey_hex {
+                Some(h) if !h.trim().is_empty() => decode_xonly_hex(h)?,
+                _ => xonly,
+            };
+            Ok(RedeemKind::OracleEscrowRefundable {
+                oracle,
+                player_a: pa,
+                player_b: pb,
+                min_sequence,
+                refund,
+            })
+        }
+        "channel" => {
+            let (p1k, p2k) = two_party("channel")?;
+            let lock_daa = spec
+                .lock_daa
+                .ok_or("channel requires lock_daa (the refund deadline)")?;
+            Ok(RedeemKind::Channel {
+                p1: p1k,
+                p2: p2k,
+                lock_daa,
+            })
+        }
+        "deadman" => {
+            let heir = if let Some(pks) = &spec.pubkeys_hex {
+                match pks.first() {
+                    Some(h) => decode_xonly_hex(h)?,
+                    None => return Err("deadman requires pubkeys_hex=[heir]".into()),
+                }
+            } else if let Some(dk) = dev_xonly {
+                if dk.len() >= 2 {
+                    dk[1]
+                } else {
+                    return Err("deadman dev mode needs the 2nd dev wallet".into());
+                }
+            } else {
+                return Err(
+                    "deadman requires pubkeys_hex=[heir] (or use_dev_mode for the 2nd dev wallet)"
+                        .into(),
+                );
+            };
+            let lock_daa = spec
+                .lock_daa
+                .ok_or("deadman requires lock_daa (the inheritance deadline)")?;
+            Ok(RedeemKind::Deadman {
+                owner: xonly,
+                heir,
+                lock_daa,
+            })
+        }
+        "relative_timelock" => {
+            let min_sequence = spec
+                .lock_daa
+                .ok_or("relative_timelock requires lock_daa (used as min_sequence)")?;
+            Ok(RedeemKind::RelativeTimelock {
+                min_sequence,
+                xonly_pubkey: xonly,
+            })
+        }
+        "timedecay" => {
+            let pubkeys: Vec<[u8; 32]> = if let Some(pks) = &spec.pubkeys_hex {
+                let mut v = Vec::new();
+                for p in pks {
+                    v.push(decode_xonly_hex(p)?);
+                }
+                v
+            } else if let Some(dk) = dev_xonly {
+                dk.to_vec()
+            } else {
+                return Err(
+                    "timedecay requires pubkeys_hex (or use_dev_mode for the two dev wallets)".into(),
+                );
+            };
+            let req_now = spec.required.unwrap_or(pubkeys.len());
+            let req_after = spec
+                .req_after
+                .ok_or("timedecay requires req_after (the relaxed threshold valid after lock_daa)")?;
+            let lock_daa = spec
+                .lock_daa
+                .ok_or("timedecay requires lock_daa (when the relaxed threshold activates)")?;
+            if req_after == 0 || req_now == 0 || req_after > pubkeys.len() || req_now > pubkeys.len()
+            {
+                return Err("timedecay thresholds must satisfy 0 < req_after,req_now <= n".into());
+            }
+            Ok(RedeemKind::TimeDecay {
+                pubkeys,
+                req_now,
+                req_after,
+                lock_daa,
+            })
+        }
+        "binary_oracle_select" => {
+            let decode32 = |s: &str, what: &str| -> BResult<[u8; 32]> {
+                match hex::decode(s.trim()) {
+                    Ok(b) if b.len() == 32 => {
+                        let mut a = [0u8; 32];
+                        a.copy_from_slice(&b);
+                        Ok(a)
+                    }
+                    Ok(_) => Err(format!("{what} must be 32 bytes (64 hex chars)")),
+                    Err(e) => Err(format!("bad {what}: {e}")),
+                }
+            };
+            let (h_a, h_b) = match (&spec.hash_a_hex, &spec.hash_b_hex) {
+                (Some(ha), Some(hb)) => (decode32(ha, "hash_a_hex")?, decode32(hb, "hash_b_hex")?),
+                _ => {
+                    let pa_hex = spec.preimage_hex.as_ref().ok_or(
+                        "binary_oracle_select requires hash_a_hex+hash_b_hex (commit to the resolver's published hashes) or preimage_hex+preimage_b_hex",
+                    )?;
+                    let pb_hex = spec.preimage_b_hex.as_ref().ok_or(
+                        "binary_oracle_select requires hash_a_hex+hash_b_hex or preimage_hex+preimage_b_hex (outcome B secret)",
+                    )?;
+                    let pa = hex::decode(pa_hex.trim())
+                        .map_err(|e| format!("bad preimage_hex: {e}"))?;
+                    let pb = hex::decode(pb_hex.trim())
+                        .map_err(|e| format!("bad preimage_b_hex: {e}"))?;
+                    (blake2b256(&pa), blake2b256(&pb))
+                }
+            };
+            let (winner_a, winner_b) = two_party("binary_oracle_select")?;
+            let refund = if let Some(r) = &spec.refund_pubkey_hex {
+                decode_xonly_hex(r)?
+            } else {
+                xonly
+            };
+            let min_sequence = spec
+                .lock_daa
+                .ok_or("binary_oracle_select requires lock_daa (used as the CSV refund min_sequence)")?;
+            Ok(RedeemKind::BinaryOracleSelect {
+                h_a,
+                winner_a,
+                h_b,
+                winner_b,
+                min_sequence,
+                refund,
+            })
+        }
+        "winner_bound" => {
+            kip10_introspection_available()?;
+            let winner = match &spec.winner_pubkey_hex {
+                Some(h) if !h.trim().is_empty() => decode_xonly_hex(h)?,
+                _ => xonly,
+            };
+            let fee = spec.fee_sompi.unwrap_or(TX_FEE);
+            if fee >= i64::MAX as u64 {
+                return Err("fee_sompi exceeds the signed-amount range".into());
+            }
+            let require_sig = spec.require_sig.unwrap_or(true);
+            Ok(RedeemKind::WinnerTakesAllBound {
+                winner,
+                fee_sompi: fee,
+                require_sig,
+            })
+        }
+        "escrow_bound" => {
+            kip10_introspection_available()?;
+            let (party_a, party_b) = two_party("escrow_bound")?;
+            let fee = spec.fee_sompi.unwrap_or(TX_FEE);
+            if fee >= i64::MAX as u64 {
+                return Err("fee_sompi exceeds the signed-amount range".into());
+            }
+            let min_sequence = spec
+                .lock_daa
+                .ok_or("escrow_bound requires lock_daa (the CSV refund min_sequence)")?;
+            let refund = match &spec.refund_pubkey_hex {
+                Some(h) if !h.trim().is_empty() => decode_xonly_hex(h)?,
+                _ => xonly,
+            };
+            Ok(RedeemKind::EscrowBound {
+                party_a,
+                party_b,
+                fee_sompi: fee,
+                min_sequence,
+                refund,
+            })
+        }
+        "zk_game_settle" => {
+            zk_precompile_deploy_allowed(network)?;
+            let vk = match &spec.vk_hex {
+                Some(h) => match hex::decode(h.trim()) {
+                    Ok(b) if !b.is_empty() => b,
+                    Ok(_) => return Err("zk_game_settle: vk_hex is empty".into()),
+                    Err(e) => return Err(format!("zk_game_settle: bad vk_hex: {e}")),
+                },
+                None => {
+                    return Err(
+                        "zk_game_settle requires vk_hex (ark-compressed BN254 VerifyingKey)".into(),
+                    )
+                }
+            };
+            let inputs_hex = spec
+                .public_inputs_hex
+                .as_ref()
+                .ok_or("zk_game_settle requires public_inputs_hex (5 x 32-byte LE Fr)")?;
+            if inputs_hex.len() != N_ZK_PUBLIC_INPUTS {
+                return Err(format!(
+                    "zk_game_settle: expected {N_ZK_PUBLIC_INPUTS} public_inputs_hex, got {}",
+                    inputs_hex.len()
+                ));
+            }
+            let mut public_inputs: Vec<[u8; 32]> = Vec::with_capacity(N_ZK_PUBLIC_INPUTS);
+            for (i, h) in inputs_hex.iter().enumerate() {
+                match hex::decode(h.trim()) {
+                    Ok(b) if b.len() == 32 => {
+                        let mut a = [0u8; 32];
+                        a.copy_from_slice(&b);
+                        public_inputs.push(a);
+                    }
+                    Ok(_) => {
+                        return Err(format!(
+                            "zk_game_settle: public_inputs_hex[{i}] must be 32 bytes (64 hex chars)"
+                        ))
+                    }
+                    Err(e) => {
+                        return Err(format!("zk_game_settle: bad public_inputs_hex[{i}]: {e}"))
+                    }
+                }
+            }
+            let winner_pubkey = match &spec.winner_pubkey_hex {
+                Some(h) => decode_xonly_hex(h)?,
+                None => {
+                    return Err(
+                        "zk_game_settle requires winner_pubkey_hex (the payee x-only key)".into(),
+                    )
+                }
+            };
+            let refund = match &spec.refund_pubkey_hex {
+                Some(h) => decode_xonly_hex(h)?,
+                None => xonly,
+            };
+            let min_sequence = spec
+                .lock_daa
+                .ok_or("zk_game_settle requires lock_daa (the CSV refund min_sequence)")?;
+            Ok(RedeemKind::ZkGameSettle {
+                vk,
+                public_inputs,
+                winner_pubkey,
+                min_sequence,
+                refund,
+            })
+        }
+        other => Err(format!(
+            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|oracle_enforced_refundable|oracle_escrow_refundable|channel|deadman|relative_timelock|timedecay|binary_oracle_select|winner_bound|escrow_bound|zk_game_settle)"
+        )),
+    }
+}
+
 /// POST /covenant/p2sh/deploy - lock `stake_kas` into a real P2SH covenant.
 pub async fn p2sh_deploy_handler(
     Extension(db): Extension<db::Db>,
@@ -2698,375 +3103,32 @@ pub async fn p2sh_deploy_handler(
         Ok(x) => x,
         Err(e) => return err(e),
     };
-    let kind: RedeemKind = match req.redeem.kind.as_str() {
-        "singlesig" => RedeemKind::SingleSig { xonly_pubkey: xonly },
-        "hashlock" => {
-            let preimage_hex = match &req.redeem.preimage_hex {
-                Some(p) => p,
-                None => return err("hashlock requires preimage_hex".into()),
-            };
-            let preimage = match hex::decode(preimage_hex.trim()) {
-                Ok(b) => b,
-                Err(e) => return err(format!("bad preimage_hex: {e}")),
-            };
-            let hash = blake2b256(&preimage);
-            RedeemKind::HashLock { hash, xonly_pubkey: xonly }
-        }
-        "timelock" => {
-            let lock_daa = match req.redeem.lock_daa {
-                Some(d) => d,
-                None => return err("timelock requires lock_daa".into()),
-            };
-            RedeemKind::Timelock { lock_daa, xonly_pubkey: xonly }
-        }
-        "multisig" => {
-            let pubkeys: Vec<[u8; 32]> = if let Some(pks) = &req.redeem.pubkeys_hex {
-                let mut v = Vec::new();
-                for p in pks {
-                    match decode_xonly_hex(p) {
+    // GAP 3: route the custodial dev path through the SHARED parser (the single source of truth).
+    // In dev mode, pre-derive the two dev wallets' x-only pubkeys so the shared parser's dev
+    // fallbacks resolve exactly as the old per-arm `dev_keys`/`xonly_from_seckey` logic did; outside
+    // dev mode pass None so explicit pubkeys are required (unchanged behavior).
+    let dev_xonly: Option<Vec<[u8; 32]>> = if req.use_dev_mode {
+        match dev_keys(&req.network) {
+            Ok(ks) => {
+                let mut v = Vec::with_capacity(ks.len());
+                for k in &ks {
+                    match xonly_from_seckey(k) {
                         Ok(x) => v.push(x),
                         Err(e) => return err(e),
                     }
                 }
-                v
-            } else if req.use_dev_mode {
-                match dev_keys(&req.network) {
-                    Ok(ks) => {
-                        let mut v = Vec::new();
-                        for k in &ks {
-                            match xonly_from_seckey(k) {
-                                Ok(x) => v.push(x),
-                                Err(e) => return err(e),
-                            }
-                        }
-                        v
-                    }
-                    Err(e) => return err(e),
-                }
-            } else {
-                return err("multisig requires pubkeys_hex (or use_dev_mode for the two dev wallets)".into());
-            };
-            let required = req.redeem.required.unwrap_or(pubkeys.len());
-            RedeemKind::Multisig { pubkeys, required }
-        }
-        "htlc" => {
-            let preimage_hex = match &req.redeem.preimage_hex {
-                Some(p) => p,
-                None => return err("htlc requires preimage_hex".into()),
-            };
-            let preimage = match hex::decode(preimage_hex.trim()) {
-                Ok(b) => b,
-                Err(e) => return err(format!("bad preimage_hex: {e}")),
-            };
-            let hash = blake2b256(&preimage);
-            let lock_daa = match req.redeem.lock_daa {
-                Some(d) => d,
-                None => return err("htlc requires lock_daa (refund deadline)".into()),
-            };
-            // receiver (claim) and sender (refund) pubkeys: explicit, or dev wallets.
-            let (receiver, sender) = if let (Some(r), Some(s)) =
-                (&req.redeem.receiver_pubkey_hex, &req.redeem.sender_pubkey_hex)
-            {
-                match (decode_xonly_hex(r), decode_xonly_hex(s)) {
-                    (Ok(rr), Ok(ss)) => (rr, ss),
-                    (Err(e), _) | (_, Err(e)) => return err(e),
-                }
-            } else if req.use_dev_mode {
-                match dev_keys(&req.network) {
-                    Ok(ks) => match (xonly_from_seckey(&ks[1]), xonly_from_seckey(&ks[0])) {
-                        (Ok(rr), Ok(ss)) => (rr, ss),
-                        (Err(e), _) | (_, Err(e)) => return err(e),
-                    },
-                    Err(e) => return err(e),
-                }
-            } else {
-                return err("htlc requires receiver_pubkey_hex + sender_pubkey_hex (or use_dev_mode)".into());
-            };
-            RedeemKind::Htlc { hash, receiver_pubkey: receiver, lock_daa, sender_pubkey: sender }
-        }
-        "oracle_enforced" => {
-            // 2-of-2 [oracle, winner]: the chain itself requires the disclosed oracle's
-            // co-signature, and the oracle co-signs only a verified outcome (D1). This
-            // upgrades an oracle covenant from "trust the oracle off-chain" to "the chain
-            // enforced that the disclosed oracle signed". Member order: [oracle, winner=deployer].
-            let oracle_xonly = match resolve_oracle_xonly(&req.redeem.oracle_pubkey_hex) { Ok(k) => k, Err(e) => return err(e) };
-            RedeemKind::OracleEnforced { oracle: oracle_xonly, winner: xonly }
-        }
-        "oracle_escrow" => {
-            // 2-player pot: the chain requires the oracle's co-signature AND the winning
-            // player's signature. The oracle co-signs only the actual winner (D1, games).
-            let oracle_xonly = match resolve_oracle_xonly(&req.redeem.oracle_pubkey_hex) { Ok(k) => k, Err(e) => return err(e) };
-            let (pa, pb) = if let Some(pks) = &req.redeem.pubkeys_hex {
-                if pks.len() >= 2 {
-                    match (decode_xonly_hex(&pks[0]), decode_xonly_hex(&pks[1])) {
-                        (Ok(a), Ok(b)) => (a, b),
-                        (Err(e), _) | (_, Err(e)) => return err(e),
-                    }
-                } else {
-                    return err("oracle_escrow needs pubkeys_hex=[player_a, player_b]".into());
-                }
-            } else if req.use_dev_mode {
-                match dev_keys(&req.network) {
-                    Ok(ks) => match (xonly_from_seckey(&ks[0]), xonly_from_seckey(&ks[1])) {
-                        (Ok(a), Ok(b)) => (a, b),
-                        (Err(e), _) | (_, Err(e)) => return err(e),
-                    },
-                    Err(e) => return err(e),
-                }
-            } else {
-                return err("oracle_escrow requires pubkeys_hex=[player_a, player_b] (or use_dev_mode)".into());
-            };
-            RedeemKind::OracleEscrow { oracle: oracle_xonly, player_a: pa, player_b: pb }
-        }
-        "channel" => {
-            // Trustless 2-player game channel: cooperative 2-of-2 close OR a funder
-            // refund after lock_daa. NO oracle key. pubkeys_hex=[player1, player2].
-            let (p1k, p2k) = if let Some(pks) = &req.redeem.pubkeys_hex {
-                if pks.len() >= 2 {
-                    match (decode_xonly_hex(&pks[0]), decode_xonly_hex(&pks[1])) {
-                        (Ok(a), Ok(b)) => (a, b),
-                        (Err(e), _) | (_, Err(e)) => return err(e),
-                    }
-                } else {
-                    return err("channel needs pubkeys_hex=[player1, player2]".into());
-                }
-            } else if req.use_dev_mode {
-                match dev_keys(&req.network) {
-                    Ok(ks) => match (xonly_from_seckey(&ks[0]), xonly_from_seckey(&ks[1])) {
-                        (Ok(a), Ok(b)) => (a, b),
-                        (Err(e), _) | (_, Err(e)) => return err(e),
-                    },
-                    Err(e) => return err(e),
-                }
-            } else {
-                return err("channel requires pubkeys_hex=[player1, player2] (or use_dev_mode)".into());
-            };
-            let lock_daa = match req.redeem.lock_daa {
-                Some(d) => d,
-                None => return err("channel requires lock_daa (the refund deadline)".into()),
-            };
-            RedeemKind::Channel { p1: p1k, p2: p2k, lock_daa }
-        }
-        "deadman" => {
-            // Dead-man's-switch / inheritance: the DEPLOYER is the owner (spends/refreshes
-            // anytime); pubkeys_hex=[heir] claims the funds only after lock_daa. No oracle.
-            let heir = if let Some(pks) = &req.redeem.pubkeys_hex {
-                match pks.first() {
-                    Some(h) => match decode_xonly_hex(h) {
-                        Ok(x) => x,
-                        Err(e) => return err(e),
-                    },
-                    None => return err("deadman requires pubkeys_hex=[heir]".into()),
-                }
-            } else if req.use_dev_mode {
-                match dev_keys(&req.network) {
-                    Ok(ks) => match xonly_from_seckey(&ks[1]) {
-                        Ok(x) => x,
-                        Err(e) => return err(e),
-                    },
-                    Err(e) => return err(e),
-                }
-            } else {
-                return err("deadman requires pubkeys_hex=[heir] (or use_dev_mode for the 2nd dev wallet)".into());
-            };
-            let lock_daa = match req.redeem.lock_daa {
-                Some(d) => d,
-                None => return err("deadman requires lock_daa (the inheritance deadline)".into()),
-            };
-            RedeemKind::Deadman { owner: xonly, heir, lock_daa }
-        }
-        "relative_timelock" => {
-            // Relative timelock (CSV; node-enforced). Reuses the lock_daa request field as the
-            // required min_sequence; the owner is the deployer.
-            let min_sequence = match req.redeem.lock_daa {
-                Some(d) => d,
-                None => return err("relative_timelock requires lock_daa (used as min_sequence)".into()),
-            };
-            RedeemKind::RelativeTimelock { min_sequence, xonly_pubkey: xonly }
-        }
-        "timedecay" => {
-            // Time-decaying multisig: pubkeys_hex = the n members; `required` = req_now;
-            // `req_after` = the relaxed threshold after lock_daa. dev mode uses the two
-            // dev wallets (n=2). Engine-proven; spends via the non-default custodial arm.
-            let pubkeys: Vec<[u8; 32]> = if let Some(pks) = &req.redeem.pubkeys_hex {
-                let mut v = Vec::new();
-                for p in pks {
-                    match decode_xonly_hex(p) {
-                        Ok(x) => v.push(x),
-                        Err(e) => return err(e),
-                    }
-                }
-                v
-            } else if req.use_dev_mode {
-                match dev_keys(&req.network) {
-                    Ok(ks) => {
-                        let mut v = Vec::new();
-                        for k in &ks {
-                            match xonly_from_seckey(k) {
-                                Ok(x) => v.push(x),
-                                Err(e) => return err(e),
-                            }
-                        }
-                        v
-                    }
-                    Err(e) => return err(e),
-                }
-            } else {
-                return err("timedecay requires pubkeys_hex (or use_dev_mode for the two dev wallets)".into());
-            };
-            let req_now = req.redeem.required.unwrap_or(pubkeys.len());
-            let req_after = match req.redeem.req_after {
-                Some(r) => r,
-                None => return err("timedecay requires req_after (the relaxed threshold valid after lock_daa)".into()),
-            };
-            let lock_daa = match req.redeem.lock_daa {
-                Some(d) => d,
-                None => return err("timedecay requires lock_daa (when the relaxed threshold activates)".into()),
-            };
-            if req_after == 0 || req_now == 0 || req_after > pubkeys.len() || req_now > pubkeys.len() {
-                return err("timedecay thresholds must satisfy 0 < req_after,req_now <= n".into());
+                Some(v)
             }
-            RedeemKind::TimeDecay { pubkeys, req_now, req_after, lock_daa }
+            Err(e) => return err(e),
         }
-        "binary_oracle_select" => {
-            // Parimutuel bundle unit: two hashlock branches (winner_a on H_A, winner_b on
-            // H_B) + a CSV refund. preimage_hex -> H_A, preimage_b_hex -> H_B. Winners from
-            // pubkeys_hex=[winner_a, winner_b] (or the two dev wallets); refund from
-            // refund_pubkey_hex (or the deployer). lock_daa = the relative-timelock min_sequence.
-            // The two branch hashes: commit DIRECTLY to external hashes (the trust-minimized path,
-            // where the deployer never learns the secrets and only the resolver can reveal one), or
-            // derive them from supplied preimages (back-compat). blake2b(revealed_secret) == the
-            // committed hash is enforced on-chain at spend, so the deployer cannot pick the winner.
-            let decode32 = |s: &str, what: &str| -> Result<[u8; 32], String> {
-                match hex::decode(s.trim()) {
-                    Ok(b) if b.len() == 32 => {
-                        let mut a = [0u8; 32];
-                        a.copy_from_slice(&b);
-                        Ok(a)
-                    }
-                    Ok(_) => Err(format!("{what} must be 32 bytes (64 hex chars)")),
-                    Err(e) => Err(format!("bad {what}: {e}")),
-                }
-            };
-            let (h_a, h_b) = match (&req.redeem.hash_a_hex, &req.redeem.hash_b_hex) {
-                (Some(ha), Some(hb)) => {
-                    let ha = match decode32(ha, "hash_a_hex") { Ok(x) => x, Err(e) => return err(e) };
-                    let hb = match decode32(hb, "hash_b_hex") { Ok(x) => x, Err(e) => return err(e) };
-                    (ha, hb)
-                }
-                _ => {
-                    let pa_hex = match &req.redeem.preimage_hex {
-                        Some(p) => p,
-                        None => return err("binary_oracle_select requires hash_a_hex+hash_b_hex (commit to the resolver's published hashes) or preimage_hex+preimage_b_hex".into()),
-                    };
-                    let pb_hex = match &req.redeem.preimage_b_hex {
-                        Some(p) => p,
-                        None => return err("binary_oracle_select requires hash_a_hex+hash_b_hex or preimage_hex+preimage_b_hex (outcome B secret)".into()),
-                    };
-                    let pa = match hex::decode(pa_hex.trim()) {
-                        Ok(b) => b,
-                        Err(e) => return err(format!("bad preimage_hex: {e}")),
-                    };
-                    let pb = match hex::decode(pb_hex.trim()) {
-                        Ok(b) => b,
-                        Err(e) => return err(format!("bad preimage_b_hex: {e}")),
-                    };
-                    (blake2b256(&pa), blake2b256(&pb))
-                }
-            };
-            let (winner_a, winner_b) = if let Some(pks) = &req.redeem.pubkeys_hex {
-                if pks.len() >= 2 {
-                    match (decode_xonly_hex(&pks[0]), decode_xonly_hex(&pks[1])) {
-                        (Ok(a), Ok(b)) => (a, b),
-                        (Err(e), _) | (_, Err(e)) => return err(e),
-                    }
-                } else {
-                    return err("binary_oracle_select needs pubkeys_hex=[winner_a, winner_b]".into());
-                }
-            } else if req.use_dev_mode {
-                match dev_keys(&req.network) {
-                    Ok(ks) => match (xonly_from_seckey(&ks[0]), xonly_from_seckey(&ks[1])) {
-                        (Ok(a), Ok(b)) => (a, b),
-                        (Err(e), _) | (_, Err(e)) => return err(e),
-                    },
-                    Err(e) => return err(e),
-                }
-            } else {
-                return err("binary_oracle_select requires pubkeys_hex=[winner_a, winner_b] (or use_dev_mode)".into());
-            };
-            let refund = if let Some(r) = &req.redeem.refund_pubkey_hex {
-                match decode_xonly_hex(r) {
-                    Ok(x) => x,
-                    Err(e) => return err(e),
-                }
-            } else {
-                // Default: the deployer reclaims if the oracle never reveals.
-                xonly
-            };
-            let min_sequence = match req.redeem.lock_daa {
-                Some(d) => d,
-                None => return err("binary_oracle_select requires lock_daa (used as the CSV refund min_sequence)".into()),
-            };
-            RedeemKind::BinaryOracleSelect { h_a, winner_a, h_b, winner_b, min_sequence, refund }
-        }
-        "zk_game_settle" => {
-            // On-chain ZK game settlement (KIP-16 OpZkPrecompile, tag 0x20). GATED: off by default
-            // (KASPA_ZK_PRECOMPILE_ENABLED) and rejected on mainnet (Toccata not live there yet).
-            if let Err(e) = zk_precompile_deploy_allowed(&req.network) {
-                return err(e);
-            }
-            // Baked VK (ark-compressed BN254 VerifyingKey).
-            let vk = match &req.redeem.vk_hex {
-                Some(h) => match hex::decode(h.trim()) {
-                    Ok(b) if !b.is_empty() => b,
-                    Ok(_) => return err("zk_game_settle: vk_hex is empty".into()),
-                    Err(e) => return err(format!("zk_game_settle: bad vk_hex: {e}")),
-                },
-                None => return err("zk_game_settle requires vk_hex (ark-compressed BN254 VerifyingKey)".into()),
-            };
-            // Baked 5 public inputs (32-byte LE Fr each, ABI order a0,a1,c0,c1,id).
-            let inputs_hex = match &req.redeem.public_inputs_hex {
-                Some(v) => v,
-                None => return err("zk_game_settle requires public_inputs_hex (5 x 32-byte LE Fr)".into()),
-            };
-            if inputs_hex.len() != N_ZK_PUBLIC_INPUTS {
-                return err(format!(
-                    "zk_game_settle: expected {N_ZK_PUBLIC_INPUTS} public_inputs_hex, got {}",
-                    inputs_hex.len()
-                ));
-            }
-            let mut public_inputs: Vec<[u8; 32]> = Vec::with_capacity(N_ZK_PUBLIC_INPUTS);
-            for (i, h) in inputs_hex.iter().enumerate() {
-                match hex::decode(h.trim()) {
-                    Ok(b) if b.len() == 32 => {
-                        let mut a = [0u8; 32];
-                        a.copy_from_slice(&b);
-                        public_inputs.push(a);
-                    }
-                    Ok(_) => return err(format!("zk_game_settle: public_inputs_hex[{i}] must be 32 bytes (64 hex chars)")),
-                    Err(e) => return err(format!("zk_game_settle: bad public_inputs_hex[{i}]: {e}")),
-                }
-            }
-            // Baked winner x-only pubkey (the journal-bound payee).
-            let winner_pubkey = match &req.redeem.winner_pubkey_hex {
-                Some(h) => match decode_xonly_hex(h) { Ok(x) => x, Err(e) => return err(e) },
-                None => return err("zk_game_settle requires winner_pubkey_hex (the payee x-only key)".into()),
-            };
-            // CSV refund key (funder reclaim) - defaults to the deployer; min_sequence from lock_daa.
-            let refund = match &req.redeem.refund_pubkey_hex {
-                Some(h) => match decode_xonly_hex(h) { Ok(x) => x, Err(e) => return err(e) },
-                None => xonly,
-            };
-            let min_sequence = match req.redeem.lock_daa {
-                Some(d) => d,
-                None => return err("zk_game_settle requires lock_daa (the CSV refund min_sequence)".into()),
-            };
-            RedeemKind::ZkGameSettle { vk, public_inputs, winner_pubkey, min_sequence, refund }
-        }
-        other => return err(format!(
-            "unknown redeem kind '{other}' (singlesig|hashlock|timelock|multisig|htlc|oracle_enforced|oracle_escrow|channel|deadman|relative_timelock|timedecay|binary_oracle_select|zk_game_settle)"
-        )),
+    } else {
+        None
     };
+    let kind: RedeemKind =
+        match parse_redeem_spec(&req.redeem, &xonly, dev_xonly.as_deref(), &req.network) {
+            Ok(k) => k,
+            Err(e) => return err(e),
+        };
 
     let redeem = match kind.redeem_script() {
         Ok(r) => r,
@@ -4104,6 +4166,19 @@ pub async fn oracle_payout_handler(
         return err(format!("already paid out in {s}"));
     }
 
+    // NON-CUSTODIAL KEYSTONE (fail-closed, mirrors signer.rs sign_and_broadcast_handler): never
+    // accept a raw MAINNET private key on ANY branch. The non-escrow branch routes the winner key
+    // through resolve_signing_key, which already refuses a raw mainnet key, but the escrow branch
+    // below hex-decodes req.private_key_hex DIRECTLY with no such guard - so a caller could hand the
+    // server a raw mainnet winning-player key (the backend half of a custody breach). Refuse it here,
+    // at the top, for BOTH branches, gating on the covenant's OWN stored network so a forged
+    // req.network cannot reopen the hole. Testnets are unaffected; dev mode (use_dev_mode) reads keys
+    // from the service environment, never from the request, so it is exempt. is_mainnet() uses
+    // starts_with, so "mainnet-foo" is also refused.
+    if is_mainnet(&cov.network) && !req.use_dev_mode && !req.private_key_hex.trim().is_empty() {
+        return err("mainnet signing is non-custodial: do not send a private key to the server. Use the prepare/submit flow so your key signs in your browser.".into());
+    }
+
     // GAME-POT GATE: if this covenant is the pot of a skill_games match, the winning
     // side is NOT client-controlled. Re-derive it from the server's recorded match -
     // and, for replayable game types, from a deterministic engine replay of the move
@@ -4229,6 +4304,14 @@ pub async fn oracle_payout_handler(
         Ok(u) => u,
         Err(e) => return err(format!("UTXO fetch failed: {e}")),
     };
+    // GAP 12 (UTXO re-validation): unlike the NON-custodial prepare/submit split (which has a
+    // reorg/double-spend window between the oracle's prepare-time signature and the winner's later
+    // browser signature, closed by hardening (i) in submit_oracle_payout_handler), this CUSTODIAL
+    // handler fetches, builds, signs, and broadcasts in ONE synchronous pass with no external
+    // signing gap: the UTXO found here IS the UTXO spent microseconds later in submit_transaction.
+    // So no separate re-fetch is added (it would be a redundant node round-trip). The node's own
+    // double-spend / missing-input rejection at submit_transaction is the authoritative backstop if
+    // the UTXO is spent or reorged out between this fetch and the broadcast below.
     let utxo = match utxos.iter().find(|u| {
         u.outpoint.transaction_id.to_string() == cov.tx_id && u.outpoint.index == cov.outpoint_index
     }) {
@@ -4328,9 +4411,13 @@ pub async fn oracle_payout_handler(
 // ── NON-CUSTODIAL ORACLE CO-SIGN KEYSTONE ───────────────────────────────────────────
 // The oracle-enforced kinds (oracle_enforced / oracle_escrow) need TWO signatures over the
 // same spend sighash: the disclosed oracle's (server-held, by design - it co-signs ONLY a
-// verified outcome) and the WINNER's. On mainnet the winner key may NOT touch the server
-// (resolve_signing_key rejects raw/dev keys there), so the custodial oracle_payout_handler
-// cannot release these on mainnet. This pair of handlers fixes that:
+// verified outcome) and the WINNER's. On mainnet the winner key may NOT touch the server. The
+// custodial oracle_payout_handler enforces this by a top-of-handler fail-closed guard that
+// refuses a raw private_key_hex whenever is_mainnet(&cov.network) (covering BOTH the escrow and
+// non-escrow branches; the non-escrow branch is ALSO guarded inside resolve_signing_key, but the
+// escrow branch hex-decodes the key directly, so the top-level guard is what makes the no-raw-
+// mainnet-key guarantee hold for it). Mainnet release therefore goes through this pair of
+// handlers instead:
 //   prepare-oracle-payout: runs the EXISTING outcome gate (unchanged), builds the unsigned
 //     spend whose ONLY output pays the verified winner, produces ONLY the oracle partial
 //     signature over that sighash, and returns {sighash, oracle_sig, winner_xonly} so the
@@ -5761,120 +5848,22 @@ pub async fn submit_signed_handler(
 // can be deployed trustlessly (no dev key, no key upload). The redeem locks to the
 // deployer's own x-only pubkey, derived from their address. ──
 
-/// Build (redeem, redeem_kind) for a non-custodial deploy from the spec + the deployer's
-/// x-only pubkey (extracted from their address - no secret key needed). Mirrors the
-/// custodial p2sh_deploy_handler dispatch. oracle_* are intentionally unsupported here
-/// (they put the Covex oracle key in the path; not part of the trustless wallet flow).
-fn build_redeem_from_spec(spec: &RedeemSpec, owner_xonly: &[u8; 32]) -> BResult<(Vec<u8>, String)> {
-    match spec.kind.as_str() {
-        "singlesig" => Ok((redeem_singlesig(owner_xonly)?, "singlesig".to_string())),
-        "hashlock" => {
-            let p = spec.preimage_hex.as_ref().ok_or("hashlock requires preimage_hex")?;
-            let preimage = hex::decode(p.trim()).map_err(|e| format!("bad preimage_hex: {e}"))?;
-            Ok((redeem_hashlock(&blake2b256(&preimage), owner_xonly)?, "hashlock".to_string()))
-        }
-        "timelock" => {
-            let lock = spec.lock_daa.ok_or("timelock requires lock_daa")?;
-            Ok((redeem_timelock(lock, owner_xonly)?, format!("timelock:{lock}")))
-        }
-        "relative_timelock" => {
-            let seq = spec.lock_daa.ok_or("relative_timelock requires lock_daa (min_sequence)")?;
-            Ok((redeem_relative_timelock(seq, owner_xonly)?, format!("rcsv:{seq}")))
-        }
-        "multisig" => {
-            let pks = spec.pubkeys_hex.as_ref().ok_or("multisig requires pubkeys_hex")?;
-            let mut v = Vec::new();
-            for p in pks { v.push(decode_xonly_hex(p)?); }
-            if v.is_empty() { return Err("multisig requires at least one pubkey".into()); }
-            let required = spec.required.unwrap_or(v.len());
-            Ok((redeem_multisig(&v, required)?, format!("multisig:{}", v.len())))
-        }
-        "htlc" => {
-            let p = spec.preimage_hex.as_ref().ok_or("htlc requires preimage_hex")?;
-            let preimage = hex::decode(p.trim()).map_err(|e| format!("bad preimage_hex: {e}"))?;
-            let lock = spec.lock_daa.ok_or("htlc requires lock_daa")?;
-            let receiver = match &spec.receiver_pubkey_hex { Some(s) => decode_xonly_hex(s)?, None => *owner_xonly };
-            let sender = match &spec.sender_pubkey_hex { Some(s) => decode_xonly_hex(s)?, None => *owner_xonly };
-            Ok((redeem_htlc(&blake2b256(&preimage), &receiver, lock, &sender)?, format!("htlc:{lock}")))
-        }
-        "channel" => {
-            let pks = spec.pubkeys_hex.as_ref().ok_or("channel requires pubkeys_hex=[p1,p2]")?;
-            if pks.len() < 2 { return Err("channel needs pubkeys_hex=[p1,p2]".into()); }
-            let lock = spec.lock_daa.ok_or("channel requires lock_daa")?;
-            Ok((redeem_channel(&decode_xonly_hex(&pks[0])?, &decode_xonly_hex(&pks[1])?, lock)?, format!("channel:{lock}")))
-        }
-        "deadman" => {
-            // owner = the deployer (owner_xonly); pubkeys_hex=[heir] claims after lock_daa.
-            let pks = spec.pubkeys_hex.as_ref().ok_or("deadman requires pubkeys_hex=[heir]")?;
-            let heir = pks.first().ok_or("deadman requires pubkeys_hex=[heir]")?;
-            let lock = spec.lock_daa.ok_or("deadman requires lock_daa")?;
-            Ok((redeem_deadman(owner_xonly, &decode_xonly_hex(heir)?, lock)?, format!("deadman:{lock}")))
-        }
-        "oracle_escrow" => {
-            // 2-player game pot [oracle, player_a, player_b]: consensus requires BOTH the
-            // disclosed Covex oracle's co-signature AND the winning player's signature. The
-            // oracle co-signs only the server-verified winner (game-pot gate). The funding key
-            // (the funder's wallet) is signed in the browser and NEVER reaches the server - this
-            // is the non-custodial twin of the use_dev_mode escrow deploy. pubkeys_hex=[a, b].
-            let pks = spec.pubkeys_hex.as_ref().ok_or("oracle_escrow requires pubkeys_hex=[player_a, player_b]")?;
-            if pks.len() < 2 {
-                return Err("oracle_escrow needs pubkeys_hex=[player_a, player_b]".into());
-            }
-            let oracle_xonly = resolve_oracle_xonly(&spec.oracle_pubkey_hex)?;
-            Ok((
-                redeem_oracle_escrow(&oracle_xonly, &decode_xonly_hex(&pks[0])?, &decode_xonly_hex(&pks[1])?)?,
-                "oracle_escrow".to_string(),
-            ))
-        }
-        // ── KIP-10 output-bound trustless kinds (no oracle, no Covex key). Gated fail-closed by
-        // kip10_introspection_available() until the TN12 e2e is run. ──
-        "winner_bound" => {
-            kip10_introspection_available()?;
-            // The bound recipient: winner_pubkey_hex if given, else the deployer (a self-pot).
-            let winner = match &spec.winner_pubkey_hex {
-                Some(h) if !h.trim().is_empty() => decode_xonly_hex(h)?,
-                _ => *owner_xonly,
-            };
-            let fee = spec.fee_sompi.unwrap_or(TX_FEE);
-            if fee >= i64::MAX as u64 {
-                return Err("fee_sompi exceeds the signed-amount range".into());
-            }
-            let require_sig = spec.require_sig.unwrap_or(true);
-            Ok((
-                redeem_winner_takes_all_bound(&winner, fee, require_sig)?,
-                format!("winner_bound:{}", if require_sig { 1 } else { 0 }),
-            ))
-        }
-        "escrow_bound" => {
-            kip10_introspection_available()?;
-            let pks = spec
-                .pubkeys_hex
-                .as_ref()
-                .ok_or("escrow_bound requires pubkeys_hex=[party_a, party_b]")?;
-            if pks.len() < 2 {
-                return Err("escrow_bound needs pubkeys_hex=[party_a, party_b]".into());
-            }
-            let party_a = decode_xonly_hex(&pks[0])?;
-            let party_b = decode_xonly_hex(&pks[1])?;
-            let fee = spec.fee_sompi.unwrap_or(TX_FEE);
-            if fee >= i64::MAX as u64 {
-                return Err("fee_sompi exceeds the signed-amount range".into());
-            }
-            let min_sequence = spec
-                .lock_daa
-                .ok_or("escrow_bound requires lock_daa (the CSV refund min_sequence)")?;
-            // The refund key reclaims after the CSV delay; defaults to the deployer.
-            let refund = match &spec.refund_pubkey_hex {
-                Some(h) if !h.trim().is_empty() => decode_xonly_hex(h)?,
-                _ => *owner_xonly,
-            };
-            Ok((
-                redeem_escrow_bound(&party_a, &party_b, fee, min_sequence, &refund)?,
-                format!("escrow_bound:{min_sequence}"),
-            ))
-        }
-        other => Err(format!("non-custodial deploy does not support kind '{other}' (oracle covenants use the server oracle path)")),
-    }
+/// Build (redeem, redeem_kind) for a non-custodial wallet deploy from the spec + the deployer's
+/// x-only pubkey (extracted from their address - no secret key needed).
+///
+/// GAP 3: this now delegates to the SHARED `parse_redeem_spec` (the single source of truth both
+/// deploy paths use), so the deployable set is IDENTICAL to the custodial path. `dev_xonly` is None
+/// (the wallet flow never uses dev wallets - the deployer signs in their own browser), so any kind
+/// whose only key source was the dev wallets still errors exactly as the old builder did. The kind
+/// string comes from `RedeemKind::kind_str()`, byte-identical to the strings this builder used to
+/// return, so already-deployed wallet covenants keep round-tripping through `SpendKind::parse`.
+fn build_redeem_from_spec(
+    spec: &RedeemSpec,
+    owner_xonly: &[u8; 32],
+    network: &str,
+) -> BResult<(Vec<u8>, String)> {
+    let kind = parse_redeem_spec(spec, owner_xonly, None, network)?;
+    Ok((kind.redeem_script()?, kind.kind_str()))
 }
 
 #[derive(Deserialize)]
@@ -5921,6 +5910,27 @@ pub async fn prepare_deploy_handler(
     if is_mainnet && !crate::crawler::mainnet_covenants_enabled() {
         return err("mainnet covenants activate at the Toccata hard fork (set COVEX_MAINNET_COVENANTS_ENABLED=true once it is live). Deploy on a testnet until then.".into());
     }
+    // GAP 3 / GATE 2 parity: now that this wallet path shares the SAME redeem-kind parser as the
+    // custodial dev path, it can deploy oracle_enforced / oracle_escrow (and their _refundable
+    // forms) and binary_oracle_select. Mirror the dev path's mainnet gates EXACTLY so the wallet
+    // path is no weaker. Oracle-enforced kinds still put the disclosed oracle key in the payout
+    // path, so they stay FROZEN for value on mainnet until the trustless rebuild lands; the
+    // deterministic primitives (singlesig/hashlock/timelock/multisig/htlc/channel/deadman/csv) are
+    // unaffected. Testnets stay open.
+    if is_mainnet && req.redeem.kind.starts_with("oracle") {
+        return err(format!(
+            "oracle-enforced covenants ('{}') are frozen on mainnet: the disclosed oracle key is still in the payout path, so funds are not yet trustless. Use a deterministic primitive (timelock/hashlock/multisig/htlc) on mainnet, or this covenant on a testnet.",
+            req.redeem.kind
+        ));
+    }
+    // binary_oracle_select on mainnet must commit to an EXTERNAL resolver's published hashes
+    // (hash_a_hex + hash_b_hex) so the market creator cannot self-resolve via the preimage path.
+    if is_mainnet
+        && req.redeem.kind.starts_with("binary_oracle_select")
+        && !(req.redeem.hash_a_hex.is_some() && req.redeem.hash_b_hex.is_some())
+    {
+        return err("binary_oracle_select on mainnet must commit to an external resolver's published hashes (hash_a_hex + hash_b_hex). The preimage_hex/preimage_b_hex path lets the market creator self-resolve and is disabled on mainnet.".into());
+    }
     // The deployer's x-only pubkey IS the payload of a 32-byte schnorr P2PK address.
     let owner_addr = match Address::try_from(req.deployer_addr.as_str()) {
         Ok(a) => a,
@@ -5935,7 +5945,7 @@ pub async fn prepare_deploy_handler(
             )
         }
     };
-    let (redeem, redeem_kind) = match build_redeem_from_spec(&req.redeem, &owner_xonly) {
+    let (redeem, redeem_kind) = match build_redeem_from_spec(&req.redeem, &owner_xonly, &req.network) {
         Ok(v) => v,
         Err(e) => return err(e),
     };
@@ -7591,6 +7601,219 @@ mod tests {
             enforce_onchain_covenant_binding(covenant_a, circuit, &padded).is_ok(),
             "binding match must tolerate surrounding whitespace, as the off-chain path does"
         );
+    }
+
+    /// A fresh, file-backed test DB with the production schema (a pool over `:memory:` gives each
+    /// pooled connection its OWN database, so an insert on one connection is invisible to a later
+    /// read on another; a temp file is shared across the pool). Each test gets its own path.
+    fn fresh_db() -> db::Db {
+        let p = std::env::temp_dir().join(format!(
+            "covex-cbuilder-test-{}.sqlite",
+            uuid::Uuid::new_v4().simple()
+        ));
+        let _ = std::fs::remove_file(&p);
+        db::open_db(p.to_str().expect("temp path is utf-8")).expect("open_db on temp path")
+    }
+
+    /// GAP 1 (non-custodial keystone, fail-closed): the custodial oracle_payout_handler must REFUSE
+    /// a raw private_key_hex on the ESCROW branch when the covenant's stored network is mainnet. The
+    /// escrow branch hex-decodes the key directly (the non-escrow branch is guarded by
+    /// resolve_signing_key), so without the top-of-handler guard this was a custody-breach hole.
+    /// The guard fires before any node call, so this needs no live RPC. "mainnet-foo" is also
+    /// refused because is_mainnet() uses starts_with.
+    #[tokio::test]
+    async fn oracle_payout_escrow_branch_refuses_raw_mainnet_key() {
+        // A valid oracle_escrow redeem script (so the row is well-formed); its exact contents do
+        // not matter because the guard returns before the redeem is ever decoded or spent.
+        let oracle = test_keypair(1).x_only_public_key().0.serialize();
+        let pa = test_keypair(2).x_only_public_key().0.serialize();
+        let pb = test_keypair(3).x_only_public_key().0.serialize();
+        let redeem = redeem_oracle_escrow(&oracle, &pa, &pb).expect("build oracle_escrow redeem");
+        let redeem_hex = hex::encode(&redeem);
+        // A real raw 64-hex private key (dev wallet 2's seckey shape); any non-empty raw key triggers
+        // the guard. NEVER reaches a signing path because the guard refuses first.
+        let raw_key = hex::encode([0x11u8; 32]);
+
+        for net in ["mainnet", "mainnet-foo"] {
+            let db = fresh_db();
+            let tx_id = format!("deadbeef{net}");
+            db::insert_p2sh_covenant(
+                &db,
+                &tx_id,
+                net,
+                "kaspa:qqplaceholderaddressplaceholderaddressplaceholderaddr",
+                &redeem_hex,
+                "oracle_escrow",
+                100_000_000,
+                0,
+                "kaspa:qqownerplaceholderownerplaceholderownerplaceholderown",
+            )
+            .expect("insert mainnet oracle_escrow covenant");
+
+            let req = OraclePayoutRequest {
+                network: net.to_string(),
+                deploy_tx_id: tx_id,
+                private_key_hex: raw_key.clone(),
+                use_dev_mode: false,
+                destination_addr: "kaspa:qqdestplaceholderdestplaceholderdestplaceholderdest"
+                    .to_string(),
+                circuit_type: "escrow_2party".to_string(),
+                proof: serde_json::Value::Null,
+                public_inputs: vec![],
+                requested_outcome: Some(0),
+            };
+
+            let resp = oracle_payout_handler(Extension(db.clone()), Json(req)).await;
+            let body = resp.0;
+            assert_eq!(
+                body["success"], serde_json::json!(false),
+                "{net}: a raw mainnet key on the escrow branch must be refused"
+            );
+            let msg = body["error"].as_str().unwrap_or("");
+            assert!(
+                msg.contains("non-custodial") && msg.contains("do not send a private key"),
+                "{net}: refusal must be the standard non-custodial message, got: {msg}"
+            );
+        }
+    }
+
+    /// GAP 3 (single source of truth for the deployable set): EVERY covenant_catalog entry whose
+    /// builder is "covenant_builder" must round-trip through the SHARED parse_redeem_spec - i.e. its
+    /// redeem kind is RECOGNIZED (never "unknown redeem kind") and, with a fully-populated spec +
+    /// the bound/zk gates enabled, builds the expected RedeemKind variant. This proves the union is
+    /// complete: a kind can no longer be deployable on one path and unknown on the other, and the
+    /// two oracle_*_refundable kinds the catalog advertises are now actually deployable (previously
+    /// they deployed through NEITHER handler). Pairs with the catalog test
+    /// `catalog_has_an_entry_for_every_builder_kind` (enum -> catalog row) to close the loop both ways.
+    #[test]
+    fn every_catalog_builder_kind_round_trips_through_shared_builder() {
+        // Enable the two default-off gates so the gated kinds fully build (restored at the end). The
+        // KIP-10 bound default-off gating is otherwise preserved everywhere else.
+        let prev_kip10 = std::env::var("COVEX_KIP10_BOUND_ENABLED").ok();
+        let prev_zk = std::env::var("KASPA_ZK_PRECOMPILE_ENABLED").ok();
+        std::env::set_var("COVEX_KIP10_BOUND_ENABLED", "1");
+        std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "1");
+
+        let owner = test_keypair(7).x_only_public_key().0.serialize();
+        let a = test_keypair(8).x_only_public_key().0.serialize();
+        let b = test_keypair(9).x_only_public_key().0.serialize();
+        let a_hex = hex::encode(a);
+        let b_hex = hex::encode(b);
+        let net = "testnet-12"; // never mainnet, so the oracle freeze / zk mainnet gates do not fire.
+
+        // Map a catalog id -> the bare redeem-spec kind string parse_redeem_spec accepts.
+        let id_to_kind = |id: &str| -> Option<&'static str> {
+            Some(match id {
+                "p2sh_singlesig" => "singlesig",
+                "p2sh_hashlock" => "hashlock",
+                "p2sh_timelock" => "timelock",
+                "p2sh_multisig" => "multisig",
+                "p2sh_htlc" => "htlc",
+                "p2sh_channel" => "channel",
+                "p2sh_deadman" => "deadman",
+                "p2sh_rcsv" => "relative_timelock",
+                "p2sh_timedecay" => "timedecay",
+                "p2sh_binary_oracle_select" => "binary_oracle_select",
+                "oracle_enforced" => "oracle_enforced",
+                "oracle_escrow" => "oracle_escrow",
+                "oracle_enforced_refundable" => "oracle_enforced_refundable",
+                "oracle_escrow_refundable" => "oracle_escrow_refundable",
+                "p2sh_zk_game_settle" => "zk_game_settle",
+                "p2sh_winner_bound" => "winner_bound",
+                "p2sh_escrow_bound" => "escrow_bound",
+                _ => return None,
+            })
+        };
+
+        // A fully-populated spec covers every field any kind reads; each kind ignores the rest.
+        let full_spec = |kind: &str| RedeemSpec {
+            kind: kind.to_string(),
+            preimage_hex: Some(hex::encode([0x42u8; 8])),
+            preimage_b_hex: Some(hex::encode([0x43u8; 8])),
+            lock_daa: Some(1000),
+            pubkeys_hex: Some(vec![a_hex.clone(), b_hex.clone()]),
+            required: Some(2),
+            req_after: Some(1),
+            receiver_pubkey_hex: Some(a_hex.clone()),
+            sender_pubkey_hex: Some(b_hex.clone()),
+            hash_a_hex: Some("11".repeat(32)),
+            hash_b_hex: Some("22".repeat(32)),
+            refund_pubkey_hex: Some(a_hex.clone()),
+            oracle_pubkey_hex: Some(a_hex.clone()),
+            vk_hex: Some(hex::encode([1u8; 8])),
+            public_inputs_hex: Some(vec![hex::encode([0u8; 32]); N_ZK_PUBLIC_INPUTS]),
+            winner_pubkey_hex: Some(a_hex.clone()),
+            fee_sompi: Some(10_000),
+            require_sig: Some(true),
+        };
+
+        let mut covered = 0usize;
+        for entry in crate::covenant_catalog::CATALOG {
+            if entry.builder != "covenant_builder" {
+                continue;
+            }
+            let kind = id_to_kind(entry.id).unwrap_or_else(|| {
+                panic!(
+                    "catalog id '{}' has builder=covenant_builder but no spec-kind mapping in this \
+                     test - add it (and wire it into parse_redeem_spec) so the deployable set stays \
+                     a complete union",
+                    entry.id
+                )
+            });
+            let spec = full_spec(kind);
+            // The wallet path uses dev_xonly=None; the explicit pubkeys above satisfy every kind, so
+            // None is the strictest case (no dev fallback). This is the path that previously rejected
+            // oracle/binary/timedecay/zk kinds with "non-custodial deploy does not support kind".
+            let parsed = parse_redeem_spec(&spec, &owner, None, net);
+            let built = match parsed {
+                Ok(k) => k,
+                Err(e) => {
+                    // The ONE thing the union must never produce for a catalog kind: an unknown kind.
+                    assert!(
+                        !e.contains("unknown redeem kind")
+                            && !e.contains("does not support kind"),
+                        "catalog kind '{}' ({}) is not recognized by the shared builder: {e}",
+                        entry.id,
+                        kind
+                    );
+                    panic!(
+                        "catalog kind '{}' ({}) failed to build through the shared builder with a \
+                         fully-populated spec: {e}",
+                        entry.id, kind
+                    );
+                }
+            };
+            // The built variant's catalog_id must match the entry we started from (closes the loop).
+            assert_eq!(
+                built.catalog_id(),
+                entry.id,
+                "kind '{}' built a RedeemKind whose catalog_id is '{}', not '{}'",
+                kind,
+                built.catalog_id(),
+                entry.id
+            );
+            // And its redeem script must build (the bytes are valid).
+            assert!(
+                built.redeem_script().is_ok(),
+                "kind '{}' built a RedeemKind whose redeem_script() failed",
+                kind
+            );
+            covered += 1;
+        }
+        assert_eq!(
+            covered, 17,
+            "expected all 17 covenant_builder catalog entries to be covered, got {covered}"
+        );
+
+        // Restore the gate env to its prior state so this test does not leak into others.
+        match prev_kip10 {
+            Some(v) => std::env::set_var("COVEX_KIP10_BOUND_ENABLED", v),
+            None => std::env::remove_var("COVEX_KIP10_BOUND_ENABLED"),
+        }
+        match prev_zk {
+            Some(v) => std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", v),
+            None => std::env::remove_var("KASPA_ZK_PRECOMPILE_ENABLED"),
+        }
     }
 
     /// FAIL-CLOSED DEFAULT (inverted from the old warn-and-allow): a circuit that is NOT on the

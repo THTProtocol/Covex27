@@ -230,8 +230,11 @@ export default function FirstCovenantTour() {
         // Tolerate either an array response or { items: [...] }.
         const list = Array.isArray(data) ? data : (data && data.items) || [];
         const first = list[0];
+        // The covenants API returns the id under `tx_id`; keep the other spellings as
+        // fallbacks. Without tx_id here, demoId stayed null and the studio-block +
+        // public-page steps (6 and 7) silently skipped, leaving only 5 working steps.
         const id =
-          (first && (first.covenant_id || first.id || first.txid)) || null;
+          (first && (first.tx_id || first.covenant_id || first.id || first.txid)) || null;
         const reality =
           (first && String(first.enforcement_reality || '').toLowerCase()) || null;
         if (id) {

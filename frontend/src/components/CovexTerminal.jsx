@@ -4687,10 +4687,10 @@ ${gameMeta.outcomeBranches}
                   title={zkGeneratingId && zkGeneratingId !== 'age_verification' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'age_verification'
-                      ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60'
+                      ? 'opacity-40 cursor-not-allowed bg-[#3B82F6]/30 text-[#3B82F6]/60 light:bg-blue-100 light:text-blue-700/70'
                       : zkGeneratingId !== null
-                      ? 'opacity-45 cursor-not-allowed bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6]'
-                      : 'bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/25 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)]'
+                      ? 'opacity-45 cursor-not-allowed bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] light:bg-blue-50 light:border-blue-600/50 light:text-blue-700'
+                      : 'bg-[#3B82F6]/15 border border-[#3B82F6]/30 text-[#3B82F6] hover:bg-[#3B82F6]/25 hover:shadow-[0_0_15px_rgba(59,130,246,0.3)] light:bg-blue-50 light:border-blue-600/50 light:text-blue-700 light:hover:bg-blue-100'
                   }`}
                 >
                   {zkGeneratingId === 'age_verification' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
@@ -4704,10 +4704,10 @@ ${gameMeta.outcomeBranches}
                   title={zkGeneratingId && zkGeneratingId !== 'vrf_dice_roll' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'vrf_dice_roll'
-                      ? 'opacity-40 cursor-not-allowed bg-pink-600/30 text-pink-400/60'
+                      ? 'opacity-40 cursor-not-allowed bg-pink-600/30 text-pink-400/60 light:bg-pink-100 light:text-pink-700/70'
                       : zkGeneratingId !== null
-                      ? 'opacity-45 cursor-not-allowed bg-pink-500/15 border border-pink-500/30 text-pink-400'
-                      : 'bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)]'
+                      ? 'opacity-45 cursor-not-allowed bg-pink-500/15 border border-pink-500/30 text-pink-400 light:bg-pink-50 light:border-pink-600/50 light:text-pink-700'
+                      : 'bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)] light:bg-pink-50 light:border-pink-600/50 light:text-pink-700 light:hover:bg-pink-100'
                   }`}
                 >
                   {zkGeneratingId === 'vrf_dice_roll' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
@@ -4721,10 +4721,10 @@ ${gameMeta.outcomeBranches}
                   title={zkGeneratingId && zkGeneratingId !== 'nullifier_set' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'nullifier_set'
-                      ? 'opacity-40 cursor-not-allowed bg-orange-600/30 text-orange-400/60'
+                      ? 'opacity-40 cursor-not-allowed bg-orange-600/30 text-orange-400/60 light:bg-orange-100 light:text-orange-700/70'
                       : zkGeneratingId !== null
-                      ? 'opacity-45 cursor-not-allowed bg-orange-500/15 border border-orange-500/30 text-orange-400'
-                      : 'bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 hover:shadow-[0_0_15px_rgba(251,146,60,0.3)]'
+                      ? 'opacity-45 cursor-not-allowed bg-orange-500/15 border border-orange-500/30 text-orange-400 light:bg-orange-50 light:border-orange-600/50 light:text-orange-700'
+                      : 'bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 hover:shadow-[0_0_15px_rgba(251,146,60,0.3)] light:bg-orange-50 light:border-orange-600/50 light:text-orange-700 light:hover:bg-orange-100'
                   }`}
                 >
                   {zkGeneratingId === 'nullifier_set' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
@@ -4738,10 +4738,10 @@ ${gameMeta.outcomeBranches}
                   title={zkGeneratingId && zkGeneratingId !== 'utxo_ownership' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'utxo_ownership'
-                      ? 'opacity-40 cursor-not-allowed bg-cyan-600/30 text-cyan-400/60'
+                      ? 'opacity-40 cursor-not-allowed bg-cyan-600/30 text-cyan-400/60 light:bg-cyan-100 light:text-cyan-800/70'
                       : zkGeneratingId !== null
-                      ? 'opacity-45 cursor-not-allowed bg-cyan-500/15 border border-cyan-500/30 text-cyan-400'
-                      : 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'
+                      ? 'opacity-45 cursor-not-allowed bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 light:bg-cyan-50 light:border-cyan-700/50 light:text-cyan-800'
+                      : 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)] light:bg-cyan-50 light:border-cyan-700/50 light:text-cyan-800 light:hover:bg-cyan-100'
                   }`}
                 >
                   {zkGeneratingId === 'utxo_ownership' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
@@ -4755,10 +4755,10 @@ ${gameMeta.outcomeBranches}
                   title={zkGeneratingId && zkGeneratingId !== 'hash_preimage' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'hash_preimage'
-                      ? 'opacity-40 cursor-not-allowed bg-amber-600/30 text-amber-400/60'
+                      ? 'opacity-40 cursor-not-allowed bg-amber-600/30 text-amber-400/60 light:bg-amber-100 light:text-amber-700/70'
                       : zkGeneratingId !== null
-                      ? 'opacity-45 cursor-not-allowed bg-amber-500/15 border border-amber-500/30 text-amber-400'
-                      : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]'
+                      ? 'opacity-45 cursor-not-allowed bg-amber-500/15 border border-amber-500/30 text-amber-400 light:bg-amber-50 light:border-amber-600/50 light:text-amber-700'
+                      : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] light:bg-amber-50 light:border-amber-600/50 light:text-amber-700 light:hover:bg-amber-100'
                   }`}
                 >
                   {zkGeneratingId === 'hash_preimage' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
@@ -4772,10 +4772,10 @@ ${gameMeta.outcomeBranches}
                   title={zkGeneratingId && zkGeneratingId !== 'timelock_absolute' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'timelock_absolute'
-                      ? 'opacity-40 cursor-not-allowed bg-orange-600/30 text-orange-400/60'
+                      ? 'opacity-40 cursor-not-allowed bg-orange-600/30 text-orange-400/60 light:bg-orange-100 light:text-orange-700/70'
                       : zkGeneratingId !== null
-                      ? 'opacity-45 cursor-not-allowed bg-orange-500/15 border border-orange-500/30 text-orange-400'
-                      : 'bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 hover:shadow-[0_0_15px_rgba(249,115,22,0.3)]'
+                      ? 'opacity-45 cursor-not-allowed bg-orange-500/15 border border-orange-500/30 text-orange-400 light:bg-orange-50 light:border-orange-600/50 light:text-orange-700'
+                      : 'bg-orange-500/15 border border-orange-500/30 text-orange-400 hover:bg-orange-500/25 hover:shadow-[0_0_15px_rgba(249,115,22,0.3)] light:bg-orange-50 light:border-orange-600/50 light:text-orange-700 light:hover:bg-orange-100'
                   }`}
                 >
                   {zkGeneratingId === 'timelock_absolute' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
@@ -4789,10 +4789,10 @@ ${gameMeta.outcomeBranches}
                   title={zkGeneratingId && zkGeneratingId !== 'relative_timelock' ? 'Waiting for the current proof to finish' : undefined}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${
                     zkGeneratingId === 'relative_timelock'
-                      ? 'opacity-40 cursor-not-allowed bg-emerald-600/30 text-emerald-400/60'
+                      ? 'opacity-40 cursor-not-allowed bg-emerald-600/30 text-emerald-400/60 light:bg-emerald-100 light:text-emerald-700/70'
                       : zkGeneratingId !== null
-                      ? 'opacity-45 cursor-not-allowed bg-emerald-500/15 border border-emerald-500/30 text-emerald-400'
-                      : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]'
+                      ? 'opacity-45 cursor-not-allowed bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 light:bg-emerald-50 light:border-emerald-600/50 light:text-emerald-700'
+                      : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/25 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] light:bg-emerald-50 light:border-emerald-600/50 light:text-emerald-700 light:hover:bg-emerald-100'
                   }`}
                 >
                   {zkGeneratingId === 'relative_timelock' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
@@ -4800,36 +4800,36 @@ ${gameMeta.outcomeBranches}
                 </button>
               ) : gameType === 'vrf_random' ? (
                 <button onClick={generateVrfRandom} disabled={zkGeneratingId !== null} aria-busy={zkGeneratingId === 'vrf_random'} title={zkGeneratingId && zkGeneratingId !== 'vrf_random' ? 'Waiting for the current proof to finish' : undefined}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'vrf_random' ? 'opacity-40 cursor-not-allowed bg-pink-600/30 text-pink-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-pink-500/15 border border-pink-500/30 text-pink-400' : 'bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)]'}`}>
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'vrf_random' ? 'opacity-40 cursor-not-allowed bg-pink-600/30 text-pink-400/60 light:bg-pink-100 light:text-pink-700/70' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-pink-500/15 border border-pink-500/30 text-pink-400 light:bg-pink-50 light:border-pink-600/50 light:text-pink-700' : 'bg-pink-500/15 border border-pink-500/30 text-pink-400 hover:bg-pink-500/25 hover:shadow-[0_0_15px_rgba(236,72,153,0.3)] light:bg-pink-50 light:border-pink-600/50 light:text-pink-700 light:hover:bg-pink-100'}`}>
                   {zkGeneratingId === 'vrf_random' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
                   {zkGeneratingId === 'vrf_random' ? 'Generating proof' : 'Generate Real VRF Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'turn_timer' ? (
                 <button onClick={generateTurnTimer} disabled={zkGeneratingId !== null} aria-busy={zkGeneratingId === 'turn_timer'} title={zkGeneratingId && zkGeneratingId !== 'turn_timer' ? 'Waiting for the current proof to finish' : undefined}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'turn_timer' ? 'opacity-40 cursor-not-allowed bg-cyan-600/30 text-cyan-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-cyan-500/15 border border-cyan-500/30 text-cyan-400' : 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)]'}`}>
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'turn_timer' ? 'opacity-40 cursor-not-allowed bg-cyan-600/30 text-cyan-400/60 light:bg-cyan-100 light:text-cyan-800/70' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 light:bg-cyan-50 light:border-cyan-700/50 light:text-cyan-800' : 'bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 hover:bg-cyan-500/25 hover:shadow-[0_0_15px_rgba(6,182,212,0.3)] light:bg-cyan-50 light:border-cyan-700/50 light:text-cyan-800 light:hover:bg-cyan-100'}`}>
                   {zkGeneratingId === 'turn_timer' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
                   {zkGeneratingId === 'turn_timer' ? 'Generating proof' : 'Generate Real Turn Timer Proof (snarkjs)'}
                 </button>
               ) : gameType === 'script_constraint' ? (
                 <button onClick={generateScriptConstraint} disabled={zkGeneratingId !== null} aria-busy={zkGeneratingId === 'script_constraint'} title={zkGeneratingId && zkGeneratingId !== 'script_constraint' ? 'Waiting for the current proof to finish' : undefined}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'script_constraint' ? 'opacity-40 cursor-not-allowed bg-amber-600/30 text-amber-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-amber-500/15 border border-amber-500/30 text-amber-400' : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)]'}`}>
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'script_constraint' ? 'opacity-40 cursor-not-allowed bg-amber-600/30 text-amber-400/60 light:bg-amber-100 light:text-amber-700/70' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-amber-500/15 border border-amber-500/30 text-amber-400 light:bg-amber-50 light:border-amber-600/50 light:text-amber-700' : 'bg-amber-500/15 border border-amber-500/30 text-amber-400 hover:bg-amber-500/25 hover:shadow-[0_0_15px_rgba(245,158,11,0.3)] light:bg-amber-50 light:border-amber-600/50 light:text-amber-700 light:hover:bg-amber-100'}`}>
                   {zkGeneratingId === 'script_constraint' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
                   {zkGeneratingId === 'script_constraint' ? 'Generating proof' : 'Generate Real Script Constraint Proof (snarkjs + Poseidon)'}
                 </button>
               ) : gameType === 'pot_split_math' ? (
                 <button onClick={generatePotSplitMath} disabled={zkGeneratingId !== null} aria-busy={zkGeneratingId === 'pot_split_math'} title={zkGeneratingId && zkGeneratingId !== 'pot_split_math' ? 'Waiting for the current proof to finish' : undefined}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'pot_split_math' ? 'opacity-40 cursor-not-allowed bg-red-600/30 text-red-400/60' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-red-500/15 border border-red-500/30 text-red-400' : 'bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)]'}`}>
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${zkGeneratingId === 'pot_split_math' ? 'opacity-40 cursor-not-allowed bg-red-600/30 text-red-400/60 light:bg-red-100 light:text-red-700/70' : zkGeneratingId !== null ? 'opacity-45 cursor-not-allowed bg-red-500/15 border border-red-500/30 text-red-400 light:bg-red-50 light:border-red-600/50 light:text-red-700' : 'bg-red-500/15 border border-red-500/30 text-red-400 hover:bg-red-500/25 hover:shadow-[0_0_15px_rgba(239,68,68,0.3)] light:bg-red-50 light:border-red-600/50 light:text-red-700 light:hover:bg-red-100'}`}>
                   {zkGeneratingId === 'pot_split_math' ? <Loader2 size={14} className="animate-spin" /> : <Cpu size={14} />}
                   {zkGeneratingId === 'pot_split_math' ? 'Generating proof' : 'Generate Real Pot Split Proof (snarkjs)'}
                 </button>
               ) : (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400/80 font-mono">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-amber-500/[0.04] border border-amber-500/20 text-[11px] text-amber-400/80 font-mono light:bg-amber-50 light:border-amber-600/40 light:text-amber-700">
                   <Info size={14} />
                   No client-side generator available. Ceremony artifacts not yet generated for this circuit type. Paste proof + public inputs above and submit - the oracle will attest and sign.
                 </div>
               )}
               {zkGenError && (
-                <p className="text-[10px] text-amber-400 font-mono">{zkGenError}</p>
+                <p className="text-[10px] text-amber-400 font-mono light:text-amber-700">{zkGenError}</p>
               )}
             </div>
 

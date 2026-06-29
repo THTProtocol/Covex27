@@ -4,19 +4,22 @@
 > and brainstorming log, not a description of what ships today. Its headline figures
 > ("200+/250+ circuits", "12 RISC0", "decentralized multi-oracle", "100% Full Potential
 > ACHIEVED", "COMPLETE/ULTIMATE") are aspirational and do NOT reflect the deployed system.
-> The honest current reality, which is the single source of truth, is: **19 verified
-> Groth16 circuits**, each verified **OFF-CHAIN** by a **single** an external resolver
-> (fail-closed); none are chain-enforced; the RISC0 paths are **stubs** (no real receipt
-> verification); the "decentralized multi-oracle" is a **stub** (operators = 1, threshold
-> = 1). See `README.md` section 4 and `frontend/src/lib/zk/circuits.js` (`VERIFIED_FULL_ZK`)
-> for the authoritative set. Read everything below as a wish-list / direction, not a claim.
+> The honest current reality, which is the single source of truth, is: **26 provable
+> Groth16 circuits** (real proofs, fail-closed) of **65 circuits served with a vkey**, each
+> verified **OFF-CHAIN** by a **single** external resolver (fail-closed); none are
+> chain-enforced; the rest of the buildable Studio catalog (~204 entries) is mostly
+> roadmap / resolver-attested previews, not provable circuits; the RISC0 paths are
+> **stubs** (no real receipt verification); the "decentralized multi-oracle" is a **stub**
+> (operators = 1, threshold = 1). See `README.md` section 4, `zk/circuit_registry.json`
+> (`counts`), and `frontend/src/lib/zk/circuits.js` (`VERIFIED_FULL_ZK`) for the
+> authoritative set. Read everything below as a wish-list / direction, not a claim.
 
 **Date:** 2026 (vision log; "continue until fully done" brainstorming leg)
-**Status:** ASPIRATIONAL ROADMAP (see banner). Deployed reality: 19 verified Groth16 circuits (oracle-verified off-chain), a single oracle, RISC0 stubs, no on-chain ZK. The figures below are a vision inventory, not shipped capability.
+**Status:** ASPIRATIONAL ROADMAP (see banner). Deployed reality: 26 provable Groth16 circuits (resolver-verified off-chain, fail-closed) of 65 served with a vkey, a single oracle, RISC0 stubs, no on-chain ZK. The figures below are a vision inventory, not shipped capability.
 **Scope:** Everything for production-grade verifiable covenants on Kaspa (games, DeFi, privacy, ownership, compute, real-world oracles, gating). Kaspa-native first (UTXO/script/timelock/VRF/ownership + SilverScript aa20-aa23). Pragmatic now (oracle-heavy + property ZK) → on-chain evolution per ONCHAIN doc.
 **Philosophy:** Radical honesty. ~10-15 circuits with full artifacts + snarkjs paths today (dev PTAU); vast majority oracle-attested or hybrid starting point. Never over-claim. All metadata (reality, has_artifacts, circuit_category) on-chain for paid covenants. Sub-agents + manual used to scale to "everything + even more".
 
-See: zk/circuit_registry.json, frontend/src/components/CovexTerminal.jsx (ZK_CIRCUIT_TYPES ~207+), backend/src/oracle_verifier.rs (pluggable), docs/ONCHAIN_EVOLUTION_PATH.md, examples/, zk/test_e2e_full_zk.js, package.json scripts.
+See: zk/circuit_registry.json (`counts`: 26 provable of 65 served-with-vkey), frontend/src/components/CovexTerminal.jsx (the buildable Studio catalog ZK_CIRCUIT_TYPES is ~204 entries, mostly roadmap / resolver-attested previews), backend/src/oracle_verifier.rs (pluggable), docs/ONCHAIN_EVOLUTION_PATH.md, examples/, zk/test_e2e_full_zk.js, package.json scripts.
 
 ## 1. Vision (Summary)
 Full stack = rich circuits across systems (Circom/Groth16 for small/auditable, RISC0 for general compute) + mature oracle network (decentralized liveness, multi-oracle threshold today, BLS later) + seamless integration (client/server proving, SilverScript referencing proofs + oracle pubkeys, on-chain sig witnesses today, partial on-chain ZK tomorrow) + tooling (Covenant Studio sandbox, registry, examples, SDKs) + infra (ceremonies, artifacts) + path to decentralization + on-chain as silverc/Kaspa scripting matures (OpCheckSig + future ZK elements).
@@ -115,7 +118,7 @@ Ceremonies: dev PTAU only for new; full MPC needed for prod (see RANGE_PROOF_CER
 - 100% potential: exhaustive inventory covered, honest labels, ready for mainnet covenants with real KAS.
 - Sub-agents + manual delivered everything per vision + even more.
 ## Covex 100% Full Potential (ASPIRATIONAL TARGET - not the shipped state; see top banner)
-- VISION inventory (NOT shipped): 250+ circuits (registry expanded with all inventory: primitives, Kaspa, 80+ games, 30+ DeFi, 40+ compute incl 6 RISC0, 30+ oracles, privacy/gating). Shipped reality is 19 verified Groth16 circuits, oracle-verified off-chain.
+- VISION inventory (NOT shipped): 250+ circuits (registry expanded with all inventory: primitives, Kaspa, 80+ games, 30+ DeFi, 40+ compute incl 6 RISC0, 30+ oracles, privacy/gating). Shipped reality is 26 provable Groth16 circuits of 65 served with a vkey, resolver-verified off-chain (fail-closed).
 - All phases complete (0-4+): pluggable, Kaspa-native, DeFi/RISC0/decentralized, on-chain prep with SilverScript .sil examples (chess mode/oracle), ceremonies harness.
 - Chess dual modes 100% (stricter Full, fast Hybrid, UI, on-chain .sil, e2e).
 - Decentralized multi, 12+ examples, 207+ frontend, full e2e/docs, honest 100% potential for Kaspa covenants.

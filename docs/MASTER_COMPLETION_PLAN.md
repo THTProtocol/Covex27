@@ -93,7 +93,7 @@
 ## Phase 9 — Production Polish
 
 - SDK: prove → oracle → covenant-helper one-liner
-- `circuit_registry.json` honesty pass (200+ inventory)
+- `circuit_registry.json` honesty pass: 26 provable (real Groth16, fail-closed off-chain) of 65 served with a vkey; the buildable Studio catalog of ~204 entries is mostly roadmap / resolver-attested previews
 - Live verification on `hightable.pro`
 - Privacy mixer deployment checklist
 

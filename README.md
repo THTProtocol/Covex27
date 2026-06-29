@@ -62,6 +62,9 @@ Covex is built for Kaspa **mainnet**. The covenant indexer is armed behind the h
 | Provably paid covenants | 0 |
 | Total value locked | 0 KAS |
 | Toccata activation | 30 June 2026 |
+| Mainnet covenant gate | `COVEX_MAINNET_COVENANTS_ENABLED` is **off by default**; the owner flips it to `true` at launch |
+
+Mainnet covenants are gated **off by default**: every mainnet deploy is refused until the owner sets `COVEX_MAINNET_COVENANTS_ENABLED=true` once Toccata is live (`backend/src/crawler.rs`). Until then, deploy on a testnet.
 
 ```bash
 # verify mainnet live (0 until Toccata is the honest, expected state):
@@ -95,6 +98,8 @@ Covex labels every covenant by **who actually enforces its outcome**. This vocab
 - **HTLC** (hashed timelock contract), the atomic-swap and channel-funding primitive.
 
 Each of these is engine-tested against the real `kaspa-txscript` interpreter before any value is locked. These pass the acid test: *if hightable.pro vanished tomorrow, every user could still recover or settle their funds using only their own wallet and the published script.*
+
+HTLC, like every primitive, is covered by the engine test-suite; confirm the deployed binary version before relying on any primitive for mainnet value.
 
 All twenty-six verified ZK circuits in the Covex circom registry verify a **real Groth16 proof** off-chain, fail-closed, by an external resolver you choose or run (never by Covex). For the four self-contained circuits (merkle_membership, age_verification, escrow_2party, range_proof) the proof is verified off-chain; the chain still requires an external resolver's Schnorr co-signature to release funds (there is no proof-to-hashlock binding), so they are not trustless end-to-end either. Every other circuit's proof is likewise verified off-chain by the resolver, where trust sits with that disclosed resolver, not Covex and not the chain. Beyond those four, none of the circom circuits is chain-enforced: there is no proof-to-hashlock binding (the circuits use MiMC7/range/timelock math, Kaspa's hashlock is blake2b256, `escrow_2party` has no hash at all, and `backend/src/covenant_builder.rs` contains no circuit-output to hashlock binding). For those, the only on-chain check is the resolver's Schnorr co-signature. Separately, Toccata's KIP-16 OpZkPrecompile (opcode 0xa6) verifies a RISC0-Groth16 proof in consensus, which is the on-chain path the settlement covenant targets; it is testnet-gated until proven live on mainnet. The canonical circom set lives in `frontend/src/lib/zk/circuits.js` (`VERIFIED_FULL_ZK`).
 

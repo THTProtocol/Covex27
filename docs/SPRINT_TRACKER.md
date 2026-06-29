@@ -21,7 +21,7 @@ This file tracks the phased "complete the list" execution against the full remai
 
 ## Sprint 2/3 — Decentralized Oracle + On-Chain Depth + Reals — IN PROGRESS
 
-- [x] 200+ circuits inventoried in `zk/circuit_registry.json` with reality labels
+- [x] Circuits inventoried in `zk/circuit_registry.json` with honest reality labels: 26 provable (real Groth16, fail-closed off-chain) of 65 served with a vkey; the buildable Studio catalog of ~204 entries is mostly roadmap / resolver-attested previews, not provable circuits
 - [x] Pluggable oracle verifier: StrictGroth16 / HybridGroth16 / Risc0Stub / WasmStub / Attested
 - [x] Oracle response enrichment: `circuit_type` + `covenant_hint` on all paths
 - [x] `decentralized_liveness`: dynamic simulate support (partial/down) + multi-oracle stubs

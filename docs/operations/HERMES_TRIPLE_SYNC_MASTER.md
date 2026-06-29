@@ -130,6 +130,6 @@ Project is in excellent production-grade shape:
 - Full version 1.1.0 unification across frontend, backend, zk, and circuit registry
 - Pluggable oracle with simulate support for covenant testing
 - 9 covenant .sil templates ready for wiring
-- 200+ circuits inventoried in registry with reality labels
+- Circuits inventoried in the registry with honest reality labels: 26 provable (real Groth16, fail-closed off-chain) of 65 served with a vkey; the buildable Studio catalog of ~204 entries is mostly roadmap / resolver-attested previews
 - Repo cleaned: stale prompts removed, reports organized under docs/, paths fixed fleet-wide
 - "Everything gets along perfectly and it is easy to connect any ZK circuit + oracle into a covenant" via add_circuit.sh + pluggable verifier + uniform hybrid scripts + simulate testing + covenant-helper.js + .sil templates

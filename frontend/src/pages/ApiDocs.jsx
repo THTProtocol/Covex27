@@ -38,6 +38,9 @@ function buildExampleResponse(reality) {
 
 export default function ApiDocs() {
   const [spec, setSpec] = useState(null);
+  const [specErr, setSpecErr] = useState(false);
+  // Bumped by the "Try again" button to re-run the openapi.json fetch effect.
+  const [reloadKey, setReloadKey] = useState(0);
   const [copiedPath, setCopiedPath] = useState(null);
   const [exampleReality, setExampleReality] = useState('on-chain');
   // Try-It panel state, keyed by `${method}${path}` so each endpoint has its own input + output.
@@ -45,8 +48,11 @@ export default function ApiDocs() {
   const [tryState, setTryState] = useState({});
 
   useEffect(() => {
-    fetch('/api/openapi.json').then((r) => r.json()).then(setSpec).catch(() => {});
-  }, []);
+    fetch('/api/openapi.json')
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('bad status'))))
+      .then(setSpec)
+      .catch(() => setSpecErr(true));
+  }, [reloadKey]);
 
   const curlFor = (path, method) => {
     const sample = path
@@ -160,7 +166,19 @@ export default function ApiDocs() {
         <pre className="text-[11px] font-mono text-gray-300 bg-black/40 border border-white/[0.06] rounded-xl p-3 overflow-x-auto whitespace-pre light:bg-slate-50 light:text-slate-700 light:border-slate-200">{buildExampleResponse(exampleReality)}</pre>
       </div>
 
-      {!spec ? (
+      {specErr ? (
+        <div className="glass-panel rounded-2xl p-8 text-center border border-red-500/20">
+          <p className="text-sm font-semibold text-red-400 light:text-red-600 mb-2">Could not load the live API reference.</p>
+          <p className="text-xs text-gray-400 light:text-slate-500 mb-5">The /api/openapi.json endpoint did not respond. The quick reference and curl examples above still apply.</p>
+          <button
+            type="button"
+            onClick={() => { setSpecErr(false); setReloadKey((k) => k + 1); }}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
+          >
+            Try again
+          </button>
+        </div>
+      ) : !spec ? (
         <div className="flex justify-center py-20"><div className="w-8 h-8 rounded-full border-2 border-kaspa-green/30 border-t-kaspa-green animate-spin" /></div>
       ) : (
         <div className="space-y-4">

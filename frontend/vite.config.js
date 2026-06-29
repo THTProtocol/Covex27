@@ -12,10 +12,15 @@ export default defineConfig({
         // Rolldown's rollup-compat `manualChunks(id)` is only advisory: rolldown runs its own
         // splitter on top and was MERGING React core (react / jsx-runtime / scheduler) together with
         // chess.js into one 118KB chunk that the entry modulepreloaded on EVERY page (chess is only
-        // used on the chess route). The native `advancedChunks.groups` API is priority-deterministic
+        // used on the chess route). The native `codeSplitting.groups` API is priority-deterministic
         // ("modules captured by a higher-priority group are removed from lower-priority groups"), so a
         // top-priority React group pins React core to vendor-react and the lower-priority chess group
         // keeps chess.js / react-chessboard OUT of the entry preload graph.
+        //
+        // `codeSplitting` is the supported successor to the now-deprecated `advancedChunks` (rolldown
+        // 1.0.1; advancedChunks logged a build-time deprecation warning). The `groups` shape - name,
+        // priority, test - is identical, so this is a key rename with no behavior change: vendor-react
+        // still holds React core, lucide + chess still stay off the homepage modulepreload set.
         //
         // lucide-react intentionally gets NO group: a blanket lucide chunk forces the whole package
         // into one file and defeats tree-shaking. Letting it fall through lets the bundler keep only
@@ -23,7 +28,7 @@ export default defineConfig({
         // `import * as Lucide` namespace import, which keeps the full set alive there; that file is
         // owned by another lane. Once that namespace import moves to a lazy boundary, this config
         // already lets lucide tree-shake.)
-        advancedChunks: {
+        codeSplitting: {
           groups: [
             // React core: highest priority so jsx-runtime / scheduler never leak into chess.
             {

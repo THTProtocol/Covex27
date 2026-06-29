@@ -4,7 +4,7 @@ import QRCodeSVG from './LazyQRCode';
 import { explorerAddressUrl } from '../lib/explorer';
 import { truncateHash } from '../lib/format.js';
 import { Link } from 'react-router-dom';
-import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, walletPrimaryAction, isMobile } from './WalletContext';
+import { useWallet, NETWORK_LABELS, getCurrentNetwork, onNetworkChange, walletPrimaryAction, isMobile, walletCovenantBadge } from './WalletContext';
 import { X, Wallet, AlertTriangle, Copy, Check, LayoutDashboard, Palette, Landmark, ExternalLink, LogOut, RefreshCw, ArrowRight, Sparkles, Smartphone, Download, Loader2, QrCode, KeyRound, ShieldCheck } from '../lib/icons.js';
 import { toast } from './ToastContext';
 
@@ -442,6 +442,12 @@ export default function WalletButton({ fullLabel = false } = {}) {
                   <div className="space-y-2">
                     {detected.map((wallet) => {
                       const isPending = pendingId === wallet.id;
+                      // NETWORK-AWARE badge: the green "Signs covenants" claim only shows when the
+                      // wallet can actually sign covenants on the ACTIVE network. Kastle on TN12
+                      // (covenant signing is mainnet/TN10 only) gets a muted "Mainnet / TN10 only"
+                      // chip instead, so a first-time TN12 visitor is not promised a path that every
+                      // deploy/redeem would refuse.
+                      const covBadge = walletCovenantBadge(wallet.id, network);
                       return (
                         <button
                           key={wallet.id}
@@ -455,9 +461,11 @@ export default function WalletButton({ fullLabel = false } = {}) {
                             <div className="text-white light:text-slate-900 font-semibold text-sm flex items-center gap-2 flex-wrap">
                               <span className="truncate">{wallet.name}</span>
                               <span className="text-[9px] uppercase tracking-wider bg-[#49EACB]/15 text-[#49EACB] light:text-[#0d9488] px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><Check size={9} /> Installed</span>
-                              {wallet.canSignCovenants && (
+                              {covBadge.canSign ? (
                                 <span title="Can sign covenant deploy and redeem in the wallet popup (the primary money path). A recovery key tool is the backup." className="text-[9px] uppercase tracking-wider bg-emerald-500/15 text-emerald-300 light:text-emerald-700 border border-emerald-500/30 px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><ShieldCheck size={9} /> Signs covenants</span>
-                              )}
+                              ) : covBadge.networkLimited ? (
+                                <span title={`This wallet signs covenants on mainnet and testnet-10 only, not ${netLabel}. Switch networks, or use KasWare / OKX, or the recovery key tool.`} className="text-[9px] uppercase tracking-wider bg-white/[0.04] light:bg-slate-100 text-gray-400 light:text-slate-500 border border-white/10 light:border-slate-200 px-1.5 py-0.5 rounded-sm shrink-0">{covBadge.note}</span>
+                              ) : null}
                             </div>
                             <div className="text-[11px] text-gray-500 truncate">{wallet.sub}</div>
                           </div>
@@ -481,6 +489,9 @@ export default function WalletButton({ fullLabel = false } = {}) {
                     const action = walletPrimaryAction(wallet);
                     const isOpen = action.kind === 'open';
                     const isPending = pendingId === wallet.id;
+                    // Same network-aware badge as the connected rows: Kastle on TN12 shows the muted
+                    // "Mainnet / TN10 only" chip rather than the green "Signs covenants" overclaim.
+                    const covBadge = walletCovenantBadge(wallet.id, network);
                     return (
                       <button
                         key={wallet.id}
@@ -496,9 +507,11 @@ export default function WalletButton({ fullLabel = false } = {}) {
                             {wallet.recommended && (
                               <span className="text-[9px] uppercase tracking-wider bg-[#E8AF34]/10 text-[#E8AF34] px-1.5 py-0.5 rounded-sm shrink-0">Recommended</span>
                             )}
-                            {wallet.canSignCovenants && (
+                            {covBadge.canSign ? (
                               <span title="Can sign covenant deploy and redeem in the wallet popup (the primary money path). A recovery key tool is the backup." className="text-[9px] uppercase tracking-wider bg-emerald-500/10 text-emerald-300 light:text-emerald-700 border border-emerald-500/25 px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><ShieldCheck size={9} /> Signs covenants</span>
-                            )}
+                            ) : covBadge.networkLimited ? (
+                              <span title={`This wallet signs covenants on mainnet and testnet-10 only, not ${netLabel}. Switch networks, or use KasWare / OKX, or the recovery key tool.`} className="text-[9px] uppercase tracking-wider bg-white/[0.04] light:bg-slate-100 text-gray-400 light:text-slate-500 border border-white/10 light:border-slate-200 px-1.5 py-0.5 rounded-sm shrink-0">{covBadge.note}</span>
+                            ) : null}
                           </div>
                           <div className="text-[11px] text-gray-500 truncate">{isOpen ? action.label : wallet.sub}</div>
                         </div>

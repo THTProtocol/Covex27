@@ -234,6 +234,26 @@ const COVENANT_SIGNER_FAMILY = Object.freeze({
   InApp: 'kasware',
 });
 
+// Per-wallet, NETWORK-AWARE covenant-signing capability for the picker badge. The connected-wallet
+// gate lives in covenantSignCapability() (inside the provider); this is the BY-ID equivalent the
+// drawer uses to render an HONEST badge BEFORE connecting. Same source of truth: a wallet can sign
+// covenants iff it is in a known signer family AND that family supports `appNetwork`.
+//   - kasware family (KasWare / OKX / InApp): all selectable networks.
+//   - kastle family: mainnet + TN10 ONLY (COVEX_TO_KASTLE_NETWORK has no TN12), so on TN12 the
+//     green "Signs covenants" badge would OVERCLAIM (every deploy/redeem is refused); we return a
+//     networkLimited flag instead so the UI shows a muted "Mainnet / TN10 only" chip.
+// Returns { canSign, networkLimited, note }: canSign true => show the green badge; networkLimited
+// true => the wallet CAN sign covenants but not on this network (muted chip); both false => the
+// wallet does not sign covenants here at all (no badge).
+export function walletCovenantBadge(walletId, appNetwork) {
+  const family = COVENANT_SIGNER_FAMILY[walletId];
+  if (!family) return { canSign: false, networkLimited: false, note: null };
+  if (family === 'kastle' && !COVEX_TO_KASTLE_NETWORK[appNetwork]) {
+    return { canSign: false, networkLimited: true, note: 'Mainnet / TN10 only' };
+  }
+  return { canSign: true, networkLimited: false, note: null };
+}
+
 // ── KAS → sompi conversion (BigInt-safe, no float precision loss) ──
 function kasToSompi(amountKas) {
   const [whole = '0', frac = ''] = String(amountKas).split('.');
@@ -291,10 +311,12 @@ function humanizeExtensionError(err) {
 // removed rather than shown as broken. Add a wallet here only once its injected global + dApp
 // connect (or, for mobile, its in-app browser deep link) are verified.
 // `canSignCovenants` flags a wallet whose injected provider exposes the covenant-signing
-// primitive (signPskt for the KasWare family, signTx for Kastle), so the picker can show a
-// "Can sign covenants" badge. It is a CAPABILITY ADVERTISEMENT, not a proof: the actual sign
-// path is fail-closed (walletSigner verifies the returned signature), and Kastle's covenant
-// signing is network-limited (mainnet + TN10 only), surfaced honestly at sign time.
+// primitive (signPskt for the KasWare family, signTx for Kastle). It is a CAPABILITY
+// ADVERTISEMENT, not a proof: the actual sign path is fail-closed (walletSigner verifies the
+// returned signature). The PICKER BADGE no longer reads this static flag directly, because
+// covenant-signing is NETWORK-LIMITED (Kastle is mainnet + TN10 only): the badge is computed per
+// active network via walletCovenantBadge(id, network), which downgrades Kastle on TN12 to a muted
+// "Mainnet / TN10 only" chip instead of overclaiming. This flag is kept as wallet metadata.
 const ALL_WALLETS = [
   { id: 'KasWare', name: 'KasWare Wallet', url: WALLET_INSTALL_URLS.KasWare, logo: WALLET_LOGOS.KasWare, sub: 'Chrome · Firefox', platform: 'desktop', detect: () => detectWallet('KasWare'), provider: () => getProvider('KasWare'), recommended: true, canSignCovenants: true },
   // Kastle injects window.kastle in its desktop extension. Mobile in-app browser is "coming

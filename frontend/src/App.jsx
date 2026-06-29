@@ -190,8 +190,10 @@ function NetworkSwitcher() {
       {networks.map(n => (
         <button
           key={n.value}
+          type="button"
           onClick={() => setNetwork(n.value)}
           title={n.title}
+          aria-pressed={network === n.value}
           className={`px-2 py-1 text-[11px] font-semibold rounded-sm transition-all ${
             network === n.value
               ? 'text-black shadow-sm'

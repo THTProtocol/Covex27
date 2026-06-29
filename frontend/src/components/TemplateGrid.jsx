@@ -303,14 +303,14 @@ export default function TemplateGrid({ embedded = false, onUse = null, filter = 
         const previewKind = templatePreviewKind(selectedTemplate);
         return (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4 sm:p-6" onClick={() => setSelectedTemplate(null)}>
-          <div className="glass-panel detail-hero-enhanced relative overflow-hidden border border-white/10 light:border-slate-200 rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-labelledby="template-modal-title" className="glass-panel detail-hero-enhanced relative overflow-hidden border border-white/10 light:border-slate-200 rounded-3xl max-w-2xl w-full max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="covex-aurora" aria-hidden="true" style={{ top: -30, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 340, height: 180, maxWidth: '90vw', opacity: 0.5 }} />
             <div className="relative z-10 flex flex-col min-h-0 p-6 sm:p-8">
               <div className="flex justify-between items-start mb-6 gap-3 shrink-0">
                 <div>
                   <div className="text-5xl mb-4">{selectedTemplate.icon}</div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h2 className="text-2xl font-bold text-white light:text-slate-900">{selectedTemplate.name}</h2>
+                    <h2 id="template-modal-title" className="text-2xl font-bold text-white light:text-slate-900">{selectedTemplate.name}</h2>
                     <span className={`text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide ${reality.style}`}>{reality.label}</span>
                   </div>
                 </div>

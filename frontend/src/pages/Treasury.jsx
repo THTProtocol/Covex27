@@ -79,13 +79,14 @@ export default function Treasury() {
   const network = localStorage.getItem('kaspaNetwork') || 'mainnet';
   const treasury = TREASURIES[network] || TREASURIES['mainnet'];
   const [balance, setBalance] = useState(null);
+  const [balanceErr, setBalanceErr] = useState(false);
   const [upgrades, setUpgrades] = useState([]);
 
   useEffect(() => {
     fetch(`/api/balance/${encodeURIComponent(treasury)}?network=${network}`)
       .then((r) => r.json())
-      .then((d) => setBalance(typeof d.balance === 'number' ? d.balance / 1e8 : null))
-      .catch(() => {});
+      .then((d) => { setBalance(typeof d.balance === 'number' ? d.balance / 1e8 : null); setBalanceErr(false); })
+      .catch(() => setBalanceErr(true));
     fetch(`/api/events?network=${network}&limit=100`)
       .then((r) => r.json())
       .then((d) => setUpgrades((d.events || []).filter((e) => e.event_type === 'tier_upgraded')))
@@ -120,9 +121,11 @@ export default function Treasury() {
               <span className="text-[9px] font-bold tracking-wider">WATCH LIVE</span>
             </span>
           </p>
-          {balance === null
-            ? <div className="skeleton light:bg-slate-100 h-7 w-40 mt-1" />
-            : <p className="text-2xl font-black text-white light:text-slate-900 tabular-nums">{`${balance.toLocaleString()} KAS`}</p>}
+          {balanceErr
+            ? <p className="text-sm text-gray-500 light:text-slate-500 mt-1.5">Balance unavailable</p>
+            : balance === null
+              ? <div className="skeleton light:bg-slate-100 h-7 w-40 mt-1" />
+              : <p className="text-2xl font-black text-white light:text-slate-900 tabular-nums">{`${balance.toLocaleString()} KAS`}</p>}
           <p className="text-[10px] text-gray-500 light:text-slate-500 mt-1">Consensus-enforced address balance (read-only)</p>
         </Card>
         <Card hover accent="#49EACB" className="p-5">

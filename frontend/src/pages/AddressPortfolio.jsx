@@ -108,7 +108,7 @@ export default function AddressPortfolio() {
           <div className="w-12 h-12 mx-auto mb-4 rounded-2xl bg-kaspa-green/10 border border-kaspa-green/25 flex items-center justify-center">
             <Layers size={22} className="text-kaspa-green" />
           </div>
-          <h2 className="text-base sm:text-lg font-bold text-white light:text-slate-900 mb-2 break-words">You have not deployed a covenant from this address yet.</h2>
+          <h2 className="text-base sm:text-lg font-bold text-white light:text-slate-900 mb-2 break-words">No covenants deployed from this address yet.</h2>
           <p className="text-sm text-gray-400 light:text-slate-600 mb-6 max-w-md mx-auto break-words">Start with a hashlock: 1 KAS, consensus-enforced by Kaspa, no oracle in the path.</p>
           <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 justify-center items-stretch sm:items-center max-w-sm sm:max-w-none mx-auto">
             <Link

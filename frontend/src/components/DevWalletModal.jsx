@@ -225,7 +225,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-300 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors">
+          <button onClick={onClose} aria-label="Close" className="text-gray-300 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors">
             <X size={20} />
           </button>
         </div>
@@ -572,7 +572,7 @@ function MainnetWalletModal({ walletContext, onClose }) {
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors"><X size={20} /></button>
+          <button onClick={onClose} aria-label="Close" className="text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900 transition-colors"><X size={20} /></button>
         </div>
 
         <div className="p-5 space-y-4">

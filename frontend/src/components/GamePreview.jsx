@@ -321,6 +321,9 @@ const GamePreview = ({ covenant, compact = false, large = false }) => {
           onClick={() => setExpanded(false)}
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="game-preview-title"
             className="glass-panel detail-hero-enhanced relative w-full max-w-3xl max-h-[90vh] mx-4 border border-kaspa-green/30 rounded-2xl overflow-hidden shadow-[0_0_60px_rgba(73,234,203,0.15)]"
             onClick={(e) => e.stopPropagation()}
           >
@@ -335,7 +338,7 @@ const GamePreview = ({ covenant, compact = false, large = false }) => {
                     <Gamepad2 className="w-4 h-4 text-kaspa-green" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-white">
+                    <h3 id="game-preview-title" className="text-sm font-bold text-white">
                       {covenant.name || covenant.covenant_type || 'Covenant'} Preview
                     </h3>
                     <p className="text-[10px] text-gray-200 font-mono">

@@ -32,6 +32,33 @@
     <meta name="twitter:description" content="Index every covenant, interact with any of them, design and verify your own. Real on-chain data only." />
     <meta name="twitter:image" content="https://hightable.pro/og-cover.png" />
     <link rel="manifest" href="/manifest.json" />
+    <!-- Structured data. Honesty-disciplined: every claim here is true on the built
+         site. No SearchAction (the Explorer search is client-side, not a ?q= URL) and
+         no sameAs / ratings / prices we cannot verify. -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "Organization",
+          "@id": "https://hightable.pro/#org",
+          "name": "Covex",
+          "url": "https://hightable.pro/",
+          "logo": "https://hightable.pro/covex-logo-512.png",
+          "description": "Neutral, non-custodial covenant infrastructure for Kaspa. Covex holds no funds, takes no rake, and never attests an outcome."
+        },
+        {
+          "@type": "WebSite",
+          "@id": "https://hightable.pro/#website",
+          "name": "Covex",
+          "url": "https://hightable.pro/",
+          "description": "The covenant explorer and studio for Kaspa mainnet. Index every covenant, interact with any of them, design and verify your own. Non-custodial, real on-chain data only.",
+          "publisher": { "@id": "https://hightable.pro/#org" },
+          "inLanguage": "en"
+        }
+      ]
+    }
+    </script>
     <link rel="icon" type="image/png" sizes="32x32" href="/covex-logo-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/covex-logo-16.png" />
     <link rel="apple-touch-icon" href="/covex-logo-192.png" />

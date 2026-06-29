@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Terminal, ExternalLink, BookOpen, Cpu, Shield, Zap, GitBranch, Award, Timer, TrendingUp, Coins, Fingerprint, Calendar, CheckCircle2, Code2, FileCode, Scissors, FlaskConical } from '../lib/routeIcons.js';
 import BlockDagViz from '../components/BlockDagViz';
+import ToccataStatus from '../components/ToccataStatus';
 
 export default function WhatIsKaspaPage() {
   return (
@@ -240,6 +241,8 @@ export default function WhatIsKaspaPage() {
             </h2>
             <span className="text-[10px] px-3 py-0.5 rounded-full bg-kaspa-green/10 text-kaspa-green border border-kaspa-green/20 tracking-wider font-mono break-words">COVENANTS ON KASPA MAINNET WITH TOCCATA</span>
           </div>
+
+          <ToccataStatus />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {[

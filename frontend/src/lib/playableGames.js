@@ -6,8 +6,8 @@
 // is demoted behind an "Advanced game circuits" expander.
 //
 // Each entry maps a GAME_REGISTRY key (the short arena key used by
-// CovenantInteractive's GAME_REGISTRY + GamePreview's KNOWN_GAMES) to the
-// representative catalog circuit id (the `_v1` builder entry in ZK_CIRCUIT_TYPES).
+// CovenantInteractive's GAME_REGISTRY) to the representative catalog circuit id
+// (the `_v1` builder entry in ZK_CIRCUIT_TYPES).
 // Both ends are validated against this list in dev so the playable set, the arena
 // registry, and the catalog headline cards can never silently drift apart.
 //
@@ -26,7 +26,7 @@ export const PLAYABLE_GAMES = [
 ];
 
 // The short arena keys (chess, poker, ...). GAME_REGISTRY in CovenantInteractive
-// must cover exactly this set; GamePreview's KNOWN_GAMES mirrors it.
+// must cover exactly this set.
 export const PLAYABLE_GAME_KEYS = PLAYABLE_GAMES.map((g) => g.key);
 
 // The catalog circuit ids that lead the "Create a game" view (the cards shown

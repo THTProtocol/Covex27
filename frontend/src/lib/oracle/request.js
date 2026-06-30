@@ -47,12 +47,29 @@ export function normalizeProviders(cfg) {
   return { mode, providers, threshold };
 }
 
+// The active network the user selected (nav switcher writes localStorage('kaspaNetwork');
+// mirrors WalletContext.getCurrentNetwork without importing the React module, so this stays a
+// pure util). Read lazily, fail-soft for SSR / private mode.
+function activeNetwork() {
+  try {
+    if (typeof window !== 'undefined') {
+      const stored = window.localStorage?.getItem('kaspaNetwork');
+      if (stored) return stored;
+    }
+  } catch { /* SSR / private mode */ }
+  return null;
+}
+
 // Build a normalized request object from raw creator input.
 export function buildRequest({ network, question, outcomes, providers, deadlineDaa, sourceUrl, requesterPubkey }) {
   const prov = normalizeProviders(providers);
   return {
     v: REQUEST_VERSION,
-    network: network || 'testnet-12',
+    // network is the 2nd field of canonicalRequest, so it is baked into request_id. A hardcoded
+    // 'testnet-12' default could NEVER match a mainnet-only Koracle's request_id (the ids would
+    // differ), silently breaking the request<->covenant binding. Prefer the explicit arg, then the
+    // user's selected network, then 'mainnet' (the launch/identity network) as the safe fallback.
+    network: network || activeNetwork() || 'mainnet',
     question: String(question || '').trim(),
     outcomes: (outcomes || []).map((o) => String(o).trim()),
     providers: prov,

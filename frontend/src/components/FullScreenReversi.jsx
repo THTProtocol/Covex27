@@ -6,6 +6,7 @@ import InviteLink from './InviteLink';
 import GamePotPanel from './GamePotPanel';
 import { getCurrentNetwork } from './WalletContext';
 import { resolveReversiBoard, resolveReversiDiscs } from '../lib/reversiTheme';
+import { useDialog } from '../lib/useDialog';
 
 // Professional full-screen Reversi / Othello (8x8): persistent two-wallet
 // multiplayer over the covenant match record. Black moves first, so seats
@@ -171,6 +172,10 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
   // look renders exactly as before.
   const boardLook = look?.board || resolveReversiBoard();
   const discLook = look?.discs || resolveReversiDiscs();
+  // Accessible-dialog semantics for this full-screen overlay: focus trap, Escape-to-close, and
+  // focus restore on unmount. The overlay is conditionally mounted by the parent, so it is always
+  // "open" while present. The EXIT/CLOSE buttons + Escape both call onClose.
+  const dialogRef = useDialog({ open: true, onClose });
   const [board, setBoard] = useState(() => initBoard());
   const [localMethod, setLocalMethod] = useState(null);
   // Visual-only: which cell was just placed and which discs it flipped, so we can
@@ -292,7 +297,13 @@ export default function FullScreenReversi({ stake = 40, onClose, covenantId, fee
   const seat = (p) => (p && p.length ? `${p.slice(0, 10)}...` : 'open');
 
   return (
-    <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Reversi arena"
+      className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col outline-none"
+    >
       <div className="h-12 sm:h-14 border-b border-white/10 light:border-slate-300/70 flex items-center justify-between gap-2 px-3 sm:px-4 text-xs sm:text-sm bg-black/60 light:bg-white/80 backdrop-blur shrink-0">
         <div className="font-bold tracking-wider text-[#49EACB] light:text-[#0d9488] truncate text-[11px] sm:text-sm">
           <span className="sm:hidden">REVERSI</span>

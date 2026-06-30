@@ -6,6 +6,7 @@ import InviteLink from './InviteLink';
 import GamePotPanel from './GamePotPanel';
 import { getCurrentNetwork } from './WalletContext';
 import { resolveCheckersBoard, resolveCheckersPieces } from '../lib/checkersTheme';
+import { useDialog } from '../lib/useDialog';
 
 // Professional full-screen Checkers (8x8, forced jumps, kings, multi-jump):
 // persistent two-wallet multiplayer over the covenant match record.
@@ -232,6 +233,10 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
   // without a look renders exactly as before.
   const boardLook = look?.board || resolveCheckersBoard();
   const pieceLook = look?.pieces || resolveCheckersPieces();
+  // Accessible-dialog semantics for this full-screen overlay: focus trap, Escape-to-close, and
+  // focus restore on unmount. The overlay is conditionally mounted by the parent, so it is always
+  // "open" while present. The EXIT/CLOSE buttons + Escape both call onClose.
+  const dialogRef = useDialog({ open: true, onClose });
   const [board, setBoard] = useState(() => initBoard());
   const [selected, setSelected] = useState(null);
   const [chain, setChain] = useState(null); // in-progress multi-jump: [sq0, sq1, ...]
@@ -429,7 +434,13 @@ export default function FullScreenCheckers({ stake = 50, onClose, covenantId, fe
         : status.toUpperCase();
 
   return (
-    <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Checkers arena"
+      className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col outline-none"
+    >
       {/* Top bar */}
       <div className="h-12 sm:h-14 border-b border-white/10 light:border-slate-300/70 flex items-center justify-between gap-2 px-3 sm:px-4 text-xs sm:text-sm bg-black/60 light:bg-white/80 backdrop-blur-xl shrink-0">
         <div className="font-bold tracking-wider text-[#49EACB] light:text-[#0d9488] truncate text-[11px] sm:text-sm">

@@ -5,6 +5,7 @@ import InviteLink from './InviteLink';
 import GamePotPanel from './GamePotPanel';
 import { getCurrentNetwork } from './WalletContext';
 import { resolveTttMarks } from '../lib/markGameTheme';
+import { useDialog } from '../lib/useDialog';
 
 // Full-screen Tic-Tac-Toe (3x3): persistent two-wallet multiplayer over the
 // covenant match record. Seats: player1 = X (moves first), player2 = O.
@@ -89,6 +90,10 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
   // Creator-chosen X / O mark colors. Falls back to the classic teal X / gold O
   // so an arena opened without a look renders exactly as before.
   const marks = look?.marks || resolveTttMarks();
+  // Accessible-dialog semantics for this full-screen overlay: focus trap, Escape-to-close, and
+  // focus restore on unmount. The overlay is conditionally mounted by the parent, so it is always
+  // "open" while present. The EXIT/CLOSE buttons + Escape both call onClose.
+  const dialogRef = useDialog({ open: true, onClose });
   const [board, setBoard] = useState(Array(9).fill(null));
   const [localMethod, setLocalMethod] = useState(null);
   const [hoverCell, setHoverCell] = useState(null);
@@ -190,7 +195,13 @@ export default function FullScreenTicTacToe({ stake = 20, onClose, covenantId, f
   const seat = (p) => (p && p.length ? `${p.slice(0, 10)}...` : 'open');
 
   return (
-    <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Tic-Tac-Toe arena"
+      className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col outline-none"
+    >
       <style>{`
         @keyframes ttt-draw { to { stroke-dashoffset: 0; } }
         @media (prefers-reduced-motion: reduce) {

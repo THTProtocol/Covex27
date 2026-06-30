@@ -5,6 +5,7 @@ import useGameSync from '../hooks/useGameSync';
 import GamePotPanel from './GamePotPanel';
 import { getCurrentNetwork } from './WalletContext';
 import { resolveRpsAccents } from '../lib/markGameTheme';
+import { useDialog } from '../lib/useDialog';
 
 // Rock Paper Scissors, best of 3: persistent two-wallet multiplayer with a
 // COMMIT-REVEAL protocol so picks stay secret until both are locked.
@@ -120,6 +121,10 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
   // renders exactly as before. Visual only; never touches move encodings.
   const acc = look?.accents || resolveRpsAccents();
   const accentOf = (choice) => acc[choice] || ACCENTS[choice] || '#49EACB';
+  // Accessible-dialog semantics for this full-screen overlay: focus trap, Escape-to-close, and
+  // focus restore on unmount. The overlay is conditionally mounted by the parent, so it is always
+  // "open" while present. The EXIT/CLOSE buttons + Escape both call onClose.
+  const dialogRef = useDialog({ open: true, onClose });
   // verification verdicts per completed round index: { r1ok, r2ok }
   const [verdicts, setVerdicts] = useState({});
   const [lostData, setLostData] = useState(false);
@@ -339,7 +344,13 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
   const lockOpen = myRevealPhase || phase >= 2 || !!result;
 
   return (
-    <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Rock Paper Scissors best-of-3 arena"
+      className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col outline-none"
+    >
       <div className="h-12 sm:h-14 border-b border-white/10 light:border-slate-300/70 flex items-center justify-between gap-2 px-3 sm:px-4 text-xs sm:text-sm bg-black/60 light:bg-white/80 backdrop-blur shrink-0">
         <div className="font-bold tracking-wider text-[#49EACB] light:text-[#0d9488] truncate text-[11px] sm:text-sm">
           <span className="sm:hidden">RPS · BO3</span>

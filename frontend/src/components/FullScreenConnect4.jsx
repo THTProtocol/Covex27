@@ -6,6 +6,7 @@ import InviteLink from './InviteLink';
 import GamePotPanel from './GamePotPanel';
 import { getCurrentNetwork } from './WalletContext';
 import { resolveConnect4Board, resolveConnect4Discs } from '../lib/connect4Theme';
+import { useDialog } from '../lib/useDialog';
 
 // Professional full-screen Connect 4 (7x6): persistent two-wallet multiplayer
 // over the covenant match record. Seats: player1 = R (red, drops first),
@@ -73,6 +74,10 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
   // red/yellow discs so an arena opened without a look renders exactly as before.
   const boardLook = look?.board || resolveConnect4Board();
   const discLook = look?.discs || resolveConnect4Discs();
+  // Accessible-dialog semantics for this full-screen overlay: focus trap, Escape-to-close, and
+  // focus restore on unmount. The overlay is conditionally mounted by the parent, so it is always
+  // "open" while present. The EXIT/CLOSE buttons + Escape both call onClose.
+  const dialogRef = useDialog({ open: true, onClose });
   const [board, setBoard] = useState(Array(COLS * ROWS).fill(null));
   const [localMethod, setLocalMethod] = useState(null);
 
@@ -250,7 +255,13 @@ export default function FullScreenConnect4({ stake = 30, onClose, covenantId, fe
   );
 
   return (
-    <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Connect Four arena"
+      className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col outline-none"
+    >
       <style>{`
         @keyframes c4-drop-fall {
           0%   { transform: translateY(var(--drop-from, -380%)); }

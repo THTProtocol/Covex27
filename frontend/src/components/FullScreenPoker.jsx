@@ -8,6 +8,7 @@ import GamePotPanel from './GamePotPanel';
 import PlayingCard from './games/PlayingCard';
 import { ChipStack } from './games/Chips';
 import { resolvePokerFelt, resolvePokerCardBack } from '../lib/pokerTheme';
+import { useDialog } from '../lib/useDialog';
 
 // Real heads-up No-Limit Hold'em over the covenant match record.
 //
@@ -264,6 +265,10 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, look
   const feltLook = look?.felt || resolvePokerFelt();
   const cardBack = look?.cardBack || resolvePokerCardBack();
   const { address, signMessage } = useWallet();
+  // Accessible-dialog semantics for this full-screen overlay: focus trap, Escape-to-close, and
+  // focus restore on unmount. The overlay is conditionally mounted by the parent, so it is always
+  // "open" while present. The close button + Escape both call onClose.
+  const dialogRef = useDialog({ open: true, onClose });
 
   // seats + join come from the shared match record (skill_games)
   const { game, status, myColor, joining, error: seatError, join, clocks, walletConnected, getSeatToken } =
@@ -518,7 +523,13 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, look
   });
 
   return (
-    <div className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Poker heads-up No-Limit Hold'em arena"
+      className="game-fullscreen-bg fixed inset-0 z-[999] flex flex-col outline-none"
+    >
       {/* Top bar */}
       <div className="h-12 sm:h-14 border-b border-white/10 light:border-slate-300/70 flex items-center justify-between gap-2 px-3 sm:px-4 text-sm bg-black/60 light:bg-white/80 backdrop-blur-xl shrink-0">
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">

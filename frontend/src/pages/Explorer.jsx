@@ -331,12 +331,12 @@ export default function Explorer() {
   const [resolvedChip, setResolvedChip] = useState(null);
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
   const [showArena, setShowArena] = useState(false);
-  // Default view = PURE genuine covenants only (owner directive, 2026-06-30 Toccata launch). A
-  // covenant shows by default ONLY if it positively classifies as a known template; opaque bare
-  // P2SH commitments (category 'P2SH Commitments' / covenant_type 'unknown'/'p2sh-commitment',
-  // script secret until spend) are honestly LABELED and reachable via "Show all", never surfaced
-  // as covenants by default. Belt-and-suspenders with the backend genuine_only filter (db.rs).
-  const [includeRaw, setIncludeRaw] = useState(false);
+  // Default view shows ALL covenants (owner directive, 2026-06-30): the full on-chain count is the
+  // default. Pressing "Verified only" (toggles includeRaw off) filters to covenants that positively
+  // classify as a known template -- paid tier, real description, or non-opaque -- via the
+  // filteredCovenants logic below (the opaque-P2SH drop applies ONLY when includeRaw is off). Opaque
+  // bare P2SH stay honestly labeled either way; they are just hidden in the "Verified only" view.
+  const [includeRaw, setIncludeRaw] = useState(true);
   const [kaspaNetwork, setKaspaNetwork] = useState(() => getCurrentNetwork());
   const [activeCategory, setActiveCategory] = useState('All');
   const [offset, setOffset] = useState(0);

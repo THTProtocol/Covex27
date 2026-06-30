@@ -21,7 +21,7 @@ function FixToStudioRedirect() {
     ? <Navigate to={`/covenant/${encodeURIComponent(id)}/studio`} replace />
     : <Navigate to="/sandbox" replace />;
 }
-import { WalletProvider, getCurrentNetwork } from './components/WalletContext';
+import { WalletProvider, getCurrentNetwork, DEFAULT_NETWORK } from './components/WalletContext';
 import WalletButton from './components/WalletButton';
 import DagBackground from './components/DagBackground';
 import CovexLogo from './components/CovexLogo';
@@ -166,45 +166,27 @@ const NL_MOBILE = ({ isActive }) =>
       : 'text-gray-200 hover:text-white hover:bg-white/[0.04] light:text-slate-700 light:hover:text-slate-900 light:hover:bg-slate-100'
   }`;
 
-// User-selectable network. Mainnet is the brand / identity network but indexes nothing until the
-// Toccata launch, so a brand-new visitor defaults to the live, active network (DEFAULT_NETWORK =
-// testnet-12, 14,000+ live covenants) instead of a dead all-zero mainnet view. Mainnet stays fully
-// selectable. The choice persists in localStorage('kaspaNetwork') and dispatches the
-// 'kaspa-network-change' CustomEvent so WalletContext, Stats and the live status sync immediately.
+// Covex runs on Kaspa only. Testnets are preserved in the backend + API (query the API with
+// ?network=testnet-* for them) but are no longer surfaced or selectable in the website UI. On
+// mount we migrate any stale stored testnet selection to Kaspa, so a returning visitor who was
+// seeded onto a testnet before launch lands on the live network; every consumer (Explorer, Stats,
+// wallet) then agrees on Kaspa via localStorage('kaspaNetwork') + the 'kaspa-network-change' event.
 function NetworkSwitcher() {
-  const [network, setNetwork] = useState(() => getCurrentNetwork());
-
   useEffect(() => {
-    localStorage.setItem('kaspaNetwork', network);
-    // Dispatch event so WalletContext, Stats and other components sync.
-    window.dispatchEvent(new CustomEvent('kaspa-network-change', { detail: network }));
-  }, [network]);
-
-  const networks = [
-    { value: 'mainnet', label: 'MAIN', color: '#49EACB', title: 'Kaspa Mainnet - real funds' },
-    { value: 'testnet-10', label: 'TN10', color: '#F59E0B', title: 'Testnet 10 - test funds' },
-    { value: 'testnet-12', label: 'TN12', color: '#A78BFA', title: 'Toccata Testnet 12 - test funds' },
-  ];
+    const stored = localStorage.getItem('kaspaNetwork');
+    if (!stored || !stored.startsWith('mainnet')) {
+      try { localStorage.setItem('kaspaNetwork', DEFAULT_NETWORK); } catch { /* private mode */ }
+      window.dispatchEvent(new CustomEvent('kaspa-network-change', { detail: DEFAULT_NETWORK }));
+    }
+  }, []);
 
   return (
-    <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5 light:bg-white light:border-slate-200" title={networks.find(n => n.value === network)?.title}>
-      {networks.map(n => (
-        <button
-          key={n.value}
-          type="button"
-          onClick={() => setNetwork(n.value)}
-          title={n.title}
-          aria-pressed={network === n.value}
-          className={`px-2 py-1 text-[11px] font-semibold rounded-sm transition-all ${
-            network === n.value
-              ? 'text-black shadow-sm'
-              : 'text-gray-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'
-          }`}
-          style={network === n.value ? { backgroundColor: n.color } : {}}
-        >
-          {n.label}
-        </button>
-      ))}
+    <div
+      className="flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.02] px-2 py-1 light:bg-white light:border-slate-200"
+      title="Covex runs on Kaspa"
+    >
+      <span aria-hidden="true" className="inline-flex h-1.5 w-1.5 rounded-full" style={{ backgroundColor: '#49EACB' }} />
+      <span className="text-[11px] font-semibold tracking-wide text-gray-300 light:text-slate-600">Kaspa</span>
     </div>
   );
 }
@@ -238,10 +220,10 @@ function LiveStatus() {
           let suffix = '';
           if (d.mainnet_ready && mainnetTip > 0) {
             kind = 'live';
-            suffix = ' • mainnet live';
+            suffix = ' • live on Kaspa';
           } else if (d.mainnet_wrpc_configured) {
             kind = 'pending';
-            suffix = ' • mainnet node configured, sync pending';
+            suffix = ' • Kaspa node syncing';
           }
           setState({ kind, text: `${git} • ${totalStr} covenants${suffix}` });
         })
@@ -260,8 +242,8 @@ function LiveStatus() {
   // Live: pulsing kaspa-green. Pending: static amber. Both are theme-safe.
   const dotColor = isLive ? 'bg-kaspa-green' : 'bg-amber-400';
   const ariaLabel = isLive
-    ? 'Mainnet live'
-    : (state.kind === 'pending' ? 'Mainnet node configured, sync pending' : 'Network status');
+    ? 'Live on Kaspa'
+    : (state.kind === 'pending' ? 'Kaspa node syncing' : 'Network status');
 
   return (
     <div className="text-[10px] opacity-60 tracking-wider flex flex-wrap items-center justify-center gap-x-1.5 gap-y-1 px-2">

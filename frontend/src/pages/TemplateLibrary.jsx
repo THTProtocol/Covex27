@@ -23,17 +23,21 @@ const catLabel = (c) => CAT_LABEL[c] || c;
 
 export default function TemplateLibrary() {
   const [communityTemplates, setCommunityTemplates] = useState([]);
+  const [mktLoaded, setMktLoaded] = useState(false);
   const [tplSearch, setTplSearch] = useState('');
   const [tplCat, setTplCat] = useState('All');
 
-  // Load real published custom UIs from creators (activates the backend marketplace)
+  // Fetch the marketplace ONCE here and derive both sections from it (the official catalog
+  // below + the Community Published list). CommunityPublished used to fetch the same endpoint
+  // a second time on mount, which was a redundant round-trip on a launch-traffic page.
   useEffect(() => {
     fetch('/api/marketplace/templates')
       .then(r => r.ok ? r.json() : { templates: [] })
       .then(data => {
         setCommunityTemplates(data.templates || []);
       })
-      .catch(() => setCommunityTemplates([]));
+      .catch(() => setCommunityTemplates([]))
+      .finally(() => setMktLoaded(true));
   }, []);
 
   return (
@@ -55,7 +59,7 @@ export default function TemplateLibrary() {
 
       <TemplateGrid />
 
-      <CommunityPublished />
+      <CommunityPublished items={communityTemplates.filter((t) => t.covenant_id)} loaded={mktLoaded} />
 
       {/* Official Covex templates from the backend marketplace: a comprehensive, searchable catalog. */}
       {communityTemplates.length > 0 && (() => {
@@ -155,18 +159,10 @@ export default function TemplateLibrary() {
 
 
 /** Real published covenant designs from /api/marketplace/templates. */
-function CommunityPublished() {
-  const [items, setItems] = useState([]);
-  const [loaded, setLoaded] = useState(false);
-  useEffect(() => {
-    fetch('/api/marketplace/templates')
-      .then((r) => r.json())
-      // Only genuine community-published covenants (have a covenant_id) belong here; the official
-      // Covex templates (id-only) render in the "Official Covenant Templates" section above.
-      .then((d) => setItems(Array.isArray(d.templates) ? d.templates.filter((t) => t.covenant_id) : []))
-      .catch(() => {})
-      .finally(() => setLoaded(true));
-  }, []);
+// Community-published covenant designs (those with a covenant_id). `items` + `loaded` are
+// passed from the page, which fetches /api/marketplace/templates once; this component no
+// longer fetches the same endpoint a second time on mount.
+function CommunityPublished({ items = [], loaded = false }) {
   return (
     <div className="mt-16">
       <h2 className="h-section text-white light:text-slate-900 mb-2 text-center">Community Published</h2>

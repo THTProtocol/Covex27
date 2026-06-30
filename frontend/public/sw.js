@@ -5,7 +5,7 @@
 // cached index.html stale-while-revalidate, which pinned visitors to outdated
 // content-hashed chunk references). Content-hashed /assets/ files are immutable,
 // so they are cache-first (instant + offline). Bumping CACHE purges the old one.
-const CACHE = 'covex-v4';
+const CACHE = 'covex-v5';
 const ASSET_RE = /\/assets\/.+\.(?:js|css|woff2?|ttf|png|jpe?g|svg|webp|gif|ico)$/i;
 
 // Static app-shell pieces that make an installed PWA usable offline. These are

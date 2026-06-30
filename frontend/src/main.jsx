@@ -16,7 +16,15 @@ createRoot(document.getElementById('root')).render(
   </StrictMode>,
 )
 
-// Register PWA service worker for offline caching
+// Register PWA service worker for offline caching. Auto-apply new deploys: when a
+// freshly-installed SW takes control (it calls skipWaiting + clients.claim), reload
+// once so visitors are never pinned to a stale cached app shell. Guarded against loops.
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(() => {});
+  let swReloading = false
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swReloading) return
+    swReloading = true
+    window.location.reload()
+  })
+  navigator.serviceWorker.register('/sw.js').catch(() => {})
 }

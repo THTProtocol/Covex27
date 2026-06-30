@@ -672,7 +672,10 @@ export default function CovenantInteractive() {
 
     const title = ESC(cfg.titleOverride || cov.name || TRUNC(cov.tx_id));
     const desc = ESC(cfg.descOverride || cov.description || cov.desc || honestDescDefault);
-    const creator = ESC(cov.creator_addr || 'Unknown');
+    // Always show a real Kaspa wallet, never "Unknown": the deployer (creator_addr) when known,
+    // otherwise the covenant's own on-chain address. (The backend creator-prefix fix makes mainnet
+    // deployers render as kaspa:; this guarantees the field is never an empty "Unknown".)
+    const creator = ESC(cov.creator_addr || cov.address || (cov.tx_id ? `covenant ${TRUNC(cov.tx_id)}` : 'Unknown'));
     const locked = ESC((cov.amount_kaspa || 0).toLocaleString());
     const tx = ESC(cov.tx_id || '');
     const explorerTx = ESC(explorerTxUrl(cov.tx_id, cov.network)); // network-accurate explorer URL

@@ -1118,13 +1118,17 @@ pub fn query_covenants_conn(
 ) -> anyhow::Result<(Vec<DbCovenant>, i64)> {
     let mut where_clauses: Vec<String> = vec!["is_active = 1".to_string()];
     let mut args: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-    // Curated default: show covenants Covex can say something REAL about - a paid tier, a genuine
-    // creator/builder description, OR anything discovered in the last 24h so the explorer always
-    // shows live on-chain activity (new covenants) instead of looking frozen. Older bare crawled
-    // P2SH commitments (opaque until spend, empty description) sit behind the "Show all" toggle.
+    // Curated default: show ONLY covenants Covex can say something REAL about -- a paid tier, a
+    // genuine creator/builder description, OR a script that positively CLASSIFIES as a known
+    // covenant template. Opaque bare P2SH commitments (covenant_type 'unknown' / category
+    // 'P2SH Commitments', script secret until spend) are still indexed and honestly labeled, but
+    // sit behind the "Show all" toggle -- never surfaced in the default view as a covenant.
+    // Replaces the old `timestamp > now-24h` recency clause, which at the Toccata launch surfaced
+    // recently-crawled OPAQUE P2SH as covenants (and conversely dropped genuine unpaid covenants
+    // out of the default after a day). Purity over "looks live": a 50/50 maybe-covenant is not shown.
     if genuine_only {
         where_clauses.push(
-            "(verified_tier IN ('BUILDER','PRO','MAX') OR (TRIM(description) <> '' AND description <> 'unknown') OR timestamp > (unixepoch() - 86400))"
+            "(verified_tier IN ('BUILDER','PRO','MAX') OR (TRIM(description) <> '' AND description <> 'unknown') OR (covenant_type <> 'unknown' AND covenant_type <> '' AND category <> 'P2SH Commitments'))"
                 .to_string(),
         );
     }

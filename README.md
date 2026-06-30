@@ -29,7 +29,7 @@
 
 > **Launch imminent.** Toccata activates on Kaspa mainnet at **DAA 474165565**, expected on or around **30 June 2026**. As of this writing the mainnet node is live and at tip ahead of that height and the covenant gate stays closed until activation, so a mainnet explorer reading of zero is correct and expected until the first real covenant lands.
 
-> **Mainnet day-one scope.** On launch, only the deterministic on-chain primitives deploy with real funds (singlesig, hashlock, CLTV/CSV timelocks, HTLC, and N-of-M multisig). The oracle-attested and full-zk kinds are deliberately **frozen and fail-closed on mainnet until post-Toccata**: every mainnet deploy is refused until the owner flips the covenant gate, and the on-chain ZK path stays testnet-gated until proven live. This mirrors `docs/TOCCATA_TRUSTLESS_READINESS.md`. Trust-by-removal: only what the chain itself enforces ships day-one.
+> **Mainnet day-one scope.** On launch, only the kinds that sign non-custodially in the browser deploy with real funds: **singlesig, hashlock, and CLTV / CSV timelocks** (`MAINNET_CAPABLE_KINDS`). HTLC, N-of-M multisig, and the other dev-wallet kinds deploy through server-assisted testnet wallets, which are disabled on mainnet, so they are refused on mainnet day-one. The oracle-attested and full-zk kinds are deliberately **frozen and fail-closed on mainnet until post-Toccata**: every such mainnet deploy is refused until the owner flips the covenant gate, and the on-chain ZK path stays testnet-gated until proven live. This mirrors `docs/TOCCATA_TRUSTLESS_READINESS.md`. Trust-by-removal: only what the chain itself enforces ships day-one.
 
 ---
 

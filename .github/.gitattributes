@@ -1,0 +1,4 @@
+# CI workflow + script files MUST be LF: CRLF in a bash `run:` block breaks on the
+# ubuntu runner ($'\r': command not found), and .mjs/.yml are cleaner as LF too.
+# Scoped to .github/ so it cannot affect the rest of the tree.
+* text=auto eol=lf

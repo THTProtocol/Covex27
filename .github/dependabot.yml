@@ -1,0 +1,41 @@
+# Dependabot configuration.
+#
+# Security updates are always on (GitHub enables them per-repo, no config needed).
+# This file ADDS a low-volume, weekly VERSION-update cadence for the frontend npm
+# tree, GROUPED so at most one PR/week is opened for all minor+patch bumps. Major
+# bumps still arrive as individual PRs (rarer, riskier -> deserve their own human
+# review).
+#
+# Every Dependabot PR is gated by .github/workflows/dependabot-verify.yml, which
+# asserts scope (frontend deps only), protects the CI/test gate, runs a supply-chain
+# delta check, reads the repo's own "Frontend (sandbox guard + build)" CI conclusion,
+# then LABELS + COMMENTS a verdict for HUMAN approval. The workflow NEVER merges.
+#
+# Scope note: only the frontend npm ecosystem is enabled here because the proven,
+# non-vacuous merge gate (the CI Frontend job) covers the frontend. Backend (cargo)
+# and zk (npm) version updates are intentionally NOT auto-cadenced yet; their security
+# updates still arrive automatically and will be labelled "needs human review" by the
+# verify workflow. Add them here once a backend gate is green and trusted.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:13"
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+      - frontend
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(deps-dev)"
+    groups:
+      frontend-minor-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch

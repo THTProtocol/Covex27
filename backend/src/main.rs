@@ -332,6 +332,23 @@ async fn main() {
             _ => continue,
         };
 
+        // Fail closed on the mainnet EXTRA-network treasury too. validate_mainnet_env otherwise
+        // only runs against the PRIMARY network (see the guard near the top of main), so under the
+        // testnet-12-primary multi-network config the live mainnet treasury resolved just above was
+        // never validated, leaving the fail-closed guarantee documented in MAINNET.md unfired. Mirror
+        // the primary guard so a misconfigured mainnet treasury (empty / kaspatest: / placeholder /
+        // dev-wallet address) refuses to start instead of silently indexing against a wrong treasury.
+        if extra_net == "mainnet" {
+            if let Err(e) = validate_mainnet_env(extra_net, &extra_treasury) {
+                eprintln!(
+                    "FATAL: mainnet extra-network env validation failed: {}. \
+                     Set COVENANT_TREASURY_ADDRESS to a real kaspa:... mainnet address.",
+                    e
+                );
+                std::process::exit(1);
+            }
+        }
+
         let extra_seeds: Vec<String> = match extra_net {
             "testnet-10" => env::var("COVENANT_SEED_ADDRESSES_TN10").unwrap_or_default(),
             "mainnet" => String::new(), // mainnet: no UTXO seed polling, crawler-only discovery

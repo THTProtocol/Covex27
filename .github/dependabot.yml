@@ -2,9 +2,9 @@
 #
 # Security updates are always on (GitHub enables them per-repo, no config needed).
 # This file ADDS a low-volume, weekly VERSION-update cadence for the frontend npm
-# tree, GROUPED so at most one PR/week is opened for all minor+patch bumps. Major
-# bumps still arrive as individual PRs (rarer, riskier -> deserve their own human
-# review).
+# tree, GROUPED so at most one GROUPED PR/week is opened for all minor+patch bumps.
+# Major bumps still arrive as separate individual PRs (rarer, riskier -> deserve their
+# own human review), so the total PRs/week can exceed one.
 #
 # Every Dependabot PR is gated by .github/workflows/dependabot-verify.yml, which
 # asserts scope (frontend deps only), protects the CI/test gate, runs a supply-chain

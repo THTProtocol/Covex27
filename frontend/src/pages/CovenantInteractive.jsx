@@ -8,6 +8,7 @@ import { toast } from '../components/ToastContext';
 import { useWallet } from '../components/WalletContext';
 import { signCovenantOwnership } from '../lib/ownership';
 import { explorerTxUrl } from '../lib/explorer';
+import { fetchAddressBalanceSompi, hasPublicApi, sompiToKas } from '../lib/kaspaPublicApi';
 // CovexTerminal is the 445kB creator-only deploy/ZK panel. It only mounts inside the
 // activeTab === 'terminal' branch below (gated by isCreator), so we lazy-load its chunk
 // to keep the initial covenant page load lean for regular viewers.
@@ -441,6 +442,31 @@ export default function CovenantInteractive() {
     return () => clearInterval(iv);
   }, [id]);
 
+  // LIVE locked balance: the real-time KAS held in this covenant's on-chain address, read directly
+  // from the public Kaspa node (no Covex backend), refreshed every 20s. This is the truth of what
+  // is locked RIGHT NOW (the indexed amount_kaspa is a deploy-time snapshot that never decrements).
+  // A live balance of 0 means the covenant has been spent (used up). A failed/aborted fetch stays
+  // 'error' (never silently reported as spent).
+  const [liveLocked, setLiveLocked] = useState(null); // { sompi, kas, status: 'ok' | 'error' }
+  useEffect(() => {
+    const addr = covenant?.address;
+    const net = covenant?.network || 'mainnet';
+    if (!addr || !hasPublicApi(net)) return undefined;
+    let cancelled = false;
+    const ac = new AbortController();
+    const tick = () => {
+      fetchAddressBalanceSompi(addr, net, ac.signal)
+        .then((sompi) => { if (!cancelled) setLiveLocked({ sompi, kas: sompiToKas(sompi), status: 'ok' }); })
+        .catch(() => { if (!cancelled && !ac.signal.aborted) setLiveLocked((p) => (p && p.status === 'ok' ? p : { sompi: null, kas: null, status: 'error' })); });
+    };
+    tick();
+    const iv = setInterval(tick, 20000);
+    // Clear on covenant change / unmount so a previous covenant's balance never lingers on the next.
+    return () => { cancelled = true; ac.abort(); clearInterval(iv); setLiveLocked(null); };
+  }, [covenant?.address, covenant?.network]);
+  const liveLockedKnown = !!liveLocked && liveLocked.status === 'ok';
+  const liveLockedSpent = liveLockedKnown && liveLocked.sompi === 0;
+
   // Live, server-derived covenant state exposed to creator-designed Puck pages as
   // {{tokens}} and as structured metadata (live.actions / live.pool / live.odds) that
   // the premium read-only blocks consume. Read-only figures only; a custom page can
@@ -455,7 +481,9 @@ export default function CovenantInteractive() {
   // record genuinely carries them (a market anchor or a creator-published config).
   const liveData = useMemo(() => {
     if (!covenant) return {};
-    const locked = Number(covenant.amount_kaspa || 0);
+    // Prefer the LIVE on-chain balance when we have it (real-time truth); fall back to the indexed
+    // deploy-time amount while the live figure is still loading or unavailable.
+    const locked = liveLockedKnown ? liveLocked.kas : Number(covenant.amount_kaspa || 0);
 
     // Normalize the indexed on-chain action log into stable rows for ActivityFeed /
     // Leaderboard. Field names mirror what /covenants/:id/actions returns, with safe
@@ -544,7 +572,7 @@ export default function CovenantInteractive() {
       // block never overclaims (on-chain / oracle / full-zk / metadata).
       enforcement_reality: covenant.enforcement_reality || '',
     };
-  }, [covenant, actions, oraclePubkey]);
+  }, [covenant, actions, oraclePubkey, liveLockedKnown, liveLocked]);
 
   const deployUri = useMemo(
     () =>
@@ -1238,9 +1266,9 @@ export default function CovenantInteractive() {
                   { label: 'Deployed', done: true, sub: covenant.timestamp ? new Date(covenant.timestamp * 1000).toLocaleDateString() : `DAA ${covenant.block_daa_score || 0}` },
                   { label: 'Indexed', done: true, sub: networkLabel(covenant.network) },
                   { label: covenant.verified_tier !== 'FREE' ? `Verified ${covenant.verified_tier}` : 'Unverified', done: covenant.verified_tier !== 'FREE', sub: covenant.verified_tier !== 'FREE' ? 'on-chain payment' : 'free tier' },
-                  (covenant.spent_tx_id || covenant.is_active === false)
-                    ? { label: 'Settled', done: true, sub: covenant.spent_tx_id ? 'spent on-chain' : 'funds distributed' }
-                    : { label: 'Active', done: true, sub: `${covenant.amount_kaspa || 0} KAS locked` },
+                  (liveLockedSpent || covenant.spent_tx_id || covenant.is_active === false)
+                    ? { label: 'Settled', done: true, sub: (liveLockedSpent || covenant.spent_tx_id) ? 'spent on-chain' : 'funds distributed' }
+                    : { label: 'Active', done: true, sub: `${liveLockedKnown ? liveLocked.kas : (covenant.amount_kaspa || 0)} KAS locked` },
                 ].map((st, i, arr) => (
                   <Fragment key={st.label}>
                     <div className="flex flex-col items-center text-center flex-1 min-w-0 px-0.5">
@@ -1455,7 +1483,7 @@ export default function CovenantInteractive() {
             {[
               ['Covenant Type', covenant.covenant_type || 'Unknown'],
               ['Script Hash', (covenant.script_hash || '').slice(0, 20) + '...'],
-              ['Locked KAS', `${(covenant.amount_kaspa || 0).toLocaleString()} KAS`],
+              ['Locked KAS', `${(liveLockedKnown ? liveLocked.kas : (covenant.amount_kaspa || 0)).toLocaleString()} KAS${liveLockedSpent ? ' (spent)' : ''}`],
               ['Category', covenant.category || 'General'],
             ].map(([label, value]) => (
               <div key={label} className="p-3 rounded-xl bg-white/[0.02] border border-white/5">

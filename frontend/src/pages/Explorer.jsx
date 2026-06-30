@@ -7,6 +7,7 @@ import Spinner from '../components/ui/Spinner';
 import CovenantCardSkeleton from '../components/ui/CovenantCardSkeleton';
 import { Button } from '../components/ui/Button';
 import { readCovenantsResponse } from '../lib/explorerResponse';
+import { useLiveBalances, isSpentByLiveBalance } from '../lib/useLiveBalances';
 
 // Distinct icon per covenant category so cards are scannable at a glance (not all the same glyph).
 const CATEGORY_ICON = {
@@ -337,6 +338,7 @@ export default function Explorer() {
   // filteredCovenants logic below (the opaque-P2SH drop applies ONLY when includeRaw is off). Opaque
   // bare P2SH stay honestly labeled either way; they are just hidden in the "Verified only" view.
   const [includeRaw, setIncludeRaw] = useState(true);
+  const [showSpent, setShowSpent] = useState(false);
   const [kaspaNetwork, setKaspaNetwork] = useState(() => getCurrentNetwork());
   const [activeCategory, setActiveCategory] = useState('All');
   const [offset, setOffset] = useState(0);
@@ -656,6 +658,14 @@ export default function Explorer() {
     return c.category === 'P2SH Commitments' || ct === 'unknown' || ct === 'p2sh-commitment' || ct === '';
   };
   const filteredCovenants = includeRaw ? allCovenantsSorted : allCovenantsSorted.filter((c) => !isOpaqueP2sh(c));
+
+  // LIVE locked balances: fetch each covenant's address balance in real time from the public Kaspa
+  // node (no Covex backend; see lib/useLiveBalances). A covenant whose live balance is 0 has been
+  // spent (used up) and moves to a separate "Spent covenants" section. Unknown / still-loading
+  // balances stay in the active list, so a transient node error never hides a covenant.
+  const liveBalances = useLiveBalances(filteredCovenants.map((c) => c.address), kaspaNetwork);
+  const activeCovenants = filteredCovenants.filter((c) => !isSpentByLiveBalance(liveBalances[c.address]));
+  const spentCovenants = filteredCovenants.filter((c) => isSpentByLiveBalance(liveBalances[c.address]));
 
   // ARENA: only game covenants created on Covex where someone is waiting. "Game" here spans
   // both games of skill (chess, checkers) and games of chance (poker, blackjack, dice); we do
@@ -1358,13 +1368,52 @@ export default function Explorer() {
                     </div>
                   </div>
                 ) : (
-                  <MotionStaggerGrid
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-7"
-                    prefersReduced={prefersReduced}
-                    items={filteredCovenants}
-                    keyFor={(c, i) => c.tx_id || i}
-                    renderItem={(c, i) => <CovenantCard covenant={c} index={i} ownerAddress={address} />}
-                  />
+                  <>
+                    {activeCovenants.length > 0 ? (
+                      <MotionStaggerGrid
+                        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-7"
+                        prefersReduced={prefersReduced}
+                        items={activeCovenants}
+                        keyFor={(c, i) => c.tx_id || i}
+                        renderItem={(c, i) => <CovenantCard covenant={c} index={i} liveBalance={liveBalances[c.address]} ownerAddress={address} />}
+                      />
+                    ) : (
+                      <p className="text-sm text-gray-400 light:text-slate-600 py-6 text-center">Every covenant matching these filters has been spent. The used-up covenants are in the section below.</p>
+                    )}
+
+                    {/* Spent covenants: a covenant whose LIVE on-chain balance is 0 has been used up.
+                        Kept in its own collapsible section so the active list stays the focus while
+                        the spent ones remain fully visible and accurate. */}
+                    {spentCovenants.length > 0 && (
+                      <div className="mt-10">
+                        <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-bold uppercase tracking-widest text-gray-400 light:text-slate-500 flex items-center gap-1.5">
+                              <Lock size={12} /> Spent covenants
+                            </span>
+                            <span className="text-[10px] text-gray-500 font-mono">{spentCovenants.length.toLocaleString()} used up - live balance 0</span>
+                          </div>
+                          <button
+                            onClick={() => setShowSpent(v => !v)}
+                            aria-expanded={showSpent}
+                            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border transition-colors ${showSpent ? 'border-white/20 bg-white/[0.04] text-gray-200' : 'border-white/10 text-gray-400 hover:border-white/20 hover:text-gray-200'}`}
+                            title="Spent covenants have been redeemed: their on-chain address now holds 0 KAS."
+                          >
+                            {showSpent ? 'Hide spent' : `Show spent (${spentCovenants.length.toLocaleString()})`}
+                          </button>
+                        </div>
+                        {showSpent && (
+                          <MotionStaggerGrid
+                            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 lg:gap-7 opacity-80"
+                            prefersReduced={prefersReduced}
+                            items={spentCovenants}
+                            keyFor={(c, i) => c.tx_id || i}
+                            renderItem={(c, i) => <CovenantCard covenant={c} index={i} liveBalance={liveBalances[c.address]} ownerAddress={address} />}
+                          />
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
                 {hasMore && (
                   <div className="flex justify-center mt-6">
@@ -1386,8 +1435,32 @@ export default function Explorer() {
   );
 }
 
+// Humanize a machine covenant_type into a clean, HONEST product label. A "p2sh-commitment" is a
+// hashed script whose contents stay undisclosed until the covenant is spent, so it reads as
+// "Script Commitment" (never "Verified ..." or a type we cannot see). Anything unmapped falls back
+// to Title Case of the hyphen/underscore id. This is the single place the card title is derived.
+const COVENANT_TYPE_LABEL = {
+  'p2sh-commitment': 'Script Commitment',
+  'p2sh': 'Script Commitment',
+  'unknown': 'Script Commitment',
+  '': 'Script Commitment',
+  'multi-sig-covenant': 'Multi-Sig Covenant',
+  'multisig': 'Multi-Sig Covenant',
+  'single-sig-covenant': 'Single-Sig Covenant',
+  'singlesig': 'Single-Sig Covenant',
+  'binary-oracle-select': 'Prediction Market',
+  'prediction-market': 'Prediction Market',
+};
+const OPAQUE_TYPES = new Set(['p2sh-commitment', 'p2sh', 'unknown', '']);
+function humanizeCovenantType(t) {
+  const key = String(t || '').toLowerCase();
+  if (COVENANT_TYPE_LABEL[key] !== undefined) return COVENANT_TYPE_LABEL[key];
+  const titled = key.split(/[-_]/).filter(Boolean).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  return titled || 'Covenant';
+}
+
 /* PREMIUM COVENANT CARD - rich data, all info, premium visuals */
-function CovenantCard({ covenant: c }) {
+function CovenantCard({ covenant: c, liveBalance }) {
   const navigate = useNavigate();
   const tierKey = (c.verified_tier || c.tier || 'FREE').toUpperCase();
   const cfg = TIER_CONFIG[tierKey] || TIER_CONFIG.FREE;
@@ -1395,7 +1468,13 @@ function CovenantCard({ covenant: c }) {
   const isPaid = cfg.rank > 0;
   const gameType = detectGameType(c);
   const customUI = hasCustomUI(c);
-  const isActive = c.is_active !== false;
+  // Live locked balance from the public Kaspa node (passed in by Explorer). When known it is the
+  // truth shown on the card; a live balance of 0 means the covenant has been spent (used up). When
+  // the balance is still loading or a fetch failed, fall back to the funded amount + the backend's
+  // is_active flag, so a node hiccup never mislabels a covenant.
+  const liveKnown = !!liveBalance && liveBalance.status === 'ok';
+  const liveSpent = liveKnown && liveBalance.sompi === 0;
+  const isActive = liveKnown ? !liveSpent : (c.is_active !== false);
   // Never show a kaspatest: wallet on a mainnet covenant (stale wrong-network derivation from the
   // pre-fix indexer): fall back to the covenant's own kaspa: address until the backend re-derives.
   const creatorName = ((c.network || '').startsWith('mainnet') && (c.creator_addr || '').startsWith('kaspatest:'))
@@ -1403,9 +1482,20 @@ function CovenantCard({ covenant: c }) {
     : (c.creator_addr || c.address || '');
   const blockDAA = c.block_daa_score || 0;
   const categoryLabel = c.category || 'general';
+  // Opaque P2SH = a hashed script with no on-chain-visible type (the common mainnet case). Used to
+  // (a) pick an honest title, (b) drop the redundant generic category chip, (c) avoid restating the
+  // type a third time in the description.
+  const isOpaque = OPAQUE_TYPES.has((c.covenant_type || '').toLowerCase()) || categoryLabel === 'P2SH Commitments';
+  const typeLabel = humanizeCovenantType(c.covenant_type);
+  const isGenericCategory = ['general', 'p2sh', 'p2sh commitments'].includes(categoryLabel.toLowerCase());
   const txShort = (c.tx_id || '').slice(0, 10);
   const timestamp = c.timestamp ? new Date(c.timestamp * 1000).toLocaleDateString() : (c.block_daa_score ? `DAA ${blockDAA.toLocaleString()}` : 'Unknown');
-  const statusLabel = isActive ? 'ACTIVE' : 'SETTLED';
+  const statusLabel = liveSpent ? 'SPENT' : (isActive ? 'ACTIVE' : 'SETTLED');
+  // Three distinct, honest states for the status pill (and value figure). SPENT/SETTLED are quiet
+  // slate, ACTIVE is the live emerald with a pulsing dot. Light-mode variants on each.
+  const statusStyle = liveSpent || !isActive
+    ? 'bg-slate-500/12 text-slate-400 border-slate-500/25 light:bg-slate-100 light:text-slate-600 light:border-slate-300'
+    : 'bg-emerald-500/12 text-emerald-300 border-emerald-500/25 light:bg-emerald-50 light:text-emerald-700 light:border-emerald-600/50';
   // Honest finality signal from the backend (derived against the live node tip). Only the
   // not-yet-final states get a chip; "final" is the boring default and stays uncluttered.
   const finality = (c.finality || '').toLowerCase();
@@ -1419,12 +1509,20 @@ function CovenantCard({ covenant: c }) {
     else if (meta && typeof meta === 'string') { const p = JSON.parse(meta); if (p.paid_token_hash) paidMetadata = p; }
   } catch { /* best-effort; failure is non-fatal here */ }
 
-  const covenantName = paidMetadata?.name || c.name || c.covenant_type || 'Unnamed Covenant';
-  const covenantDesc = paidMetadata?.description || c.description || c.full_logic_summary || 'On-chain Kaspa covenant. Transparent, verifiable, non-custodial.';
+  const covenantName = paidMetadata?.name || c.name || typeLabel;
+  // Only show a real, human description. Suppress the machine-generated full_logic_summary (which
+  // just restates the type, category and value already shown above) so opaque cards do not read as
+  // triplicated. The fallback line is honest and does not claim a type we cannot see.
+  const hasRealDesc = !!(paidMetadata?.description || c.description);
+  const covenantDesc = hasRealDesc
+    ? (paidMetadata?.description || c.description)
+    : (isOpaque
+      ? 'Script-locked on Kaspa. The locking script is committed by hash and revealed when the covenant is spent.'
+      : 'On-chain Kaspa covenant. Non-custodial and verifiable on the explorer.');
   const themeAccent = paidMetadata?.theme?.accent || '#49EACB';
   const disclosedWallets = paidMetadata?.disclosed_wallets;
   const isPaidVerified = !!paidMetadata;
-  const amount = c.amount_kaspa || 0;
+  const amount = liveKnown ? liveBalance.kas : (c.amount_kaspa || 0);
 
   // Visual category detection
   const catColors = {
@@ -1507,10 +1605,15 @@ function CovenantCard({ covenant: c }) {
                 Transparency modal with the full honest description. */}
             <TrustBadge covenant={c} size="sm" compact />
           </div>
-          <span className="inline-flex items-center gap-1 text-[10px] font-mono text-white/70 light:text-slate-500 truncate max-w-[44%]">
-            {(() => { const CI = CATEGORY_ICON[categoryLabel.toLowerCase()] || Boxes; return <CI size={11} className="opacity-80 shrink-0" />; })()}
-            <span className="truncate">{categoryLabel}</span>
-          </span>
+          {/* The covenant TYPE now lives in the title, so only show the category chip when it adds
+              information (not the generic 'general' / 'p2sh' buckets). This kills the type-shown-
+              three-times redundancy across a grid of opaque commitments. */}
+          {!isGenericCategory && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-mono text-white/70 light:text-slate-500 truncate max-w-[44%]">
+              {(() => { const CI = CATEGORY_ICON[categoryLabel.toLowerCase()] || Boxes; return <CI size={11} className="opacity-80 shrink-0" />; })()}
+              <span className="truncate">{categoryLabel}</span>
+            </span>
+          )}
         </div>
       </div>
 
@@ -1532,15 +1635,15 @@ function CovenantCard({ covenant: c }) {
           <div className="min-w-0">
             <div className="label-xs text-gray-500 light:text-slate-600 mb-1">Value Locked</div>
             <div className="flex items-baseline gap-1.5">
-              <span className="font-mono text-[20px] sm:text-[22px] font-black leading-none tracking-tight text-white light:text-slate-900 tabular-nums"
-                style={!isPaid ? { textShadow: `0 0 22px ${accA(0.32)}` } : undefined}>
+              <span className={`font-mono text-[20px] sm:text-[22px] font-black leading-none tracking-tight tabular-nums ${liveSpent ? 'text-slate-400 light:text-slate-500' : 'text-white light:text-slate-900'}`}
+                style={!isPaid && isActive ? { textShadow: `0 0 22px ${accA(0.32)}` } : undefined}>
                 {formatKaspa(amount).replace(/\s*KAS$/i, '')}
               </span>
               <span className="text-[11px] font-bold text-gray-400 light:text-slate-500">KAS</span>
             </div>
           </div>
-          <span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full label-xs border ${isActive ? 'bg-emerald-500/12 text-emerald-300 border-emerald-500/25' : 'bg-white/[0.04] text-gray-400 border-white/10'}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-400 animate-pulse' : 'bg-gray-500'}`} />
+          <span className={`shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full label-xs border ${statusStyle}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${liveSpent || !isActive ? 'bg-slate-400 light:bg-slate-500' : 'bg-emerald-400 animate-pulse'}`} />
             {statusLabel}
           </span>
         </div>
@@ -1566,7 +1669,7 @@ function CovenantCard({ covenant: c }) {
               </span>
             )}
             {customUI && (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 label-xs rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300">
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 label-xs rounded-full bg-purple-500/10 border border-purple-500/20 text-purple-300 light:bg-purple-50 light:border-purple-300 light:text-purple-700">
                 <Sparkles size={9} />Custom UI
               </span>
             )}
@@ -1620,7 +1723,7 @@ function CovenantCard({ covenant: c }) {
             {timestamp}
           </span>
           <span className={`shrink-0 inline-flex items-center gap-1 font-semibold ${isPaid ? cfg.text : 'text-kaspa-green/90'} group-hover:gap-1.5 transition-surface`}>
-            View
+            View <ArrowRight size={12} className="opacity-80" aria-hidden="true" />
           </span>
         </div>
       </div>

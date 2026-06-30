@@ -61,16 +61,14 @@ fn treasury_script_hex(treasury_addr: &Address) -> Option<String> {
     }
 }
 
-/// Extract a testnet address from a Schnorr P2PK output script (20<32-byte-pubkey>ac).
-/// Returns None if the script is not a recognizable Schnorr P2PK.
-fn address_from_p2pk_script(spk_hex: &str) -> Option<String> {
+/// Extract the bech32 address from a Schnorr P2PK output script (20<32-byte-pubkey>ac) using the
+/// caller's NETWORK PREFIX. The bech32 checksum is prefix-dependent, so a mainnet covenant's
+/// creator MUST be derived with Prefix::Mainnet (kaspa:); the old hardcoded testnet prefix made a
+/// real mainnet covenant render a kaspatest: deployer. Returns None if not a Schnorr P2PK.
+fn address_from_p2pk_script(spk_hex: &str, prefix: kaspa_addresses::Prefix) -> Option<String> {
     if spk_hex.len() == 68 && spk_hex.starts_with("20") && spk_hex.ends_with("ac") {
         let payload = hex::decode(&spk_hex[2..66]).ok()?;
-        let addr = Address::new(
-            kaspa_addresses::Prefix::Testnet,
-            kaspa_addresses::Version::PubKey,
-            &payload,
-        );
+        let addr = Address::new(prefix, kaspa_addresses::Version::PubKey, &payload);
         Some(addr.to_string())
     } else {
         None
@@ -269,7 +267,7 @@ fn index_block_covenants(
         // Extract the real deployer wallet address from output[0]'s Schnorr P2PK script
         let deployer_script_hex = hex::encode(tx.outputs[0].script_public_key.script());
         let creator =
-            address_from_p2pk_script(&deployer_script_hex).unwrap_or_else(|| addr.clone());
+            address_from_p2pk_script(&deployer_script_hex, prefix).unwrap_or_else(|| addr.clone());
         let shash = crate::compute_script_hash(&covenant_script);
 
         let nlabel = match network {

@@ -1,0 +1,85 @@
+name: Dependabot Verify
+
+# Human-approved gate for Dependabot PRs.
+#
+# For every PR opened by dependabot[bot] this workflow:
+#   1. SCOPE: asserts the PR changes only frontend/package.json + frontend/package-lock.json.
+#   2. PROTECT-THE-GATE: escalates (never auto-verifies) if the PR touches CI, workflows,
+#      test files, or the check-* gate scripts -- a dep bump must not be able to edit the
+#      oracle that approves it.
+#   3. SUPPLY-CHAIN DELTA: diffs the base vs head lockfile and requires 0 NEW packages added;
+#      summarizes removed / version-changed packages.
+#   4. CI ORACLE: reads the repo's own "Frontend (sandbox guard + build)" check conclusion on
+#      the PR head (the proven, non-vacuous gate) and requires success.
+#   5. VERDICT: labels the PR dependabot-verified or dependabot-needs-review and posts a
+#      sticky comment explaining why. It then STOPS -- a human pulls the trigger on the merge.
+#
+# It NEVER merges. Security model: it checks out the BASE (trusted) ref so the PR under review
+# cannot modify the verifier, never runs `npm install` or any PR script, and passes all
+# Dependabot-controlled metadata through env vars (never interpolated into a run: shell).
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: read
+
+concurrency:
+  group: dependabot-verify-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify Dependabot PR (human-approved gate)
+    # Only act on real Dependabot PRs.
+    if: ${{ github.actor == 'dependabot[bot]' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@21025c705c08248db411dc16f3619e6b5f9ea21a # v2
+
+      # Trusted checkout of the BASE commit. The verifier script comes from the base
+      # (master), so the PR under review cannot tamper with the gate that judges it.
+      - name: Checkout base (trusted)
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+
+      # Materialize base + head lockfiles as DATA (git show never executes them).
+      # base lockfile is already on disk from the checkout; fetch the head commit shallowly.
+      - name: Prepare lockfiles + changed-file list
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cp frontend/package-lock.json /tmp/base-lock.json
+          git fetch --no-tags --depth=1 origin "$HEAD_SHA"
+          git show "$HEAD_SHA:frontend/package-lock.json" > /tmp/head-lock.json
+          gh pr diff "$PR" --name-only > /tmp/changed.txt
+
+      - name: Verify (scope + protect-the-gate + supply-chain delta + CI oracle) and label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          # All Dependabot-controlled strings flow through env, never into a run: shell.
+          DEP_TYPE: ${{ steps.meta.outputs.dependency-type }}
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+          DEP_NAMES: ${{ steps.meta.outputs.dependency-names }}
+          DEP_ECOSYSTEM: ${{ steps.meta.outputs.package-ecosystem }}
+          DEP_DIRECTORY: ${{ steps.meta.outputs.directory }}
+        run: node .github/dependabot/verify-delta.mjs

@@ -391,6 +391,17 @@ async fn main() {
                 crawler::run_crawler(s_client, s_db, s_treasury, crawl_start_daa, s_net).await;
             });
         }
+        // Spawn backfill: walks the deep range the forward crawler tails past (run_backfill),
+        // so covenants below the forward window are indexed instead of silently abandoned.
+        {
+            let s_db = db.clone();
+            let s_client = Arc::clone(&extra_client);
+            let s_treasury = extra_treasury.clone();
+            let s_net = extra_net.to_string();
+            tokio::spawn(async move {
+                crawler::run_backfill(s_client, s_db, s_treasury, crawl_start_daa, s_net).await;
+            });
+        }
     }
 
     // --- Background: Indexer (for the primary network) ---
@@ -454,6 +465,19 @@ async fn main() {
             crawl_network,
         )
         .await;
+    });
+
+    // --- Background: Historic Backfill (for the configured network) ---
+    // Companion to the crawler: the crawler tails the recent FORWARD_WINDOW and hands the deeper
+    // deferred range to this task, which walks it down to the floor and indexes it (idempotently),
+    // so a late gate-flip or a long node stall never permanently strands the covenants below the
+    // forward window. Disable with COVEX_BACKFILL_ENABLED=false.
+    let bf_db = db.clone();
+    let bf_client = Arc::clone(&client);
+    let bf_treasury = treasury.clone();
+    let bf_network = network.clone();
+    tokio::spawn(async move {
+        crawler::run_backfill(bf_client, bf_db, bf_treasury, crawl_start_daa, bf_network).await;
     });
 
     // --- Background: Resolver failover supervisor ---

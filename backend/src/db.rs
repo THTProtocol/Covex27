@@ -560,6 +560,28 @@ pub fn open_db(path: &str) -> anyhow::Result<Db> {
         )?;
     }
 
+    // ── Migration: backfill watermarks on crawler_state (idempotent, additive) ──
+    // The historic crawler tails the recent FORWARD_WINDOW of DAA each cycle and DEFERS the deep
+    // range below it (crawler::run_crawler). These columns drive the separate backfill task
+    // (crawler::run_backfill) that actually walks that deferred range down to the floor instead of
+    // abandoning it. Additive with safe defaults, run AFTER the network-aware migration above so it
+    // applies whether crawler_state was freshly created or just recreated; duplicate-column errors
+    // on already-migrated DBs are expected and ignored.
+    //   backfill_gap_top     - highest forward walk_floor ever deferred       (written by run_crawler)
+    //   backfill_covered_top - top of the last COMPLETED backfill descent     (written by run_backfill)
+    //   backfill_seed_top    - tip captured when the current descent was seeded
+    //   backfill_cursor_daa  - DAA the current descent has reached (for reporting)
+    //   backfill_cursor_hash - selected-chain hash to resume the descent from (NULL = needs seed)
+    for ddl in [
+        "ALTER TABLE crawler_state ADD COLUMN backfill_gap_top INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE crawler_state ADD COLUMN backfill_covered_top INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE crawler_state ADD COLUMN backfill_seed_top INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE crawler_state ADD COLUMN backfill_cursor_daa INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE crawler_state ADD COLUMN backfill_cursor_hash TEXT",
+    ] {
+        let _ = conn.execute(ddl, []); // duplicate-column errors expected on already-migrated DBs
+    }
+
     // ── Migration: game-pot covenant columns (oracle_escrow integration) ──
     // The pot covenant a match locks into, and the payout tx that released it to the
     // winner. Unconditional + idempotent (duplicate-column errors are expected).
@@ -2426,6 +2448,106 @@ pub fn update_last_scanned_daa(db: &Db, daa: u64, network: &str) -> anyhow::Resu
     conn.execute(
         "UPDATE crawler_state SET last_scanned_daa = ?1 WHERE id = 1 AND network = ?2",
         params![daa, network],
+    )?;
+    Ok(())
+}
+
+// ── Backfill watermarks (crawler::run_backfill) ───────────────────────────────
+// The forward crawler tails the recent FORWARD_WINDOW and HANDS the deeper deferred range to a
+// separate backfill task. These four functions are the entire persistence surface for that task.
+// All UPSERT on the (id, network) PK so they work even if the forward crawler has not yet written
+// a row for this network (a fresh DB's crawler_state has the table but no rows).
+
+/// Per-network backfill progress. Separate from the forward `last_scanned_daa` watermark so the
+/// deferred deep range is walked WITHOUT ever stalling or re-ratcheting the forward tip pointer.
+#[derive(Debug, Clone, Default)]
+pub struct BackfillState {
+    /// Highest forward walk_floor ever deferred (set by the crawler when it tails past a gap).
+    pub gap_top: u64,
+    /// Top of the last COMPLETED descent: `[floor, covered_top]` is fully indexed.
+    pub covered_top: u64,
+    /// Tip captured when the current descent was seeded (becomes covered_top on completion).
+    pub seed_top: u64,
+    /// DAA the current descent has reached (for reporting/logging).
+    pub cursor_daa: u64,
+    /// Selected-chain hash to resume the descent from; None once the floor was reached.
+    pub cursor_hash: Option<String>,
+}
+
+/// Record that the forward crawler deferred a range up to `walk_floor`. Monotonic: only ever
+/// RAISES backfill_gap_top, so a later, smaller deferral can never hide an earlier larger gap and
+/// the backfill is guaranteed to (re)arm for the deepest span that was ever skipped.
+pub fn note_backfill_gap(db: &Db, network: &str, walk_floor: u64) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT INTO crawler_state (id, network, backfill_gap_top)
+         VALUES (1, ?1, ?2)
+         ON CONFLICT(id, network) DO UPDATE SET
+           backfill_gap_top = MAX(backfill_gap_top, excluded.backfill_gap_top)",
+        params![network, walk_floor],
+    )?;
+    Ok(())
+}
+
+/// Load the backfill state for a network (defaults to all-zero / no cursor if no row yet).
+pub fn load_backfill(db: &Db, network: &str) -> BackfillState {
+    let conn = match db.lock() {
+        Ok(c) => c,
+        Err(_) => return BackfillState::default(),
+    };
+    conn.query_row(
+        "SELECT backfill_gap_top, backfill_covered_top, backfill_seed_top,
+                backfill_cursor_daa, backfill_cursor_hash
+         FROM crawler_state WHERE id = 1 AND network = ?1",
+        params![network],
+        |r| {
+            Ok(BackfillState {
+                gap_top: r.get(0)?,
+                covered_top: r.get(1)?,
+                seed_top: r.get(2)?,
+                cursor_daa: r.get(3)?,
+                // Treat an empty string the same as NULL (= needs a fresh seed).
+                cursor_hash: r.get::<_, Option<String>>(4)?.filter(|s| !s.is_empty()),
+            })
+        },
+    )
+    .unwrap_or_default()
+}
+
+/// Persist descent progress (the resume point). `seed_top` is the tip captured when the descent
+/// was seeded; `cursor_hash` is the next selected-chain block to fetch (None once the floor is
+/// reached). Does NOT touch backfill_gap_top or backfill_covered_top.
+pub fn save_backfill_cursor(
+    db: &Db,
+    network: &str,
+    seed_top: u64,
+    cursor_daa: u64,
+    cursor_hash: Option<&str>,
+) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT INTO crawler_state (id, network, backfill_seed_top, backfill_cursor_daa, backfill_cursor_hash)
+         VALUES (1, ?1, ?2, ?3, ?4)
+         ON CONFLICT(id, network) DO UPDATE SET
+           backfill_seed_top = excluded.backfill_seed_top,
+           backfill_cursor_daa = excluded.backfill_cursor_daa,
+           backfill_cursor_hash = excluded.backfill_cursor_hash",
+        params![network, seed_top, cursor_daa, cursor_hash],
+    )?;
+    Ok(())
+}
+
+/// Mark the current descent COMPLETE: record the covered top (monotonic MAX, so a future higher
+/// deferral can re-arm) and clear the cursor. Idempotent.
+pub fn complete_backfill(db: &Db, network: &str, covered_top: u64) -> anyhow::Result<()> {
+    let conn = db.lock().unwrap();
+    conn.execute(
+        "INSERT INTO crawler_state (id, network, backfill_covered_top, backfill_cursor_hash)
+         VALUES (1, ?1, ?2, NULL)
+         ON CONFLICT(id, network) DO UPDATE SET
+           backfill_covered_top = MAX(backfill_covered_top, excluded.backfill_covered_top),
+           backfill_cursor_hash = NULL",
+        params![network, covered_top],
     )?;
     Ok(())
 }

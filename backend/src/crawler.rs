@@ -25,12 +25,23 @@ const MAX_WALK_DISTANCE: u64 = 5_000_000; // Increased to catch more historic co
                                           // Forward-tail window (C3): when the watermark is far below the tip, walk only this many
                                           // recent DAA each cycle so NEW covenants index immediately and the health signal reflects
                                           // tip coverage, instead of re-walking a million blocks of history every cycle (which
-                                          // stalled TN12). The deferred deep history is logged for a later backfill, not silently
-                                          // dropped. In steady state the gap is tiny so this never binds.
+                                          // stalled TN12). The deferred deep history is HANDED to the backfill task (run_backfill),
+                                          // not dropped. In steady state the gap is tiny so this never binds.
 const FORWARD_WINDOW: u64 = 5_000;
 const MAX_THRESHOLD: u64 = 100_000_000_000;
 const PRO_THRESHOLD: u64 = 50_000_000_000;
 const BUILDER_THRESHOLD: u64 = 10_000_000_000;
+
+// ── Backfill task tuning (crawler::run_backfill) ──────────────────────────────
+// The backfill walks the deferred deep range the forward crawler tails past, in bounded
+// chunks so it chips away without monopolising the node. Both are env-overridable for ops.
+const BACKFILL_CHUNK_BLOCKS: u64 = 2_000; // blocks walked per backfill cycle (COVEX_BACKFILL_CHUNK)
+const BACKFILL_STEP_SLEEP_MS: u64 = 500; // pause between chunks while active (COVEX_BACKFILL_INTERVAL_MS)
+                                         // Consecutive zero-progress cycles tolerated on a saved resume cursor before re-seeding the
+                                         // descent from the live tip. Guards against a persisted cursor_hash pointing at a block the
+                                         // node reorged/pruned out (e.g. after a resync to a lower tip - the documented TN10 failure),
+                                         // which would otherwise retry the same dead hash forever and silently stall the deep backfill.
+const BACKFILL_STALE_CURSOR_MAX_STRIKES: u32 = 3;
 
 fn treasury_script_hex(treasury_addr: &Address) -> Option<String> {
     let payload = treasury_addr.payload.as_slice();
@@ -133,6 +144,231 @@ pub(crate) fn mainnet_covenants_enabled() -> bool {
 /// Pure + testable so the irreversible gate-flip can be asserted in CI before launch.
 fn covenant_indexing_gated(network: &str, mainnet_enabled: bool) -> bool {
     network.starts_with("mainnet") && !mainnet_enabled
+}
+
+/// Index every covenant in one selected-chain block: scan each tx's payload + output scripts for
+/// the covenant opcodes, apply the mainnet honesty gate, and upsert the matches. Returns the
+/// number of rows inserted/updated this block (for the caller's batch tally).
+///
+/// Shared by BOTH the forward walk (run_crawler) and the deep backfill (run_backfill) so there is
+/// exactly ONE copy of the money-path-adjacent indexing + honesty-gate logic; the two callers
+/// differ only in WHICH range of the chain they feed it. `insert_covenant` is idempotent
+/// (ON CONFLICT(tx_id) preserves paid tier + creator metadata, the script-dedup guard prevents
+/// inflation, and the discovery event fires only on first sighting), so feeding the same block
+/// twice - which the backfill does for the recent window it overlaps with the forward walk - is a
+/// safe no-op, never a duplicate.
+fn index_block_covenants(
+    db: &db::Db,
+    block: &kaspa_rpc_core::RpcBlock,
+    network: &str,
+    treasury_script: &str,
+    total_found: u64,
+) -> usize {
+    let daa = block.header.daa_score;
+    let prefix = if network.starts_with("mainnet") {
+        kaspa_addresses::Prefix::Mainnet
+    } else {
+        kaspa_addresses::Prefix::Testnet
+    };
+    let mut inserted = 0usize;
+
+    // Broad scan for *ALL* covenants: check payload + every output script for opcodes.
+    // This captures raw covenants (manual deploys, other tools, experiments) in addition
+    // to Covex-structured ones. Matches the volume seen on the official Kaspa explorer.
+    for tx in &block.transactions {
+        let pl = hex::encode(&tx.payload);
+        let mut covenant_script = pl.clone();
+        // The SilverScript covenant envelope is a payload PREFIX (aa20..aa23 +
+        // payload). A substring match false-positives on arbitrary payload
+        // bytes (inscriptions, KRC-20 envelopes) - critical on mainnet where
+        // honest data matters most.
+        let is_envelope = |h: &str| {
+            h.starts_with("aa20")
+                || h.starts_with("aa21")
+                || h.starts_with("aa22")
+                || h.starts_with("aa23")
+        };
+        let mut has_covenant_opcode = is_envelope(&pl);
+        // The script_public_key of the output that actually carries the covenant opcode,
+        // so we can derive its REAL on-chain (P2SH) address instead of fabricating one.
+        let mut covenant_spk: Option<&kaspa_rpc_core::RpcScriptPublicKey> = None;
+
+        // Output scripts: covenants are P2SH-wrapped, so the envelope may sit
+        // mid-script (after preceding opcodes). Scripts are small and structured,
+        // so substring matching is safe here - unlike free-form payloads, where
+        // only a prefix match avoids inscription false positives.
+        for out in &tx.outputs {
+            let sh = hex::encode(out.script_public_key.script());
+            if sh.contains("aa20")
+                || sh.contains("aa21")
+                || sh.contains("aa22")
+                || sh.contains("aa23")
+            {
+                has_covenant_opcode = true;
+                covenant_spk = Some(&out.script_public_key);
+                // Prefer the first output script that carries the opcode for classification
+                if covenant_script == pl {
+                    covenant_script = sh;
+                }
+                break;
+            }
+        }
+
+        if !has_covenant_opcode {
+            continue;
+        }
+
+        // Mainnet honesty gate. SilverScript covenants are INVALID on mainnet
+        // until the Toccata hard fork activates (June 2026 window). Any aa20-aa23
+        // match on mainnet today is a coincidental ordinary output (standard P2SH,
+        // multisig, inscription bytes), NOT a covenant. We index ZERO mainnet
+        // covenants until the operator confirms Toccata is live by setting
+        // COVEX_MAINNET_COVENANTS_ENABLED=true. The crawler keeps walking so it is
+        // ready to backfill the instant real covenants appear.
+        if covenant_indexing_gated(network, mainnet_covenants_enabled()) {
+            continue;
+        }
+
+        // Paid tiers are assigned exclusively by the payment guardian when a
+        // confirmed treasury payment exists. The crawler never infers them:
+        // a covenant is "paid" only if it was deployed through the paid flow.
+        let _ = determine_tier_from_outputs(tx, treasury_script);
+        let tier = "EXPLORER".to_string();
+
+        let amt = tx.outputs[0].value;
+        let txh = tx
+            .verbose_data
+            .as_ref()
+            .map(|v| v.transaction_id.to_string())
+            .unwrap_or_else(|| format!("{}-tx", block.header.hash));
+        let tid = format!("{}:{}", txh, 0);
+        let ctype = classify(&covenant_script);
+        let cat = categorize(&covenant_script);
+        // The covenant's address is the REAL on-chain address its locking output pays to
+        // (a valid bech32 P2SH for a covenant output). When the opcode was found only in
+        // the payload envelope (no derivable output script), we have no on-chain locking
+        // script to address, so use an honest `covenant_ref:<txid>` identifier rather than
+        // fabricating an invalid bech32 string (the old `prefix:first-32-hex-of-txid` bug).
+        let addr = covenant_spk
+            .and_then(|spk| address_from_output_spk(spk, prefix))
+            .unwrap_or_else(|| format!("covenant_ref:{txh}"));
+        // Extract the real deployer wallet address from output[0]'s Schnorr P2PK script
+        let deployer_script_hex = hex::encode(tx.outputs[0].script_public_key.script());
+        let creator =
+            address_from_p2pk_script(&deployer_script_hex).unwrap_or_else(|| addr.clone());
+        let shash = crate::compute_script_hash(&covenant_script);
+
+        let nlabel = match network {
+            "testnet-10" => "TN-10",
+            "mainnet" | "mainnet-1" => "Mainnet",
+            _ => "TN-12",
+        };
+        let summary = auto_summary(&ctype, &cat, amt, nlabel);
+        if total_found.is_multiple_of(100) {
+            info!(
+                "[CRAWLER-{}] discovered {} covenants so far (latest DAA {})",
+                network, total_found, daa
+            );
+        }
+        let recv_addrs = serde_json::to_string(&[&addr]).unwrap_or_default();
+        // Store the best script (output script preferred over payload for raw detection)
+        let stored_script = &covenant_script;
+        match db::insert_covenant(
+            db,
+            &tid,
+            &addr,
+            amt,
+            &shash,
+            stored_script,
+            &ctype,
+            &cat,
+            &creator,
+            "",
+            daa,
+            &tier,
+            &summary,
+            &recv_addrs,
+            network,
+        ) {
+            Ok(_) => {
+                inserted += 1;
+                // Record the selected-chain block this was discovered in, so the reorg
+                // reconciler can detect if it later leaves the chain. Also clears any
+                // stale reorg flag (re-discovery proves it is back on the chain).
+                let _ =
+                    db::mark_covenant_seen_in_block(db, &tid, &block.header.hash.to_string());
+                info!(
+                    "Crawler: FOUND {} {} DAA={} amt={}K tier={} script={}",
+                    ctype,
+                    &tid[..16],
+                    daa,
+                    amt as f64 / 1e8,
+                    tier,
+                    &stored_script[..40.min(stored_script.len())]
+                );
+                // Honest enforcement label, so the auto-generated UI's trust banner can't
+                // call a consensus-enforced covenant "dangerous" NOR claim "on-chain" for
+                // an oracle-resolved covenant. Uses the SAME type-driven override as the
+                // JSON path (covenant_summary_json): prediction-market / binary_oracle_select
+                // / oracle_enforced / oracle_escrow -> hybrid (custody is on-chain but the
+                // Covex oracle co-signature releases the funds), else the raw on-chain
+                // script classification. No disclosed circuit exists at crawl time, so the
+                // full-zk upgrade (which keys on a disclosed circuit id) does not apply here.
+                let greality = crate::covenant_catalog::enforcement_reality_label(
+                    &ctype,
+                    None,
+                    &covenant_script,
+                )
+                .to_string();
+                let (gdb, gid, gty, gcat, ghash, _gaddr, gcreator, gt) = (
+                    db.clone(),
+                    tid.clone(),
+                    ctype.clone(),
+                    cat.clone(),
+                    shash.clone(),
+                    addr.clone(),
+                    creator.clone(),
+                    tier.to_string(),
+                );
+                tokio::spawn(async move {
+                    let p = ui_generator::extract_parameters_from_script("aa20", &ghash);
+                    let cfg = covenant_types::UiGenerationConfig {
+                        covenant_id: gid.clone(),
+                        covenant_name: format!("{} {}", gty, &gid[..8]),
+                        category: gcat,
+                        script_hash: ghash,
+                        parameters: p,
+                        is_enhanced: gt != "FREE" && gt != "EXPLORER",
+                        disclosure_level: if gt == "FREE" || gt == "EXPLORER" {
+                            "limited".into()
+                        } else {
+                            "full".into()
+                        },
+                        creator_addr: gcreator,
+                        enforcement_reality: greality,
+                    };
+                    let html = ui_generator::generate_basic_ui(&cfg);
+                    let slug = format!("covenant-{}", &gid[..16]);
+                    let feat = gt == "MAX" || gt == "PRO";
+                    let pri: i32 = match gt.as_str() {
+                        "MAX" => 100,
+                        "PRO" => 50,
+                        "BUILDER" => 10,
+                        "EXPLORER" => 0, // raw but visible
+                        _ => 0,
+                    };
+                    let _ = db::save_generated_ui(&gdb, &gid, &gid, &gt, &html, "{}", &slug, feat);
+                    let _ = db::set_visibility(&gdb, &gid, &gt, feat, pri, None);
+                });
+            }
+            Err(e) if e.to_string().contains("UNIQUE") => {}
+            Err(e) => {
+                error!("Crawler: insert fail {}: {}", &tid[..16], e);
+            }
+        }
+    }
+
+    inserted
 }
 
 pub async fn run_crawler(
@@ -248,15 +484,19 @@ pub async fn run_crawler(
         }
         // Forward-tail floor (C3): if we are far behind, walk only the recent
         // FORWARD_WINDOW so NEW covenants index immediately and the health reflects tip
-        // coverage; the deep history below is DEFERRED to a backfill (logged, never
-        // silently dropped). In steady state this equals scan_daa, so each cycle walks
+        // coverage; the deep history below is HANDED to the backfill task (run_backfill),
+        // never silently dropped. In steady state this equals scan_daa, so each cycle walks
         // only the blocks added since the last cycle (no more re-walking a million blocks).
         let walk_floor = if virtual_daa - scan_daa > FORWARD_WINDOW {
             let f = virtual_daa - FORWARD_WINDOW;
             warn!(
-                "Crawler[{}]: {} DAA behind; tailing the recent {} and DEFERRING backfill of [{}, {}) so new covenants stay current",
+                "Crawler[{}]: {} DAA behind; tailing the recent {} and handing [{}, {}) to the backfill task so new covenants stay current",
                 network, virtual_daa - scan_daa, FORWARD_WINDOW, scan_daa, f
             );
+            // Hand the deferred deep range to the separate backfill task (run_backfill), which
+            // walks it down to the floor. Monotonic (MAX): this span is no longer silently
+            // abandoned when scan_daa ratchets to the tip below.
+            let _ = db::note_backfill_gap(&db, &network, f);
             f
         } else {
             scan_daa
@@ -324,211 +564,7 @@ pub async fn run_crawler(
                 break;
             }
 
-            // Broad scan for *ALL* covenants: check payload + every output script for opcodes.
-            // This captures raw covenants (manual deploys, other tools, experiments) in addition
-            // to Covex-structured ones. Matches the volume seen on the official Kaspa explorer.
-            for tx in &block.transactions {
-                let pl = hex::encode(&tx.payload);
-                let mut covenant_script = pl.clone();
-                // The SilverScript covenant envelope is a payload PREFIX (aa20..aa23 +
-                // payload). A substring match false-positives on arbitrary payload
-                // bytes (inscriptions, KRC-20 envelopes) - critical on mainnet where
-                // honest data matters most.
-                let is_envelope = |h: &str| {
-                    h.starts_with("aa20")
-                        || h.starts_with("aa21")
-                        || h.starts_with("aa22")
-                        || h.starts_with("aa23")
-                };
-                let mut has_covenant_opcode = is_envelope(&pl);
-                // The script_public_key of the output that actually carries the covenant opcode,
-                // so we can derive its REAL on-chain (P2SH) address instead of fabricating one.
-                let mut covenant_spk: Option<&kaspa_rpc_core::RpcScriptPublicKey> = None;
-
-                // Output scripts: covenants are P2SH-wrapped, so the envelope may sit
-                // mid-script (after preceding opcodes). Scripts are small and structured,
-                // so substring matching is safe here - unlike free-form payloads, where
-                // only a prefix match avoids inscription false positives.
-                for out in &tx.outputs {
-                    let sh = hex::encode(out.script_public_key.script());
-                    if sh.contains("aa20")
-                        || sh.contains("aa21")
-                        || sh.contains("aa22")
-                        || sh.contains("aa23")
-                    {
-                        has_covenant_opcode = true;
-                        covenant_spk = Some(&out.script_public_key);
-                        // Prefer the first output script that carries the opcode for classification
-                        if covenant_script == pl {
-                            covenant_script = sh;
-                        }
-                        break;
-                    }
-                }
-
-                if !has_covenant_opcode {
-                    continue;
-                }
-
-                // Mainnet honesty gate. SilverScript covenants are INVALID on mainnet
-                // until the Toccata hard fork activates (June 2026 window). Any aa20-aa23
-                // match on mainnet today is a coincidental ordinary output (standard P2SH,
-                // multisig, inscription bytes), NOT a covenant. We index ZERO mainnet
-                // covenants until the operator confirms Toccata is live by setting
-                // COVEX_MAINNET_COVENANTS_ENABLED=true. The crawler keeps walking so it is
-                // ready to backfill the instant real covenants appear.
-                if covenant_indexing_gated(&network, mainnet_covenants_enabled()) {
-                    continue;
-                }
-
-                // Paid tiers are assigned exclusively by the payment guardian when a
-                // confirmed treasury payment exists. The crawler never infers them:
-                // a covenant is "paid" only if it was deployed through the paid flow.
-                let _ = determine_tier_from_outputs(tx, &treasury_script);
-                let tier = "EXPLORER".to_string();
-
-                let amt = tx.outputs[0].value;
-                let txh = tx
-                    .verbose_data
-                    .as_ref()
-                    .map(|v| v.transaction_id.to_string())
-                    .unwrap_or_else(|| format!("{}-tx", block.header.hash));
-                let tid = format!("{}:{}", txh, 0);
-                let ctype = classify(&covenant_script);
-                let cat = categorize(&covenant_script);
-                let prefix = if network.starts_with("mainnet") {
-                    kaspa_addresses::Prefix::Mainnet
-                } else {
-                    kaspa_addresses::Prefix::Testnet
-                };
-                // The covenant's address is the REAL on-chain address its locking output pays to
-                // (a valid bech32 P2SH for a covenant output). When the opcode was found only in
-                // the payload envelope (no derivable output script), we have no on-chain locking
-                // script to address, so use an honest `covenant_ref:<txid>` identifier rather than
-                // fabricating an invalid bech32 string (the old `prefix:first-32-hex-of-txid` bug).
-                let addr = covenant_spk
-                    .and_then(|spk| address_from_output_spk(spk, prefix))
-                    .unwrap_or_else(|| format!("covenant_ref:{txh}"));
-                // Extract the real deployer wallet address from output[0]'s Schnorr P2PK script
-                let deployer_script_hex = hex::encode(tx.outputs[0].script_public_key.script());
-                let creator =
-                    address_from_p2pk_script(&deployer_script_hex).unwrap_or_else(|| addr.clone());
-                let shash = crate::compute_script_hash(&covenant_script);
-
-                let nlabel = match network.as_str() {
-                    "testnet-10" => "TN-10",
-                    "mainnet" | "mainnet-1" => "Mainnet",
-                    _ => "TN-12",
-                };
-                let summary = auto_summary(&ctype, &cat, amt, nlabel);
-                if total_found.is_multiple_of(100) {
-                    info!(
-                        "[CRAWLER-{}] discovered {} covenants so far (latest DAA {})",
-                        network, total_found, daa
-                    );
-                }
-                let recv_addrs = serde_json::to_string(&[&addr]).unwrap_or_default();
-                // Store the best script (output script preferred over payload for raw detection)
-                let stored_script = &covenant_script;
-                match db::insert_covenant(
-                    &db,
-                    &tid,
-                    &addr,
-                    amt,
-                    &shash,
-                    stored_script,
-                    &ctype,
-                    &cat,
-                    &creator,
-                    "",
-                    daa,
-                    &tier,
-                    &summary,
-                    &recv_addrs,
-                    &network,
-                ) {
-                    Ok(_) => {
-                        batch += 1;
-                        // Record the selected-chain block this was discovered in, so the reorg
-                        // reconciler can detect if it later leaves the chain. Also clears any
-                        // stale reorg flag (re-discovery proves it is back on the chain).
-                        let _ = db::mark_covenant_seen_in_block(
-                            &db,
-                            &tid,
-                            &block.header.hash.to_string(),
-                        );
-                        info!(
-                            "Crawler: FOUND {} {} DAA={} amt={}K tier={} script={}",
-                            ctype,
-                            &tid[..16],
-                            daa,
-                            amt as f64 / 1e8,
-                            tier,
-                            &stored_script[..40.min(stored_script.len())]
-                        );
-                        // Honest enforcement label, so the auto-generated UI's trust banner can't
-                        // call a consensus-enforced covenant "dangerous" NOR claim "on-chain" for
-                        // an oracle-resolved covenant. Uses the SAME type-driven override as the
-                        // JSON path (covenant_summary_json): prediction-market / binary_oracle_select
-                        // / oracle_enforced / oracle_escrow -> hybrid (custody is on-chain but the
-                        // Covex oracle co-signature releases the funds), else the raw on-chain
-                        // script classification. No disclosed circuit exists at crawl time, so the
-                        // full-zk upgrade (which keys on a disclosed circuit id) does not apply here.
-                        let greality = crate::covenant_catalog::enforcement_reality_label(
-                            &ctype,
-                            None,
-                            &covenant_script,
-                        )
-                        .to_string();
-                        let (gdb, gid, gty, gcat, ghash, _gaddr, gcreator, gt) = (
-                            db.clone(),
-                            tid.clone(),
-                            ctype.clone(),
-                            cat.clone(),
-                            shash.clone(),
-                            addr.clone(),
-                            creator.clone(),
-                            tier.to_string(),
-                        );
-                        tokio::spawn(async move {
-                            let p = ui_generator::extract_parameters_from_script("aa20", &ghash);
-                            let cfg = covenant_types::UiGenerationConfig {
-                                covenant_id: gid.clone(),
-                                covenant_name: format!("{} {}", gty, &gid[..8]),
-                                category: gcat,
-                                script_hash: ghash,
-                                parameters: p,
-                                is_enhanced: gt != "FREE" && gt != "EXPLORER",
-                                disclosure_level: if gt == "FREE" || gt == "EXPLORER" {
-                                    "limited".into()
-                                } else {
-                                    "full".into()
-                                },
-                                creator_addr: gcreator,
-                                enforcement_reality: greality,
-                            };
-                            let html = ui_generator::generate_basic_ui(&cfg);
-                            let slug = format!("covenant-{}", &gid[..16]);
-                            let feat = gt == "MAX" || gt == "PRO";
-                            let pri: i32 = match gt.as_str() {
-                                "MAX" => 100,
-                                "PRO" => 50,
-                                "BUILDER" => 10,
-                                "EXPLORER" => 0, // raw but visible
-                                _ => 0,
-                            };
-                            let _ = db::save_generated_ui(
-                                &gdb, &gid, &gid, &gt, &html, "{}", &slug, feat,
-                            );
-                            let _ = db::set_visibility(&gdb, &gid, &gt, feat, pri, None);
-                        });
-                    }
-                    Err(e) if e.to_string().contains("UNIQUE") => {}
-                    Err(e) => {
-                        error!("Crawler: insert fail {}: {}", &tid[..16], e);
-                    }
-                }
-            }
+            batch += index_block_covenants(&db, &block, &network, &treasury_script, total_found);
 
             walked += 1;
             // Follow selected parent
@@ -563,14 +599,317 @@ pub async fn run_crawler(
             );
         } else {
             // Clean walk: we covered [walk_floor, tip] down the selected-parent chain, so
-            // we are current at the tip. Persist scan_daa = tip; any deferred backfill
-            // range below walk_floor was logged above for a later pass. (Previously this
-            // set scan_daa = lowest-1, which combined with no stop condition re-walked the
-            // whole history every cycle and reported a permanently-behind floor.)
+            // we are current at the tip. Persist scan_daa = tip; any deferred range below
+            // walk_floor was handed to run_backfill above (note_backfill_gap), which walks
+            // it down to the floor. (Previously this set scan_daa = lowest-1, which combined
+            // with no stop condition re-walked the whole history every cycle and reported a
+            // permanently-behind floor; the fix to tail the tip then ABANDONED the deferred
+            // range entirely - now run_backfill actually indexes it.)
             scan_daa = virtual_daa;
             let _ = db::update_last_scanned_daa(&db, scan_daa, &network);
         }
         tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    }
+}
+
+/// Whether the backfill should be actively descending: a deferred range exists ABOVE what a
+/// prior descent already covered. `gap_top` is the highest forward walk_floor ever handed off;
+/// `covered_top` is the top of the last COMPLETED descent. Monotonic, so once a descent covers
+/// up to a tip the backfill disarms until a later, higher deferral pushes `gap_top` past it.
+fn backfill_armed(gap_top: u64, covered_top: u64) -> bool {
+    gap_top > covered_top
+}
+
+/// Whether a descent has reached its target floor (the block at/below the floor is already
+/// covered by a prior descent or the forward walk, so the descent stops there).
+fn backfill_reached_floor(block_daa: u64, stop_floor: u64) -> bool {
+    block_daa <= stop_floor
+}
+
+/// Background backfill: actually walk the deep range the forward crawler (run_crawler) tails past
+/// and HANDS OFF via note_backfill_gap, instead of abandoning it. Without this, when the gate is
+/// flipped at the Toccata fork and the first cycle lags the fork DAA by more than FORWARD_WINDOW,
+/// every covenant created in [fork, tip-FORWARD_WINDOW) was silently skipped forever.
+///
+/// Design (idempotent, crash-safe, never duplicates):
+///   * The forward crawler records the highest deferred floor as `backfill_gap_top` (MAX).
+///   * This task arms whenever `gap_top > covered_top` and descends the selected-parent chain
+///     FROM THE CURRENT TIP down to `max(start_floor, covered_top)`, in bounded chunks, indexing
+///     every covenant via the SAME `index_block_covenants` the forward walk uses (one honesty
+///     gate, one insert path).
+///   * Progress is persisted as (`seed_top`, `cursor_daa`, `cursor_hash`) after every chunk, so a
+///     restart resumes from the saved hash rather than re-walking from the tip.
+///   * On reaching the floor it records `covered_top = seed_top` and parks. A later, higher
+///     deferral (e.g. after a long node stall) raises `gap_top` above `covered_top` and re-arms a
+///     fresh descent that only re-walks the NEW gap (floor = previous covered_top), not the whole
+///     chain.
+/// Re-walking the recent FORWARD_WINDOW the forward walk already indexed is harmless: every insert
+/// is idempotent. Disable with COVEX_BACKFILL_ENABLED=false. Tune with COVEX_BACKFILL_CHUNK /
+/// COVEX_BACKFILL_INTERVAL_MS.
+pub async fn run_backfill(
+    client: Arc<KaspaRpcClient>,
+    db: db::Db,
+    treasury_address: String,
+    start_daa: u64,
+    network: String,
+) {
+    if std::env::var("COVEX_BACKFILL_ENABLED").as_deref() == Ok("false") {
+        info!(
+            "Backfill[{}]: disabled via COVEX_BACKFILL_ENABLED=false",
+            network
+        );
+        return;
+    }
+    let treasury_addr = match Address::try_from(treasury_address.as_str()) {
+        Ok(a) => a,
+        Err(e) => {
+            error!("Backfill[{}]: invalid treasury: {}", network, e);
+            return;
+        }
+    };
+    let treasury_script = match treasury_script_hex(&treasury_addr) {
+        Some(s) => s,
+        None => {
+            error!("Backfill[{}]: treasury script fail", network);
+            return;
+        }
+    };
+    // Absolute floor we backfill down to. Mirror the forward crawler's start_daa, and honour
+    // CRAWL_FULL_RESCAN (full-history coverage) so a forced rescan deep-walks to genesis too.
+    let start_floor = if std::env::var("CRAWL_FULL_RESCAN").is_ok() {
+        0u64
+    } else {
+        start_daa
+    };
+    let chunk: u64 = std::env::var("COVEX_BACKFILL_CHUNK")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .filter(|&c| c > 0)
+        .unwrap_or(BACKFILL_CHUNK_BLOCKS);
+    let step_sleep_ms: u64 = std::env::var("COVEX_BACKFILL_INTERVAL_MS")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(BACKFILL_STEP_SLEEP_MS);
+    let mut total_found: u64 = 0;
+    // Consecutive cycles in which the saved resume cursor produced ZERO progress (could not even
+    // fetch the resume block). Reset on any progress; on reaching the strike cap we re-seed the
+    // descent from the live tip so a stale/pruned cursor can never permanently stall the backfill.
+    let mut stale_strikes = 0u32;
+    info!(
+        "Backfill[{}] started: floor={}, chunk={} blocks, step_sleep={}ms",
+        network, start_floor, chunk, step_sleep_ms
+    );
+
+    loop {
+        if !client.is_connected() {
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            continue;
+        }
+        // Honesty gate parity (GATE 1): never index gated mainnet covenants here either. The
+        // forward crawler also short-circuits before deferring on gated mainnet, so gap_top stays
+        // 0 and we would not arm anyway - this is defense in depth.
+        if covenant_indexing_gated(&network, mainnet_covenants_enabled()) {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            continue;
+        }
+
+        let st = db::load_backfill(&db, &network);
+        // Stop the descent at the higher of the absolute floor and what a prior descent already
+        // covered, so a re-arm after a later stall only re-walks the NEW gap, not the whole chain.
+        let stop_floor = start_floor.max(st.covered_top);
+        let armed = backfill_armed(st.gap_top, st.covered_top);
+        // Idle when nothing is deferred beyond what we have covered AND no descent is mid-flight.
+        if !armed && st.cursor_hash.is_none() {
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+            continue;
+        }
+
+        let dag = match tokio::time::timeout(
+            std::time::Duration::from_secs(15),
+            client.get_block_dag_info(),
+        )
+        .await
+        {
+            Ok(Ok(d)) => d,
+            _ => {
+                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                continue;
+            }
+        };
+        let virtual_daa = dag.virtual_daa_score;
+        let tip_hash = match dag.virtual_parent_hashes.first() {
+            Some(h) => *h,
+            None => {
+                tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                continue;
+            }
+        };
+
+        // Resume an in-progress descent, or seed a fresh one from the current tip. Descending from
+        // the tip re-walks the recent FORWARD_WINDOW the forward crawler already indexed; that is a
+        // harmless idempotent no-op (insert_covenant preserves paid tier + metadata on conflict).
+        let (start_hash, seed_top) = match st.cursor_hash.as_deref() {
+            Some(h) => match h.parse::<kaspa_rpc_core::RpcHash>() {
+                // Resume the in-progress descent from exactly where it left off; seed_top was
+                // persisted when this descent was first seeded and drives covered_top on completion.
+                Ok(hash) => (hash, st.seed_top),
+                Err(_) => {
+                    // Corrupt persisted hash: re-seed cleanly from the tip.
+                    warn!(
+                        "Backfill[{}]: unparseable resume hash; re-seeding from tip {}",
+                        network, virtual_daa
+                    );
+                    let _ = db::save_backfill_cursor(
+                        &db,
+                        &network,
+                        virtual_daa,
+                        virtual_daa,
+                        Some(&tip_hash.to_string()),
+                    );
+                    (tip_hash, virtual_daa)
+                }
+            },
+            None => {
+                info!(
+                    "Backfill[{}]: arming descent from tip {} down to {} (gap_top={}, covered_top={})",
+                    network, virtual_daa, stop_floor, st.gap_top, st.covered_top
+                );
+                let _ = db::save_backfill_cursor(
+                    &db,
+                    &network,
+                    virtual_daa,
+                    virtual_daa,
+                    Some(&tip_hash.to_string()),
+                );
+                (tip_hash, virtual_daa)
+            }
+        };
+
+        // Walk DOWN the selected-parent chain a bounded chunk, indexing every covenant.
+        let mut cur = start_hash;
+        let mut walked = 0u64;
+        let mut found = 0usize;
+        let mut last_daa = st.cursor_daa;
+        let mut reached_floor = false;
+        let mut interrupted = false;
+        let mut resume_hash: Option<kaspa_rpc_core::RpcHash> = Some(cur);
+
+        while walked < chunk {
+            if !client.is_connected() {
+                interrupted = true;
+                break;
+            }
+            let block = match tokio::time::timeout(
+                std::time::Duration::from_secs(12),
+                client.get_block(cur, true),
+            )
+            .await
+            {
+                Ok(Ok(b)) => b,
+                Ok(Err(e)) => {
+                    debug!("Backfill[{}]: get_block fail at {}: {}", network, cur, e);
+                    interrupted = true;
+                    break;
+                }
+                Err(_) => {
+                    warn!(
+                        "Backfill[{}]: get_block timeout (node mid-sync); retry next cycle",
+                        network
+                    );
+                    interrupted = true;
+                    break;
+                }
+            };
+            let bdaa = block.header.daa_score;
+            last_daa = bdaa;
+            // Stop at the floor: the block AT/below it is already covered by a prior descent or
+            // the forward walk, so do not re-index it. This is the clean completion path.
+            if backfill_reached_floor(bdaa, stop_floor) {
+                reached_floor = true;
+                resume_hash = None;
+                break;
+            }
+            found += index_block_covenants(
+                &db,
+                &block,
+                &network,
+                &treasury_script,
+                total_found + found as u64,
+            );
+            walked += 1;
+            // Follow the selected parent (deepest level, first parent) - same chain the forward
+            // walk follows, so coverage is identical.
+            match block
+                .header
+                .parents_by_level
+                .first()
+                .and_then(|v| v.first())
+            {
+                Some(ph) => {
+                    cur = *ph;
+                    resume_hash = Some(*ph);
+                }
+                None => {
+                    debug!("Backfill[{}]: reached genesis at DAA {}", network, bdaa);
+                    reached_floor = true;
+                    resume_hash = None;
+                    break;
+                }
+            }
+        }
+        total_found += found as u64;
+
+        if reached_floor {
+            // Descent complete: [stop_floor, seed_top] is now fully indexed. Record covered_top so
+            // only a later, HIGHER deferral re-arms, and clear the cursor.
+            stale_strikes = 0;
+            let _ = db::complete_backfill(&db, &network, seed_top);
+            info!(
+                "Backfill[{}]: descent COMPLETE - covered down to {} (top {}), {} found on the deep tail; parking",
+                network, stop_floor, seed_top, found
+            );
+            tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+        } else if interrupted && walked == 0 {
+            // Zero progress this cycle: could not fetch even the resume block. Usually transient (the
+            // node is mid-sync or briefly disconnected), so we keep the same cursor and retry. But a
+            // cursor_hash pointing at a block the node reorged/pruned out (e.g. after a resync to a
+            // lower tip) would retry the same dead hash forever and silently stall the deep backfill.
+            // After a few consecutive zero-progress cycles, re-seed the descent from the current tip
+            // (the same recovery the unparseable-hash branch uses); the re-walk is idempotent.
+            stale_strikes += 1;
+            if stale_strikes >= BACKFILL_STALE_CURSOR_MAX_STRIKES {
+                warn!(
+                    "Backfill[{}]: resume cursor unfetchable for {} cycles; re-seeding descent from tip {}",
+                    network, stale_strikes, virtual_daa
+                );
+                let _ = db::save_backfill_cursor(
+                    &db,
+                    &network,
+                    virtual_daa,
+                    virtual_daa,
+                    Some(&tip_hash.to_string()),
+                );
+                stale_strikes = 0;
+            }
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+        } else {
+            // Progress made (or a clean chunk boundary): reset the stall counter and persist the
+            // resume point so the next cycle (or a restart) continues from exactly here rather than
+            // re-walking from the tip.
+            stale_strikes = 0;
+            let resume = resume_hash.map(|h| h.to_string());
+            let _ =
+                db::save_backfill_cursor(&db, &network, seed_top, last_daa, resume.as_deref());
+            if interrupted {
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            } else {
+                info!(
+                    "Backfill[{}]: chunk done at DAA {} (target {}), {} found this chunk",
+                    network, last_daa, stop_floor, found
+                );
+                tokio::time::sleep(std::time::Duration::from_millis(step_sleep_ms)).await;
+            }
+        }
     }
 }
 
@@ -725,5 +1064,35 @@ mod tests {
         );
         // And it must NOT be the old txid-prefix fabrication form.
         assert!(!addr.contains("covenant_ref:"));
+    }
+
+    // ── Backfill watermark logic ──────────────────────────────────────────────
+    // The backfill arms purely from (gap_top, covered_top) and stops purely from
+    // (block_daa, stop_floor). These pure helpers are the whole control surface, so the
+    // launch-critical "deferred range actually gets walked, exactly once" behaviour is
+    // asserted here without a live node.
+
+    #[test]
+    fn backfill_arms_only_when_a_gap_sits_above_covered() {
+        // Nothing ever deferred: never arms (forward walk covered everything contiguously).
+        assert!(!backfill_armed(0, 0));
+        // First deferral at the gate-flip: gap_top set, covered_top still 0 -> arms.
+        assert!(backfill_armed(95_000, 0));
+        // After a descent covered up past the gap, it disarms (does not re-walk forever).
+        assert!(!backfill_armed(95_000, 100_000));
+        assert!(!backfill_armed(95_000, 95_000), "equal is covered, not armed");
+        // A later, higher deferral (e.g. after a long stall) re-arms exactly once.
+        assert!(backfill_armed(150_000, 100_000));
+    }
+
+    #[test]
+    fn backfill_descent_stops_at_or_below_the_floor() {
+        // The block AT the floor is already covered -> stop (do not index it).
+        assert!(backfill_reached_floor(1, 1));
+        // Below the floor (e.g. genesis-ward) -> stop.
+        assert!(backfill_reached_floor(0, 1));
+        // Above the floor -> keep descending.
+        assert!(!backfill_reached_floor(2, 1));
+        assert!(!backfill_reached_floor(96_000, 95_000));
     }
 }

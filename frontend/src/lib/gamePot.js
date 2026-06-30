@@ -231,26 +231,20 @@ export function isZkGameSettle(game) {
 }
 
 /**
- * STUB pending the backend settle endpoint (Stage 4 plumbing, owned by the backend agent).
- *
  * Fetch the game's finished RISC0->Groth16 proof + binding journal from the server. The proof
- * is generated off-device; this call only RETRIEVES it. Documented response shape (code against
- * this until the real route lands):
+ * is generated off-device; this call only RETRIEVES it. Response shape:
  *
  *   { proof_hex, public_inputs: [Fr0..Fr4] (5 x 32-byte LE hex), winner_pubkey (x-only hex),
  *     covenant_id, vk_hex?, sighash?, session_id? }
  *
- * NOTE: the endpoint name is not finalised. We POST to `/games/:id/settle-zk` (the natural
- * sibling of settle-pot-hashlock). If the backend names it differently this one call changes; the
- * shape is what Stages 2-4 froze. Until the route exists the server returns success:false and the
- * claim surfaces an honest "rolling out" message rather than breaking the build or signing blind.
+ * Posts to `/games/:id/settle-zk` (backend/src/games.rs registers it; the handler is fail-closed:
+ * only a seated player may settle, and it returns success:false rather than signing blind). The
+ * field shape is frozen by docs/zk_precompile_abi.md (tag 0x20: VK, proof, n_inputs, 5x 32-byte LE
+ * Fr public inputs).
  *
  * @returns {Promise<object>} the settlement bundle, or throws with an honest message.
  */
 export async function fetchZkSettlement({ covenantId, token }) {
-  // TODO(backend Stage 4): replace `settle-zk` with the real route name + confirm the field
-  // names once backend/src/games.rs adds the on-chain ZK settle handler. Shape is frozen by
-  // docs/zk_precompile_abi.md (tag 0x20: VK, proof, n_inputs, 5x 32-byte LE Fr public inputs).
   const prep = await postJson(api(covenantId, 'settle-zk'), { token });
   if (!prep || !prep.success) {
     throw new Error(

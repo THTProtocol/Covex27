@@ -16,7 +16,7 @@
 
   <p>
     <a href="https://hightable.pro"><b>hightable.pro</b></a> ·
-    <a href="https://hightable.pro/docs">API docs</a> ·
+    <a href="https://hightable.pro/api/openapi.json">API (OpenAPI)</a> ·
     <a href="https://hightable.pro/whitepaper">Whitepaper</a> ·
     <a href="https://hightable.pro/treasury">Treasury</a> ·
     <a href="docs/BUILDING_ON_COVEX.md">Building on Covex</a>
@@ -25,9 +25,9 @@
 
 ---
 
-> **Status.** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet on **30 June 2026**, when Covex launches with real funds. The covenant indexer is armed behind the honesty gate today and the mainnet node is being synced ahead of launch. **The mainnet explorer is honestly empty until the first real covenant lands. No placeholder data, ever. A zero is the correct, expected reading.** With Toccata, Kaspa gains an on-chain ZK path: the KIP-16 OpZkPrecompile (opcode 0xa6) verifies a RISC0-Groth16 proof in consensus. It is active on testnet-12 and not yet verified live on testnet-10 (which Covex connects to read-only), and it activates on mainnet at the Toccata DAA. That on-chain path is testnet-gated until proven live. The circom proof suite Covex ships is still verified **off-chain** by an external resolver you choose or run (never by Covex), and for those the only thing the chain checks at unlock is that resolver's Schnorr co-signature (plus whatever the script itself enforces); even the four self-contained circuits still need that resolver co-signature to release (there is no proof-to-hashlock binding), so they are not trustless end-to-end.
+> **Status.** Kaspa mainnet has run at 10 BPS since the **Crescendo** hard fork (May 2025), which brought the **KIP-10 introspection opcodes** live on L1. Native scriptable **covenants** arrive with the **Toccata** hard fork (KIP-16/17/20/21), scheduled to activate on Kaspa mainnet on **30 June 2026**, when Covex launches with real funds. The covenant indexer is armed behind the honesty gate today and the mainnet node is live and at tip (Toccata-ready), ready for the fork. **The mainnet explorer is honestly empty until the first real covenant lands. No placeholder data, ever. A zero is the correct, expected reading.** With Toccata, Kaspa gains an on-chain ZK path: the KIP-16 OpZkPrecompile (opcode 0xa6) verifies a RISC0-Groth16 proof in consensus. It is active on testnet-12 and not yet verified live on testnet-10 (which Covex connects to read-only), and it activates on mainnet at the Toccata DAA. That on-chain path is testnet-gated until proven live. The circom proof suite Covex ships is still verified **off-chain** by an external resolver you choose or run (never by Covex), and for those the only thing the chain checks at unlock is that resolver's Schnorr co-signature (plus whatever the script itself enforces); even the four self-contained circuits still need that resolver co-signature to release (there is no proof-to-hashlock binding), so they are not trustless end-to-end.
 
-> **Launch imminent.** Toccata activates on Kaspa mainnet at **DAA 474165565**, expected on or around **30 June 2026**. As of this writing the mainnet node is syncing ahead of that height and the covenant gate stays closed until activation, so a mainnet explorer reading of zero is correct and expected until the first real covenant lands.
+> **Launch imminent.** Toccata activates on Kaspa mainnet at **DAA 474165565**, expected on or around **30 June 2026**. As of this writing the mainnet node is live and at tip ahead of that height and the covenant gate stays closed until activation, so a mainnet explorer reading of zero is correct and expected until the first real covenant lands.
 
 > **Mainnet day-one scope.** On launch, only the deterministic on-chain primitives deploy with real funds (singlesig, hashlock, CLTV/CSV timelocks, HTLC, and N-of-M multisig). The oracle-attested and full-zk kinds are deliberately **frozen and fail-closed on mainnet until post-Toccata**: every mainnet deploy is refused until the owner flips the covenant gate, and the on-chain ZK path stays testnet-gated until proven live. This mirrors `docs/TOCCATA_TRUSTLESS_READINESS.md`. Trust-by-removal: only what the chain itself enforces ships day-one.
 
@@ -52,12 +52,12 @@ Covex has three jobs, and a fourth that ties them together:
 
 ### Mainnet status
 
-Covex is built for Kaspa **mainnet**. The covenant indexer is armed behind the honesty gate today, and the mainnet node is being synced ahead of the 30 June 2026 launch. The mainnet explorer is **intentionally empty until the Toccata hard fork activates covenants**. Nothing here is seeded, simulated, or projected, and no placeholder data is ever shown.
+Covex is built for Kaspa **mainnet**. The covenant indexer is armed behind the honesty gate today, and the mainnet node is live and at tip (Toccata-ready) ahead of the 30 June 2026 launch. The mainnet explorer is **intentionally empty until the Toccata hard fork activates covenants**. Nothing here is seeded, simulated, or projected, and no placeholder data is ever shown.
 
 | Mainnet | Status |
 |---------|--------|
 | Covenant indexer | Live, armed behind the honesty gate |
-| Mainnet node | Being provisioned and synced ahead of the 30 June 2026 launch |
+| Mainnet node | Live and at tip (behind_daa 0), Toccata-ready ahead of the 30 June 2026 launch |
 | Covenants indexed | 0 until the first real covenant lands |
 | Provably paid covenants | 0 |
 | Total value locked | 0 KAS |
@@ -287,7 +287,7 @@ curl -X POST https://hightable.pro/api/compile \
   -H "Content-Type: application/json" -d '{"source":"contract T { ... }"}'
 ```
 
-Interactive docs: **[hightable.pro/docs](https://hightable.pro/docs)** · OpenAPI: [/api/openapi.json](https://hightable.pro/api/openapi.json)
+API reference: **OpenAPI at [/api/openapi.json](https://hightable.pro/api/openapi.json)** · How it works: [hightable.pro/readme](https://hightable.pro/readme)
 
 ---
 

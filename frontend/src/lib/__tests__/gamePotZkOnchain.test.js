@@ -101,7 +101,7 @@ describe('zkOnchainGamesEnabled build flag', () => {
   });
 });
 
-describe('settlePotZkOnchain (gated, stubbed pending the backend settle endpoint)', () => {
+describe('settlePotZkOnchain (gated; posts to the live /games/:id/settle-zk route)', () => {
   let origFetch;
   let origFlag;
   beforeEach(() => {

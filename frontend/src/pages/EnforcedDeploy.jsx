@@ -37,6 +37,12 @@ const KINDS = [
 // sync with the mainnet banner copy and the per-tile "Mainnet-ready" chip.
 const MAINNET_CAPABLE_KINDS = ['singlesig', 'hashlock', 'timelock', 'relative_timelock'];
 
+// The Toccata covenant hard fork activates on Kaspa mainnet at this DAA score. Mirrors
+// ToccataStatus.jsx so the mainnet banner / "Mainnet-ready" chip copy can self-heal: the
+// "gated until the fork" wording must become a "live" wording the moment the chain crosses it,
+// with no manual edit. (See the live-tip read in the component below.)
+const TOCCATA_DAA = 474165565;
+
 // Catalog kinds the backend gates behind a feature flag and refuses to deploy until their
 // on-chain e2e is proven (KIP-10 output-binding: COVEX_KIP10_BOUND_ENABLED; KIP-16 on-chain ZK
 // settle: KASPA_ZK_PRECOMPILE_ENABLED). They are NOT in the KINDS picker today, so no tile here
@@ -145,6 +151,15 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   const [balLoading, setBalLoading] = useState(false);
   const [lockBlocks, setLockBlocks] = useState('100');
   const [tipDaa, setTipDaa] = useState(null);
+  // Live mainnet DAA tip the Covex node sees, read from /api/status node_sync.mainnet.tip_daa.
+  // This is INDEPENDENT of the selected network (tipDaa above tracks `net`, which may be a
+  // testnet). It drives the fork-aware launch copy: while it is below TOCCATA_DAA the mainnet
+  // banner / "Mainnet-ready" chip say "gated until the fork"; once the chain crosses it they
+  // switch to a "live" wording, with no manual edit. null = no live read yet (honest fallback).
+  const [mainnetTip, setMainnetTip] = useState(null);
+  // True once the live mainnet tip has crossed the Toccata activation DAA. Until there is a live
+  // read it stays false, so the copy defaults to the truthful pre-fork "gated" wording.
+  const toccataActivated = mainnetTip != null && mainnetTip >= TOCCATA_DAA;
   // Extra params for the advanced primitives.
   const [relSeq, setRelSeq] = useState('10');   // relative_timelock min_sequence (BIP68 relative blocks)
   const [reqNow, setReqNow] = useState('2');     // timedecay quorum now
@@ -220,8 +235,26 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
     fetch('/api/status').then((r) => r.json()).then((j) => {
       const n = j.node_sync && j.node_sync[net];
       if (n && n.tip_daa) setTipDaa(n.tip_daa);
+      // Track the live MAINNET tip too (independent of `net`) so the launch copy is fork-aware.
+      const mn = j.node_sync && j.node_sync.mainnet;
+      const mt = Number(mn?.tip_daa || 0);
+      if (mt > 0) setMainnetTip(mt);
     }).catch(() => {});
   }, [net]);
+
+  // Re-read the live mainnet tip on an interval so the fork-aware launch copy flips from "gated"
+  // to "live" within the session the moment the chain crosses the Toccata activation DAA, with no
+  // reload and no manual edit (mirrors ToccataStatus.jsx). Best-effort: failures keep the last read.
+  useEffect(() => {
+    if (!isMainnet || toccataActivated) return; // once live we never need to re-check
+    const id = setInterval(() => {
+      fetch('/api/status').then((r) => (r.ok ? r.json() : null)).then((j) => {
+        const mt = Number(j?.node_sync?.mainnet?.tip_daa || 0);
+        if (mt > 0) setMainnetTip(mt);
+      }).catch(() => {});
+    }, 60000);
+    return () => clearInterval(id);
+  }, [isMainnet, toccataActivated]);
 
   // Redeem hand-off: a covenant detail page sets sessionStorage['redeem_covenant'] with the
   // covenant's redeem script + outpoint, then routes here so the user can spend it with their key.
@@ -853,7 +886,9 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           <p className="text-sm text-amber-200">
             You are on mainnet. Single-key, hashlock, timelock, and relative-timelock (CSV) covenants deploy non-custodially here:
             connect the key that holds the funds and it signs the funding transaction in your browser - the key is never sent.
-            Mainnet covenants activate at the Toccata hard fork, so the deploy stays gated until then.
+            {toccataActivated
+              ? ' Toccata has activated on Kaspa mainnet, so these covenants are live; deploys still require the owner to have flipped the mainnet covenant gate.'
+              : ' Mainnet covenants activate at the Toccata hard fork, so the deploy stays gated until the chain crosses the activation score.'}
           </p>
           <p className="mt-2 text-[12px] text-amber-200/80 leading-snug">
             The other primitives (multisig, HTLC, channel, dead-man, time-decaying multisig, resolver-enforced/escrow) deploy through the
@@ -939,7 +974,9 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
                   </span>
                 ) : isMainnetCapable ? (
                   <span
-                    title="Non-custodial: your key signs the funding transaction in your browser. Deployable on mainnet (gated until the Toccata hard fork)."
+                    title={toccataActivated
+                      ? 'Non-custodial: your key signs the funding transaction in your browser. Live on mainnet now that Toccata has activated (deploys still need the owner to have flipped the mainnet covenant gate).'
+                      : 'Non-custodial: your key signs the funding transaction in your browser. Deployable on mainnet once Toccata activates (gated until the chain crosses the activation score).'}
                     className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase tracking-wider"
                   >
                     <span className="h-1 w-1 rounded-full bg-emerald-400" aria-hidden="true" /> Mainnet-ready

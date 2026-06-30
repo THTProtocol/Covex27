@@ -54,7 +54,7 @@ export const REALITY_BODY = {
   'full-zk':
     'A real Groth16 zero-knowledge proof is verified off-chain by an external resolver you choose or run, then co-signed on-chain. That external resolver will not co-sign without a valid proof. Covex provides the prover and verifier tooling but operates no oracle key here. Not chain-enforced end-to-end because Kaspa lacks a pairing verifier, so payout still requires the external resolver co-signature and is gated by that off-chain check: no Covex trust, and not trustless because trust sits with the disclosed external resolver.',
   'on-chain-zk':
-    'A real Groth16 proof is verified ON-CHAIN by Kaspa consensus through the KIP-16 OpZkPrecompile (opcode 0xa6). The proof binds the covenant and the winning payee, so the loser cannot forge a winning proof, and there is no oracle and no co-signature anywhere in the payout. This is the zk_game_settle kind. It is TESTNET / Toccata gated and not live on Kaspa mainnet yet, so treat it as a testnet capability while it is proven live, never a mainnet guarantee.',
+    'A real Groth16 proof is verified ON-CHAIN by Kaspa consensus through the KIP-16 OpZkPrecompile (opcode 0xa6). The proof binds the covenant and the winning payee, so the loser cannot forge a winning proof, and there is no oracle and no co-signature anywhere in the payout. This is the zk_game_settle kind. Covex keeps it TESTNET-gated until the path is proven on its own prover infrastructure, so treat it as a testnet capability while that proof is pending, never a mainnet guarantee.',
 };
 
 export const REALITY_BADGE_LABEL = {

@@ -25,6 +25,13 @@ Status endpoint: `https://hightable.pro/api/status`.
 
 ## The flip (AFTER the chain passes DAA 474,165,565 AND pre-flight is green)
 
+> **Auto-flip is armed; the hand-edit below is the FALLBACK only.** The flip fires automatically
+> at the crossing via `covex-toccata-autoflip.timer` (no manual GO needed); it watches the live
+> mainnet tip and enables the gate when the chain passes DAA 474,165,565. The deep-backfill floor is
+> pinned at `CRAWL_START_DAA=474165565` in the `covex-backend` mainnet.conf systemd drop-in, so after
+> the flip the crawler never descends into pre-fork blocks (no point indexing blocks that cannot hold
+> a covenant). Only run the manual steps below if the timer did not fire or you need to flip by hand.
+
 1. Edit `/mnt/HC_Volume_105579109/Covex27/.env`:
    - `COVEX_MAINNET_COVENANTS_ENABLED=true`
    - `COVENANT_TREASURY_ADDRESS=<real mainnet kaspa address>` (never a testnet or dev address)
@@ -36,12 +43,16 @@ Status endpoint: `https://hightable.pro/api/status`.
 
 ## What goes live vs stays frozen
 
-Live on mainnet day-one: `singlesig`, `hashlock`, `timelock`, `rcsv`, `htlc`, `multisig`.
+Live on mainnet day-one: the non-custodial single-signer primitives only, `singlesig`, `hashlock`,
+`timelock`, and `relative_timelock` (CSV). These are the kinds whose key signs the funding tx in the
+browser; they match `MAINNET_CAPABLE_KINDS` in `frontend/src/pages/EnforcedDeploy.jsx`.
 
-Stays frozen on mainnet (by design, fail-closed): all oracle-attested kinds (GATE 2 in
+Stays frozen on mainnet (by design, fail-closed): `htlc`, `multisig`, and the other dev-wallet kinds
+route through the server-assisted dev-wallet path, which is hard-rejected on mainnet, so they are NOT
+day-one kinds and are correctly refused. All oracle-attested kinds (GATE 2 in
 `backend/src/covenant_builder.rs` refuses them unconditionally) and all on-chain-ZK kinds
 (`zk_precompile_deploy_allowed()` rejects every mainnet network and `KASPA_ZK_PRECOMPILE_ENABLED`
-is default off). Do not flip the ZK precompile flag on mainnet.
+is default off) stay frozen too. Do not flip the ZK precompile flag on mainnet.
 
 ## Rollback
 

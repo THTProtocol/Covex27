@@ -183,7 +183,7 @@ curl -X POST https://hightable.pro/api/compile \
 
 The oracle endpoint verifies a proof and returns a signed outcome you can use as witness data when unlocking an oracle-attested covenant. It fails closed: a bad proof or a missing key means no signature. Build your application UI on top of the saved configuration.
 
-Interactive docs: `hightable.pro/docs`. OpenAPI: `/api/openapi.json`.
+API reference: OpenAPI at `/api/openapi.json`. How it works: `hightable.pro/readme`.
 
 ---
 

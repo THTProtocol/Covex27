@@ -178,6 +178,14 @@ Use SSH tunnel from the PC or set up wireguard/zerotier between the machines. Th
 4. The 3-button nav selector on hightable.pro already works for MAINNET
 5. The red warnings and no-dev-key enforcement are already active
 
+**The flip auto-fires; the hand-edit is the fallback only.** `COVEX_MAINNET_COVENANTS_ENABLED` is
+flipped to `true` automatically at the crossing by `covex-toccata-autoflip.timer` (it watches the
+live mainnet tip and enables the gate when the chain passes DAA 474165565), so no manual GO is
+required. The hand-edit-the-env-then-restart steps in `docs/LAUNCH_DAY_RUNBOOK.md` are the FALLBACK
+only, for when the timer did not fire. The deep-backfill floor is pinned at
+`CRAWL_START_DAA=474165565` in the `covex-backend` mainnet.conf systemd drop-in, so after the flip
+the crawler never descends into pre-fork blocks (blocks below the fork DAA cannot hold a covenant).
+
 ## Verification Commands
 
 ```bash

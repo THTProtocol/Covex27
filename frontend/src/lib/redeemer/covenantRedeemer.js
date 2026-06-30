@@ -741,7 +741,7 @@ export const KIND_CLAIM_MATRIX = Object.freeze({
       claim: { offline: true, role: 'winner key + the Groth16 proof (verified on-chain by consensus)' },
       refund: { offline: true, role: 'funder/refund key (after the CSV delay)' },
     },
-    liveness: 'Offline-claimable with no resolver: the WINNER branch releases on the winner key signature plus a Groth16 proof that Kaspa consensus verifies on-chain (KIP-16 OpZkPrecompile); the REFUND branch is offline-claimable with the funder key after the CSV delay. Testnet-gated: the on-chain ZK opcode is not live on Kaspa mainnet yet.',
+    liveness: 'Offline-claimable with no resolver: the WINNER branch releases on the winner key signature plus a Groth16 proof that Kaspa consensus verifies on-chain (KIP-16 OpZkPrecompile); the REFUND branch is offline-claimable with the funder key after the CSV delay. Covex keeps this testnet-gated until the path is proven on its own prover infrastructure.',
   },
   oracle_enforced: {
     offlineClaimable: false,

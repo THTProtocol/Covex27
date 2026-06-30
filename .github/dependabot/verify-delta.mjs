@@ -51,8 +51,13 @@ const touchesGate = changed.filter((f) => gatePatterns.some((re) => re.test(f)))
 // ---- 2. supply-chain delta (base vs head lockfile) --------------------------
 let added = [], removed = [], changedV = [], lockErr = null
 try {
-  const base = JSON.parse(readFileSync('/tmp/base-lock.json', 'utf8')).packages || {}
-  const head = JSON.parse(readFileSync('/tmp/head-lock.json', 'utf8')).packages || {}
+  const base = JSON.parse(readFileSync('/tmp/base-lock.json', 'utf8')).packages
+  const head = JSON.parse(readFileSync('/tmp/head-lock.json', 'utf8')).packages
+  // Guard a FALSE GREEN: a lockfile without a populated `.packages` map (npm
+  // lockfileVersion < 2) would yield {} and silently report "0 added". Fail safe instead.
+  if (!base || !head || Object.keys(base).length === 0 || Object.keys(head).length === 0) {
+    throw new Error('lockfile has no populated `.packages` map (npm lockfileVersion < 2?); cannot compute the supply-chain delta')
+  }
   const bk = new Set(Object.keys(base)), hk = new Set(Object.keys(head))
   added = [...hk].filter((k) => k && !bk.has(k)).map(strip).sort()
   removed = [...bk].filter((k) => k && !hk.has(k)).map(strip).sort()
@@ -62,28 +67,36 @@ try {
 
 // ---- 3. CI oracle: the repo's own Frontend check on the PR head -------------
 async function readFrontendConclusion() {
-  for (let i = 0; i < 10; i++) {
+  // ~10 min budget (cold frontend builds can exceed 5 min); env-tunable for tests.
+  const iters = Math.max(1, parseInt(process.env.CI_POLL_ITERS || '20', 10))
+  let seen = false
+  for (let i = 0; i < iters; i++) {
     const raw = trySh(`gh api "repos/${REPO}/commits/${HEAD_SHA}/check-runs?per_page=100"`)
     if (raw) {
       let runs = []
       try { runs = (JSON.parse(raw).check_runs || []) } catch { /* ignore */ }
       const fe = runs.find((r) => r.name === CI_FRONTEND_CHECK)
-      if (fe && fe.status === 'completed') return fe.conclusion || 'unknown'
+      if (fe) { seen = true; if (fe.status === 'completed') return fe.conclusion || 'unknown' }
     }
-    await sleep(30000)
+    if (i < iters - 1) await sleep(30000)
   }
-  return 'pending'
+  // Distinguish a still-running check from one that never appeared (name drift / CI skipped).
+  return seen ? 'pending' : 'missing'
 }
 const ciConclusion = await readFrontendConclusion()
 
 // ---- 4. verdict -------------------------------------------------------------
 const reasons = []
 if (outOfScope.length) reasons.push(`Changes ${outOfScope.length} file(s) outside the frontend dep manifest/lockfile: \`${outOfScope.join('`, `')}\``)
-if (touchesGate.length) reasons.push(`Touches the CI/test gate (protected): \`${touchesGate.join('`, `')}\` — a dependency bump must never edit the oracle that approves it.`)
+if (touchesGate.length) reasons.push(`Touches the CI/test gate (protected): \`${touchesGate.join('`, `')}\` - a dependency bump must never edit the oracle that approves it.`)
 if (lockErr) reasons.push(`Could not parse lockfiles for the supply-chain delta (${lockErr}).`)
 else if (added.length) reasons.push(`Introduces ${added.length} NEW package(s): \`${added.slice(0, 12).join('`, `')}\`${added.length > 12 ? ' …' : ''}`)
-if (DEP_TYPE && DEP_TYPE !== 'direct:development') reasons.push(`dependency-type is \`${DEP_TYPE}\` (not a pure dev-dependency) — weigh runtime / money-path impact.`)
-if (ciConclusion !== 'success') reasons.push(`CI "${CI_FRONTEND_CHECK}" is \`${ciConclusion}\` (need \`success\`).`)
+// Money-path posture: fetch-metadata reports the HIGHEST-priority dependency-type, so a
+// grouped PR with ANY production dep yields 'direct:production'. Anything that is not a
+// PURE dev-dependency is intentionally flagged for human review, never auto-verified.
+if (DEP_TYPE && DEP_TYPE !== 'direct:development') reasons.push(`dependency-type is \`${DEP_TYPE}\` (not a pure dev-dependency) - weigh runtime / money-path impact.`)
+if (ciConclusion === 'missing') reasons.push(`CI check \`${CI_FRONTEND_CHECK}\` was not found on the head commit (renamed, or CI did not run). Need it green.`)
+else if (ciConclusion !== 'success') reasons.push(`CI \`${CI_FRONTEND_CHECK}\` is \`${ciConclusion}\` (need \`success\`).`)
 
 const verified = reasons.length === 0
 const label = verified ? LABEL_OK : LABEL_REVIEW
@@ -92,7 +105,7 @@ const otherLabel = verified ? LABEL_REVIEW : LABEL_OK
 // ---- 5. comment + label -----------------------------------------------------
 const fmtList = (arr, n = 25) => arr.length ? arr.slice(0, n).map((x) => `- \`${x}\``).join('\n') + (arr.length > n ? `\n- … (+${arr.length - n} more)` : '') : '_none_'
 const body = `${MARKER}
-## ${verified ? '✅ Dependabot PR verified — safe to merge (your approval required)' : '⚠️ Dependabot PR needs human review'}
+## ${verified ? '✅ Dependabot PR verified - safe to merge (your approval required)' : '⚠️ Dependabot PR needs human review'}
 
 **This is a human-approved gate. Nothing is merged automatically.** ${verified
   ? 'All automated checks passed; merge when you are happy.'

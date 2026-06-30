@@ -73,7 +73,7 @@ export default function NotFound() {
             autoComplete="off"
           />
           <Button type="submit" variant="kaspa" size="default" disabled={loading || !q.trim()}>
-            {loading ? '...' : 'Search'}
+            {loading ? 'Searching' : 'Search'}
           </Button>
         </form>
 

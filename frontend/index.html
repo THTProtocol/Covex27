@@ -2,6 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Apply the saved theme before first paint so light-mode users never see a dark flash.
+         Mirrors ThemeProvider (localStorage 'covex-theme', default dark); the React effect is idempotent. -->
+    <script>try{var t=localStorage.getItem('covex-theme');document.documentElement.classList.add(t==='light'?'light':'dark');}catch(e){document.documentElement.classList.add('dark');}</script>
     <!-- Brand fonts: index.css declares Inter + JetBrains Mono but they were never loaded,
          so the whole site fell back to system-ui. Load them for the intended premium type.
          Weights are pruned to ONLY the ones actually rendered (audited via font-* utility usage):

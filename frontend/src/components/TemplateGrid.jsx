@@ -10,6 +10,13 @@ import {
 import { X, ArrowRight } from '../lib/routeIcons.js';
 import { useWallet } from './WalletContext';
 import SandboxCircuitPreview from './SandboxCircuitPreview';
+import Badge from './ui/Badge';
+
+// Map a templateReality() key onto the canonical Badge enforcement-reality variant
+// (single source of truth in ui/Badge.jsx, with built-in light: AA overrides). The
+// hand-rolled chip styles below failed light-mode contrast and rendered hybrid as
+// blue instead of the canonical sky; routing through Badge fixes both.
+const REALITY_BADGE_VARIANT = { 'on-chain': 'on-chain', oracle: 'oracle', hybrid: 'hybrid', zk: 'full-zk' };
 
 // Stable identity hue per template (no Math.random), seeded purely by id. Mirrors the
 // Explorer CovenantCard top-accent vocabulary.
@@ -245,9 +252,9 @@ export default function TemplateGrid({ embedded = false, onUse = null, filter = 
               <div className="p-6 flex flex-col flex-1">
                 <div className="flex items-start justify-between mb-4 gap-3">
                   <div className="text-4xl">{template.icon}</div>
-                  <span className={`shrink-0 text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide ${reality.style}`}>
+                  <Badge variant={REALITY_BADGE_VARIANT[reality.key] || 'oracle'} className="shrink-0">
                     {reality.label}
-                  </span>
+                  </Badge>
                 </div>
 
                 <h3 className="text-xl font-bold text-white light:text-slate-900 mb-2 leading-tight">{template.name}</h3>
@@ -311,7 +318,7 @@ export default function TemplateGrid({ embedded = false, onUse = null, filter = 
                   <div className="text-5xl mb-4">{selectedTemplate.icon}</div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h2 id="template-modal-title" className="text-2xl font-bold text-white light:text-slate-900">{selectedTemplate.name}</h2>
-                    <span className={`text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide ${reality.style}`}>{reality.label}</span>
+                    <Badge variant={REALITY_BADGE_VARIANT[reality.key] || 'oracle'}>{reality.label}</Badge>
                   </div>
                 </div>
                 <button onClick={() => setSelectedTemplate(null)} className="shrink-0 p-1.5 rounded-lg text-gray-400 light:text-slate-500 hover:text-white light:hover:text-slate-900 hover:bg-white/5 light:hover:bg-slate-100 transition-colors" aria-label="Close"><X size={18} /></button>

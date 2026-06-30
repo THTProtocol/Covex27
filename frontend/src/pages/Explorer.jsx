@@ -1248,11 +1248,14 @@ export default function Explorer() {
                 instead of a generic "Be the first" that implies the network is simply new. We never
                 imply mainnet has activity it does not. */}
             {isEmptyMainnet && (
-              <div data-tour="explorer-empty" className="glass-panel rounded-2xl p-10 text-center">
-                <Layers size={40} className="mx-auto text-gray-200 light:text-slate-600 mb-3" />
-                <p className="text-lg font-semibold text-white light:text-slate-900 mb-1.5">Mainnet covenants go live at the Toccata launch.</p>
-                <p className="text-sm text-gray-300 light:text-slate-600 mb-5">There are 14,000+ live covenants you can browse right now on Testnet-12.</p>
-                <div className="flex flex-wrap items-center justify-center gap-3">
+              <div data-tour="explorer-empty" className="relative glass-panel rounded-2xl p-10 text-center overflow-hidden">
+                <div className="covex-aurora" aria-hidden="true" style={{ top: -20, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 380, height: 200, maxWidth: '90vw', opacity: 0.5 }} />
+                <span className="relative z-10 grid place-items-center mx-auto mb-4 h-14 w-14 rounded-2xl border border-kaspa-green/25 bg-kaspa-green/[0.06]">
+                  <Layers size={26} className="text-kaspa-green" />
+                </span>
+                <p className="relative z-10 text-lg font-semibold text-white light:text-slate-900 mb-1.5">Mainnet covenants go live at the Toccata launch.</p>
+                <p className="relative z-10 text-sm text-gray-300 light:text-slate-600 mb-5">There are 14,000+ live covenants you can browse right now on Testnet-12.</p>
+                <div className="relative z-10 flex flex-wrap items-center justify-center gap-3">
                   <button
                     type="button"
                     onClick={() => switchNetwork(DEFAULT_NETWORK)}

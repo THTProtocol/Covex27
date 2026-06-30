@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from '../lib/routeIcons.js';
 import TemplateGrid from '../components/TemplateGrid';
+import Badge from '../components/ui/Badge';
 
 /**
  * Covenant Template Library page.
@@ -38,7 +39,7 @@ export default function TemplateLibrary() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12">
       <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-white light:text-slate-900 mb-4">Template gallery</h1>
+        <h1 className="h-page text-white light:text-slate-900 mb-4">Template gallery</h1>
         <p className="text-gray-300 light:text-slate-600 max-w-2xl mx-auto mb-6">
           Choose a ready-made template. One click loads everything: correct circuit, oracle settings,
           fees, and a beautiful UI. Customize further in Covenant Studio if you want.
@@ -87,7 +88,7 @@ export default function TemplateLibrary() {
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <div className="min-w-0">
               <div className="text-xs uppercase tracking-[2px] text-kaspa-green mb-1">COVEX OFFICIAL · {communityTemplates.length} TEMPLATES</div>
-              <h2 className="text-2xl font-bold text-white light:text-slate-900">Official Covenant Templates</h2>
+              <h2 className="h-section text-white light:text-slate-900">Official Covenant Templates</h2>
             </div>
             <input
               value={tplSearch}
@@ -109,11 +110,8 @@ export default function TemplateLibrary() {
           ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {shown.map((t, idx) => {
-              const realityStyle = t.reality === 'on-chain'
-                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                : t.reality === 'hybrid'
-                ? 'bg-blue-500/15 text-blue-300 border-blue-500/30'
-                : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+              // Canonical Badge variant (single source of truth, with light: AA overrides).
+              const realityVariant = t.reality === 'on-chain' ? 'on-chain' : t.reality === 'hybrid' ? 'hybrid' : 'oracle';
               const CAT_ICON = { 'P2SH Commitments': '\u{1F512}', 'Atomic Swaps & HTLC': '\u{1F501}', 'Vesting & Timelocks': '\u{23F3}', 'Multi-sig': '\u{1F511}', 'State Channels': '\u{1F517}', 'Games': '\u{1F3AE}', 'ZK Proofs & Claims': '\u{1F52E}', 'Prediction & Markets': '\u{1F4CA}', 'Financial Tools': '\u{1F4B0}', 'Identity & Gating': '\u{1FAAA}', 'Compute & Cross-chain': '⚙️' };
               const icon = CAT_ICON[t.category] || '\u{1F4DC}';
               const hue = (idx * 47 + String(t.id || t.name || '').length * 17) % 360;
@@ -127,7 +125,7 @@ export default function TemplateLibrary() {
                   <div className="p-6 flex flex-col flex-1">
                     <div className="flex items-start justify-between mb-3 gap-3">
                       <div className="text-4xl leading-none">{icon}</div>
-                      {t.reality && <span className={`shrink-0 text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wide ${realityStyle}`}>{t.reality}</span>}
+                      {t.reality && <Badge variant={realityVariant} className="shrink-0">{t.reality}</Badge>}
                     </div>
                     <div className="text-[10px] uppercase tracking-wider text-gray-500 light:text-slate-600 mb-1.5 truncate">{catLabel(t.category) || 'Covenant'}</div>
                     <h3 className="text-lg font-bold text-white light:text-slate-900 mb-1.5 leading-tight break-words">{t.name || t.id}</h3>
@@ -171,7 +169,7 @@ function CommunityPublished() {
   }, []);
   return (
     <div className="mt-16">
-      <h2 className="text-2xl font-bold text-white light:text-slate-900 mb-2 text-center">Community Published</h2>
+      <h2 className="h-section text-white light:text-slate-900 mb-2 text-center">Community Published</h2>
       <p className="text-gray-400 light:text-slate-500 text-sm text-center mb-8">Custom covenant designs published by paid creators, live from the marketplace.</p>
       {!loaded ? null : items.length === 0 ? (
         <div className="glass-panel rounded-2xl py-12 text-center border border-white/[0.06]">

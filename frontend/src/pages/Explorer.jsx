@@ -1396,7 +1396,11 @@ function CovenantCard({ covenant: c }) {
   const gameType = detectGameType(c);
   const customUI = hasCustomUI(c);
   const isActive = c.is_active !== false;
-  const creatorName = c.creator_addr || c.address || '';
+  // Never show a kaspatest: wallet on a mainnet covenant (stale wrong-network derivation from the
+  // pre-fix indexer): fall back to the covenant's own kaspa: address until the backend re-derives.
+  const creatorName = ((c.network || '').startsWith('mainnet') && (c.creator_addr || '').startsWith('kaspatest:'))
+    ? (c.address || '')
+    : (c.creator_addr || c.address || '');
   const blockDAA = c.block_daa_score || 0;
   const categoryLabel = c.category || 'general';
   const txShort = (c.tx_id || '').slice(0, 10);

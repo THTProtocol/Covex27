@@ -26,6 +26,17 @@ import FullScreenRPS from '../components/FullScreenRPS';
 import FullScreenBlackjack from '../components/FullScreenBlackjack';
 import { assertGamesInSync } from '../lib/playableGames';
 
+// A mainnet covenant must NEVER display a kaspatest: wallet. The pre-fix indexer derived some
+// creator addresses with the wrong (testnet) bech32 prefix; until the backend re-derives them,
+// guard the display: on mainnet, reject a kaspatest: creator and fall back to the covenant's own
+// (correct kaspa:) on-chain address. Returns '' only if nothing usable exists.
+function displayCreatorAddr(c) {
+  const raw = (c && c.creator_addr) || '';
+  const onMainnet = ((c && c.network) || '').startsWith('mainnet');
+  if (raw && !(onMainnet && raw.startsWith('kaspatest:'))) return raw;
+  return (c && c.address) || '';
+}
+
 // Every game covenant is playable from its detail page (not just chess). Each FullScreen* arena
 // shares the prop shape { stake, onClose, covenantId, feePercent, potReturnPercent }.
 // The keys here ARE the playable set: the catalog's headline "Create a game" cards are derived
@@ -675,7 +686,7 @@ export default function CovenantInteractive() {
     // Always show a real Kaspa wallet, never "Unknown": the deployer (creator_addr) when known,
     // otherwise the covenant's own on-chain address. (The backend creator-prefix fix makes mainnet
     // deployers render as kaspa:; this guarantees the field is never an empty "Unknown".)
-    const creator = ESC(cov.creator_addr || cov.address || (cov.tx_id ? `covenant ${TRUNC(cov.tx_id)}` : 'Unknown'));
+    const creator = ESC(displayCreatorAddr(cov) || (cov.tx_id ? `covenant ${TRUNC(cov.tx_id)}` : 'Unknown'));
     const locked = ESC((cov.amount_kaspa || 0).toLocaleString());
     const tx = ESC(cov.tx_id || '');
     const explorerTx = ESC(explorerTxUrl(cov.tx_id, cov.network)); // network-accurate explorer URL
@@ -1242,8 +1253,8 @@ export default function CovenantInteractive() {
                 ))}
               </div>
               <div className="mt-3 pt-3 border-t border-white/[0.05] flex items-center justify-between flex-wrap gap-2 text-[11px] font-mono">
-                <Link to={`/address/${encodeURIComponent(covenant.creator_addr || covenant.address || '')}`} className="text-gray-400 light:text-slate-600 hover:text-kaspa-green light:hover:text-kaspa-green transition-colors">
-                  Creator portfolio: {(covenant.creator_addr || '').slice(0, 22)}...
+                <Link to={`/address/${encodeURIComponent(displayCreatorAddr(covenant))}`} className="text-gray-400 light:text-slate-600 hover:text-kaspa-green light:hover:text-kaspa-green transition-colors">
+                  Creator portfolio: {(displayCreatorAddr(covenant) || '').slice(0, 22)}...
                 </Link>
                 <span className="text-gray-500 light:text-slate-600">Network: {covenant.network}</span>
               </div>
@@ -1782,8 +1793,8 @@ export default function CovenantInteractive() {
                     {covenant.enforcement_reality === 'decorative' && !covenant.redeem_kind && (
                       <div className="p-3 rounded-xl bg-amber-500/[0.06] light:bg-amber-50 border border-amber-500/25 light:border-amber-500/40 text-xs text-amber-200/90 light:text-amber-800 leading-relaxed">
                         <strong>Heads up:</strong> this covenant is metadata-only (not consensus-enforced). "Lock" sends KAS to the creator's address. There is no on-chain script forcing a payout back to you. Only interact if you trust the creator.
-                        {covenant.creator_addr && (
-                          <> <Link to={`/address/${encodeURIComponent(covenant.creator_addr)}`} className="underline text-amber-300 light:text-amber-700">View creator</Link>.</>
+                        {displayCreatorAddr(covenant) && (
+                          <> <Link to={`/address/${encodeURIComponent(displayCreatorAddr(covenant))}`} className="underline text-amber-300 light:text-amber-700">View creator</Link>.</>
                         )}
                       </div>
                     )}

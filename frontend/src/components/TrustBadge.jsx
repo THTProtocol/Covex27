@@ -1,6 +1,7 @@
 /* eslint-disable react-refresh/only-export-components -- this module intentionally co-exports its component(s) with related constants/hooks/helpers (e.g. a Provider plus its useX hook). That only affects dev Fast Refresh granularity, never the production build or tests; splitting these into separate files is not warranted here. */
 import { useState } from 'react';
-import { ShieldCheck, Radio, ShieldQuestion, Link2, Info } from '../lib/icons.js';
+import { Info } from '../lib/icons.js';
+import { TRUSTBADGE_STYLES, KIND_ICON, COMPACT_LABEL } from '../lib/enforcement-palette.js';
 import TransparencyModal from './TransparencyModal';
 
 /**
@@ -161,38 +162,18 @@ export function trustInfo(covenant, opts) {
   };
 }
 
-// Abbreviated labels for tight contexts (Explorer card header at 375px). The
-// honest meaning is preserved by the styling palette + the Transparency modal
-// behind the click; we just shorten the word so the full chip group still fits
-// on one row at the narrowest supported viewport. Never aliases across kinds.
-const COMPACT_LABEL = {
-  onchain: 'ON-CHAIN',
-  onchainzk: 'ON-CHAIN ZK',
-  hybrid: 'HYBRID',
-  oracle: 'ORACLE',
-  fullzk: 'FULL-ZK',
-  decorative: 'METADATA',
-};
+// COMPACT_LABEL, the chip color map (TRUSTBADGE_STYLES), and the per-kind icon (KIND_ICON)
+// now live in lib/enforcement-palette.js, the single source of truth for the honesty color
+// half. Importing them here is what keeps this chip in lockstep with ui/Badge.jsx and stops
+// the palette drift that previously rendered full-zk and oracle in the wrong hue.
 
 export default function TrustBadge({ covenant, size = 'sm', showDesc = false, inspect = true, compact = false, reality, circuitId }) {
   const [open, setOpen] = useState(false);
   // Pass explicit overrides through so callers that already know the reality /
   // circuit (sandbox, terminal) don't have to construct a fake covenant.
   const t = trustInfo(covenant, { reality, circuitId });
-  const styles = {
-    onchain: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 light:bg-emerald-50 light:text-emerald-700 light:border-emerald-600/60',
-    // on-chain-zk gets its own TEAL styling so the KIP-16 consensus-verified ZK tier reads as a
-    // distinct, on-chain-verified guarantee (not the off-chain violet full-zk, not emerald on-chain).
-    onchainzk: 'bg-teal-500/10 border-teal-500/30 text-teal-300 light:bg-teal-50 light:text-teal-700 light:border-teal-600/60',
-    hybrid: 'bg-sky-500/10 border-sky-500/30 text-sky-300 light:bg-sky-50 light:text-sky-700 light:border-sky-600/60',
-    oracle: 'bg-amber-500/10 border-amber-500/30 text-amber-300 light:bg-amber-50 light:text-amber-700 light:border-amber-600/60',
-    // full-zk gets its own violet styling so the honesty hierarchy
-    // (on-chain > full-zk > oracle > decorative) reads at a glance. Aliasing
-    // it to oracle would visually equate a Groth16 proof with a bare signature.
-    fullzk: 'bg-violet-500/10 border-violet-500/30 text-violet-300 light:bg-violet-50 light:text-violet-700 light:border-violet-600/60',
-    decorative: 'bg-white/[0.04] border-white/10 text-gray-300 light:bg-slate-100 light:border-slate-300 light:text-slate-600',
-  }[t.kind];
-  const Icon = { onchain: ShieldCheck, onchainzk: ShieldCheck, hybrid: Link2, oracle: Radio, fullzk: ShieldCheck, decorative: ShieldQuestion }[t.kind];
+  const styles = TRUSTBADGE_STYLES[t.kind];
+  const Icon = KIND_ICON[t.kind];
   const pad = size === 'sm' ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1.5 text-xs';
   const label = compact ? COMPACT_LABEL[t.kind] : t.label;
   // Honest aria-label: screen readers get the full reality phrase (not "FULL-ZK"

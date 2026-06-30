@@ -66,7 +66,7 @@ export function buildRequest({ network, question, outcomes, providers, deadlineD
   return {
     v: REQUEST_VERSION,
     // network is the 2nd field of canonicalRequest, so it is baked into request_id. A hardcoded
-    // 'testnet-12' default could NEVER match a mainnet-only Koracle's request_id (the ids would
+    // 'testnet-12' default could NEVER match a mainnet-only resolver's request_id (the ids would
     // differ), silently breaking the request<->covenant binding. Prefer the explicit arg, then the
     // user's selected network, then 'mainnet' (the launch/identity network) as the safe fallback.
     network: network || activeNetwork() || 'mainnet',

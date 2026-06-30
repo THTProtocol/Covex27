@@ -32,6 +32,13 @@ const MAX_THRESHOLD: u64 = 100_000_000_000;
 const PRO_THRESHOLD: u64 = 50_000_000_000;
 const BUILDER_THRESHOLD: u64 = 10_000_000_000;
 
+/// Kaspa mainnet Toccata hard-fork activation DAA score. SilverScript covenant opcodes are
+/// consensus-INVALID on mainnet before this height, so any aa20-aa23 byte match in a pre-fork
+/// mainnet block is a coincidental ordinary output (P2SH/multisig/inscription), never a covenant.
+/// The crawler floors mainnet covenant indexing at this DAA (defense in depth alongside the
+/// CRAWL_START_DAA backfill floor) so no scan can ever fabricate pre-fork "covenants".
+const TOCCATA_MAINNET_ACTIVATION_DAA: u64 = 474_165_565;
+
 // ── Backfill task tuning (crawler::run_backfill) ──────────────────────────────
 // The backfill walks the deferred deep range the forward crawler tails past, in bounded
 // chunks so it chips away without monopolising the node. Both are env-overridable for ops.
@@ -165,6 +172,13 @@ fn index_block_covenants(
     total_found: u64,
 ) -> usize {
     let daa = block.header.daa_score;
+    // Toccata DAA floor (honesty GATE 1.5): covenants are consensus-invalid on mainnet before the
+    // activation DAA, so a pre-fork mainnet block can only carry coincidental aa20-aa23 bytes, never
+    // a real covenant. Reject the whole block by height so even a full/backfill rescan with a
+    // mis-set scan floor can never index fabricated pre-fork covenants. Testnets are never floored.
+    if network.starts_with("mainnet") && daa < TOCCATA_MAINNET_ACTIVATION_DAA {
+        return 0;
+    }
     let prefix = if network.starts_with("mainnet") {
         kaspa_addresses::Prefix::Mainnet
     } else {

@@ -753,13 +753,12 @@ export default function Explorer() {
                   <Compass size={16} className="text-kaspa-green light:text-emerald-700" />
                   Take the tour
                 </Button>
-                {/* Quiet tertiary link: "How It Works" is informational, not an action. */}
-                <Link
-                  to="/readme"
-                  className="inline-flex items-center gap-2 px-2 py-3 text-sm font-medium text-white/60 light:text-slate-500 hover:text-white light:hover:text-slate-900 underline-offset-4 hover:underline transition-colors duration-300"
-                >
-                  See how it works
-                </Link>
+                {/* Tertiary CTA, styled as an outline button so it sits cleanly in the row. */}
+                <Button asChild variant="outline" size="lg" className="rounded-xl">
+                  <Link to="/readme">
+                    See how it works
+                  </Link>
+                </Button>
               </div>
 
               {/* First-visit invitation card. Dismissible, persists to localStorage, never

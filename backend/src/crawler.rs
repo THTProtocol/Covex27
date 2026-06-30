@@ -264,10 +264,20 @@ fn index_block_covenants(
         let addr = covenant_spk
             .and_then(|spk| address_from_output_spk(spk, prefix))
             .unwrap_or_else(|| format!("covenant_ref:{txh}"));
-        // Extract the real deployer wallet address from output[0]'s Schnorr P2PK script
+        // Extract the real deployer wallet address from output[0]'s Schnorr P2PK script.
         let deployer_script_hex = hex::encode(tx.outputs[0].script_public_key.script());
-        let creator =
-            address_from_p2pk_script(&deployer_script_hex, prefix).unwrap_or_else(|| addr.clone());
+        let creator = {
+            let c = address_from_p2pk_script(&deployer_script_hex, prefix)
+                .unwrap_or_else(|| addr.clone());
+            // Defense-in-depth (never again): a mainnet covenant must NEVER persist a testnet-prefixed
+            // wallet. If any derivation path ever regresses to a kaspatest: address on mainnet, fall
+            // back to the network-correct covenant address rather than store the wrong-network string.
+            if network.starts_with("mainnet") && c.starts_with("kaspatest:") {
+                addr.clone()
+            } else {
+                c
+            }
+        };
         let shash = crate::compute_script_hash(&covenant_script);
 
         let nlabel = match network {

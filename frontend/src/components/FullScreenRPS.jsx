@@ -474,7 +474,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
 
         {lastRound && lastRound.r1 && lastRound.r2 && (
           <div className="text-xs text-gray-400 light:text-slate-600">
-            Round {rounds.length}: {lastRound.r1.split(':')[0]} vs {lastRound.r2.split(':')[0]} → {(() => { const w = roundWinner(lastRound, lastV); return w === 'draw' ? 'draw' : w === 'p1' ? 'X' : 'O'; })()}
+            Round {rounds.length}: {lastRound.r1.split(':')[0]} vs {lastRound.r2.split(':')[0]} = {(() => { const w = roundWinner(lastRound, lastV); return w === 'draw' ? 'draw' : w === 'p1' ? 'X' : 'O'; })()}
           </div>
         )}
         {score.cheats.map((c, i) => (

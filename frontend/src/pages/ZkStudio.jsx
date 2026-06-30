@@ -13,7 +13,8 @@ import {
 
 // ZK Studio: generate AND verify real Groth16 proofs for Covex's circom circuits, entirely in your
 // browser. No server, no oracle: snarkjs.groth16.fullProve runs against the served wasm + zkey, then
-// snarkjs.groth16.verify runs against the served verification key. Fully trustless.
+// snarkjs.groth16.verify runs against the served verification key. Verified off-chain (in your
+// browser or by any external verifier), never trustless on its own.
 //
 // HONESTY ABSOLUTE: this is OFF-CHAIN verification (here in your browser, or by any counterparty /
 // external verifier - snarkjs against the audited vkey). For this circom suite the proof is verified

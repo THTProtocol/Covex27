@@ -4,11 +4,11 @@
  * rounded badge so the artwork's dark backdrop reads as an intentional chip on
  * both light and dark surfaces.
  */
-export function CovexMark({ size = 30 }) {
+export function CovexMark({ size = 30, decorative = false }) {
   return (
     <img
       src="/covex-logo-192.png"
-      alt="Covex"
+      alt={decorative ? '' : 'Covex'}
       width={size}
       height={size}
       decoding="async"
@@ -22,7 +22,7 @@ export function CovexMark({ size = 30 }) {
 export default function CovexLogo({ size = 30 }) {
   return (
     <span className="inline-flex items-center gap-2.5 select-none">
-      <CovexMark size={size} />
+      <CovexMark size={size} decorative />
       <span className="covex-brand font-black leading-none tracking-[0.28em] text-[21px]">
         <span className="text-white light:text-slate-900">COV</span>
         <span className="bg-gradient-to-r from-[#49EACB] to-[#22D3EE] bg-clip-text text-transparent">EX</span>

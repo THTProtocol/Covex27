@@ -43,10 +43,10 @@ const WhatIsKaspa = ({ open, onClose }) => {
         
         {/* Hero */}
         <header className="space-y-4">
-          <h1 className="text-3xl md:text-4xl font-bold text-white leading-tight">
+          <h2 className="text-3xl md:text-4xl font-bold text-white leading-tight">
             The Fastest, Open-Source,{' '}
             <span className="text-kaspa-green">Decentralized Layer-1</span>
-          </h1>
+          </h2>
           <p className="text-base text-gray-200 leading-relaxed">
             Kaspa is a revolutionary BlockDAG that fundamentally solves the blockchain trilemma. 
             Instead of discarding parallel blocks as "orphans," Kaspa incorporates them all into the consensus, 
@@ -56,7 +56,7 @@ const WhatIsKaspa = ({ open, onClose }) => {
 
         {/* Core Architecture */}
         <section>
-          <h2 className="text-xl font-bold text-white mb-5">Core Architecture</h2>
+          <h3 className="text-xl font-bold text-white mb-5">Core Architecture</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
               { title: '10 Blocks Per Second', body: 'Running at 10 BPS on mainnet since the Rust rewrite, making it the fastest Proof-of-Work network on earth.' },
@@ -67,7 +67,7 @@ const WhatIsKaspa = ({ open, onClose }) => {
               { title: 'DAGKNIGHT', body: 'Next-gen consensus targeting 100+ BPS by adapting to network latency in real-time.' },
             ].map(item => (
               <div key={item.title} className="p-5 rounded-lg border border-white/[0.06] bg-white/[0.02]">
-                <h3 className="text-sm font-bold text-white mb-2">{item.title}</h3>
+                <h4 className="text-sm font-bold text-white mb-2">{item.title}</h4>
                 <p className="text-sm text-gray-200 leading-relaxed">{item.body}</p>
               </div>
             ))}
@@ -76,7 +76,7 @@ const WhatIsKaspa = ({ open, onClose }) => {
 
         {/* Research Library */}
         <section>
-          <h2 className="text-xl font-bold text-white mb-5">Research Library</h2>
+          <h3 className="text-xl font-bold text-white mb-5">Research Library</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
               { title: 'PHANTOM & GHOSTDAG', subtitle: 'Sompolinsky, Wyborski & Zohar. A Scalable Generalization of Nakamoto Consensus (2018)', href: 'https://eprint.iacr.org/2018/104.pdf' },
@@ -100,7 +100,7 @@ const WhatIsKaspa = ({ open, onClose }) => {
 
         {/* Explore the mainnet */}
         <section>
-          <h2 className="text-xl font-bold text-white mb-5">Explore the Mainnet</h2>
+          <h3 className="text-xl font-bold text-white mb-5">Explore the Mainnet</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
               { title: 'Kaspa Mainnet Explorer', subtitle: 'Browse blocks, transactions, and addresses on kaspa.stream', href: 'https://kaspa.stream' },
@@ -124,7 +124,7 @@ const WhatIsKaspa = ({ open, onClose }) => {
 
         {/* Community */}
         <section className="space-y-4">
-          <h2 className="text-xl font-bold text-white">Community & Ecosystem</h2>
+          <h3 className="text-xl font-bold text-white">Community & Ecosystem</h3>
           <div className="flex flex-wrap gap-2">
             {['#Kaspa', '#SilverScript', '#DAG', '#Covenants', '#Toccata', '#BlockDAG', '#GHOSTDAG', '#kHeavyHash', '#RustLang', '#ProofOfWork', '#Layer1'].map(tag => (
               <span key={tag} className="px-3 py-1.5 rounded-md border border-white/[0.06] bg-white/[0.02] text-xs font-mono text-gray-200">

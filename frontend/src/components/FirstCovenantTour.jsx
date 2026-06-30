@@ -62,7 +62,7 @@ export const STEPS = [
     anchor: 'build-cta',
     route: '/',
     title: 'Start from the Sandbox',
-    body: 'Click "Build a covenant" to open the Sandbox. The Sandbox is a 3-phase guided builder: create, logic, deploy. You can step through it without spending any KAS.',
+    body: 'Click "Build a Covenant" to open the Sandbox. The Sandbox is a 3-phase guided builder: create, logic, deploy. You can step through it without spending any KAS.',
     nextLabel: 'Open the Sandbox',
     nextRoute: '/sandbox',
   },
@@ -167,6 +167,7 @@ export default function FirstCovenantTour() {
   // change, e.g. the tour appending ?tour=1 as it navigates between routes) can tell
   // a fresh start from an already-running tour, and NOT reset the current step.
   const activeRef = useRef(false);
+  const cardRef = useRef(null);
   // eslint-disable-next-line react-hooks/refs -- intentional latest-value ref: written/read during render to keep a callback or the live editor data fresh without a stale closure; moving it to an effect would change update timing for the consumers that depend on the current value
   activeRef.current = active;
 
@@ -426,6 +427,17 @@ export default function FirstCovenantTour() {
     }
   };
 
+  // a11y: while the non-modal coachmark is open, move focus into its card on each
+  // step and let Escape skip the tour. Non-modal, so we do not trap focus.
+  useEffect(() => {
+    if (!active) return undefined;
+    const t = window.setTimeout(() => cardRef.current?.focus?.(), 0);
+    const onKey = (e) => { if (e.key === 'Escape') handleSkip(); };
+    window.addEventListener('keydown', onKey);
+    return () => { window.clearTimeout(t); window.removeEventListener('keydown', onKey); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, stepIdx]);
+
   if (!active || !step) return null;
 
   // Honest demo-missing banner replaces the demo-dependent step content.
@@ -510,6 +522,8 @@ export default function FirstCovenantTour() {
 
   const card = (
     <div
+      ref={cardRef}
+      tabIndex={-1}
       role="dialog"
       aria-label={`Covex tour, step ${stepNumber} of ${totalSteps}`}
       className={[

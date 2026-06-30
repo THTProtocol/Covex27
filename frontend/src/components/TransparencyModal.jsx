@@ -23,21 +23,21 @@ import { useDialog } from '../lib/useDialog';
 // out of sync with the terminal / OnChainLockSection / ZkClaimPanel.
 
 const REALITY_UI = {
-  'on-chain': { name: 'On-chain enforced', accent: '#34d399', Icon: ShieldCheck,
+  'on-chain': { name: 'On-chain enforced', accent: '#34d399', textCls: 'text-emerald-300 light:text-emerald-700', Icon: ShieldCheck,
     what: 'Kaspa consensus enforces the spend condition. The funds are locked to a P2SH script and only a redeem script that hashes to the on-chain commitment can move them. No resolver, no trust in Covex.' },
   // KIP-16 on-chain-ZK (zk_game_settle): teal accent, distinct from the off-chain full-zk tier.
   // Testnet / Toccata gated: the OpZkPrecompile opcode is not live on Kaspa mainnet yet.
-  'on-chain-zk': { name: 'On-chain ZK (KIP-16)', accent: '#2dd4bf', Icon: ShieldCheck,
+  'on-chain-zk': { name: 'On-chain ZK (KIP-16)', accent: '#2dd4bf', textCls: 'text-teal-300 light:text-teal-700', Icon: ShieldCheck,
     what: 'On-chain ZK (KIP-16): a real Groth16 proof is verified by Kaspa consensus through the OpZkPrecompile opcode (0xa6). The proof binds this covenant and the winning payee, so a loser cannot forge a winning proof, and there is no oracle and no co-signature anywhere in the payout. This is the zk_game_settle kind. It is testnet-gated until proven live (the opcode is not live on Kaspa mainnet yet).' },
-  'full-zk': { name: 'Full ZK (verified off-chain)', accent: '#a78bfa', Icon: ShieldCheck,
+  'full-zk': { name: 'Full ZK (verified off-chain)', accent: '#a78bfa', textCls: 'text-violet-300 light:text-violet-700', Icon: ShieldCheck,
     what: 'A real Groth16 proof: you prove a statement is true without revealing the secret behind it. The proof is verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey), and a valid proof gates a 2-of-2 cosign plus a CSV timeout. Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; only the BIP340 co-signature is verified on-chain (Schnorr). The trusted setup is a single-contributor dev ceremony, not a production multi-party MPC. Covex never attests the outcome - the deployer-bound resolver or counterparty co-signs.' },
-  hybrid: { name: 'Resolver-attested', accent: '#fbbf24', Icon: Radio,
+  hybrid: { name: 'Resolver-attested', accent: '#fbbf24', textCls: 'text-amber-300 light:text-amber-700', Icon: Radio,
     what: 'A required Groth16 proof is verified OFF-CHAIN by you, the counterparty, or any external verifier (fail-closed: a missing or invalid proof is rejected), and the deployer-bound resolver then co-signs the consensus-required input. Only the co-signature is checked on-chain (Schnorr); the proof itself is never verified on-chain (Kaspa has no on-chain pairing verifier). The trusted setup is a single-contributor dev ceremony, not a production multi-party MPC.' },
-  market: { name: 'On-chain custody, resolver-decided', accent: '#60a5fa', Icon: Link2,
+  market: { name: 'On-chain custody, resolver-decided', accent: '#60a5fa', textCls: 'text-sky-300 light:text-sky-700', Icon: Link2,
     what: 'A parimutuel market. Custody and every payout leg are on-chain (each leg is a P2SH covenant gated by a hashlock and the winner\'s key), but which outcome wins is set by the single committed secret the deployer-bound resolver reveals (an external oracle provider the deployer binds by pubkey at deploy; Covex never attests real-world facts). On-chain-enforced, not trustless: you trust the named resolver to reveal the secret for the true result.' },
-  'oracle-attested': { name: 'Resolver-attested', accent: '#fbbf24', Icon: Radio,
+  'oracle-attested': { name: 'Resolver-attested', accent: '#fbbf24', textCls: 'text-amber-300 light:text-amber-700', Icon: Radio,
     what: 'The deployer-bound resolver attests the outcome with a BIP340 Schnorr signature (an external resolver the deployer chooses by pubkey at deploy; Covex never attests real-world facts). Your covenant can verify that signature on-chain at spend time. You trust the named resolver for the input, not Covex with custody.' },
-  decorative: { name: 'Metadata only', accent: '#9ca3af', Icon: ShieldQuestion,
+  decorative: { name: 'Metadata only', accent: '#9ca3af', textCls: 'text-gray-300 light:text-slate-600', Icon: ShieldQuestion,
     what: 'A metadata marker. The chain records this covenant but does not enforce the stated logic. Not for value at stake.' },
 };
 
@@ -181,11 +181,11 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
         {/* Header */}
         <div className="relative z-10 flex items-start gap-3 p-5 border-b border-white/[0.07] light:border-slate-200">
           <span className="shrink-0 w-11 h-11 rounded-xl flex items-center justify-center border" style={{ background: `${ui.accent}1a`, borderColor: `${ui.accent}55` }}>
-            <ui.Icon size={20} style={{ color: ui.accent }} />
+            <ui.Icon size={20} className={ui.textCls} />
           </span>
           <div className="min-w-0 flex-1">
             <div id={titleId} className="text-base font-black text-white light:text-slate-900 leading-tight truncate">{title}</div>
-            <span className="inline-flex items-center gap-1.5 mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border" style={{ color: ui.accent, borderColor: `${ui.accent}55`, background: `${ui.accent}14` }}>
+            <span className={`inline-flex items-center gap-1.5 mt-1 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border ${ui.textCls}`} style={{ borderColor: `${ui.accent}55`, background: `${ui.accent}14` }}>
               <span className="w-1.5 h-1.5 rounded-full" style={{ background: ui.accent }} /> {ui.name}
               {circuitId && <span className="text-gray-500 light:text-slate-600 font-mono normal-case tracking-normal">· {circuitId}</span>}
             </span>

@@ -267,7 +267,7 @@ const ZK_CIRCUIT_TYPES_RAW = [
   { id: 'compute_risk_battle', name: 'Compute: Risk Battle Simulator', description: 'Concrete sim for fair combat resolution (dice + modifiers). Reality: resolver-attested. Use cases: deterministic Risk-style combat on Kaspa. (vision §4.6)', circuit: 'risc0_risk_sim', accent: '#DC2626', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_catan_sim', name: 'Compute: Catan Resource / Start Sim', description: 'Concrete: fair starting position / resource sim. Reality: resolver-attested. Use cases: provably fair Catan setups on Kaspa. (vision §4.6)', circuit: 'risc0_catan', accent: '#D946EF', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_linprog_pot', name: 'Compute: Linear Programming (Pot Splits)', description: 'Concrete LP solver stub for optimal fair splits. Reality: resolver-attested. Use cases: complex treasury/pot allocation on Kaspa. (vision §4.6)', circuit: 'risc0_lp', accent: '#FB923C', category: 'compute', variant: true, reality: 'oracle-attested' },
-  { id: 'compute_custom_fsm', name: 'Compute: Custom Game FSM Compiler', description: 'Concrete: compile user FSM spec → prove execution. Reality: resolver-attested. Use cases: bring-your-own-game rules to Kaspa. (vision §4.6)', circuit: 'risc0_fsmc', accent: '#10B981', category: 'compute', variant: true, reality: 'oracle-attested' },
+  { id: 'compute_custom_fsm', name: 'Compute: Custom Game FSM Compiler', description: 'Concrete: compile user FSM spec, then prove execution. Reality: resolver-attested. Use cases: bring-your-own-game rules to Kaspa. (vision §4.6)', circuit: 'risc0_fsmc', accent: '#10B981', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_anomaly_bet', name: 'Compute: Anomaly Detection (Stake Sizing / Timing)', description: 'ZK stats on move times / stake patterns for collusion. Reality: resolver-attested. Use cases: anti-cheat in Kaspa games. (vision §4.6)', circuit: 'risc0_anom', accent: '#A855F7', category: 'compute', variant: true, reality: 'oracle-attested' },
   { id: 'compute_formal_verify', name: 'Compute: Formal Verification Result Proof', description: 'Prove a program satisfies spec (simple specs). Reality: resolver-attested. Use cases: verified covenant logic on Kaspa. (vision §4.6, §4.9)', circuit: 'risc0_formal', accent: '#F97316', category: 'compute', variant: true, reality: 'oracle-attested' },
 
@@ -3933,7 +3933,7 @@ ${gameMeta.outcomeBranches}
             <button onClick={launchFullScreenCheckers} className="w-full py-3 rounded-xl bg-[#49EACB] text-black font-bold text-sm">OPEN MATCH TABLE - {checkersStake} KAS SEAT</button>
           </div>
         </div>
-        <div className="text-[10px] text-gray-400 light:text-slate-500">Equal stakes • 3min clocks • forced jumps • multi-jump • kings • SUBMIT → CLAIM with {potReturnPercent}% pot return</div>
+        <div className="text-[10px] text-gray-400 light:text-slate-500">Equal stakes • 3min clocks • forced jumps • multi-jump • kings • SUBMIT then CLAIM with {potReturnPercent}% pot return</div>
       </section>
 
       {/* Connect 4 + TTT + Reversi + RPS in a compact grid */}

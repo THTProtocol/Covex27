@@ -59,12 +59,14 @@ export default function LiveTicker({ network }) {
 
   if (events.length === 0) return null;
 
-  const Item = ({ e }) => {
+  const Item = ({ e, dup }) => {
     const t = TYPE_META[e.event_type] || { label: e.event_type, dot: '#9CA3AF', text: 'text-gray-300' };
     return (
       <Link
         to={e.covenant_id ? `/covenant/${encodeURIComponent(e.covenant_id)}` : '#'}
         className="ticker-item group/item"
+        aria-hidden={dup ? 'true' : undefined}
+        tabIndex={dup ? -1 : undefined}
       >
         <span className="relative flex h-1.5 w-1.5 shrink-0">
           <span className="absolute inline-flex h-full w-full rounded-full opacity-60 animate-ping" style={{ backgroundColor: t.dot }} />
@@ -100,7 +102,7 @@ export default function LiveTicker({ network }) {
         <div className="ticker-mask">
           <div className="ticker-track" style={{ animationPlayState: paused ? 'paused' : 'running' }}>
             {events.map((e) => <Item key={`a-${e.id}`} e={e} />)}
-            {events.map((e) => <Item key={`b-${e.id}`} e={e} />)}
+            {events.map((e) => <Item key={`b-${e.id}`} e={e} dup />)}
           </div>
         </div>
       </div>

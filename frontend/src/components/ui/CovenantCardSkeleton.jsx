@@ -32,17 +32,19 @@ export default function CovenantCardSkeleton() {
         <Skeleton className="h-3.5 w-20 rounded-md" />
       </div>
 
-      {/* Body: title, two description lines, a stat row */}
-      <div className="flex-1 flex flex-col gap-3 p-4">
+      {/* Body: title, two description lines, then a value figure + status pill (mirrors the real card) */}
+      <div className="flex-1 flex flex-col gap-4 p-5 sm:p-6">
         <Skeleton className="h-5 w-3/5 rounded-lg" />
         <div className="space-y-2">
           <Skeleton className="h-3 w-full rounded" />
           <Skeleton className="h-3 w-4/5 rounded" />
         </div>
-        <div className="mt-auto grid grid-cols-3 gap-2 pt-2">
-          <Skeleton className="h-9 rounded-xl" />
-          <Skeleton className="h-9 rounded-xl" />
-          <Skeleton className="h-9 rounded-xl" />
+        <div className="mt-auto flex items-end justify-between pt-2">
+          <div className="space-y-1.5">
+            <Skeleton className="h-3 w-20 rounded" />
+            <Skeleton className="h-7 w-24 rounded-lg" />
+          </div>
+          <Skeleton className="h-6 w-16 rounded-full" />
         </div>
       </div>
 

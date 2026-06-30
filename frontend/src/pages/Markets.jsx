@@ -132,9 +132,9 @@ export function PlaceOrderCard({
       {/* On <sm the sticky MobileBetRail owns the side toggle, stake, and Back/Match buttons.
           We hide the duplicate inline action set here so phones get one clean order surface;
           the payout-address input stays visible because the rail doesn't include it. */}
-      <div className="hidden sm:grid grid-cols-2 gap-2 mb-3">
+      <div role="radiogroup" aria-label="Order side" className="hidden sm:grid grid-cols-2 gap-2 mb-3">
         {[book.outcome_a, book.outcome_b].map((label, i) => (
-          <button key={i} onClick={() => setSide(i)}
+          <button key={i} type="button" role="radio" aria-checked={side === i} onClick={() => setSide(i)}
             className={`py-2.5 px-2 rounded-xl text-sm font-semibold border transition-all truncate ${side === i ? 'bg-kaspa-green text-black border-kaspa-green' : 'bg-white/[0.03] light:bg-white text-gray-200 light:text-slate-700 border-white/10 light:border-slate-200 hover:border-white/25'}`}>
             {label}
           </button>
@@ -375,7 +375,7 @@ function MarketDetail({ id }) {
     );
   }
   if (book.success === false) {
-    return <div className="max-w-2xl mx-auto px-4 py-20 text-center text-gray-400 light:text-slate-500">Market not found. <Link to="/" className="text-kaspa-green">Back to markets</Link></div>;
+    return <div className="max-w-2xl mx-auto px-4 py-20 text-center text-gray-400 light:text-slate-500">Market not found. <Link to="/" className="text-kaspa-green">Back to Explorer</Link></div>;
   }
 
   const odds = book.odds || {};

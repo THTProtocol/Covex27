@@ -76,8 +76,11 @@ function LearnMenu() {
     ['Claim funds if Covex is down', '/recover'],
   ];
   return (
-    <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
-      <button className="text-sm font-medium text-gray-200 hover:text-white inline-flex items-center gap-1 transition-colors">
+    <div className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOpen(false); }}
+      onKeyDown={(e) => { if (e.key === 'Escape') setOpen(false); }}>
+      <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}
+        className="text-sm font-medium text-gray-200 hover:text-white inline-flex items-center gap-1 transition-colors">
         Learn <ChevronDown size={14} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
       {open && (
@@ -431,8 +434,10 @@ export default function App() {
                 <ThemeToggle />
                 <button
                   onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                  className="p-2 rounded-lg border border-white/10 text-gray-300 hover:text-white light:text-slate-700 light:hover:text-slate-900 light:border-slate-300"
-                  aria-label="Toggle menu"
+                  className="p-2.5 min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg border border-white/10 text-gray-300 hover:text-white light:text-slate-700 light:hover:text-slate-900 light:border-slate-300"
+                  aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                  aria-expanded={mobileMenuOpen}
+                  aria-controls="mobile-nav-drawer"
                 >
                   {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
                 </button>
@@ -441,7 +446,7 @@ export default function App() {
 
             {/* Mobile Menu Drawer */}
             {mobileMenuOpen && (
-              <div className="md:hidden border-t border-white/10 bg-[#0A0A0D]/95 light:bg-white/98 light:border-slate-200 backdrop-blur-xl">
+              <div id="mobile-nav-drawer" className="md:hidden border-t border-white/10 bg-[#0A0A0D]/95 light:bg-white/98 light:border-slate-200 backdrop-blur-xl">
                 <div className="max-w-6xl mx-auto px-4 py-3 flex flex-col gap-0.5 text-sm">
                   <NavLink to="/" end className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Explore</NavLink>
                   <NavLink to="/sandbox" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)} title="Create a covenant from any logic type" aria-label="Build: create a covenant from any logic type">Build</NavLink>
@@ -540,7 +545,7 @@ export default function App() {
 
           <footer className="relative z-10 border-t border-white/[0.03] py-6 px-4 text-xs text-gray-400 light:border-slate-200 light:text-slate-500">
             <div className="max-w-6xl mx-auto text-center space-y-2.5">
-              <p>Custody is on-chain: funds lock to a Kaspa P2SH script hash and your wallet signs every spend. Covex holds no user keys. For two-party and ZK covenants an external resolver co-signs the winning branch (a result Covex can recompute), so payout is on-chain enforced but not trustless. Real-world-outcome covenants bind to an external resolver the creator chooses; Covex does not resolve outside events. Each covenant page shows its enforcement-reality badge.</p>
+              <p>Custody is on-chain: funds lock to a Kaspa P2SH script hash and your wallet signs every spend. Covex holds no user keys. For two-party covenants a co-signing key releases the winning branch (today that key is Covex-held and recomputes the result from the public move log; an external referee is on the roadmap); for ZK covenants a Groth16 proof verified off-chain by anyone gates a resolver co-signature. Either way payout is script-enforced on-chain but not trustless end to end. Real-world-outcome covenants bind to an external resolver the creator chooses; Covex does not resolve outside events. Each covenant page shows its enforcement-reality badge.</p>
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
                 {[
                   ['How it Works', '/readme'],

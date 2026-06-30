@@ -97,7 +97,7 @@ const EXAMPLES = [
     icon: Lock,
     name: 'Escrow',
     kind: 'on-chain',
-    body: 'Hashlock, HTLC, and multisig escrows where the chain itself enforces the release and your own wallet redeems. The two-party oracle escrow variant is resolver-attested until the state-channel rebuild lands.',
+    body: 'Hashlock, HTLC, and multisig escrows where the chain itself enforces the release and your own wallet redeems.',
   },
   {
     icon: CircleDashed,

@@ -737,7 +737,7 @@ export default function Explorer() {
                   <Link
                     data-tour="build-cta"
                     to="/sandbox"
-                    className="group px-6 font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0"
+                    className="group px-8 font-bold shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0"
                   >
                     <Sparkles size={16} className="transition-transform duration-300 group-hover:rotate-12" />
                     Build a Covenant
@@ -790,8 +790,9 @@ export default function Explorer() {
               )}
             </div>
 
-            {/* RIGHT (narrow phi track): the live on-chain snapshot card. */}
-            <div className="w-full animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
+            {/* RIGHT (narrow phi track): the live on-chain snapshot card. On mobile it
+                stacks first so the main trust signal is above the fold; phi split unchanged on md+. */}
+            <div className="w-full order-first md:order-none mt-8 md:mt-0 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
               <LiveSnapshotCard stats={stats} netLabel={netLabel} network={kaspaNetwork} />
             </div>
           </GoldenGrid>
@@ -805,6 +806,8 @@ export default function Explorer() {
         <div className="flex justify-center mb-4">
           <button
             onClick={() => setShowCategoryPanel(!showCategoryPanel)}
+            aria-expanded={showCategoryPanel}
+            aria-controls="covenant-type-panel"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/5 light:bg-white border border-white/10 light:border-slate-200 text-sm text-white/80 light:text-slate-700 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 transition-surface"
           >
             <Layers size={16} className="text-kaspa-green" />
@@ -818,13 +821,13 @@ export default function Explorer() {
         </div>
 
         {showCategoryPanel && (
-          <div className="max-w-4xl mx-auto mb-8 p-4 sm:p-5 rounded-2xl glass-panel border border-white/10 light:border-slate-200">
+          <div id="covenant-type-panel" className="max-w-4xl mx-auto mb-8 p-4 sm:p-5 rounded-2xl glass-panel border border-white/10 light:border-slate-200">
             {/* Header row: title + live count on the left, a proper ghost Clear chip on the right.
                 Clear is shown only when a category is active, and resets to 'All'. */}
             <div className="flex items-center justify-between gap-3 mb-4">
               <div className="flex items-baseline gap-2 min-w-0">
                 <span className="text-sm font-semibold text-white light:text-slate-900">Filter by type</span>
-                <span className="text-[11px] font-medium text-white/45 light:text-slate-500 tabular-nums">
+                <span className="text-[11px] font-medium text-white/60 light:text-slate-500 tabular-nums">
                   {ALL_CATEGORIES.length - 1} types
                 </span>
               </div>
@@ -862,14 +865,14 @@ export default function Explorer() {
                     if (!cats.length) return null;
                     return (
                       <div key={group}>
-                        <div className="text-[10px] font-semibold uppercase tracking-widest text-white/35 light:text-slate-400 mb-2">{group}</div>
+                        <div className="text-[10px] font-semibold uppercase tracking-widest text-white/60 light:text-slate-500 mb-2">{group}</div>
                         <div className="flex flex-wrap gap-2">
                           {cats.map(cat => (
                             <button
                               key={cat}
                               type="button"
                               onClick={() => { setActiveCategory(cat); setShowCategoryPanel(false); }}
-                              className={`px-3 py-1.5 rounded-xl border text-xs transition-[color,background-color,border-color,box-shadow,transform] duration-200 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 focus-visible:border-kaspa-green/40 ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white text-white/70 light:text-slate-600 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/5 light:hover:bg-slate-50 hover:-translate-y-px'}`}
+                              className={`px-3 py-1.5 rounded-full border text-xs transition-[color,background-color,border-color,box-shadow,transform] duration-200 active:scale-[0.97] outline-none focus-visible:ring-2 focus-visible:ring-kaspa-green/50 focus-visible:border-kaspa-green/40 ${activeCategory === cat ? 'bg-kaspa-green/10 border-kaspa-green/40 text-kaspa-green font-semibold' : 'border-white/10 light:border-slate-200 bg-white/[0.015] light:bg-white text-white/70 light:text-slate-600 hover:text-white light:hover:text-slate-900 hover:border-white/20 light:hover:border-slate-300 hover:bg-white/5 light:hover:bg-slate-50 hover:-translate-y-px'}`}
                             >
                               {CATEGORY_LABEL[cat] || cat}
                             </button>

@@ -70,6 +70,10 @@ import { MarketView } from './Markets';
 import { Button, buttonVariants } from '../components/ui/Button';
 import { Separator } from '../components/ui/Separator';
 
+// User-facing network label. To a user there is just Kaspa, so the live network reads
+// "Kaspa"; the raw value is preserved for any non-mainnet covenant so the display never lies.
+const networkLabel = (n) => (/^mainnet/i.test(String(n || '')) ? 'Kaspa' : String(n || ''));
+
 // Tier accent palette: drives the hero TIER chip color so verified-tier covenants
 // read their true level (purple MAX, gold PRO, blue BUILDER) instead of a fixed gold.
 const TIER_PALETTE = {
@@ -152,7 +156,7 @@ function GameStakeControl({
         </Button>
       )}
       <p className="text-center text-[11px] text-gray-400 light:text-slate-600 mt-3 leading-snug">
-        The result is computed deterministically by replaying the signed move log (anyone can recompute); on testnet today the recomputable Covex engine re-derives the winner and co-signs the release alongside the winning player, not Kaspa consensus.
+        The result is computed deterministically by replaying the signed move log (anyone can recompute); settlement is simulated today, with the recomputable Covex engine re-deriving the winner and co-signing the release alongside the winning player, not Kaspa consensus.
         Custody and payout are on-chain. This is not trustless.
       </p>
       {/* Point-of-bet jurisdictional warning, matching the one Markets shows. Games of chance
@@ -672,10 +676,10 @@ export default function CovenantInteractive() {
     const isOracleResolved = reality !== '' && reality !== 'on-chain';
     // Custody/payout is always on-chain; only the trust BAR and the default copy differ.
     const honestDescDefault = isOracleResolved
-      ? 'Custody and every payout are script-locked on-chain on the Kaspa BlockDAG and verifiable on the explorer. The outcome is attested by a deployer-bound external resolver (for games on testnet, a recomputable Covex engine that replays the public move log), not verified on-chain.'
+      ? 'Custody and every payout are script-locked on-chain on the Kaspa BlockDAG and verifiable on the explorer. The outcome is attested by a deployer-bound external resolver (for games, a simulated recomputable Covex engine that replays the public move log), not verified on-chain.'
       : 'This covenant is immutable on the Kaspa BlockDAG. Custody, logic and payouts are on-chain and verifiable on the explorer.';
     const honestLogicDefault = isOracleResolved
-      ? 'All logic, fees, addresses and payouts are disclosed and on-chain. Custody and payout are verifiable on the explorer; the outcome is attested by a deployer-bound external resolver (for games on testnet, a recomputable Covex engine that replays the public move log), not verified on-chain.'
+      ? 'All logic, fees, addresses and payouts are disclosed and on-chain. Custody and payout are verifiable on the explorer; the outcome is attested by a deployer-bound external resolver (for games, a simulated recomputable Covex engine that replays the public move log), not verified on-chain.'
       : 'All logic and parameters are fully disclosed and on-chain. This is a creator-published covenant verifiable on the explorer.';
     const trustBarText = isOracleResolved
       ? 'TRANSPARENT • IMMUTABLE • NON-CUSTODIAL • CUSTODY &amp; PAYOUT ON KASPA • OUTCOME ORACLE-ATTESTED'
@@ -1232,7 +1236,7 @@ export default function CovenantInteractive() {
               <div className="flex items-start gap-0">
                 {[
                   { label: 'Deployed', done: true, sub: covenant.timestamp ? new Date(covenant.timestamp * 1000).toLocaleDateString() : `DAA ${covenant.block_daa_score || 0}` },
-                  { label: 'Indexed', done: true, sub: covenant.network },
+                  { label: 'Indexed', done: true, sub: networkLabel(covenant.network) },
                   { label: covenant.verified_tier !== 'FREE' ? `Verified ${covenant.verified_tier}` : 'Unverified', done: covenant.verified_tier !== 'FREE', sub: covenant.verified_tier !== 'FREE' ? 'on-chain payment' : 'free tier' },
                   (covenant.spent_tx_id || covenant.is_active === false)
                     ? { label: 'Settled', done: true, sub: covenant.spent_tx_id ? 'spent on-chain' : 'funds distributed' }
@@ -1256,7 +1260,7 @@ export default function CovenantInteractive() {
                 <Link to={`/address/${encodeURIComponent(displayCreatorAddr(covenant))}`} className="text-gray-400 light:text-slate-600 hover:text-kaspa-green light:hover:text-kaspa-green transition-colors">
                   Creator portfolio: {(displayCreatorAddr(covenant) || '').slice(0, 22)}...
                 </Link>
-                <span className="text-gray-500 light:text-slate-600">Network: {covenant.network}</span>
+                <span className="text-gray-500 light:text-slate-600">Network: {networkLabel(covenant.network)}</span>
               </div>
             </div>
           )}
@@ -1371,7 +1375,7 @@ export default function CovenantInteractive() {
             </h3>
             <p className="text-gray-300 leading-relaxed light:text-slate-700">
               {isChess 
-                ? 'This is a 10 minute chess covenant where the full stake goes to the winner. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full staked amount minus 2 percent. The 2 percent fee is sent to the creator address to sustain the service. All stakes are sent directly to the covenant address on the Kaspa blockchain. Custody is on-chain (P2SH locked, your wallet signs every spend). The game runs on a server-authoritative engine that replays the signed move log deterministically (anyone can recompute), and on testnet today the recomputable Covex engine co-signs the release alongside the winning player (BIP340 Schnorr): payout is on-chain enforced but not trustless. There is no zero knowledge proof of individual moves. All stakes, addresses and the final result are transparent and recorded on chain.'
+                ? 'This is a 10 minute chess covenant where the full stake goes to the winner. Players stake equal amounts. The second player must match the stake within 5 minutes or the funds return automatically. Each player has a 10 minute clock that only runs during their turn. Games conclude by resign, timeout or checkmate. The winner receives the full staked amount minus 2 percent. The 2 percent fee is sent to the creator address to sustain the service. All stakes are sent directly to the covenant address on the Kaspa blockchain. Custody is on-chain (P2SH locked, your wallet signs every spend). The game runs on a server-authoritative engine that replays the signed move log deterministically (anyone can recompute), and settlement is simulated today, with the recomputable Covex engine co-signing the release alongside the winning player (BIP340 Schnorr): payout is on-chain enforced but not trustless. There is no zero knowledge proof of individual moves. All stakes, addresses and the final result are transparent and recorded on chain.'
                 : (verified
                 ? (covenant.description || covenant.desc || 'Verified covenant. Full disclosure enabled.')
                 : 'Limited information available. Only tx_id, script_hash, and amount are disclosed.')}
@@ -1437,8 +1441,8 @@ export default function CovenantInteractive() {
                   <strong>Stake:</strong> Any equal amount (min/max per config). Second player matches or auto-refund in 5 min.<br/>
                   <strong>Timers:</strong> 10 min clock per player (active player only). Resign, timeout, or checkmate ends the game.<br/>
                   <strong>Payout:</strong> Winner receives the full staked amount minus 2% fee (fee to creator address to sustain the service).<br/>
-                  <strong>Verification:</strong> Server-authoritative engine (validates legal moves and terminal conditions, replaying the signed move log so anyone can recompute); on testnet today the release is co-signed (BIP340 Schnorr) by the recomputable Covex engine alongside the winning player, not trustless. No zero-knowledge proof of moves.<br/>
-                  <strong>Non-custodial:</strong> Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the recomputable Covex engine's BIP340 co-signature on testnet (resolver-attested, not trustless).
+                  <strong>Verification:</strong> Server-authoritative engine (validates legal moves and terminal conditions, replaying the signed move log so anyone can recompute); settlement is simulated today, with the release co-signed (BIP340 Schnorr) by the recomputable Covex engine alongside the winning player, not trustless. No zero-knowledge proof of moves.<br/>
+                  <strong>Non-custodial:</strong> Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the recomputable Covex engine's simulated BIP340 co-signature (resolver-attested, not trustless).
                 </>
               ) : (
                 covenant.full_logic_summary || covenant.description || 'All parameters, fees, resolution method, circuits, oracles, and payout rules are fully disclosed on-chain and in the published view.'
@@ -1633,7 +1637,7 @@ export default function CovenantInteractive() {
                         onConnect={() => setWalletModalOpen(true)}
                         onStake={() => setShowChessArena(true)}
                       />
-                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive board with real timers, moves, resign; result replayed deterministically, the recomputable Covex engine co-signs on testnet (not trustless).</div>
+                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive board with real timers, moves, resign; result replayed deterministically, the recomputable Covex engine co-signs (simulated, not trustless).</div>
                     </div>
                   </div>
                 )}
@@ -1645,7 +1649,7 @@ export default function CovenantInteractive() {
                       <div className="text-kaspa-green text-sm tracking-[3px] font-bold light:text-emerald-700">STAKED {GAME_REGISTRY[gameType].label.toUpperCase()} COVENANT</div>
                       <div className="text-3xl font-semibold text-white mt-1 light:text-slate-900">{GAME_REGISTRY[gameType].label}</div>
                       <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto leading-relaxed light:text-slate-600">
-                        Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine replays the signed move log (anyone can recompute); on testnet today the recomputable Covex engine co-signs the release (not trustless), and the winning party receives the staked amount minus the creator fee. Non-custodial: stakes go directly to the covenant on Kaspa.
+                        Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine replays the signed move log (anyone can recompute); settlement is simulated today, with the recomputable Covex engine co-signing the release (not trustless), and the winning party receives the staked amount minus the creator fee. Non-custodial: stakes go directly to the covenant on Kaspa.
                       </p>
                     </div>
                     <div className="flex flex-col items-center">
@@ -1658,7 +1662,7 @@ export default function CovenantInteractive() {
                         onConnect={() => setWalletModalOpen(true)}
                         onStake={() => setShowGameArena(true)}
                       />
-                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive board with real moves; result replayed deterministically, the recomputable Covex engine co-signs on testnet (not trustless).</div>
+                      <div className="text-center text-[11px] text-gray-400 mt-3 light:text-slate-600 max-w-md">Launches the full interactive board with real moves; result replayed deterministically, the recomputable Covex engine co-signs (simulated, not trustless).</div>
                     </div>
                   </div>
                 )}
@@ -1970,8 +1974,8 @@ export default function CovenantInteractive() {
                     Each player gets a 10 minute clock. Only the active player clock runs.<br/><br/>
                     Resign, timeout or checkmate ends the game.<br/><br/>
                     Winner receives the staked amount minus 2 percent. The 2 percent goes to the creator address to keep the service running.<br/><br/>
-                    Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the recomputable Covex engine's BIP340 co-signature on testnet (resolver-attested, not trustless).<br/><br/>
-                    The game runs on a server authoritative engine that enforces legal moves and replays the signed move log deterministically (anyone can recompute); on testnet today the recomputable Covex engine co-signs the release alongside the winning player with a BIP340 Schnorr signature. There is no zero knowledge proof of individual moves.
+                    Custody on-chain, payout gated by a 2-of-2 cosign + CSV timeout via the recomputable Covex engine's simulated BIP340 co-signature (resolver-attested, not trustless).<br/><br/>
+                    The game runs on a server authoritative engine that enforces legal moves and replays the signed move log deterministically (anyone can recompute); settlement is simulated today, with the recomputable Covex engine co-signing the release alongside the winning player with a BIP340 Schnorr signature. There is no zero knowledge proof of individual moves.
                   </div>
 
                   <Button

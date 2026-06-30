@@ -118,8 +118,8 @@ export default function Privacy() {
           <h2 className="text-base font-semibold text-white light:text-slate-900">6. Data That Stays in Your Browser</h2>
           <p>
             Some data lives only in your own browser storage and is never sent to our servers. This may
-            include your connected wallet address, your selected network, and, in development mode, a
-            locally generated wallet. On mainnet, <strong className="text-white light:text-slate-900">key material never leaves your browser</strong>:
+            include your connected wallet address and, in development mode, a
+            locally generated wallet. On Kaspa, <strong className="text-white light:text-slate-900">key material never leaves your browser</strong>:
             private keys are used locally to produce signatures, and only those authorized signatures (not
             the keys) are transmitted. Treat any locally stored key material as you would cash, and clear
             your browser storage on shared or untrusted devices.

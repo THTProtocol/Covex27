@@ -790,7 +790,7 @@ export default function FullScreenPoker({ stake = 100, onClose, covenantId, look
             </div>
             {mySeat != null && !payoutResult && (
               <p className="text-[11px] text-gray-300 light:text-slate-600 max-w-xs text-center leading-snug">
-                Two steps (testnet): (1) Covex re-derives the winner from the publicly replayable signed move log and co-signs the release, (2) you claim the on-chain payout with your own signature. Covex never holds the pot. The chain-enforced, no-Covex-key path is rolling out.
+                Two steps: (1) Covex re-derives the winner from the publicly replayable signed move log and co-signs the release, (2) you claim the on-chain payout with your own signature. Covex never holds the pot. The chain-enforced, no-Covex-key path is rolling out.
               </p>
             )}
             {!oracleSubmitted && mySeat != null && (

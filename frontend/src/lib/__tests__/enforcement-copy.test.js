@@ -176,19 +176,23 @@ describe('on-chain-zk tier honesty (KIP-16 zk_game_settle)', () => {
     expect(/no oracle/i.test(body)).toBe(true);
   });
 
-  it('stays explicitly testnet / Toccata gated and never reads as mainnet-live', () => {
-    // The headline, badge, verb, and body must all keep the testnet gate so the tier can never
-    // be mistaken for a shipped mainnet capability (OpZkPrecompile is not live on Kaspa mainnet).
+  it('stays explicitly gated / not-yet-live and never reads as a shipped live capability', () => {
+    // The headline, badge, verb, and body must all keep the "gated" gate so the tier can never
+    // be mistaken for a shipped live capability (OpZkPrecompile is not live on Kaspa yet). The
+    // earlier wording said "testnet"; after the live-on-Kaspa reframe the honest gate is phrased
+    // as "gated / not yet live", which is the same fail-closed invariant.
     for (const dict of [REALITY_HEADLINE, REALITY_BADGE_LABEL, REALITY_VERB]) {
-      expect(/testnet/i.test(dict['on-chain-zk'])).toBe(true);
+      expect(/gated|not yet live|testnet/i.test(dict['on-chain-zk'])).toBe(true);
     }
     const body = REALITY_BODY['on-chain-zk'];
-    expect(/testnet|toccata/i.test(body)).toBe(true);
-    // Must NOT assert a POSITIVE mainnet-live guarantee. The honest NEGATION
-    // ("not live on Kaspa mainnet yet") is fine and is preserved, so strip any
-    // "not ... live on mainnet" carve-out before scanning for a bare claim.
-    const residue = body.replace(/not live on (kaspa )?mainnet[^.]*/gi, '');
-    expect(/live on (kaspa )?mainnet|mainnet-?live|on mainnet today/i.test(residue)).toBe(false);
+    expect(/gated|not yet live|not live|testnet|toccata/i.test(body)).toBe(true);
+    // Must NOT assert a POSITIVE live guarantee. The honest NEGATION
+    // ("not live on Kaspa yet") is fine and is preserved, so strip any
+    // "not ... live on (kaspa) (mainnet)" carve-out before scanning for a bare claim.
+    const residue = body
+      .replace(/not (yet )?live on (kaspa ?)?(mainnet)?[^.]*/gi, '')
+      .replace(/not live on (kaspa )?mainnet[^.]*/gi, '');
+    expect(/live on (kaspa )?mainnet|mainnet-?live|on mainnet today|live on kaspa today/i.test(residue)).toBe(false);
   });
 
   it('enforcementSummary("on-chain-zk") has no oracle note (no oracle in the loop)', () => {

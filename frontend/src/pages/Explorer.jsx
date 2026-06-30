@@ -25,7 +25,7 @@ const CATEGORY_ICON = {
   multisig: KeyRound,
   general: Boxes,
 };
-import { useWallet, getCurrentNetwork, DEFAULT_NETWORK } from '../components/WalletContext';
+import { useWallet, getCurrentNetwork } from '../components/WalletContext';
 import { detectGameType, hasCustomUI } from '../components/GamePreview';
 import LiveTicker from '../components/LiveTicker';
 import TrustBadge from '../components/TrustBadge';
@@ -678,9 +678,10 @@ export default function Explorer() {
   });
 
   // Label MUST agree with the data: the covenant count below renders the SELECTED network's total,
-  // so a hardcoded 'MAINNET' reads "MAINNET Covenants 14,093" while on testnet-12 (label/data lie).
-  // Derive the label from the active network so the number and the word always match.
-  const NET_LABELS = { 'mainnet': 'MAINNET', 'mainnet-1': 'MAINNET', 'testnet-12': 'TN12', 'testnet-10': 'TN10' };
+  // so the label is derived from the active network so the number and the word always match. To a
+  // user there is just Kaspa, so the live network shows "KASPA"; the dev testnet labels stay so the
+  // count and word never lie when a developer is pointed at a testnet.
+  const NET_LABELS = { 'mainnet': 'KASPA', 'mainnet-1': 'KASPA', 'testnet-12': 'TN12', 'testnet-10': 'TN10' };
   const netLabel = NET_LABELS[kaspaNetwork] || kaspaNetwork.toUpperCase();
   const isEmptyMainnet = isMainnet(kaspaNetwork) && !loading && !error && covenants.length === 0;
 
@@ -1252,32 +1253,31 @@ export default function Explorer() {
                 </button>
               </div>
             )}
-            {/* Mainnet is genuinely pre-launch: it indexes ZERO covenants until the Toccata launch.
-                Show an HONEST banner that says so and offers a one-tap switch to the live testnet,
-                instead of a generic "Be the first" that implies the network is simply new. We never
-                imply mainnet has activity it does not. */}
+            {/* Empty Kaspa view: covenants are live on Kaspa, but this view currently
+                indexes none for the selected filter. Invite the visitor to build the
+                first one rather than implying activity that is not there. */}
             {isEmptyMainnet && (
               <div data-tour="explorer-empty" className="relative glass-panel rounded-2xl p-10 text-center overflow-hidden">
                 <div className="covex-aurora" aria-hidden="true" style={{ top: -20, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 380, height: 200, maxWidth: '90vw', opacity: 0.5 }} />
                 <span className="relative z-10 grid place-items-center mx-auto mb-4 h-14 w-14 rounded-2xl border border-kaspa-green/25 bg-kaspa-green/[0.06]">
                   <Layers size={26} className="text-kaspa-green" />
                 </span>
-                <p className="relative z-10 text-lg font-semibold text-white light:text-slate-900 mb-1.5">Mainnet covenants go live at the Toccata launch.</p>
-                <p className="relative z-10 text-sm text-gray-300 light:text-slate-600 mb-5">There are 14,000+ live covenants you can browse right now on Testnet-12.</p>
+                <p className="relative z-10 text-lg font-semibold text-white light:text-slate-900 mb-1.5">Covenants are live on Kaspa.</p>
+                <p className="relative z-10 text-sm text-gray-300 light:text-slate-600 mb-5">Nothing to show here yet. Build the first covenant in the Sandbox and it will appear in this explorer.</p>
                 <div className="relative z-10 flex flex-wrap items-center justify-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => switchNetwork(DEFAULT_NETWORK)}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
-                  >
-                    Browse 14,000+ live covenants <ArrowRight size={16} />
-                  </button>
                   <Link
                     to="/sandbox"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm shadow-[0_10px_34px_-10px_rgba(73,234,203,0.65)] hover:shadow-[0_14px_44px_-8px_rgba(73,234,203,0.85)] hover:-translate-y-0.5 active:translate-y-0 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
+                  >
+                    Build a covenant <ArrowRight size={16} />
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={startTour}
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-white/15 light:border-slate-300 bg-white/[0.03] light:bg-white text-white/85 light:text-slate-700 font-semibold text-sm hover:border-white/30 light:hover:border-slate-400 hover:bg-white/[0.06] light:hover:bg-slate-50 hover:text-white light:hover:text-slate-900 transition-[color,background-color,border-color,box-shadow,transform] duration-300"
                   >
-                    Build a covenant
-                  </Link>
+                    Take the tour
+                  </button>
                 </div>
               </div>
             )}

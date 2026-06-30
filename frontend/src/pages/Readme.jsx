@@ -13,10 +13,10 @@ import { VERIFIED_FULL_ZK } from '../lib/zk/circuits.js';
 const ZK_TOTAL = VERIFIED_FULL_ZK.size;
 
 /*
-  /readme - the definitive, factual "how Covex works" page, framed around Kaspa mainnet.
+  /readme - the definitive, factual "how Covex works" page, framed around Kaspa.
   Every statement here is grounded in the real implementation (covenant_builder.rs,
   oracle.rs, oracle_verifier.rs, the zk/ circuits) and Kaspa's live consensus rules.
-  Nothing overstates what the chain enforces; nothing invents mainnet activity.
+  Nothing overstates what the chain enforces; nothing invents on-chain activity.
 */
 
 const MONO = 'font-mono text-[11px] sm:text-xs leading-relaxed break-words';
@@ -51,11 +51,11 @@ const REALITIES = [
   { name: 'On-chain enforced', icon: ShieldCheck, cls: 'text-emerald-300 light:text-emerald-700 border-emerald-500/40 bg-emerald-500/10',
     trust: 'Zero trust', desc: 'Funds are locked in the exact 35-byte P2SH commitment. Kaspa consensus runs the redeem script and releases the money only if its conditions are met. No third party can move it. The chain is the referee.' },
   { name: 'Zero-knowledge', icon: Cpu, cls: 'text-violet-300 light:text-violet-700 border-violet-500/40 bg-violet-500/10',
-    trust: 'Proof, verified off-chain', desc: `A real Groth16 zero-knowledge proof is verified fail-closed off-chain by you, the counterparty, or any external resolver (snarkjs against the audited vkey) before release. For four self-contained circuits (merkle_membership, age_verification, escrow_2party, range_proof) the proof is verified off-chain and the chain still requires an external resolver's Schnorr co-signature to release funds (there is no proof-to-hashlock binding), so they are not trustless end-to-end; for the rest a valid proof gates an external resolver's 2-of-2 cosign plus a CSV timeout, where trust sits with the disclosed resolver you chose or run, not Covex. Live today for all ${ZK_TOTAL} circom circuits with served keys and a working in-browser prover (the canonical list lives in lib/zk/circuits.js as VERIFIED_FULL_ZK). For the circom suite the Groth16 check is off-chain: all ${ZK_TOTAL} are verified off-chain, and beyond the four self-contained circuits the only on-chain check is a deployer-bound resolver's BIP340 Schnorr co-signature that the proof result gates. Toccata's KIP-16 OpZkPrecompile adds a separate on-chain ZK path the settlement covenant targets, testnet-gated until proven live on mainnet.` },
+    trust: 'Proof, verified off-chain', desc: `A real Groth16 zero-knowledge proof is verified fail-closed off-chain by you, the counterparty, or any external resolver (snarkjs against the audited vkey) before release. For four self-contained circuits (merkle_membership, age_verification, escrow_2party, range_proof) the proof is verified off-chain and the chain still requires an external resolver's Schnorr co-signature to release funds (there is no proof-to-hashlock binding), so they are not trustless end-to-end; for the rest a valid proof gates an external resolver's 2-of-2 cosign plus a CSV timeout, where trust sits with the disclosed resolver you chose or run, not Covex. Live today for all ${ZK_TOTAL} circom circuits with served keys and a working in-browser prover (the canonical list lives in lib/zk/circuits.js as VERIFIED_FULL_ZK). For the circom suite the Groth16 check is off-chain: all ${ZK_TOTAL} are verified off-chain, and beyond the four self-contained circuits the only on-chain check is a deployer-bound resolver's BIP340 Schnorr co-signature that the proof result gates. KIP-16's OpZkPrecompile adds a separate on-chain ZK path the settlement covenant targets, gated until proven live on Kaspa.` },
   { name: 'Hybrid', icon: Layers, cls: 'text-sky-300 light:text-sky-700 border-sky-500/40 bg-sky-500/10',
     trust: 'Proof + named resolver', desc: 'The Groth16 proof is mandatory and verified fail-closed off-chain; a named external resolver only contributes the consensus-required co-signature, not separate attested logic. Reserved for backend StrictGroth16 circuits where the proof body is genuinely required.' },
   { name: 'Resolver-attested', icon: Radio, cls: 'text-amber-300 light:text-amber-700 border-amber-500/40 bg-amber-500/10',
-    trust: 'Named resolver', desc: 'An off-chain outcome is attested by a named external resolver you choose or run (never a Covex key), bound by pubkey at deploy, whose co-signature the chain requires via the redeem script. For a real-world fact (an outside event, a price, a data feed) the covenant binds to that resolver, or a real-value covenant binds to its published hashlock the chain enforces; Covex never attests outside events. For a two-party result on testnet today, Covex re-derives the result from the publicly-replayable signed log (anyone can recompute it) and co-signs the payout, and the chain still requires the winning party to add their own signature; the chain-enforced, no-Covex-key path is rolling out. Either way the settlement itself is on-chain, and trust sits with the disclosed resolver, not Covex.' },
+    trust: 'Named resolver', desc: 'An off-chain outcome is attested by a named external resolver you choose or run (never a Covex key), bound by pubkey at deploy, whose co-signature the chain requires via the redeem script. For a real-world fact (an outside event, a price, a data feed) the covenant binds to that resolver, or a real-value covenant binds to its published hashlock the chain enforces; Covex never attests outside events. For a two-party result, settlement today is simulated: Covex re-derives the result from the publicly-replayable signed log (anyone can recompute it) and co-signs the payout, and the chain still requires the winning party to add their own signature; the chain-enforced, no-Covex-key path is rolling out. Either way the settlement itself is on-chain, and trust sits with the disclosed resolver, not Covex.' },
 ];
 
 // Inline pill palette for PRIMITIVES (matches REALITIES above). Keyed by p.reality.
@@ -89,10 +89,10 @@ const PRIMITIVES = [
   { name: 'Resolver-Enforced 2-of-2', reality: 'oracle-attested', script: '2-of-2 multisig of [ resolver_xonly , winner ]',
     what: 'The chain requires the external resolver’s signature AND the winner’s. The resolver (your choice, bound by pubkey at deploy, never a Covex key) only co-signs a verified outcome, and that co-sign is consensus-required.' },
   { name: 'Oracle Escrow', reality: 'oracle-attested', script: '<resolver> OP_CHECKSIGVERIFY\nOP_IF <partyA> OP_CHECKSIG OP_ELSE <partyB> OP_CHECKSIG OP_ENDIF',
-    what: 'The chain pays the staked amount only to the resolver-declared winner, who also signs their own branch. On testnet today Covex re-derives the result from the publicly-replayable log and co-signs; the chain-enforced, no-Covex-key path is rolling out.' },
+    what: 'The chain pays the staked amount only to the resolver-declared winner, who also signs their own branch. Today Covex re-derives the result from the publicly-replayable log and co-signs (simulated); the chain-enforced, no-Covex-key path is rolling out.' },
 ];
 
-// The 7 KIP-10 introspection opcodes live on Kaspa mainnet since Crescendo (May 2025).
+// The 7 KIP-10 introspection opcodes live on Kaspa since Crescendo (May 2025).
 const KIP10 = [
   ['OpTxInputCount', '0xb3'], ['OpTxOutputCount', '0xb4'], ['OpTxInputIndex', '0xb9'],
   ['OpTxInputAmount', '0xbe'], ['OpTxInputSpk', '0xbf'], ['OpTxOutputAmount', '0xc2'], ['OpTxOutputSpk', '0xc3'],
@@ -128,7 +128,7 @@ export default function Readme() {
         <div className="covex-aurora" style={{ top: 40, left: 0, right: 0, marginLeft: 'auto', marginRight: 'auto', width: 620, height: 340, maxWidth: '90vw' }} aria-hidden="true" />
         <div className="relative max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 text-[11px] px-3 py-1 rounded-full border border-kaspa-green/30 text-kaspa-green tracking-widest mb-5">
-            <Network size={12} /> KASPA MAINNET
+            <Network size={12} /> LIVE ON KASPA
           </div>
           <h1 className="text-3xl sm:text-5xl font-black text-white tracking-tight leading-[1.15] pt-1 mb-5">
             How <span className="text-kaspa-green">Covex</span> Works
@@ -189,7 +189,7 @@ export default function Readme() {
   0x20            push 32 bytes
   <32-byte hash>  = blake2b256(redeem_script)
   0x87            OP_EQUAL`}</Script>
-            <p className="text-xs text-gray-400 mt-3">On mainnet these resolve to <span className="font-mono text-kaspa-green">kaspa:p…</span> addresses. The redeem script stays hidden until spend.</p>
+            <p className="text-xs text-gray-400 mt-3">On Kaspa these resolve to <span className="font-mono text-kaspa-green">kaspa:p…</span> addresses. The redeem script stays hidden until spend.</p>
           </div>
           <Card className="!p-6">
             <div className="text-[11px] uppercase tracking-widest text-gray-400 mb-4 flex items-center gap-2"><Workflow size={14} className="text-kaspa-green" /> Deploy, lock, spend</div>
@@ -231,7 +231,7 @@ export default function Readme() {
           ))}
         </div>
         <p className="text-xs text-gray-400 mt-4">
-          Decorative metadata covenants (no script enforcement) are labelled as such and refused on mainnet unless explicitly acknowledged.
+          Decorative metadata covenants (no script enforcement) are labelled as such and refused on Kaspa unless explicitly acknowledged.
         </p>
       </Section>
 
@@ -282,9 +282,9 @@ export default function Readme() {
               deployer-bound resolver co-signs. All {ZK_TOTAL} are verified off-chain: for the circom suite the Groth16
               verification itself is off-chain, and the only on-chain check is a deployer-bound resolver’s BIP340 Schnorr
               co-signature. A bad proof is rejected (fail-closed), but the resolver’s co-signature is what the chain checks;
-              this is verified off-chain, not on-chain-trustless. Toccata's KIP-16 OpZkPrecompile adds a separate on-chain ZK path, testnet-gated until proven live. More circuits are compiled and graduate as their proving keys
+              this is verified off-chain, not on-chain-trustless. KIP-16's OpZkPrecompile adds a separate on-chain ZK path, gated until proven live on Kaspa. More circuits are compiled and graduate as their proving keys
               ship and each proof is verified. Honest caveat: the current trusted setup is a single-contributor dev ceremony.
-              High-value mainnet covenants warrant an independent multi-party ceremony first.
+              High-value covenants warrant an independent multi-party ceremony first.
             </p>
           </div>
           <Card className="!p-6">
@@ -320,12 +320,12 @@ export default function Readme() {
               signer's x-only public key is published openly so anyone can verify the attestation.
             </p>
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
-              Two-party covenant settlements are the one transitional exception: on testnet today Covex re-derives the result from the
+              Two-party covenant settlements are the one transitional exception, and they are simulated today: Covex re-derives the result from the
               publicly-replayable signed log (a result anyone can recompute) and co-signs the release, while the chain still
               requires the winning party to add their own signature. Covex does not decide the result. The chain-enforced,
               no-Covex-key path (the same external-resolver hashlock the conditional-outcome covenants use) is rolling out.
             </p>
-            <Script>{`testnet co-sign (transitional, being retired):
+            <Script>{`co-sign (transitional, being retired):
 message  = covex-oracle:{covenant_id}:{outcome}:{timestamp}
 signature = schnorr_sign( sha256(message), covex_key )
 pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
@@ -333,7 +333,7 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
           <div>
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
               Crucially, a resolver is held to the same standard as everything else: it will <span className="text-white">refuse to sign</span> an
-              outcome whose ZK proof does not verify, and for the testnet co-sign Covex is bound to the deterministic replay of the
+              outcome whose ZK proof does not verify, and for the games co-sign Covex is bound to the deterministic replay of the
               signed log, so it cannot mint a signature for an arbitrary requested outcome.
             </p>
             <p className="text-sm text-gray-300 leading-relaxed">
@@ -345,15 +345,15 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
         </div>
       </Section>
 
-      {/* 7. KASPA MAINNET */}
-      <Section kicker="The network" title="Why this is real on Kaspa mainnet">
+      {/* 7. KASPA */}
+      <Section kicker="The network" title="Why this is real on Kaspa">
         <div className="grid lg:grid-cols-2 gap-6">
           <Card>
-            <div className="flex items-center gap-2 text-white font-bold mb-3"><Zap size={18} className="text-kaspa-green" /> Live today (Crescendo, May 2025)</div>
+            <div className="flex items-center gap-2 text-white font-bold mb-3"><Zap size={18} className="text-kaspa-green" /> Introspection opcodes, live</div>
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
-              Kaspa mainnet activated the <strong className="text-white">KIP-10 introspection opcodes</strong> at the Crescendo
+              Kaspa activated the <strong className="text-white">KIP-10 introspection opcodes</strong> at the Crescendo
               hard fork. A script can now read the transaction spending it (input/output counts, amounts, and script-pubkeys),
-              enabling real vault, vesting, and spend-constraint covenants on mainnet now.
+              enabling real vault, vesting, and spend-constraint covenants on Kaspa today.
             </p>
             <div className="flex flex-wrap gap-1.5">
               {KIP10.map(([n, h]) => (
@@ -363,29 +363,28 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
             <p className="text-xs text-gray-400 mt-3">Absolute (CLTV) and relative (CSV / BIP68) timelocks are also live and consensus-enforced, scored by Kaspa’s DAA.</p>
           </Card>
           <Card>
-            <div className="flex items-center gap-2 text-white font-bold mb-3"><Gavel size={18} className="text-amber-400" /> Full scriptable covenants: Toccata, 30 June 2026</div>
+            <div className="flex items-center gap-2 text-white font-bold mb-3"><Gavel size={18} className="text-kaspa-green" /> Full scriptable covenants, live</div>
             <p className="text-sm text-gray-300 leading-relaxed mb-3">
-              The <strong className="text-white">Toccata hard fork</strong> (KIP-17 extended scripting, KIP-20 covenant
-              lineage, KIP-21 sequencing, plus the KIP-16 ZK opcode set with its OpZkPrecompile) completes the covenant
-              toolkit on mainnet. For the circom suite, ZK proofs are verified off-chain (by you, the counterparty, or any
-              external resolver) and only the resolver's Schnorr co-signature is checked on-chain at unlock; KIP-16 adds a
-              separate on-chain proof-checking path that stays testnet-gated for settlement until proven live on mainnet.
-              Covex is built and proven against this ruleset already.
+              KIP-17 extended scripting, KIP-20 covenant lineage, KIP-21 sequencing, and the KIP-16 ZK opcode set with its
+              OpZkPrecompile complete the covenant toolkit on Kaspa. For the circom suite, ZK proofs are verified off-chain
+              (by you, the counterparty, or any external resolver) and only the resolver's Schnorr co-signature is checked
+              on-chain at unlock; Covex keeps the separate KIP-16 on-chain proof-checking path gated for settlement until it
+              is proven live on Kaspa. Covex is built and proven against this ruleset already.
             </p>
             <p className="text-sm text-gray-300 leading-relaxed">
-              We do not fake the gap. Until Toccata activates, the mainnet explorer honestly shows <span className="text-white">zero</span> covenants, because
+              We do not fake the gap. When a view is empty the explorer honestly shows <span className="text-white">zero</span> covenants, because
               there is no placeholder or simulated data anywhere on Covex. Every figure is queried live from the chain.
             </p>
           </Card>
         </div>
         <Card className="mt-4">
-          <div className="flex items-center gap-2 text-white font-bold mb-2"><KeyRound size={18} className="text-kaspa-green" /> Mainnet is non-custodial by construction</div>
+          <div className="flex items-center gap-2 text-white font-bold mb-2"><KeyRound size={18} className="text-kaspa-green" /> Non-custodial by construction</div>
           <p className="text-sm text-gray-300 leading-relaxed">
-            On mainnet every transaction is signed by your own wallet extension. The server builds the unsigned funding and
-            spend transactions and verifies the result, but never holds a key. Hardcoded dev keys are hard-blocked on mainnet.
-            Covex runs no real-world-data oracle and holds no key on the markets, ZK, or mainnet paths: oracle-co-signed
-            covenant kinds are frozen on mainnet, and real-value covenants bind instead to an external resolver's published
-            hashlock the chain enforces. The single exception is one Covex-held co-sign key on the testnet games-replay path,
+            Every transaction is signed by your own wallet extension. The server builds the unsigned funding and
+            spend transactions and verifies the result, but never holds a key. Hardcoded dev keys are hard-blocked on Kaspa.
+            Covex runs no real-world-data oracle and holds no key on the markets, ZK, or real-value paths: oracle-co-signed
+            covenant kinds are frozen on Kaspa, and real-value covenants bind instead to an external resolver's published
+            hashlock the chain enforces. The single exception is one Covex-held co-sign key on the simulated games-replay path,
             where Covex re-derives the winner from the public signed move log (a publicly-recomputable referee, not a real-world
             oracle); it is being removed as the chain-enforced rebind rolls out.
           </p>
@@ -401,7 +400,7 @@ pubkey    = GET /api/oracle/pubkey   (32-byte x-only)`}</Script>
             [FileCode2, 'Start from a template', 'An official catalog across primitives, ZK proofs, resolver-attested covenants, DeFi, and identity. Each opens preconfigured in the sandbox.'],
             [Coins, 'Deploy non-custodially', 'Lock real funds into an enforced P2SH primitive; redeem them by satisfying the script with your own key. Covex never holds the money.'],
             [Hash, 'Prove with ZK', 'Generate a real Groth16 proof for membership, range or age claims; you, the counterparty, or any external resolver checks it fail-closed off-chain, then a deployer-bound resolver co-signs the 2-of-2 the chain requires to release the funds.'],
-            [Sparkles, 'Settle two-party covenants', 'Both parties stake into a covenant; on testnet today Covex re-derives the result from the publicly-replayable signed log (anyone can recompute) and co-signs the release, while the chain still requires the winning party to add their own signature. The chain-enforced, no-Covex-key path is rolling out.'],
+            [Sparkles, 'Settle two-party covenants', 'Both parties stake into a covenant; today Covex re-derives the result from the publicly-replayable signed log (anyone can recompute) and co-signs the release (simulated), while the chain still requires the winning party to add their own signature. The chain-enforced, no-Covex-key path is rolling out.'],
           ].map(([Icon, t, d]) => (
             <Card key={t}>
               <Icon className="text-kaspa-green mb-3" size={22} />

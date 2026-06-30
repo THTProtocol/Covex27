@@ -72,7 +72,7 @@ export default function DevWalletModal({ isOpen, onClose }) {
 
     const isMainLocal = isMainnetNetwork(network);
     if (isMainLocal) {
-      setError('Dev mode (mnemonic or hex) is disabled on mainnet. Connect using a real wallet extension instead.');
+      setError('Dev mode (mnemonic or hex) is disabled on Kaspa with real funds. Connect using a real wallet extension instead.');
       setDeriving(false);
       return;
     }
@@ -428,7 +428,7 @@ function GenerateWalletSection({ connectDevMode, onConnected }) {
     return (
       <div className="rounded-xl border border-kaspa-green/20 light:border-kaspa-green/40 bg-kaspa-green/[0.03] light:bg-kaspa-green/[0.06] p-4">
         <div className="flex items-center gap-2 text-white light:text-slate-900 font-semibold text-sm mb-1"><Wand2 size={15} className="text-kaspa-green" /> No wallet yet? Generate one</div>
-        <p className="text-[11px] text-gray-300 light:text-slate-600 leading-relaxed mb-3">Create a brand-new Kaspa mainnet wallet right here. It starts at 0 KAS, so fund it by sending KAS from any exchange. Your keys are generated in your browser and never leave it.</p>
+        <p className="text-[11px] text-gray-300 light:text-slate-600 leading-relaxed mb-3">Create a brand-new Kaspa wallet right here. It starts at 0 KAS, so fund it by sending KAS from any exchange. Your keys are generated in your browser and never leave it.</p>
         <button onClick={generate} disabled={busy} className="btn-shimmer w-full px-4 py-2.5 rounded-xl bg-kaspa-green text-black font-bold text-sm hover:brightness-110 disabled:opacity-50 flex items-center justify-center gap-2">
           {busy ? <span className="inline-block w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <Wand2 size={15} />} Generate a new wallet
         </button>
@@ -567,7 +567,7 @@ function MainnetWalletModal({ walletContext, onClose }) {
             <div>
               <h3 id={titleId} className="text-base font-bold text-white light:text-slate-900">Connect a wallet</h3>
               <p className="text-[11px] text-gray-400 light:text-slate-500 flex items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-red-300 light:text-red-600 bg-red-500/10 light:bg-red-50 border border-red-500/25 light:border-red-200 px-1.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Mainnet</span>
+                <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-red-300 light:text-red-600 bg-red-500/10 light:bg-red-50 border border-red-500/25 light:border-red-200 px-1.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Kaspa</span>
                 Non-custodial · keys stay in your wallet
               </p>
             </div>
@@ -587,7 +587,7 @@ function MainnetWalletModal({ walletContext, onClose }) {
           {detected.length === 0 && (
             <div className="p-3 rounded-xl bg-white/[0.03] light:bg-slate-50 border border-white/[0.07] light:border-slate-200 text-xs text-gray-300 light:text-slate-600 leading-relaxed flex items-start gap-2">
               <ShieldCheck size={15} className="text-kaspa-green shrink-0 mt-0.5" />
-              <span>No Kaspa wallet detected yet. Pick one below to install it (one click), or create a new wallet right here. Mainnet uses real KAS - your keys never leave your wallet.</span>
+              <span>No Kaspa wallet detected yet. Pick one below to install it (one click), or create a new wallet right here. Kaspa uses real KAS - your keys never leave your wallet.</span>
             </div>
           )}
 
@@ -646,7 +646,7 @@ function MainnetWalletModal({ walletContext, onClose }) {
 
         <div className="p-5 border-t border-white/[0.06] light:border-slate-200">
           <p className="text-[10px] text-gray-500 light:text-slate-600 text-center leading-relaxed">
-            Non-custodial. Covex never holds your keys or funds. Mainnet activity uses real KAS from your own wallet.
+            Non-custodial. Covex never holds your keys or funds. Activity on Kaspa uses real KAS from your own wallet.
           </p>
         </div>
       </div>

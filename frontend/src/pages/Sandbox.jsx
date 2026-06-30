@@ -30,8 +30,8 @@ import { BUILD_STEPS } from '../lib/build-steps.js';
 // every full-zk / hybrid circuit renders as oracle-attested (off-chain verify + on-chain Schnorr
 // co-signature). All verified circom circuits are Groth16 verified OFF-CHAIN by anyone (you, the
 // counterparty, or any external resolver); a valid proof gates a 2-of-2 cosign + CSV timeout, and
-// the only on-chain check is the Schnorr co-signature. Toccata's KIP-16 OpZkPrecompile is a separate
-// on-chain ZK path the settlement covenant targets, testnet-gated until proven live on mainnet.
+// the only on-chain check is the Schnorr co-signature. KIP-16's OpZkPrecompile is a separate
+// on-chain ZK path the settlement covenant targets, gated until proven live on Kaspa.
 // on-chain means Kaspa P2SH consensus only. accent drives the Card identity bar; badgeVariant
 // drives the Badge. We never render a green "ZK on-chain" badge for a cosign-gated circuit.
 const REALITY = {
@@ -43,10 +43,10 @@ const REALITY = {
   // anyone (you, the counterparty, or any external resolver). For the circom suite the proof is
   // verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and the only on-chain
   // check is the Schnorr co-signature. full-zk and hybrid both render honestly as oracle-attested,
-  // never as a green ZK on-chain badge. Toccata's KIP-16 on-chain path is testnet-gated.
+  // never as a green ZK on-chain badge. KIP-16's on-chain path is gated until proven live on Kaspa.
   'full-zk': {
     label: 'Resolver-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
-    note: 'A real Groth16 proof is verified fail-closed OFF-CHAIN by you, the counterparty, or any external resolver (snarkjs against the audited vkey). For the circom suite the proof is verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and only the Schnorr co-signature is checked on-chain. Toccata KIP-16 adds a separate on-chain ZK path, testnet-gated until proven live.',
+    note: 'A real Groth16 proof is verified fail-closed OFF-CHAIN by you, the counterparty, or any external resolver (snarkjs against the audited vkey). For the circom suite the proof is verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and only the Schnorr co-signature is checked on-chain. KIP-16 adds a separate on-chain ZK path, gated until proven live on Kaspa.',
   },
   hybrid: {
     label: 'Resolver-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,

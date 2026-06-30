@@ -499,7 +499,7 @@ export default function FullScreenRPS({ stake = 25, onClose, covenantId, feePerc
 
         {result && myColor && !payoutResult && (
           <p className="text-[11px] text-gray-300 light:text-slate-600 max-w-xs text-center leading-snug">
-            Two steps (testnet): (1) Covex re-derives the winner from the publicly replayable signed move log and co-signs the release, (2) you claim the on-chain payout with your own signature. Covex never holds the pot. The chain-enforced, no-Covex-key path is rolling out.
+            Two steps: (1) Covex re-derives the winner from the publicly replayable signed move log and co-signs the release, (2) you claim the on-chain payout with your own signature. Covex never holds the pot. The chain-enforced, no-Covex-key path is rolling out.
           </p>
         )}
         <div className="flex flex-col gap-2 w-64">

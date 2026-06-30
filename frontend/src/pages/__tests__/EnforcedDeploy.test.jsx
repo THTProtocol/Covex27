@@ -61,21 +61,24 @@ beforeEach(() => {
 describe('EnforcedDeploy - mainnet fail-closed dead-end', () => {
   it('shows the mainnet dead-end banner naming the non-custodial primitives', () => {
     const html = render({ network: 'mainnet' });
-    expect(html).toContain('You are on mainnet');
-    // The banner must name the four non-custodial primitives that DO deploy on mainnet.
+    // After the live-on-Kaspa reframe the banner leads with "Covenants are live on Kaspa"
+    // instead of "You are on mainnet". The fail-closed dead-end invariant is unchanged.
+    expect(html).toContain('Covenants are live on Kaspa');
+    // The banner must name the four non-custodial primitives that DO deploy on the live network.
     expect(html).toMatch(/Single-key, hashlock, timelock, and relative-timelock/i);
-    // and must NOT claim the dev-wallet primitives are mainnet-deployable.
-    expect(html).toMatch(/server-assisted dev-wallet path, which is disabled on mainnet/i);
+    // and must NOT claim the dev-wallet primitives are deployable with real funds (they route
+    // through the server-assisted dev-wallet path, which is disabled on the live network).
+    expect(html).toMatch(/server-assisted dev-wallet path, which is disabled on the live network/i);
   });
 
   it('does NOT show the mainnet banner on a testnet', () => {
     const html = render({ network: 'testnet-12' });
-    expect(html).not.toContain('You are on mainnet');
+    expect(html).not.toContain('Covenants are live on Kaspa');
   });
 
   it('mainnet-1 is treated as mainnet (banner shown)', () => {
     const html = render({ network: 'mainnet-1' });
-    expect(html).toContain('You are on mainnet');
+    expect(html).toContain('Covenants are live on Kaspa');
   });
 });
 
@@ -83,10 +86,11 @@ describe('EnforcedDeploy - tile gating (the mainnet dead-end guard, disabled til
   it('disables the dev-wallet primitive tiles on mainnet but keeps the single-signer ones enabled', () => {
     const mainnet = render({ network: 'mainnet' });
     const testnet = render({ network: 'testnet-12' });
-    // The "Testnet only" disabled badge is rendered for every mainnet-unavailable kind.
-    expect(mainnet).toContain('Testnet only');
-    // The non-custodial primitives keep their "Mainnet-ready" badge.
-    expect(mainnet).toContain('Mainnet-ready');
+    // The "Not yet on Kaspa" disabled badge (formerly "Testnet only") is rendered for every
+    // mainnet-unavailable kind after the live-on-Kaspa reframe.
+    expect(mainnet).toContain('Not yet on Kaspa');
+    // The non-custodial primitives keep their live badge ("Live on Kaspa", formerly "Mainnet-ready").
+    expect(mainnet).toContain('Live on Kaspa');
     // Count tile buttons carrying the disabled ATTRIBUTE (disabled=""), not the `disabled:` Tailwind
     // class. Mainnet must disable strictly MORE tiles than a testnet (the dev-wallet + market kinds).
     const countDisabledAttr = (h) => (h.match(/<button[^>]*\sdisabled(?:=""|\s|>)/g) || []).length;
@@ -98,9 +102,11 @@ describe('EnforcedDeploy - tile gating (the mainnet dead-end guard, disabled til
     expect(mainnetDisabled).toBeGreaterThanOrEqual(8);
   });
 
-  it('on a testnet every kind tile is enabled (no Testnet-only disable badge, no mainnet banner)', () => {
+  it('on a testnet every kind tile is enabled (no not-yet-on-Kaspa disable badge, no mainnet banner)', () => {
     const html = render({ network: 'testnet-12' });
-    expect(html).not.toContain('Testnet only');
+    // On a testnet no kind is mainnet-unavailable, so the disabled "Not yet on Kaspa" badge
+    // (formerly "Testnet only") must not appear.
+    expect(html).not.toContain('Not yet on Kaspa');
     // Server-assisted demo badge still appears (honest deploy-reality), but tiles are NOT disabled
     // for being mainnet-unavailable. The kind picker buttons carry aria-pressed; none should be a
     // mainnet-dead-end disabled tile.

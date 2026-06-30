@@ -36,8 +36,8 @@ export function vkeyPathFor(circuitId) {
 // served proving key (.zkey) AND a working in-browser prover. HONESTY: this verification is OFF-CHAIN
 // (by you, the counterparty, or any external verifier - snarkjs against the audited vkey). For this
 // circom suite the proof is verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and
-// only a BIP340 Schnorr co-signature is verified on-chain. Toccata's KIP-16 OpZkPrecompile is a
-// separate on-chain ZK path the settlement covenant targets, testnet-gated until proven live.
+// only a BIP340 Schnorr co-signature is verified on-chain. The KIP-16 OpZkPrecompile is a
+// separate on-chain ZK path the settlement covenant targets, gated until proven live on Kaspa.
 // The trusted setup is a single-contributor Covex dev ceremony, NOT a production multi-party MPC.
 // This set therefore drives the genuine "in-browser prover" capability + off-chain-verified note; it
 // is NEVER rendered as a 'full-zk' / trustless / on-chain-ZK badge (every ZK reality renders as

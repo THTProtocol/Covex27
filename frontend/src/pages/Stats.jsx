@@ -9,21 +9,6 @@ import { isMainnet } from '../lib/network';
 // and events tables (GET /api/stats). Real on-chain data only; the activity
 // timeline reflects the rolling event window the backend retains.
 
-const NETWORKS = [
-  { value: 'all', label: 'All networks', color: '#9CA3AF' },
-  { value: 'mainnet', label: 'Mainnet', color: '#49EACB' },
-  { value: 'testnet-10', label: 'TN10', color: '#F59E0B' },
-  { value: 'testnet-12', label: 'TN12', color: '#A78BFA' },
-];
-
-const NETWORK_LABEL = (slug) => {
-  if (isMainnet(slug)) return 'Mainnet';
-  if (slug === 'testnet-10') return 'TN10';
-  if (slug === 'testnet-12') return 'TN12';
-  return slug;
-};
-const NETWORK_COLOR = (slug) => (NETWORKS.find((n) => n.value === slug)?.color) || '#9CA3AF';
-
 // Single source of truth for every event_type the backend persists to the
 // events table and the /api/stats timeline pivots over. Today the backend
 // emits exactly these strings (search: record_event / record_event_once):
@@ -148,8 +133,9 @@ function ActivityChart({ days, types }) {
 }
 
 export default function Stats() {
-  // User-selectable: default to the network the rest of the app is on, falling back to 'all'.
-  const [network, setNetwork] = useState(() => (typeof window !== 'undefined' ? localStorage.getItem('kaspaNetwork') : null) || 'all');
+  // To a user there is just Kaspa, so the stats are scoped to the live network. The backend
+  // still understands every network string; this page simply asks for Kaspa's numbers.
+  const [network] = useState('mainnet');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState(null);
@@ -204,15 +190,9 @@ export default function Stats() {
           <h1 className="h-page text-white light:text-slate-900">The numbers, live and on-chain</h1>
           <p className="text-sm text-gray-400 light:text-slate-600 mt-1">Live aggregates from indexed covenants, confirmed treasury payments, and on-chain activity. Real data only.</p>
         </div>
-        <div className="flex items-center gap-0.5 rounded-md border border-white/10 bg-white/[0.02] p-0.5 self-start light:bg-white light:border-slate-200">
-          {NETWORKS.map((n) => (
-            <button key={n.value} onClick={() => setNetwork(n.value)}
-              className={`px-2.5 py-1 text-[11px] font-semibold rounded-sm transition-colors ${network === n.value ? 'text-black' : 'text-gray-400 hover:text-white light:text-slate-500 light:hover:text-slate-900'}`}
-              style={network === n.value ? { backgroundColor: n.color } : {}}>
-              {n.label}
-            </button>
-          ))}
-        </div>
+        <span className="self-start inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.02] px-2.5 py-1 text-[11px] font-semibold text-gray-300 light:bg-white light:border-slate-200 light:text-slate-700">
+          <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: '#49EACB' }} /> Kaspa
+        </span>
       </div>
 
       {loading && (
@@ -278,11 +258,11 @@ export default function Stats() {
                   </tr>
                 </thead>
                 <tbody>
-                  {(data.by_network || []).map((n) => (
+                  {(data.by_network || []).filter((n) => isMainnet(n.network)).map((n) => (
                     <tr key={n.network} className="border-t border-white/5 light:border-slate-100 hover:bg-white/[0.02] light:hover:bg-slate-50 transition-colors">
                       <td className="py-2 font-mono text-gray-200 light:text-slate-700">
-                        <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ background: NETWORK_COLOR(n.network) }} />
-                        {NETWORK_LABEL(n.network)}
+                        <span className="inline-block w-2 h-2 rounded-full mr-2" style={{ background: '#49EACB' }} />
+                        Kaspa
                       </td>
                       <td className="py-2 text-right tabular-nums text-gray-200 light:text-slate-700">{fmtNum(n.covenants)}</td>
                       <td className="py-2 text-right tabular-nums text-gray-200 light:text-slate-700">{fmtNum(n.paid)}</td>
@@ -292,20 +272,6 @@ export default function Stats() {
                 </tbody>
               </table>
             </div>
-            {(() => {
-              // Only show the "intentionally empty" note while the mainnet row is
-              // actually empty; once it is populated the note would contradict the table.
-              const mainnetRow = (data.by_network || []).find(
-                (n) => isMainnet(n.network)
-              );
-              const mainnetEmpty = !mainnetRow || !mainnetRow.covenants;
-              if (!mainnetEmpty) return null;
-              return (
-                <p className="text-[10px] text-gray-500 mt-3">
-                  Mainnet covenants are intentionally empty until the Toccata hard fork activates them on-chain. See the <Link to="/whitepaper" className="text-kaspa-green hover:underline">whitepaper</Link>.
-                </p>
-              );
-            })()}
           </section>
         </div>
       )}

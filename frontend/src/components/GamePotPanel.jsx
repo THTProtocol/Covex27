@@ -19,7 +19,7 @@ import { explorerTxUrl } from '../lib/explorer';
  *   not a referee) verifies the proof, so the loser cannot forge a winning proof and no Covex key
  *   is in any path. This is NOT the live default: it needs both the build flag
  *   (zkOnchainGamesEnabled, VITE_ZK_ONCHAIN_GAMES) AND game.settle_mode === 'zk_game_settle', and
- *   it awaits the real game seal + a TN12 end-to-end. Framed honestly as "on-chain ZK (rolling
+ *   it awaits the real game seal + an end-to-end proof on Covex prover infra. Framed honestly as "on-chain ZK (rolling
  *   out)". When the per-pot mode is set but the build flag is off, the panel says it is rolling out
  *   rather than offering a claim.
  *
@@ -50,7 +50,7 @@ const CLAIM_STEPS = {
   paid: 'Paid.',
 };
 
-export default function GamePotPanel({ covenantId, game, seatToken, network = 'testnet-12', onChange, className = '' }) {
+export default function GamePotPanel({ covenantId, game, seatToken, network = 'mainnet', onChange, className = '' }) {
   const { address, isDevMode, devMode } = useWallet();
   const privKeyHex = isDevMode && devMode?.privateKeyHex ? devMode.privateKeyHex : '';
   const [busy, setBusy] = useState(false);
@@ -91,8 +91,8 @@ export default function GamePotPanel({ covenantId, game, seatToken, network = 't
       itself (KIP-16 OpZkPrecompile): no referee, no Covex key, and the loser cannot forge a winning
       proof. The proof is generated off-device and the chain re-checks it on the spend, so nothing is
       trusted on faith. This path is not the live default yet: it is gated and awaiting the real game
-      seal and a testnet end-to-end. If the result cannot be resolved, the funder reclaims via the
-      timelock refund branch.
+      seal and an end-to-end proof on Covex prover infrastructure. If the result cannot be resolved,
+      the funder reclaims via the timelock refund branch.
     </p>
   ) : hashlock ? (
     <p className="text-[11px] leading-snug text-gray-400 light:text-slate-500 mt-2">

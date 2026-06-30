@@ -94,7 +94,7 @@ export const STEPS = [
     anchor: 'sandbox-deploy',
     route: '/sandbox?phase=deploy&circuit=merkle_membership&kind=zk',
     title: 'Phase 3: Deploy',
-    body: 'Review the script bytes, fees, and the honest enforcement summary. On mainnet, your private key never leaves the browser. The Sandbox can also produce a metadata-only preview without broadcasting.',
+    body: 'Review the script bytes, fees, and the honest enforcement summary. On Kaspa, your private key never leaves the browser. The Sandbox can also produce a metadata-only preview without broadcasting.',
     nextLabel: 'See the website builder',
     nextRoute: null, // computed at runtime from demo id (/covenant/:id/studio)
   },
@@ -297,7 +297,7 @@ export default function FirstCovenantTour() {
     }
     if (out.id === 'sandbox-deploy') {
       const s = enforcementSummary(sandboxReality);
-      out.body = `Review the script bytes, fees, and the honest enforcement summary. On mainnet, your private key never leaves the browser. The Sandbox can also produce a metadata-only preview without broadcasting. ${s.headline}.`;
+      out.body = `Review the script bytes, fees, and the honest enforcement summary. On Kaspa, your private key never leaves the browser. The Sandbox can also produce a metadata-only preview without broadcasting. ${s.headline}.`;
     }
     if (out.id === 'studio-block') {
       out.body = 'Every covenant can host a public page built from blocks (hero, video, rich text, enforcement badge). The page is metadata only. It does not change how the covenant settles, the redeem script and the disclosed enforcement reality are the source of truth.';

@@ -24,15 +24,13 @@ import {
 const WalletContext = createContext(null);
 
 // ── Network-aware helpers ──
-// The user picks the active network (Mainnet / Testnet-10 / Testnet-12) from the nav switcher,
-// which writes localStorage('kaspaNetwork') and dispatches 'kaspa-network-change'.
+// Covenants are live on Kaspa, so the app reads a single network. The network string is still
+// written to localStorage('kaspaNetwork') and broadcast via 'kaspa-network-change' so every
+// consumer (Explorer, ticker, stats, Pricing, wallet) stays in sync; the underlying string
+// machinery is unchanged. The other network ids remain understood by the plumbing below.
 //
-// DEFAULT_NETWORK is the network a BRAND-NEW visitor (no stored choice) lands on. Mainnet does not
-// index any covenants or events until the Toccata launch, so defaulting a first-time visitor to
-// 'mainnet' shows a dead-looking, all-zero view. Testnet-12 has 14,000+ live covenants right now,
-// so a newcomer immediately sees real, thriving activity. Mainnet stays fully selectable and remains
-// the brand / identity network - this only changes the unset default, never hides mainnet.
-export const DEFAULT_NETWORK = 'testnet-12';
+// DEFAULT_NETWORK is the network every visitor lands on: Kaspa.
+export const DEFAULT_NETWORK = 'mainnet';
 
 export function getCurrentNetwork() {
   if (typeof window === 'undefined') return DEFAULT_NETWORK;
@@ -63,10 +61,10 @@ export function onNetworkChange(fn) {
 }
 
 const NETWORK_LABELS = {
-  'testnet-12': 'TN12 (Toccata)',
+  'testnet-12': 'TN12',
   'testnet-10': 'TN10',
-  'mainnet': 'MAINNET',
-  'mainnet-1': 'MAINNET',
+  'mainnet': 'Kaspa',
+  'mainnet-1': 'Kaspa',
 };
 
 function getDevStorageKey(net) {
@@ -528,10 +526,10 @@ function DevConnectPanelBase({ onConnect, compact = false, network }) {
       <div className={`rounded-xl border border-kaspa-green/20 bg-kaspa-green/[0.04] light:border-kaspa-green/40 light:bg-kaspa-green/[0.06] ${compact ? 'p-4' : 'p-5'}`} data-covex="dev-connect-panel">
         <div className="flex items-center gap-2 mb-2">
           <span className="text-xs font-semibold text-white light:text-slate-900">Connect your wallet to continue</span>
-          <span className="ml-auto inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-red-300 light:text-red-600 bg-red-500/10 light:bg-red-50 border border-red-500/25 light:border-red-200 px-1.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Mainnet</span>
+          <span className="ml-auto inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wide text-red-300 light:text-red-600 bg-red-500/10 light:bg-red-50 border border-red-500/25 light:border-red-200 px-1.5 py-0.5 rounded-full"><span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Kaspa</span>
         </div>
         <p className="text-xs text-gray-300 light:text-slate-600 leading-relaxed">
-          Tap <span className="text-kaspa-green font-semibold">Connect Wallet</span> in the top bar to connect a Kaspa wallet extension in one click, or create a brand-new wallet right there. Non-custodial: your keys never leave your wallet, and all mainnet activity uses your own real KAS.
+          Tap <span className="text-kaspa-green font-semibold">Connect Wallet</span> in the top bar to connect a Kaspa wallet extension in one click, or create a brand-new wallet right there. Non-custodial: your keys never leave your wallet, and all activity on Kaspa uses your own real KAS.
         </p>
       </div>
     );

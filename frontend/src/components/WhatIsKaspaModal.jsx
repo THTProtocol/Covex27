@@ -59,7 +59,7 @@ const WhatIsKaspa = ({ open, onClose }) => {
           <h3 className="text-xl font-bold text-white mb-5">Core Architecture</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[
-              { title: '10 Blocks Per Second', body: 'Running at 10 BPS on mainnet since the Rust rewrite, making it the fastest Proof-of-Work network on earth.' },
+              { title: '10 Blocks Per Second', body: 'Running at 10 BPS on Kaspa since the Rust rewrite, making it the fastest Proof-of-Work network on earth.' },
               { title: 'BlockDAG Engine', body: 'Multiple blocks are created concurrently and ordered mathematically via the GHOSTDAG consensus protocol.' },
               { title: 'Nakamoto Consensus', body: 'Kaspa retains the exact security assumptions of Bitcoin. No pre-mine, 100% fair launch.' },
               { title: 'kHeavyHash PoW', body: 'ASIC-resistant, optical-miner friendly algorithm that prevents centralized mining dominance.' },
@@ -98,15 +98,15 @@ const WhatIsKaspa = ({ open, onClose }) => {
           </div>
         </section>
 
-        {/* Explore the mainnet */}
+        {/* Explore Kaspa */}
         <section>
-          <h3 className="text-xl font-bold text-white mb-5">Explore the Mainnet</h3>
+          <h3 className="text-xl font-bold text-white mb-5">Explore Kaspa</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             {[
-              { title: 'Kaspa Mainnet Explorer', subtitle: 'Browse blocks, transactions, and addresses on kaspa.stream', href: 'https://kaspa.stream' },
+              { title: 'Kaspa Explorer', subtitle: 'Browse blocks, transactions, and addresses on kaspa.stream', href: 'https://kaspa.stream' },
               { title: 'Kaspa Official Site', subtitle: 'kaspa.org: the project home, wallets, and getting started', href: 'https://kaspa.org' },
               { title: 'Covex Explorer', subtitle: 'Every covenant on Kaspa, indexed and verifiable here', href: '/' },
-              { title: 'Rusty Kaspa Node', subtitle: 'Run your own mainnet node and verify the chain yourself', href: 'https://github.com/kaspanet/rusty-kaspa' },
+              { title: 'Rusty Kaspa Node', subtitle: 'Run your own node and verify the chain yourself', href: 'https://github.com/kaspanet/rusty-kaspa' },
             ].map(p => (
               <a
                 key={p.title}

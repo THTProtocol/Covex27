@@ -33,21 +33,15 @@ const KINDS = [
 ];
 
 // Single-signer primitives that deploy fully non-custodially (the key signs the funding tx in
-// the browser) and are therefore mainnet-capable, gated only by the Toccata hard fork. Kept in
-// sync with the mainnet banner copy and the per-tile "Mainnet-ready" chip.
+// the browser) and are therefore live on Kaspa today. Kept in sync with the live banner copy and
+// the per-tile "Live on Kaspa" chip.
 const MAINNET_CAPABLE_KINDS = ['singlesig', 'hashlock', 'timelock', 'relative_timelock'];
-
-// The Toccata covenant hard fork activates on Kaspa mainnet at this DAA score. Mirrors
-// ToccataStatus.jsx so the mainnet banner / "Mainnet-ready" chip copy can self-heal: the
-// "gated until the fork" wording must become a "live" wording the moment the chain crosses it,
-// with no manual edit. (See the live-tip read in the component below.)
-const TOCCATA_DAA = 474165565;
 
 // Catalog kinds the backend gates behind a feature flag and refuses to deploy until their
 // on-chain e2e is proven (KIP-10 output-binding: COVEX_KIP10_BOUND_ENABLED; KIP-16 on-chain ZK
 // settle: KASPA_ZK_PRECOMPILE_ENABLED). They are NOT in the KINDS picker today, so no tile here
 // fails; this set + isGatedKind() exist so that if any of them is ever surfaced as a deploy tile
-// it is shown disabled with a "Gated / testnet-only" badge rather than as a deployable tile that
+// it is shown disabled with a "Gated" badge rather than as a deployable tile that
 // errors. TODO: when /api/covenant/catalog exposes a per-entry `available`/`gated` flag, drive
 // this off that flag instead of hardcoded kind names (the source of truth is the backend gate).
 // Exported for tests so the gate the deploy() guard and the tile-disable both depend on is
@@ -151,15 +145,6 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   const [balLoading, setBalLoading] = useState(false);
   const [lockBlocks, setLockBlocks] = useState('100');
   const [tipDaa, setTipDaa] = useState(null);
-  // Live mainnet DAA tip the Covex node sees, read from /api/status node_sync.mainnet.tip_daa.
-  // This is INDEPENDENT of the selected network (tipDaa above tracks `net`, which may be a
-  // testnet). It drives the fork-aware launch copy: while it is below TOCCATA_DAA the mainnet
-  // banner / "Mainnet-ready" chip say "gated until the fork"; once the chain crosses it they
-  // switch to a "live" wording, with no manual edit. null = no live read yet (honest fallback).
-  const [mainnetTip, setMainnetTip] = useState(null);
-  // True once the live mainnet tip has crossed the Toccata activation DAA. Until there is a live
-  // read it stays false, so the copy defaults to the truthful pre-fork "gated" wording.
-  const toccataActivated = mainnetTip != null && mainnetTip >= TOCCATA_DAA;
   // Extra params for the advanced primitives.
   const [relSeq, setRelSeq] = useState('10');   // relative_timelock min_sequence (BIP68 relative blocks)
   const [reqNow, setReqNow] = useState('2');     // timedecay quorum now
@@ -235,26 +220,8 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
     fetch('/api/status').then((r) => r.json()).then((j) => {
       const n = j.node_sync && j.node_sync[net];
       if (n && n.tip_daa) setTipDaa(n.tip_daa);
-      // Track the live MAINNET tip too (independent of `net`) so the launch copy is fork-aware.
-      const mn = j.node_sync && j.node_sync.mainnet;
-      const mt = Number(mn?.tip_daa || 0);
-      if (mt > 0) setMainnetTip(mt);
     }).catch(() => {});
   }, [net]);
-
-  // Re-read the live mainnet tip on an interval so the fork-aware launch copy flips from "gated"
-  // to "live" within the session the moment the chain crosses the Toccata activation DAA, with no
-  // reload and no manual edit (mirrors ToccataStatus.jsx). Best-effort: failures keep the last read.
-  useEffect(() => {
-    if (!isMainnet || toccataActivated) return; // once live we never need to re-check
-    const id = setInterval(() => {
-      fetch('/api/status').then((r) => (r.ok ? r.json() : null)).then((j) => {
-        const mt = Number(j?.node_sync?.mainnet?.tip_daa || 0);
-        if (mt > 0) setMainnetTip(mt);
-      }).catch(() => {});
-    }, 60000);
-    return () => clearInterval(id);
-  }, [isMainnet, toccataActivated]);
 
   // Redeem hand-off: a covenant detail page sets sessionStorage['redeem_covenant'] with the
   // covenant's redeem script + outpoint, then routes here so the user can spend it with their key.
@@ -355,10 +322,11 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   // creator-set economics.
   async function createMarket() {
     setError(null);
-    // MAINNET DEAD-END GUARD: a parimutuel market can be created as a DB anchor on mainnet but
-    // can never be funded (matching + payout run on a testnet-only dev-escrow), so refuse up
-    // front rather than create a market that silently never funds. Honest, fail-closed.
-    if (isMainnet) { setError('Conditional-outcome covenants are testnet-only for now: matching and payout run on a testnet escrow, so a mainnet one would never fund. Switch to a testnet to create one. Non-custodial mainnet support is coming.'); return; }
+    // LIVE-NETWORK DEAD-END GUARD: a parimutuel market can be created as a DB anchor but can never
+    // be funded on the live network (matching + payout run on a server-assisted dev-escrow that is
+    // disabled there), so refuse up front rather than create a market that silently never funds.
+    // Honest, fail-closed.
+    if (isMainnet) { setError('Conditional-outcome covenants cannot fund on the live Kaspa network yet: matching and payout run on a server-assisted escrow that is disabled there, so one created here would never fund. Non-custodial support for this is coming.'); return; }
     const question = mq.trim();
     if (!question) { setError('Enter a question for the covenant.'); return; }
     if (!address) { setError('Connect a wallet first - it becomes the authorized resolver for this covenant (the settlement reveal is gated to your wallet signature).'); return; }
@@ -400,12 +368,12 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       setError('This covenant kind is gated behind a backend feature flag until its on-chain end-to-end is proven (KIP-10 output-binding / KIP-16 on-chain ZK settle). It is not deployable yet.');
       return;
     }
-    // MAINNET DEAD-END GUARD: the dev-wallet kinds (multisig/htlc/channel/deadman/timedecay/
-    // oracle_*/binary_oracle_select) deploy via use_dev_mode, which the backend rejects on
-    // mainnet. Refuse here too so a programmatic deploy can never hit that server error; the
-    // tiles are already disabled on mainnet, this is defense in depth. Single-signer kinds pass.
+    // LIVE-NETWORK DEAD-END GUARD: the dev-wallet kinds (multisig/htlc/channel/deadman/timedecay/
+    // oracle_*/binary_oracle_select) deploy via use_dev_mode, which the backend rejects on the
+    // live network. Refuse here too so a programmatic deploy can never hit that server error; the
+    // tiles are already disabled, this is defense in depth. Single-signer kinds pass.
     if (isMainnet && usesDevWallets) {
-      setError('This primitive is testnet-only for now: it deploys through the server-assisted dev-wallet path, which is disabled on mainnet. Use a single-key, hashlock, timelock, or relative-timelock covenant (those deploy non-custodially on mainnet), or switch to a testnet. Non-custodial mainnet deploys for the other primitives are coming.');
+      setError('This primitive routes through the server-assisted dev-wallet path, which is disabled on the live Kaspa network, so it cannot deploy with real funds yet. Use a single-key, hashlock, timelock, or relative-timelock covenant (those deploy non-custodially on Kaspa). Non-custodial deploys for the other primitives are coming.');
       return;
     }
     const stakeKas = parseFloat(stake);
@@ -712,11 +680,11 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
         // supplied; fall through to the server-assisted path rather than signing nothing.
       }
       // TRUSTLESS GUARANTEE: the server-assisted fallback below would post private_key_hex.
-      // On mainnet a generated/imported wallet's key must NEVER leave the device, so the
+      // On the live network a generated/imported wallet's key must NEVER leave the device, so the
       // fallback is refused here (only the non-custodial local-signing path above is allowed;
       // for covenant types it doesn't cover, redeem with a wallet extension).
       if (isMainnetNetwork(net) && !c.dev) {
-        setError('Your key never leaves this device. This covenant type cannot be redeemed non-custodially yet on mainnet; redeem a single-key / hashlock / timelock / relative-timelock / multisig / htlc / channel covenant (which sign locally), or use a wallet extension.');
+        setError('Your key never leaves this device. This covenant type cannot be redeemed non-custodially yet on Kaspa; redeem a single-key / hashlock / timelock / relative-timelock / multisig / htlc / channel covenant (which sign locally), or use a wallet extension.');
         setRecoverTx(c.tx);
         return;
       }
@@ -882,19 +850,17 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
       )}
 
       {!effectiveEmbedded && isMainnet && (
-        <div className="relative z-10 glass-panel p-4 border-amber-500/30 bg-amber-500/[0.05]">
-          <p className="text-sm text-amber-200">
-            You are on mainnet. Single-key, hashlock, timelock, and relative-timelock (CSV) covenants deploy non-custodially here:
+        <div className="relative z-10 glass-panel p-4 border-emerald-500/30 bg-emerald-500/[0.05]">
+          <p className="text-sm text-emerald-200">
+            Covenants are live on Kaspa. Single-key, hashlock, timelock, and relative-timelock (CSV) covenants deploy non-custodially here:
             connect the key that holds the funds and it signs the funding transaction in your browser - the key is never sent.
-            {toccataActivated
-              ? ' Toccata has activated on Kaspa mainnet, so these covenants are live; deploys still require the owner to have flipped the mainnet covenant gate.'
-              : ' Mainnet covenants activate at the Toccata hard fork, so the deploy stays gated until the chain crosses the activation score.'}
+            Deploys still require the owner to have enabled the covenant gate.
           </p>
-          <p className="mt-2 text-[12px] text-amber-200/80 leading-snug">
+          <p className="mt-2 text-[12px] text-emerald-200/80 leading-snug">
             The other primitives (multisig, HTLC, channel, dead-man, time-decaying multisig, resolver-enforced/escrow) deploy through the
-            server-assisted dev-wallet path, which is disabled on mainnet, so their tiles are testnet-only for now. Conditional-outcome
-            covenants are testnet-only too: one can be created as a record, but matching and payout run on a testnet-only escrow, so a mainnet
-            one would never fund. Non-custodial mainnet deploys for these are coming.
+            server-assisted dev-wallet path, which is disabled on the live network, so they cannot deploy with real funds yet. Conditional-outcome
+            covenants are the same: one can be created as a record, but matching and payout run on a server-assisted escrow that is disabled there,
+            so one created here would never fund. Non-custodial deploys for these are coming.
           </p>
         </div>
       )}
@@ -913,13 +879,13 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           // Backend-gated kinds (KIP-10 output-binding / KIP-16 on-chain ZK settle) are refused by
           // the backend until their e2e is proven, so never offer them as a deployable tile.
           const gated = isGatedKind(k.id);
-          // MAINNET DEAD-END GUARD: on mainnet, only the non-custodial single-signer kinds can
-          // actually deploy. The dev-wallet kinds (multisig/htlc/channel/deadman/timedecay/
-          // oracle_*/binary_oracle_select) route through use_dev_mode, which the backend rejects
-          // on mainnet ("dev mode is disabled on mainnet"); the parimutuel market can be created
-          // as a DB anchor but can never be funded (the matcher is testnet dev-escrow only). So
-          // rather than render an advertised tile that errors on deploy, disable it on mainnet
-          // with an honest note. Testnets keep every tile. Gated kinds are disabled on every network.
+          // LIVE-NETWORK DEAD-END GUARD: on the live network, only the non-custodial single-signer
+          // kinds can actually deploy. The dev-wallet kinds (multisig/htlc/channel/deadman/timedecay/
+          // oracle_*/binary_oracle_select) route through use_dev_mode, which the backend rejects on
+          // the live network ("dev mode is disabled"); the parimutuel market can be created as a DB
+          // anchor but can never be funded (the matcher is server-assisted dev-escrow only). So
+          // rather than render an advertised tile that errors on deploy, disable it with an honest
+          // note. Gated kinds are disabled on every network.
           const mainnetUnavailable = (isMainnet && !isMainnetCapable) || gated;
           return (
             <button
@@ -927,7 +893,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
               onClick={() => { if (!mainnetUnavailable) setKind(k.id); }}
               aria-pressed={active}
               disabled={mainnetUnavailable}
-              title={mainnetUnavailable ? 'Available on testnet. Non-custodial mainnet deploy for this primitive is coming; on mainnet it would route through the server-assisted dev-wallet path, which is disabled there.' : undefined}
+              title={mainnetUnavailable ? 'Routes through the server-assisted dev-wallet path, which is disabled on the live Kaspa network, so it cannot deploy with real funds yet. Non-custodial support for this primitive is coming.' : undefined}
               className={`hover-lift group relative overflow-hidden text-left p-4 rounded-xl border transition-all ${
                 mainnetUnavailable
                   ? 'border-white/[0.06] bg-white/[0.01] opacity-55 cursor-not-allowed light:border-slate-200 light:bg-slate-50'
@@ -956,14 +922,14 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
                     title="Gated behind a backend feature flag until its on-chain end-to-end is proven (KIP-10 output-binding / KIP-16 on-chain ZK settle). Not deployable yet."
                     className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-500/40 bg-slate-500/15 text-slate-300 text-[10px] font-bold uppercase tracking-wider light:border-slate-300 light:bg-slate-200 light:text-slate-600"
                   >
-                    <span className="h-1 w-1 rounded-full bg-slate-400" aria-hidden="true" /> Gated / testnet-only
+                    <span className="h-1 w-1 rounded-full bg-slate-400" aria-hidden="true" /> Gated
                   </span>
                 ) : mainnetUnavailable ? (
                   <span
-                    title="Available on testnet. Non-custodial mainnet deploy for this primitive is coming."
+                    title="Routes through the server-assisted dev-wallet path, which is disabled on the live Kaspa network, so it cannot deploy with real funds yet. Non-custodial support for this primitive is coming."
                     className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-500/40 bg-slate-500/15 text-slate-300 text-[10px] font-bold uppercase tracking-wider light:border-slate-300 light:bg-slate-200 light:text-slate-600"
                   >
-                    <span className="h-1 w-1 rounded-full bg-slate-400" aria-hidden="true" /> Testnet only
+                    <span className="h-1 w-1 rounded-full bg-slate-400" aria-hidden="true" /> Not yet on Kaspa
                   </span>
                 ) : isDevWalletKind ? (
                   <span
@@ -974,12 +940,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
                   </span>
                 ) : isMainnetCapable ? (
                   <span
-                    title={toccataActivated
-                      ? 'Non-custodial: your key signs the funding transaction in your browser. Live on mainnet now that Toccata has activated (deploys still need the owner to have flipped the mainnet covenant gate).'
-                      : 'Non-custodial: your key signs the funding transaction in your browser. Deployable on mainnet once Toccata activates (gated until the chain crosses the activation score).'}
+                    title="Non-custodial: your key signs the funding transaction in your browser. Live on Kaspa (deploys still need the owner to have enabled the covenant gate)."
                     className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-emerald-500/40 bg-emerald-500/15 text-emerald-300 text-[10px] font-bold uppercase tracking-wider"
                   >
-                    <span className="h-1 w-1 rounded-full bg-emerald-400" aria-hidden="true" /> Mainnet-ready
+                    <span className="h-1 w-1 rounded-full bg-emerald-400" aria-hidden="true" /> Live on Kaspa
                   </span>
                 ) : null}
               </div>
@@ -1166,10 +1130,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           <p className="text-[11px] text-gray-400 light:text-slate-600">Demo dead-man's switch: the owner (dev wallet 1) can spend any time; the heir (dev wallet 2) can claim only after the timelock above, so funds pass on if the owner goes silent.</p>
         )}
         {kind === 'oracle_enforced' && (
-          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-of-2 of the resolver and the winner (dev wallet 1). The chain requires the resolver co-signature, and the resolver co-signs only the declared outcome. This kind uses the default engine-results resolver (deterministic move-log replay; engine results only). Binding your own external resolver needs a refundable kind (external cosign is not wired yet), so the funder can reclaim if the resolver does not act. Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at the Toccata hard fork.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-of-2 of the resolver and the winner (dev wallet 1). The chain requires the resolver co-signature, and the resolver co-signs only the declared outcome. This kind uses the default engine-results resolver (deterministic move-log replay; engine results only). Binding your own external resolver needs a refundable kind (external cosign is not wired yet), so the funder can reclaim if the resolver does not act. Covex never attests real-world facts. Server-assisted demo; the non-custodial resolver covenant for the live Kaspa network is coming.</p>
         )}
         {kind === 'oracle_escrow' && (
-          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-player pot of the dev wallets that the chain releases only to the resolver-declared winner: it needs the resolver co-signature plus the winning player on their branch. This kind uses the default engine-results resolver. Binding your own external resolver needs a refundable kind (external cosign is not wired yet), so the funder can reclaim if the resolver does not act. Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at Toccata.</p>
+          <p className="text-[11px] text-gray-400 light:text-slate-600">A 2-player pot of the dev wallets that the chain releases only to the resolver-declared winner: it needs the resolver co-signature plus the winning player on their branch. This kind uses the default engine-results resolver. Binding your own external resolver needs a refundable kind (external cosign is not wired yet), so the funder can reclaim if the resolver does not act. Covex never attests real-world facts. Server-assisted demo; the non-custodial resolver covenant for the live Kaspa network is coming.</p>
         )}
         {/* Refundable oracle kinds: the SAFER form. The CSV refund branch lets the funder reclaim
             if the resolver goes silent, which is exactly why binding YOUR OWN external resolver is
@@ -1179,8 +1143,8 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           <div className="space-y-3">
             <p className="text-[11px] text-gray-400 light:text-slate-600 leading-snug">
               {kind === 'oracle_enforced_refundable'
-                ? 'A 2-of-2 of the resolver and the winner (dev wallet 1), wrapped with a relative-timelock (CSV) refund branch. The chain requires the resolver co-signature to pay the winner; if the resolver never acts, the funder reclaims the stake after the refund delay below. Because the funder always keeps that fallback, you may bind your own external resolver. Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at the Toccata hard fork.'
-                : 'A 2-player pot of the dev wallets the chain releases only to the resolver-declared winner, wrapped with a relative-timelock (CSV) refund branch. If the resolver never co-signs, the funder reclaims the pot after the refund delay below. Because the funder always keeps that fallback, you may bind your own external resolver. Covex never attests real-world facts. Server-assisted demo; resolver covenants activate on mainnet at Toccata.'}
+                ? 'A 2-of-2 of the resolver and the winner (dev wallet 1), wrapped with a relative-timelock (CSV) refund branch. The chain requires the resolver co-signature to pay the winner; if the resolver never acts, the funder reclaims the stake after the refund delay below. Because the funder always keeps that fallback, you may bind your own external resolver. Covex never attests real-world facts. Server-assisted demo; the non-custodial resolver covenant for the live Kaspa network is coming.'
+                : 'A 2-player pot of the dev wallets the chain releases only to the resolver-declared winner, wrapped with a relative-timelock (CSV) refund branch. If the resolver never co-signs, the funder reclaims the pot after the refund delay below. Because the funder always keeps that fallback, you may bind your own external resolver. Covex never attests real-world facts. Server-assisted demo; the non-custodial resolver covenant for the live Kaspa network is coming.'}
             </p>
             <div className="space-y-1">
               <label className="text-[11px] font-medium text-gray-300 light:text-slate-700">Refund age (relative blocks)</label>
@@ -1291,17 +1255,17 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
                 {walletMeta?.name || 'This wallet'} is connected but cannot sign this covenant here: {covenantSignReason}
               </p>
             )}
-            {/* Advanced (testnet): the raw-key dev path is a fallback for testnet covenant
-                testing and offline recovery. Tucked behind a disclosure so the wallet popup is
-                the obvious primary path. */}
+            {/* Advanced: the raw-key path is a fallback for covenant testing and offline
+                recovery. Tucked behind a disclosure so the wallet popup is the obvious primary
+                path. */}
             <details className="group rounded-lg border border-white/[0.06] bg-black/20 light:border-slate-200 light:bg-white">
               <summary className="cursor-pointer list-none px-3 py-2 text-[12px] font-semibold text-gray-400 light:text-slate-600 flex items-center justify-between">
-                <span>Advanced (testnet): sign with a raw key</span>
+                <span>Advanced: sign with a raw key</span>
                 <span className="text-gray-600 light:text-slate-400 group-open:rotate-180 transition-transform">▾</span>
               </summary>
               <div className="px-3 pb-3">
                 <p className="text-[11px] text-gray-500 light:text-slate-500 mb-2 leading-snug">
-                  Derive a key locally from a mnemonic or hex key for testnet covenant testing and offline recovery. The key never leaves your browser. Prefer a wallet popup above for real funds.
+                  Derive a key locally from a mnemonic or hex key for covenant testing and offline recovery. The key never leaves your browser. Prefer a wallet popup above for real funds.
                 </p>
                 <DevConnectPanel compact />
               </div>

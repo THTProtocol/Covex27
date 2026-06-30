@@ -8,8 +8,8 @@
 // Honesty is load-bearing here. The enforcement-reality vocabulary is exact:
 // on-chain (chain enforces, no Covex key in path), oracle-attested (a deployer-bound
 // external resolver co-signature required), full-zk (real Groth16; the circom suite is
-// verified off-chain by you/the counterparty/any external resolver, while Toccata KIP-16
-// adds a separate on-chain ZK path that stays testnet-gated until proven live),
+// verified off-chain by you/the counterparty/any external resolver, while KIP-16
+// adds a separate on-chain ZK path that stays gated until proven live on Kaspa),
 // metadata (display only). No overclaims. Covex never attests real-world facts.
 //
 // The route (/about) and nav are wired by the orchestrator, not here.
@@ -42,7 +42,7 @@ const REALITY = {
   'full-zk': {
     label: 'full-zk',
     variant: 'full-zk',
-    note: 'A real Groth16 proof, verified off-chain by you, the counterparty, or any external resolver you choose or run (never Covex). The four self-contained circuits verify off-chain too and still need that resolver co-signature to release funds, so they are not trustless end to end. Toccata KIP-16 adds a separate on-chain ZK path, testnet-gated until proven live.',
+    note: 'A real Groth16 proof, verified off-chain by you, the counterparty, or any external resolver you choose or run (never Covex). The four self-contained circuits verify off-chain too and still need that resolver co-signature to release funds, so they are not trustless end to end. KIP-16 adds a separate on-chain ZK path, gated until proven live on Kaspa.',
   },
   metadata: {
     label: 'metadata',
@@ -121,7 +121,7 @@ const EXAMPLES = [
     icon: Gamepad2,
     name: 'Two-party covenant',
     kind: 'oracle-attested',
-    body: 'Two parties stake into a covenant and the result is decided from a publicly-replayable signed log. On testnet today, settlement happens when Covex re-derives the result and co-signs the payout; Covex does not decide it, and the chain still requires the winning party to add their own signature. The chain-enforced, no-Covex-key path is rolling out.',
+    body: 'Two parties stake into a covenant and the result is decided from a publicly-replayable signed log. Today, settlement happens when Covex re-derives the result and co-signs the payout; Covex does not decide it, and the chain still requires the winning party to add their own signature. The chain-enforced, no-Covex-key path is rolling out.',
   },
   {
     icon: Boxes,
@@ -140,10 +140,10 @@ const BUILD_STEPS = [
 ];
 
 const TRUST_ROWS = [
-  { icon: KeyRound, title: 'Keys never leave the browser', body: 'Wallet generation happens client-side; the private key is never transmitted to the server. On mainnet a key is never displayed or transmitted.' },
+  { icon: KeyRound, title: 'Keys never leave the browser', body: 'Wallet generation happens client-side; the private key is never transmitted to the server. On Kaspa a key is never displayed or transmitted.' },
   { icon: Eye, title: 'Covex holds no funds', body: 'It reads UTXOs and verifies payments on-chain. Every value-moving action is signed by your own wallet. It cannot move your funds.' },
   { icon: Network, title: 'Destination derived on-chain', body: 'A creator-placed button derives its destination and script hash server-side from the indexed covenant record, never from the button payload. A creator cannot redirect your funds.' },
-  { icon: Cpu, title: 'The resolver fails closed', body: 'Real-world-fact attestation comes from an external resolver you choose or run: Covex never holds the key that attests a real-world fact, and mainnet oracle covenants are frozen. A bad proof or a missing key means it refuses to sign. full-zk circom circuits verify a real Groth16 proof off-chain; that is honest cryptography. The one exception is the deterministic games-replay path on testnet, where a Covex-held key co-signs only a result anyone can recompute from the signed move log. Toccata KIP-16 adds a separate on-chain proof-checking path that stays testnet-gated until proven live. Covex operates no oracle for real-value settlement.' },
+  { icon: Cpu, title: 'The resolver fails closed', body: 'Real-world-fact attestation comes from an external resolver you choose or run: Covex never holds the key that attests a real-world fact, and oracle covenants on Kaspa are frozen. A bad proof or a missing key means it refuses to sign. full-zk circom circuits verify a real Groth16 proof off-chain; that is honest cryptography. The one exception is the deterministic games-replay path, where a Covex-held key co-signs only a result anyone can recompute from the signed move log. KIP-16 adds a separate on-chain proof-checking path that stays gated until proven live on Kaspa. Covex operates no oracle for real-value settlement.' },
 ];
 
 export default function AboutPage() {
@@ -176,7 +176,7 @@ export default function AboutPage() {
           className="mb-16 sm:mb-20 text-center"
         >
           <motion.div variants={rise} className="kicker mb-4 light:text-slate-500">
-            Built for the Toccata mainnet era
+            Covenants are live on Kaspa
           </motion.div>
           <motion.h1
             variants={rise}
@@ -189,7 +189,7 @@ export default function AboutPage() {
             variants={rise}
             className="mt-6 text-lg sm:text-xl text-gray-300 light:text-slate-600 leading-relaxed max-w-3xl mx-auto"
           >
-            Covex is the covenant explorer and studio for Kaspa mainnet. Index every covenant,
+            Covex is the covenant explorer and studio for Kaspa. Index every covenant,
             interact with any of them from your own wallet, and design the beautiful interactive websites that
             other people use to act on them. On-chain custody, honestly labeled resolution, and
             your wallet in the path of every value-moving action.
@@ -220,7 +220,7 @@ export default function AboutPage() {
           <p className="text-gray-300 light:text-slate-600 leading-relaxed max-w-3xl mb-8">
             A covenant is a script program embedded in a Kaspa UTXO that constrains how that UTXO may
             be spent: escrows, vaults, vesting, fundraisers, multisig, atomic swaps, conditional
-            payments, custom logic, and more. With Toccata they become a first-class L1 smart-contract
+            payments, custom logic, and more. On Kaspa they are a first-class L1 smart-contract
             surface. Covex gives that surface a human layer.
           </p>
           <motion.div
@@ -382,15 +382,14 @@ export default function AboutPage() {
           </Card>
         </Section>
 
-        {/* ── Mainnet honesty note ─────────────────────────────── */}
-        <Section title="Mainnet status" kicker="No placeholder data, ever">
+        {/* ── Live honesty note ────────────────────────────────── */}
+        <Section title="Live on Kaspa" kicker="No placeholder data, ever">
           <Card className="p-6 sm:p-8">
             <p className="text-gray-300 light:text-slate-600 leading-relaxed">
-              Covex is built for Kaspa mainnet. Native covenants arrive with the Toccata hard fork on
-              30 June 2026. The covenant indexer is armed behind the honesty gate today and the
-              mainnet node is being synced ahead of launch. The mainnet explorer is intentionally
-              empty until the first real covenant lands. Nothing is seeded, simulated, or projected.
-              A zero is the correct, expected reading.
+              Native covenants are live on Kaspa, and Covex indexes them as they land. Every number,
+              covenant, and balance you see here is read straight from the chain. Nothing is seeded,
+              simulated, or projected. When a view is empty, that is the real, honest reading, not a
+              placeholder.
             </p>
           </Card>
         </Section>

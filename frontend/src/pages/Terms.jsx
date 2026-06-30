@@ -69,7 +69,7 @@ export default function Terms() {
           <ul className="list-disc list-inside space-y-2 pl-2 text-gray-200 light:text-slate-700">
             <li>Does not create, modify, or control any on-chain covenant.</li>
             <li>Indexes covenant UTXOs via a direct connection to a Kaspa node.</li>
-            <li>Labels each covenant's enforcement reality honestly (on-chain script-enforced, resolver-attested, or metadata-only) and never implies more enforcement than the chain provides. Zero-knowledge proofs in the circom suite, where used, are verified off-chain by you, the counterparty, or any external resolver, and only that resolver's Schnorr co-signature is checked on-chain. Toccata's KIP-16 verification opcode adds a separate on-chain proof-checking path that stays testnet-gated until proven live on mainnet.</li>
+            <li>Labels each covenant's enforcement reality honestly (on-chain script-enforced, resolver-attested, or metadata-only) and never implies more enforcement than the chain provides. Zero-knowledge proofs in the circom suite, where used, are verified off-chain by you, the counterparty, or any external resolver, and only that resolver's Schnorr co-signature is checked on-chain. KIP-16's verification opcode adds a separate on-chain proof-checking path that stays gated until proven live on Kaspa.</li>
             <li>Generates optional interactive interfaces for paid users; these are display layers only and do not change on-chain logic.</li>
           </ul>
         </section>
@@ -89,7 +89,7 @@ export default function Terms() {
             custodies the stake. Funds are released by Kaspa consensus to the recipient the script
             determines. Where a real-value covenant's outcome depends on an attested result, the
             consensus-required co-signature comes from an external resolver that the covenant's
-            deployer binds by public key: <strong className="text-white light:text-slate-900">Covex never holds the key that attests a real-world fact, and mainnet oracle covenants are frozen</strong>. The only Covex-held co-sign key is on the deterministic games-replay path on testnet, where it co-signs only a result anyone can recompute from the signed move log. Covex operates no oracle
+            deployer binds by public key: <strong className="text-white light:text-slate-900">Covex never holds the key that attests a real-world fact, and oracle covenants on Kaspa are frozen</strong>. The only Covex-held co-sign key is on the deterministic, simulated games-replay path, where it co-signs only a result anyone can recompute from the signed move log. Covex operates no oracle
             for real-value settlement.
           </p>
         </section>
@@ -117,14 +117,13 @@ export default function Terms() {
           </ul>
         </section>
 
-        {/* 7. Experimental software, mainnet real value, assumption of risk */}
+        {/* 7. Experimental software, real value, assumption of risk */}
         <section className="space-y-3">
-          <h2 className="text-base font-semibold text-white light:text-slate-900">7. Experimental Software, Mainnet Launch, and Assumption of Risk</h2>
+          <h2 className="text-base font-semibold text-white light:text-slate-900">7. Experimental Software, Real Value, and Assumption of Risk</h2>
           <p>
-            Covex and Kaspa covenant tooling are <strong className="text-white light:text-slate-900">experimental and under active development</strong>. Full
-            scriptable covenants on Kaspa mainnet depend on the Toccata upgrade, scheduled to activate on
-            <strong className="text-white light:text-slate-900"> 30 June 2026</strong>. From that activation Covex operates on Kaspa
-            <strong className="text-white light:text-slate-900"> mainnet with real KAS of real monetary value</strong>: covenants you fund, stake, or
+            Covex and Kaspa covenant tooling are <strong className="text-white light:text-slate-900">experimental and under active development</strong>. Covenants are
+            live on Kaspa, and Covex operates on Kaspa
+            <strong className="text-white light:text-slate-900"> with real KAS of real monetary value</strong>: covenants you fund, stake, or
             interact with put real funds at risk. The SilverScript language, the zero-knowledge circuits, and the
             trusted-setup ceremonies remain pre-production: the current ZK trusted setup is a single-contributor
             development ceremony, not an independent multi-party ceremony, and circom proofs are verified off-chain by

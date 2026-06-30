@@ -17,7 +17,7 @@ import TransparencyModal from './TransparencyModal';
  * and these two primitives are the source of truth all other surfaces import
  * from (puckConfig's EnforcementBadge, Explorer cards, Sandbox panels).
  *   on-chain   = emerald  (Kaspa consensus enforces - strongest signal)
- *   on-chain-zk= teal     (KIP-16 zk_game_settle: Groth16 verified ON-CHAIN by consensus; testnet-gated)
+ *   on-chain-zk= teal     (KIP-16 zk_game_settle: Groth16 verified ON-CHAIN by consensus; gated until proven on Covex prover infra)
  *   hybrid     = sky      (script + external resolver input)
  *   oracle     = amber    (external resolver signature, not chain-gated)
  *   full-zk    = violet   (real Groth16 proof verified OFF-CHAIN, gating a 2-of-2 cosign + CSV timeout)
@@ -67,13 +67,13 @@ function fullZkInfo() {
 
 // The KIP-16 on-chain-ZK tier (zk_game_settle). Distinct from full-zk: the Groth16 proof is
 // verified ON-CHAIN by Kaspa consensus via OpZkPrecompile (0xa6), with no oracle and no
-// co-signature in the payout, so a loser cannot forge a win. TESTNET / Toccata gated: the
-// opcode is not live on Kaspa mainnet yet, so the copy is always scoped to testnet.
+// co-signature in the payout, so a loser cannot forge a win. Covex keeps this path GATED until it
+// is proven on its own prover infrastructure, so the copy never reads as a live guarantee.
 function onChainZkInfo() {
   return {
     kind: 'onchainzk',
     label: 'On-chain ZK (KIP-16)',
-    desc: 'On-chain ZK (KIP-16): Groth16 verified by Kaspa consensus; no oracle or co-sign in payout. Testnet-gated until proven live.',
+    desc: 'On-chain ZK (KIP-16): Groth16 verified by Kaspa consensus; no oracle or co-sign in payout. Gated until proven live on Covex prover infrastructure.',
   };
 }
 

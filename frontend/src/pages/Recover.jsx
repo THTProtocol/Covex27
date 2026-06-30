@@ -24,6 +24,9 @@ const normNetwork = (n) => (n === 'mainnet-1' ? 'mainnet' : (n || 'mainnet'));
 // Mainnet GATE: prefix-based (shared isMainnet) so any 'mainnet-*' suffix is caught, not just
 // the exact 'mainnet'/'mainnet-1' normNetwork knows. normNetwork stays for the broadcast API map.
 const isMainnetNet = (n) => isMainnet(n);
+// User-facing network label. To a user there is just Kaspa, so the live network reads "Kaspa";
+// any non-mainnet value (a developer recovering a testnet covenant) is shown verbatim.
+const networkLabel = (n) => (isMainnet(n) ? 'Kaspa' : String(n || ''));
 
 // Default per-network fee in sompi (the SOLE output value is utxo.amount - fee, derived in buildUnsignedSpend).
 const DEFAULT_FEE_SOMPI = 2000n;
@@ -358,7 +361,7 @@ export function ClaimFlow({ kit, utxos }) {
             <p className="text-[11px] text-amber-300/90 mt-1.5 flex items-start gap-1.5">
               <AlertTriangle size={12} className="shrink-0 mt-0.5" />
               {mainnet
-                ? 'Mainnet: pasting a private key carries real risk. It is used ONLY to sign locally in this tab, is never transmitted, and is cleared after. Prefer the offline cold-recovery tool on an air-gapped machine.'
+                ? 'Pasting a private key carries real risk. It is used ONLY to sign locally in this tab, is never transmitted, and is cleared after. Prefer the offline cold-recovery tool on an air-gapped machine.'
                 : 'Used ONLY to sign locally in this tab. Never transmitted, and cleared after signing.'}
             </p>
           </div>
@@ -421,7 +424,7 @@ export function ClaimFlow({ kit, utxos }) {
       </div>
       {!canBroadcastInBrowser && !oracleNeeded && (
         <p className="text-[11px] text-gray-500 light:text-slate-600 -mt-1.5 leading-relaxed">
-          {kit.network} has no public node a browser can broadcast to. Use <span className="text-gray-300 light:text-slate-600 font-semibold">Sign &amp; export</span> (signed locally, never transmitted) and submit the transaction from a Kaspa node CLI, a block explorer, or the cold-recovery tool below.
+          {networkLabel(kit.network)} has no public node a browser can broadcast to. Use <span className="text-gray-300 light:text-slate-600 font-semibold">Sign &amp; export</span> (signed locally, never transmitted) and submit the transaction from a Kaspa node CLI, a block explorer, or the cold-recovery tool below.
         </p>
       )}
 
@@ -652,7 +655,7 @@ export default function Recover() {
               <div className="rounded-2xl border border-kaspa-green/25 bg-kaspa-green/[0.05] p-4">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] uppercase tracking-wider text-gray-400 light:text-slate-500 mb-1.5">
                   <span className="inline-flex items-center gap-2"><Coins size={13} className="text-kaspa-green" /> Funds locked here</span>
-                  <span className="sm:ml-auto normal-case tracking-normal text-[10px] text-gray-500">via {kit.network} public node, not Covex</span>
+                  <span className="sm:ml-auto normal-case tracking-normal text-[10px] text-gray-500">via {networkLabel(kit.network)} public node, not Covex</span>
                 </div>
                 {bal.loading && <div className="flex items-center gap-2 text-sm text-gray-400"><Loader2 size={14} className="animate-spin text-kaspa-green" /> Checking the chain…</div>}
                 {bal.error && <div className="text-[12px] text-amber-300">{bal.error} You can still verify on the explorer below.</div>}
@@ -689,7 +692,7 @@ export default function Recover() {
             <div className="rounded-2xl border border-white/10 light:border-slate-200 bg-white/[0.02] light:bg-white p-4 space-y-3">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-[10px] font-bold uppercase tracking-widest text-kaspa-green">{kind}</span>
-                {kit.network && <span className="text-[10px] text-gray-500 light:text-slate-600 font-mono">{kit.network}</span>}
+                {kit.network && <span className="text-[10px] text-gray-500 light:text-slate-600 font-mono">{networkLabel(kit.network)}</span>}
               </div>
               <CopyRow label="P2SH address (where the funds are locked)" value={kit.address} />
               <CopyRow label="Redeem script (hex)" value={kit.redeem_script_hex} />

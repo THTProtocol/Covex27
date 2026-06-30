@@ -14,6 +14,9 @@ const NETWORK_DOT_COLOR = {
   'testnet-12':  '#A78BFA',
 };
 const networkDotColor = (n) => NETWORK_DOT_COLOR[n] || '#9CA3AF';
+// User-facing network label. To a user there is just Kaspa, so the live network reads "Kaspa";
+// any non-mainnet value is shown verbatim so the display never lies.
+const networkLabel = (n) => (/^mainnet/i.test(String(n || '')) ? 'Kaspa' : String(n || ''));
 
 /** Public portfolio for any Kaspa address: covenants created, totals, tier mix. */
 export default function AddressPortfolio() {
@@ -57,7 +60,7 @@ export default function AddressPortfolio() {
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
               <p className="text-[11px] text-gray-500 light:text-slate-500 inline-flex items-center gap-1.5">
                 <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: networkDotColor(network) }} aria-hidden="true" />
-                Network: {network}
+                Network: {networkLabel(network)}
               </p>
               <a
                 href={explorerAddressUrl(addr, network)}
@@ -126,7 +129,7 @@ export default function AddressPortfolio() {
           </div>
           <p className="text-[11px] text-gray-500 light:text-slate-500 mt-6 inline-flex flex-wrap items-center justify-center gap-1.5">
             <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ background: networkDotColor(network) }} aria-hidden="true" />
-            <span>Network: {network}. Covenants appear here as soon as the indexer discovers them.</span>
+            <span>Network: {networkLabel(network)}. Covenants appear here as soon as the indexer discovers them.</span>
           </p>
         </div>
       ) : (

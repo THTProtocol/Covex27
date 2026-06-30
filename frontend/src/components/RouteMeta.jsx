@@ -8,7 +8,7 @@ import { useLocation } from 'react-router-dom';
  * Client-side only. This improves browser tab titles and JS-executing crawlers
  * (e.g. Googlebot). Static social unfurls for covenants are served per-id by the
  * backend (GET /og/covenant/:id); the static index.html carries the site-wide
- * defaults for non-JS crawlers. Copy is honesty-disciplined and mainnet-first:
+ * defaults for non-JS crawlers. Copy is honesty-disciplined:
  * nothing here claims on-chain / trustless / ZK-verified beyond what is true, and
  * no em-dashes (the CI byte-gate).
  */
@@ -16,19 +16,19 @@ import { useLocation } from 'react-router-dom';
 const SITE = 'Covex';
 const DEFAULT_TITLE = 'Covex: The Covenant Explorer and Studio for Kaspa';
 const DEFAULT_DESC =
-  'Covex is the covenant explorer and studio for Kaspa mainnet. Index every covenant, interact with any of them, design and verify your own. Non-custodial, real on-chain data only, built for the Toccata mainnet era.';
+  'Covex is the covenant explorer and studio for Kaspa. Index every covenant, interact with any of them, design and verify your own. Non-custodial, real on-chain data only. Covenants are live on Kaspa.';
 
 // Order matters only for prefix routes (those ending in "/"). Exact paths win by ===.
 const ROUTES = [
   { p: '/pricing', t: 'Pricing', d: 'Covex tiers are a flat one-time payment, never a cut of any pot. Explore and interact for free; paid Studio tiers unlock priority placement and the covenant-website builder.' },
   { p: '/about', t: 'About', d: 'What Covex is and is not: neutral, non-custodial covenant infrastructure for Kaspa. No rake, no custody, and it never attests an outcome. Every covenant is labeled by what actually enforces it.' },
-  { p: '/whitepaper', t: 'Whitepaper', d: 'The Covex whitepaper: non-custodial covenants, the enforcement-reality model (on-chain vs oracle-attested vs full-zk), and the trust-by-removal roadmap for Kaspa mainnet.' },
+  { p: '/whitepaper', t: 'Whitepaper', d: 'The Covex whitepaper: non-custodial covenants, the enforcement-reality model (on-chain vs oracle-attested vs full-zk), and the trust-by-removal roadmap on Kaspa.' },
   { p: '/readme', t: 'How It Works', d: 'How Covex works, honestly: index every covenant, redeem any P2SH covenant from your own wallet, and verify the disclosed keys, vkeys, and treasury for yourself.' },
-  { p: '/kaspa', t: 'What is Kaspa', d: 'A primer on Kaspa: the BlockDAG, GHOSTDAG, ten blocks per second, and the Toccata hard fork that brings native covenants to mainnet.' },
+  { p: '/kaspa', t: 'What is Kaspa', d: 'A primer on Kaspa: the BlockDAG, GHOSTDAG, ten blocks per second, and the native covenants that are now live on Kaspa.' },
   { p: '/zk-studio', t: 'ZK Studio', d: 'Prove and verify real Groth16 circuits in your browser. Proofs are verified off-chain, fail-closed; the secret witness never leaves your device.' },
   { p: '/zk', t: 'ZK Circuits', d: 'The Covex ZK circuit registry: real Groth16 circuits proven in-browser, labeled honestly as verified off-chain (the resolver co-signs the payout), not on-chain ZK.' },
   { p: '/templates', t: 'Templates', d: 'Covenant templates on Covex: escrow, vesting, fundraisers, HTLCs, and more, each labeled by what the Kaspa chain actually enforces.' },
-  { p: '/stats', t: 'Stats', d: 'Live Covex network stats: covenants indexed, recent activity, and the honest mainnet count (zero until Toccata activation).' },
+  { p: '/stats', t: 'Stats', d: 'Live Covex network stats: covenants indexed, recent activity, and the honest live count of covenants on Kaspa.' },
   { p: '/treasury', t: 'Treasury', d: 'The Covex treasury and payment history, public and on-chain. Settlement takes zero rake; the only value sink is the flat one-time tier payment.' },
   { p: '/terms', t: 'Terms', d: 'Covex Terms: neutral, non-custodial software. Covex is never the operator, counterparty, or house, attests no outcome, and takes no cut of any settlement.' },
   { p: '/privacy', t: 'Privacy', d: 'Covex privacy: keys never leave your browser, Covex holds no funds, and there is no IP-based geoblocking or sanctions screening. Real on-chain data only.' },

@@ -26,10 +26,15 @@ describe('on-chain-zk tier detection (KIP-16 zk_game_settle)', () => {
     expect(t.kind).toBe('onchainzk');
   });
 
-  it('copy stays testnet-gated (never reads as mainnet-live)', () => {
+  it('copy stays gated (never reads as a shipped live guarantee)', () => {
     const t = trustInfo({ redeem_kind: 'zk_game_settle' });
-    expect(/testnet/i.test(t.desc)).toBe(true);
+    // After the live-on-Kaspa reframe this tier is phrased as "gated until proven live"
+    // (OpZkPrecompile is not live on Kaspa yet) instead of "testnet-gated"; same fail-closed
+    // invariant that it must never read as a shipped live capability.
+    expect(/gated|not yet live|testnet/i.test(t.desc)).toBe(true);
     expect(/no oracle or co-sign/i.test(t.desc)).toBe(true);
+    // Must not assert a positive live guarantee.
+    expect(/live on kaspa( today)?\b/i.test(t.desc.replace(/proven live[^.]*/gi, ''))).toBe(false);
   });
 
   it('a plain off-chain circom covenant still reads full-zk, not on-chain-zk', () => {

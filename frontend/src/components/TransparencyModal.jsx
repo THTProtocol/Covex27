@@ -26,9 +26,9 @@ const REALITY_UI = {
   'on-chain': { name: 'On-chain enforced', accent: '#34d399', textCls: 'text-emerald-300 light:text-emerald-700', Icon: ShieldCheck,
     what: 'Kaspa consensus enforces the spend condition. The funds are locked to a P2SH script and only a redeem script that hashes to the on-chain commitment can move them. No resolver, no trust in Covex.' },
   // KIP-16 on-chain-ZK (zk_game_settle): teal accent, distinct from the off-chain full-zk tier.
-  // Covex keeps this path testnet-gated until it is proven on its own prover infrastructure.
+  // Covex keeps this path gated until it is proven on its own prover infrastructure.
   'on-chain-zk': { name: 'On-chain ZK (KIP-16)', accent: '#2dd4bf', textCls: 'text-teal-300 light:text-teal-700', Icon: ShieldCheck,
-    what: 'On-chain ZK (KIP-16): a real Groth16 proof is verified by Kaspa consensus through the OpZkPrecompile opcode (0xa6). The proof binds this covenant and the winning payee, so a loser cannot forge a winning proof, and there is no oracle and no co-signature anywhere in the payout. This is the zk_game_settle kind. Covex keeps it testnet-gated until the path is proven on its own prover infrastructure.' },
+    what: 'On-chain ZK (KIP-16): a real Groth16 proof is verified by Kaspa consensus through the OpZkPrecompile opcode (0xa6). The proof binds this covenant and the winning payee, so a loser cannot forge a winning proof, and there is no oracle and no co-signature anywhere in the payout. This is the zk_game_settle kind. Covex keeps it gated until the path is proven on its own prover infrastructure.' },
   'full-zk': { name: 'Full ZK (verified off-chain)', accent: '#a78bfa', textCls: 'text-violet-300 light:text-violet-700', Icon: ShieldCheck,
     what: 'A real Groth16 proof: you prove a statement is true without revealing the secret behind it. The proof is verified OFF-CHAIN by you, the counterparty, or any external verifier (snarkjs against the audited vkey), and a valid proof gates a 2-of-2 cosign plus a CSV timeout. Kaspa has no on-chain pairing verifier, so the proof is never checked on-chain; only the BIP340 co-signature is verified on-chain (Schnorr). The trusted setup is a single-contributor dev ceremony, not a production multi-party MPC. Covex never attests the outcome - the deployer-bound resolver or counterparty co-signs.' },
   hybrid: { name: 'Resolver-attested', accent: '#fbbf24', textCls: 'text-amber-300 light:text-amber-700', Icon: Radio,
@@ -204,7 +204,7 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
           {/* Where it is verified */}
           <Section icon={Cpu} title="Where verification happens" accent={ui.accent}>
             {reality === 'on-chain' && <p>At spend time, Kaspa nodes run the redeem script against this covenant&apos;s P2SH lock. If it does not satisfy the script, the network rejects the transaction. Covex is never in the spend path.</p>}
-            {reality === 'on-chain-zk' && <p>At spend time, Kaspa nodes run the covenant&apos;s OpZkPrecompile (0xa6) over the witness-supplied Groth16 proof against the baked verifying key and public inputs. Consensus aborts the spend unless the proof verifies, so the winner branch releases only on a valid proof and a loser cannot forge one. No oracle and no co-signature are involved. Covex keeps this path testnet-gated until it is proven on its own prover infrastructure.</p>}
+            {reality === 'on-chain-zk' && <p>At spend time, Kaspa nodes run the covenant&apos;s OpZkPrecompile (0xa6) over the witness-supplied Groth16 proof against the baked verifying key and public inputs. Consensus aborts the spend unless the proof verifies, so the winner branch releases only on a valid proof and a loser cannot forge one. No oracle and no co-signature are involved. Covex keeps this path gated until it is proven on its own prover infrastructure.</p>}
             {reality === 'full-zk' && (
               <p>
                 {inBrowser
@@ -325,7 +325,7 @@ export default function TransparencyModal({ circuit, covenant, onClose }) {
           <Section icon={AlertTriangle} title="What this does not prove" accent="#9ca3af">
             <ul className="list-disc pl-4 space-y-1 text-[12px] text-gray-400 light:text-slate-500">
               {hasZk && <li>Proof verification happens off-chain: anyone (you, the counterparty, any external verifier) can re-run snarkjs against the audited vkey. Kaspa has no on-chain pairing verifier on this path, so a valid proof gates a 2-of-2 cosign plus a CSV timeout.</li>}
-              {reality === 'on-chain-zk' && <li>Covex keeps this testnet-gated until the KIP-16 on-chain ZK settle path is proven on its own prover infrastructure, so treat on-chain ZK settlement as a testnet capability until then, not a mainnet guarantee.</li>}
+              {reality === 'on-chain-zk' && <li>Covex keeps this gated until the KIP-16 on-chain ZK settle path is proven on its own prover infrastructure, so treat on-chain ZK settlement as a not-yet-live capability until then, not a guarantee.</li>}
               {involvesOracle && <li>Liveness shows the resolver is reachable now, not that a future outcome will be honest. You are trusting the deployer-bound resolver key for the input.</li>}
               {reality === 'on-chain' && <li>The structural check confirms the lock pattern; the full redeem-script-hashes-to-commitment check is enforced by any Kaspa node at spend.</li>}
               {reality === 'decorative' && <li>This covenant is not enforced by consensus. Do not rely on it for value.</li>}

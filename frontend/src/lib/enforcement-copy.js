@@ -13,12 +13,12 @@
 //                     co-signed on-chain
 //   on-chain-zk     = KIP-16 zk_game_settle: a Groth16 proof verified ON-CHAIN by Kaspa
 //                     consensus (OpZkPrecompile 0xa6); no oracle or co-signature in payout.
-//                     Testnet / Toccata gated, never mainnet-live yet.
+//                     Gated until proven live on Kaspa (OpZkPrecompile is not active on Kaspa yet).
 //
 // Honest model: Covex provides the ZK prover/verifier TOOLING and on-chain primitives.
 // Any off-chain attestation comes from an EXTERNAL resolver the user connects or creates,
-// NEVER Covex's key. Covex operates no oracle for real money (mainnet oracle covenants are
-// frozen).
+// NEVER Covex's key. Covex operates no oracle for real money (oracle covenants for real value
+// are frozen).
 //
 // SCOPE OF THE "no chain-enforced ZK" carve-out: it applies ONLY to the OFF-CHAIN-verified
 // circom circuits (the MiMC7/range/timelock family). None of THOSE deployed circuits binds a
@@ -28,9 +28,9 @@
 //
 // The on-chain-zk reality is a SEPARATE, distinct tier and is NOT covered by that carve-out:
 // the KIP-16 zk_game_settle kind has its Groth16 proof verified ON-CHAIN by Kaspa consensus
-// via OpZkPrecompile (0xa6), with no oracle or co-signature in the payout. It is TESTNET /
-// Toccata gated (OpZkPrecompile is not live on Kaspa mainnet yet), so its copy must always
-// read as a testnet capability, never a mainnet-live one.
+// via OpZkPrecompile (0xa6), with no oracle or co-signature in the payout. It is GATED
+// (OpZkPrecompile is not live on Kaspa yet), so its copy must always read as a gated capability
+// that is not yet live on Kaspa, never as a shipped live one.
 //
 // Every word here is load-bearing. Do not soften "consensus-enforced", "co-signed",
 // "off-chain", or the explicit carve-out that full-zk is NOT on-chain trustless because Kaspa
@@ -41,7 +41,7 @@ export const REALITY_HEADLINE = {
   'hybrid':          'On-chain custody, resolver-gated release',
   'oracle-attested': 'Settled by the named external resolver',
   'full-zk':         'Zero-knowledge proof, verified off-chain by an external resolver',
-  'on-chain-zk':     'On-chain ZK (KIP-16), verified by Kaspa consensus (testnet)',
+  'on-chain-zk':     'On-chain ZK (KIP-16), verified by Kaspa consensus (gated, not yet live)',
 };
 
 export const REALITY_BODY = {
@@ -54,7 +54,7 @@ export const REALITY_BODY = {
   'full-zk':
     'A real Groth16 zero-knowledge proof is verified off-chain by an external resolver you choose or run, then co-signed on-chain. That external resolver will not co-sign without a valid proof. Covex provides the prover and verifier tooling but operates no oracle key here. Not chain-enforced end-to-end because Kaspa lacks a pairing verifier, so payout still requires the external resolver co-signature and is gated by that off-chain check: no Covex trust, and not trustless because trust sits with the disclosed external resolver.',
   'on-chain-zk':
-    'A real Groth16 proof is verified ON-CHAIN by Kaspa consensus through the KIP-16 OpZkPrecompile (opcode 0xa6). The proof binds the covenant and the winning payee, so the loser cannot forge a winning proof, and there is no oracle and no co-signature anywhere in the payout. This is the zk_game_settle kind. Covex keeps it TESTNET-gated until the path is proven on its own prover infrastructure, so treat it as a testnet capability while that proof is pending, never a mainnet guarantee.',
+    'A real Groth16 proof is verified ON-CHAIN by Kaspa consensus through the KIP-16 OpZkPrecompile (opcode 0xa6). The proof binds the covenant and the winning payee, so the loser cannot forge a winning proof, and there is no oracle and no co-signature anywhere in the payout. This is the zk_game_settle kind. OpZkPrecompile is not live on Kaspa yet, so Covex keeps this path gated until it is proven on its own prover infrastructure. Treat it as a gated capability that is not yet live on Kaspa while that proof is pending, never a live guarantee.',
 };
 
 export const REALITY_BADGE_LABEL = {
@@ -62,7 +62,7 @@ export const REALITY_BADGE_LABEL = {
   'hybrid':          'Hybrid',
   'oracle-attested': 'Resolver-attested',
   'full-zk':         'Full ZK',
-  'on-chain-zk':     'On-chain ZK (testnet)',
+  'on-chain-zk':     'On-chain ZK (gated)',
 };
 
 export const REALITY_VERB = {
@@ -70,7 +70,7 @@ export const REALITY_VERB = {
   'hybrid':          'On-chain script, external-resolver-gated release',
   'oracle-attested': 'Co-signed by the named external resolver',
   'full-zk':         'Proof verified off-chain by an external resolver, co-signed on-chain',
-  'on-chain-zk':     'Groth16 proof verified on-chain by Kaspa consensus (testnet)',
+  'on-chain-zk':     'Groth16 proof verified on-chain by Kaspa consensus (gated, not yet live)',
 };
 
 const ORACLE_NOTE = {

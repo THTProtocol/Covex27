@@ -734,14 +734,14 @@ export const KIND_CLAIM_MATRIX = Object.freeze({
   // OpZkPrecompile; no oracle, no co-signature), and the funder REFUND branch is a plain CSV
   // relative timelock spendable with the refund key after the delay. The proof itself is produced
   // off-device (a RISC0->Groth16 wrap needs x86_64, not the browser); the claimer supplies the
-  // finished proof bytes. Testnet-gated: the opcode is not live on Kaspa mainnet yet.
+  // finished proof bytes. Gated: the OpZkPrecompile opcode is not live on Kaspa yet.
   zk_game_settle: {
     offlineClaimable: true,
     branches: {
       claim: { offline: true, role: 'winner key + the Groth16 proof (verified on-chain by consensus)' },
       refund: { offline: true, role: 'funder/refund key (after the CSV delay)' },
     },
-    liveness: 'Offline-claimable with no resolver: the WINNER branch releases on the winner key signature plus a Groth16 proof that Kaspa consensus verifies on-chain (KIP-16 OpZkPrecompile); the REFUND branch is offline-claimable with the funder key after the CSV delay. Covex keeps this testnet-gated until the path is proven on its own prover infrastructure.',
+    liveness: 'Offline-claimable with no resolver: the WINNER branch releases on the winner key signature plus a Groth16 proof that Kaspa consensus verifies on-chain (KIP-16 OpZkPrecompile); the REFUND branch is offline-claimable with the funder key after the CSV delay. OpZkPrecompile is not live on Kaspa yet, so Covex keeps this path gated until it is proven on its own prover infrastructure.',
   },
   oracle_enforced: {
     offlineClaimable: false,

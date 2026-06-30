@@ -969,7 +969,7 @@ export default function CovexTerminal({ covenant, externalCircuit }) {
   }, []);
 
   const isMainnet = true;
-  const networkLabel = 'MAINNET';
+  const networkLabel = 'KASPA';
   const networkColorClass = 'text-red-400 border-red-500/40 bg-red-500/10';
 
   // ── Tier model: ALL build capability is FREE for everyone on every network.
@@ -2704,7 +2704,7 @@ ${gameMeta.outcomeBranches}
                 </button>
                 <button onClick={cancelPayment} className="px-3 py-2 text-xs border border-white/20 rounded light:border-slate-300 light:text-slate-700">Cancel</button>
               </div>
-              <div className="text-[9px] text-gray-400 light:text-slate-500 mt-2">Payment must come from the wallet shown above. It will be auto-detected on-chain. Works on mainnet with real KAS.</div>
+              <div className="text-[9px] text-gray-400 light:text-slate-500 mt-2">Payment must come from the wallet shown above. It will be auto-detected on-chain. Real KAS on Kaspa.</div>
             </div>
           )}
           {!connectedAddress && <p className="text-xs text-amber-400 light:text-amber-700 mt-2">Connect a wallet to see payment options for this network.</p>}
@@ -2717,8 +2717,7 @@ ${gameMeta.outcomeBranches}
           flip the copy to "not seeing this on chain - check the explorer" so the
           user has a way out rather than an infinite spinner. The polling effect
           uses the STORED payer address (not connectedAddress) and passes
-          network=kaspaNetwork so a mainnet payment is never checked against the
-          server's testnet-12 default. */}
+          network=kaspaNetwork so the payment is checked against the right network. */}
       {pendingBroadcast && pendingBroadcast.txid && currentTier === 'FREE' && (
         <div className="mb-4 p-5 rounded-2xl bg-gradient-to-br from-amber-500/[0.10] to-amber-400/[0.04] border border-amber-500/30 shadow-[0_0_28px_-12px_rgba(245,158,11,0.40)] animate-[slide-up_0.4s_cubic-bezier(0.16,1,0.3,1)_both] light:from-amber-100 light:to-amber-50 light:border-amber-300/60">
           <div className="flex items-start gap-3.5">
@@ -2744,9 +2743,7 @@ ${gameMeta.outcomeBranches}
                 {pendingTimedOut ? (
                   <>
                     We have not seen this transaction on chain after 75 seconds. The broadcast may
-                    have failed, the tx may have been evicted from mempool, or it may have been sent
-                    on a different network than the one you are viewing
-                    {' '}(<span className="font-mono">{kaspaNetwork}</span>).
+                    have failed, or the tx may have been evicted from mempool.
                     Open the explorer to check the txid and confirm. Once the funding tx is on chain,
                     the priority placement activates automatically for the payer address.
                   </>
@@ -3251,9 +3248,9 @@ ${gameMeta.outcomeBranches}
                         verifierKey: zkVerifierKey || '(manual entry required)',
                         publicInputs: ['User-defined public inputs'],
                         privateWitness: ['User-defined private witness'],
-                        whatItProves: 'Supply any audited ZK circuit. The verifier key is recorded as covenant metadata today; the circom proof is verified off-chain. Toccata KIP-16 adds an on-chain verifier (OpZkPrecompile) that the settlement covenant targets, testnet-gated until proven live. Until then, resolution runs through a deployer-bound external resolver the creator binds by pubkey at deploy. On-chain verification against your own key is on the roadmap.',
+                        whatItProves: 'Supply any audited ZK circuit. The verifier key is recorded as covenant metadata today; the circom proof is verified off-chain. KIP-16 adds an on-chain verifier (OpZkPrecompile) that the settlement covenant targets, gated until proven live on Covex prover infrastructure. Until then, resolution runs through a deployer-bound external resolver the creator binds by pubkey at deploy. On-chain verification against your own key is on the roadmap.',
                         gasEstimate: 'Unknown (circuit-dependent)',
-                        covenantFlow: 'Depositor locks KAS and records a verifier key as metadata. Resolution today goes through a deployer-bound external resolver; once on-chain pairing verification ships (KIP-16/Toccata), the covenant can verify a proof against this key directly.',
+                        covenantFlow: 'Depositor locks KAS and records a verifier key as metadata. Resolution today goes through a deployer-bound external resolver; once Covex proves the on-chain pairing verification path (KIP-16), the covenant can verify a proof against this key directly.',
                       };
                   }
                 })();
@@ -4157,19 +4154,19 @@ ${gameMeta.outcomeBranches}
         />
       )}
 
-      {/* Mainnet Production Banner - shown when mainnet is selected in the chooser or server reports mainnet */}
+      {/* Live production banner - real KAS on Kaspa. */}
       {isMainnet && (
         <div className="mb-6 p-4 rounded-2xl border-2 border-red-600/70 bg-red-600/10">
           <div className="flex items-center gap-3">
             <Rocket size={24} className="text-red-400" />
             <div>
-              <div className="font-bold text-red-400 text-lg">⚠️ MAINNET MODE - REAL CAPITAL AT RISK</div>
+              <div className="font-bold text-red-400 text-lg">⚠️ LIVE ON KASPA - REAL CAPITAL AT RISK</div>
               <div className="text-sm text-red-300/90 mt-1">
-                Covex runs on <strong>MAINNET</strong>. All stakes, fees, and payouts are REAL KAS on the live Kaspa mainnet.
+                Covex runs on <strong>KASPA</strong>. All stakes, fees, and payouts are REAL KAS on the live Kaspa network.
                 There are no do-overs, refunds, or second chances. Double-check treasury, seeds, oracle, resolution logic, and pot return %.
-                Only proceed if you have real mainnet dev wallets and treasury configured via environment variables.
+                Only proceed if you have real dev wallets and treasury configured via environment variables.
               </div>
-              <div className="text-[10px] text-red-400/70 mt-2 font-mono">NETWORK: {kaspaNetwork}</div>
+              <div className="text-[10px] text-red-400/70 mt-2 font-mono">NETWORK: KASPA</div>
             </div>
           </div>
         </div>
@@ -4189,13 +4186,13 @@ ${gameMeta.outcomeBranches}
           Covenant Configuration
         </div>
 
-        {/* Mainnet-only. Real KAS on the live Kaspa mainnet. */}
+        {/* Live on Kaspa. Real KAS. */}
         <div className="flex items-center gap-2 mb-3 flex-wrap">
           <span className="text-[10px] uppercase tracking-widest text-gray-400 light:text-slate-500">NETWORK</span>
           <span className="text-[10px] font-mono px-2 py-0.5 rounded border text-red-400 border-red-500/30 bg-red-500/10">
             {networkLabel}
           </span>
-          <span className="text-[9px] text-gray-500 light:text-slate-500">- real KAS on the live Kaspa mainnet</span>
+          <span className="text-[9px] text-gray-500 light:text-slate-500">- real KAS on the live Kaspa network</span>
         </div>
 
         <div className="space-y-4">
@@ -4577,7 +4574,7 @@ ${gameMeta.outcomeBranches}
               <p className="font-semibold mb-1">Technical Reality</p>
               <p>
                 The proof is verified off-chain by calling <code className="text-amber-300 bg-amber-500/10 px-1 rounded">POST /api/oracle/verify-and-sign</code>.
-                The oracle signature is a real BIP340 Schnorr signature over secp256k1 (scheme <code className="text-amber-300 bg-amber-500/10 px-1 rounded">bip340-schnorr-secp256k1</code> from <code className="text-amber-300 bg-amber-500/10 px-1 rounded">/api/oracle/pubkey</code>), verifiable against the published x-only public key and checked on-chain via OpCheckSig in the covenant's unlock branch once the covenant is deployed on mainnet at Toccata.
+                The oracle signature is a real BIP340 Schnorr signature over secp256k1 (scheme <code className="text-amber-300 bg-amber-500/10 px-1 rounded">bip340-schnorr-secp256k1</code> from <code className="text-amber-300 bg-amber-500/10 px-1 rounded">/api/oracle/pubkey</code>), verifiable against the published x-only public key and checked on-chain via OpCheckSig in the covenant's unlock branch once the covenant is deployed on Kaspa.
                 The covenant unlock path still requires manual construction of the unlock transaction with the oracle signature as witness data.
               </p>
             </div>

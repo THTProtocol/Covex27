@@ -306,8 +306,11 @@ describe('claimability honesty matrix', () => {
     expect(KIND_CLAIM_MATRIX.zk_game_settle.offlineClaimable).toBe(true);
     expect(claimability('zk_game_settle', 'claim').offline).toBe(true);
     expect(claimability('zk_game_settle', 'refund').offline).toBe(true);
-    // Honest disclosure: the liveness note keeps the testnet gate so it never reads as mainnet-live.
-    expect(/testnet/i.test(claimability('zk_game_settle', 'claim').liveness)).toBe(true);
+    // Honest disclosure: the liveness note keeps the gate so it never reads as a shipped live
+    // capability. After the live-on-Kaspa reframe the gate is phrased "not live on Kaspa yet /
+    // gated" (OpZkPrecompile is not live) instead of "testnet-gated"; same fail-closed invariant.
+    const liveness = claimability('zk_game_settle', 'claim').liveness;
+    expect(/gated|not live on kaspa|testnet/i.test(liveness)).toBe(true);
   });
 
   it('unknown kind -> null (caller falls back conservatively)', () => {

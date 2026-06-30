@@ -1,8 +1,8 @@
 # Building on Covex
 
-This guide is for builders who want to ship real covenants and the beautiful interactive websites people use to act on them, on Kaspa mainnet, through Covex.
+This guide is for builders who want to ship real covenants and the beautiful interactive websites people use to act on them, on Kaspa, through Covex.
 
-Covex is the covenant explorer and studio for the Toccata mainnet era. A covenant is a script program embedded in a Kaspa UTXO that constrains how that UTXO may be spent. On Covex, a covenant is not a raw row in an explorer: its creator designs a full interactive website that renders on the covenant page, and other users interact with that website with their own wallets. This guide covers both halves: building the covenant, and building its website.
+Covex is the covenant explorer and studio for Kaspa, where covenants are live. A covenant is a script program embedded in a Kaspa UTXO that constrains how that UTXO may be spent. On Covex, a covenant is not a raw row in an explorer: its creator designs a full interactive website that renders on the covenant page, and other users interact with that website with their own wallets. This guide covers both halves: building the covenant, and building its website.
 
 ---
 
@@ -189,7 +189,7 @@ API reference: OpenAPI at `/api/openapi.json`. How it works: `hightable.pro/read
 
 ## 6. Non-custodial guarantees you can rely on
 
-- **Keys never leave the browser.** Wallet generation happens client-side; the private key is never transmitted to the server. On mainnet a key is never displayed or transmitted.
+- **Keys never leave the browser.** Wallet generation happens client-side; the private key is never transmitted to the server. On Kaspa a key is never displayed or transmitted.
 - **Covex holds no funds and cannot move them.** It reads UTXOs and verifies payments on-chain. Every value-moving action is signed by the user's own wallet.
 - **Destination is always derived on-chain.** A creator-placed button derives its destination and script hash server-side from the indexed covenant record, never from the button payload.
 - **Any covenant is redeemable without Covex.** Given the redeem script, the caller's own key signs the spend. Covex is removable from the interaction path.
@@ -206,7 +206,7 @@ New real ZK circuits are welcome if they follow the established pattern and stay
 - Documentation and a worked example.
 - Honest labeling: a circuit stays oracle-attested until its proving key ships and a proof actually verifies. Never label a circuit full-zk on the strength of a key that does not yet exist.
 
-A Kaspa reality check: there is no pairing precompile, so full on-chain ZK verification is not the trustlessness path at Toccata. The path is script-enforced custody plus Schnorr, CLTV, hashlocks, multisig, and state channels, which is exactly the toolkit already built. On-chain proof checking is complementary, not the enforcement.
+A Kaspa reality check: there is no pairing precompile, so full on-chain ZK verification is not the trustlessness path on Kaspa. The path is script-enforced custody plus Schnorr, CLTV, hashlocks, multisig, and state channels, which is exactly the toolkit already built. On-chain proof checking is complementary, not the enforcement.
 
 ---
 

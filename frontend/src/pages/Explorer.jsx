@@ -247,8 +247,11 @@ function CountUpValue({ value, fmt }) {
 // locked is the headline figure, with the covenant and featured counts as rows
 // beneath. Solid surface + a faint brand wash so the DAG backdrop does not bleed
 // through; light/dark safe.
-function LiveSnapshotCard({ stats, netLabel, network }) {
-  const tvl = useCountUp(stats.totalTVL);
+function LiveSnapshotCard({ stats, netLabel, network, liveTvl, liveTvlKnown }) {
+  // Headline = the LIVE on-chain total (sum of real address balances), which matches the per-card
+  // figures. Fall back to the indexed backend sum only until the live balances have resolved, so
+  // the number never sits at a stale value once we know the truth.
+  const tvl = useCountUp(liveTvlKnown ? liveTvl : stats.totalTVL);
   const tvlStr = formatKaspa(tvl);
   const sp = tvlStr.lastIndexOf(' ');
   const tvlNum = sp > 0 ? tvlStr.slice(0, sp) : tvlStr;
@@ -660,12 +663,27 @@ export default function Explorer() {
   const filteredCovenants = includeRaw ? allCovenantsSorted : allCovenantsSorted.filter((c) => !isOpaqueP2sh(c));
 
   // LIVE locked balances: fetch each covenant's address balance in real time from the public Kaspa
-  // node (no Covex backend; see lib/useLiveBalances). A covenant whose live balance is 0 has been
-  // spent (used up) and moves to a separate "Spent covenants" section. Unknown / still-loading
-  // balances stay in the active list, so a transient node error never hides a covenant.
-  const liveBalances = useLiveBalances(filteredCovenants.map((c) => c.address), kaspaNetwork);
+  // node (no Covex backend; see lib/useLiveBalances). Fed the FULL loaded list (not the filtered
+  // view) so the balances - and the live TVL below - are stable regardless of the Verified-only
+  // toggle. A covenant whose live balance is 0 has been spent and moves to the "Spent covenants"
+  // section. Unknown / still-loading balances stay active, so a node hiccup never hides a covenant.
+  const liveBalances = useLiveBalances(covenants.map((c) => c.address), kaspaNetwork);
   const activeCovenants = filteredCovenants.filter((c) => !isSpentByLiveBalance(liveBalances[c.address]));
   const spentCovenants = filteredCovenants.filter((c) => isSpentByLiveBalance(liveBalances[c.address]));
+
+  // LIVE total value locked: the indexed amount_kaspa the backend sums is the deploy-time snapshot
+  // and drifts far from reality (a covenant funded later, or holding more, reads stale). Sum the
+  // REAL on-chain balances instead so the headline matches the cards. Only count covenants whose
+  // balance fetch resolved; while balances stream in we fall back to the indexed figure so the
+  // number never flashes a misleading small value. Covers the loaded covenants (the dominant ones
+  // by value sort to the top and load first).
+  let liveTvlKas = 0;
+  let liveTvlResolved = 0;
+  for (const c of covenants) {
+    const b = liveBalances[c.address];
+    if (b && b.status === 'ok') { liveTvlKas += (b.kas || 0); liveTvlResolved += 1; }
+  }
+  const liveTvlKnown = liveTvlResolved > 0;
 
   // ARENA: only game covenants created on Covex where someone is waiting. "Game" here spans
   // both games of skill (chess, checkers) and games of chance (poker, blackjack, dice); we do
@@ -813,7 +831,7 @@ export default function Explorer() {
             {/* RIGHT (narrow phi track): the live on-chain snapshot card. On mobile it
                 stacks first so the main trust signal is above the fold; phi split unchanged on md+. */}
             <div className="w-full order-first md:order-none mt-8 md:mt-0 animate-[slide-up_0.55s_cubic-bezier(0.16,1,0.3,1)_0.14s_both]">
-              <LiveSnapshotCard stats={stats} netLabel={netLabel} network={kaspaNetwork} />
+              <LiveSnapshotCard stats={stats} netLabel={netLabel} network={kaspaNetwork} liveTvl={liveTvlKas} liveTvlKnown={liveTvlKnown} />
             </div>
           </GoldenGrid>
 

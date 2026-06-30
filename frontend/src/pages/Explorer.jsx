@@ -331,10 +331,12 @@ export default function Explorer() {
   const [resolvedChip, setResolvedChip] = useState(null);
   const [stats, setStats] = useState({ total: 0, paidCount: 0, totalTVL: 0 });
   const [showArena, setShowArena] = useState(false);
-  // Default to showing ALL on-chain commitments (the full, thriving count). Covenants are honestly
-  // LABELED now (no fabricated types), so there's no reason to hide them - "Verified only" is an
-  // opt-in filter for users who want just paid + real-description covenants.
-  const [includeRaw, setIncludeRaw] = useState(true);
+  // Default view = PURE genuine covenants only (owner directive, 2026-06-30 Toccata launch). A
+  // covenant shows by default ONLY if it positively classifies as a known template; opaque bare
+  // P2SH commitments (category 'P2SH Commitments' / covenant_type 'unknown'/'p2sh-commitment',
+  // script secret until spend) are honestly LABELED and reachable via "Show all", never surfaced
+  // as covenants by default. Belt-and-suspenders with the backend genuine_only filter (db.rs).
+  const [includeRaw, setIncludeRaw] = useState(false);
   const [kaspaNetwork, setKaspaNetwork] = useState(() => getCurrentNetwork());
   const [activeCategory, setActiveCategory] = useState('All');
   const [offset, setOffset] = useState(0);
@@ -645,8 +647,15 @@ export default function Explorer() {
     return (b.amount_kaspa || 0) - (a.amount_kaspa || 0);
   });
 
-  // Category filtering happens server-side (q terms); the loaded list is already filtered.
-  const filteredCovenants = allCovenantsSorted;
+  // Category filtering happens server-side (q terms). The default (curated) view ALSO drops opaque
+  // P2SH client-side so the purity rule is live even before the backend genuine_only fix deploys;
+  // "Show all" (includeRaw) shows every indexed commitment. An opaque commitment is one whose
+  // script does not classify as a known covenant template (secret until spend).
+  const isOpaqueP2sh = (c) => {
+    const ct = (c.covenant_type || '').toLowerCase();
+    return c.category === 'P2SH Commitments' || ct === 'unknown' || ct === 'p2sh-commitment' || ct === '';
+  };
+  const filteredCovenants = includeRaw ? allCovenantsSorted : allCovenantsSorted.filter((c) => !isOpaqueP2sh(c));
 
   // ARENA: only game covenants created on Covex where someone is waiting. "Game" here spans
   // both games of skill (chess, checkers) and games of chance (poker, blackjack, dice); we do

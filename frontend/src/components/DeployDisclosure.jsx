@@ -24,11 +24,16 @@ export default function DeployDisclosure({ reality = 'on-chain', className = '' 
   const isFullZk = key === 'full-zk';
   const trustless = isOnChain; // only pure consensus-enforced is trustless
 
+  // Tones MUST match the canonical enforcement-reality palette in TransparencyModal
+  // (the surface a deployer clicks into): on-chain = emerald, full-zk = VIOLET,
+  // oracle-attested / hybrid = AMBER + Radio. Rendering full-zk and oracle/hybrid as the
+  // same sky here was a palette drift that made two different enforcement realities look
+  // identical at the moment of committing funds.
   const tone = isOnChain
     ? { wrap: 'border-emerald-500/25 bg-emerald-500/[0.04]', head: 'text-emerald-300 light:text-emerald-700', Icon: ShieldCheck }
     : isFullZk
-      ? { wrap: 'border-sky-500/25 bg-sky-500/[0.04]', head: 'text-sky-300 light:text-sky-700', Icon: Cpu }
-      : { wrap: 'border-sky-500/25 bg-sky-500/[0.04]', head: 'text-sky-300 light:text-sky-700', Icon: Radio };
+      ? { wrap: 'border-violet-500/25 bg-violet-500/[0.04]', head: 'text-violet-300 light:text-violet-700', Icon: Cpu }
+      : { wrap: 'border-amber-500/25 bg-amber-500/[0.04]', head: 'text-amber-300 light:text-amber-700', Icon: Radio };
 
   const headline = REALITY_HEADLINE[key];
 

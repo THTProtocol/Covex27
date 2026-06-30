@@ -20,7 +20,7 @@ const DEFAULT_DESC =
 
 // Order matters only for prefix routes (those ending in "/"). Exact paths win by ===.
 const ROUTES = [
-  { p: '/pricing', t: 'Pricing', d: 'Covex tiers are a flat subscription, never a cut of any pot. Explore and interact for free; paid Studio tiers unlock priority placement and the covenant-website builder.' },
+  { p: '/pricing', t: 'Pricing', d: 'Covex tiers are a flat one-time payment, never a cut of any pot. Explore and interact for free; paid Studio tiers unlock priority placement and the covenant-website builder.' },
   { p: '/about', t: 'About', d: 'What Covex is and is not: neutral, non-custodial covenant infrastructure for Kaspa. No rake, no custody, and it never attests an outcome. Every covenant is labeled by what actually enforces it.' },
   { p: '/whitepaper', t: 'Whitepaper', d: 'The Covex whitepaper: non-custodial covenants, the enforcement-reality model (on-chain vs oracle-attested vs full-zk), and the trust-by-removal roadmap for Kaspa mainnet.' },
   { p: '/readme', t: 'How It Works', d: 'How Covex works, honestly: index every covenant, redeem any P2SH covenant from your own wallet, and verify the disclosed keys, vkeys, and treasury for yourself.' },
@@ -29,12 +29,13 @@ const ROUTES = [
   { p: '/zk', t: 'ZK Circuits', d: 'The Covex ZK circuit registry: real Groth16 circuits proven in-browser, labeled honestly as verified off-chain (the resolver co-signs the payout), not on-chain ZK.' },
   { p: '/templates', t: 'Templates', d: 'Covenant templates on Covex: escrow, vesting, fundraisers, HTLCs, and more, each labeled by what the Kaspa chain actually enforces.' },
   { p: '/stats', t: 'Stats', d: 'Live Covex network stats: covenants indexed, recent activity, and the honest mainnet count (zero until Toccata activation).' },
-  { p: '/treasury', t: 'Treasury', d: 'The Covex treasury and payment history, public and on-chain. Settlement takes zero rake; the only value sink is the flat tier subscription.' },
+  { p: '/treasury', t: 'Treasury', d: 'The Covex treasury and payment history, public and on-chain. Settlement takes zero rake; the only value sink is the flat one-time tier payment.' },
   { p: '/terms', t: 'Terms', d: 'Covex Terms: neutral, non-custodial software. Covex is never the operator, counterparty, or house, attests no outcome, and takes no cut of any settlement.' },
   { p: '/privacy', t: 'Privacy', d: 'Covex privacy: keys never leave your browser, Covex holds no funds, and there is no IP-based geoblocking or sanctions screening. Real on-chain data only.' },
   { p: '/recover', t: 'Recover', d: 'Recover funds from any Covex covenant using only its published redeem script and your own wallet, with zero dependency on Covex being online.' },
   { p: '/sandbox', t: 'Sandbox', d: 'Experiment with Covex covenant building in a safe sandbox before deploying to a live Kaspa network.' },
   { p: '/deploy', t: 'Deploy', d: 'Design and deploy a Kaspa covenant non-custodially. You sign from your own wallet; Covex never holds a key or moves funds.' },
+  { p: '/deploy/enforced', t: 'Deploy', d: 'Deploy a consensus-enforced Kaspa primitive (hashlock, timelock, HTLC, multisig) non-custodially. You sign from your own wallet; Covex never holds a key or moves funds.' },
   // prefix routes
   { p: '/covenant/', t: 'Covenant', d: 'A live Kaspa covenant on Covex: its lifecycle, finality, honest enforcement-reality badge, and the interactive page its creator built.' },
   { p: '/address/', t: 'Address', d: 'A Kaspa address portfolio on Covex: the covenants it deployed and interacted with, from independent on-chain indexing.' },

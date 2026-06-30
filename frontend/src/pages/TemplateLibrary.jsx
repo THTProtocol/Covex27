@@ -134,7 +134,7 @@ export default function TemplateLibrary() {
                     <p className="text-xs text-gray-400 light:text-slate-500 mb-4 leading-relaxed break-words line-clamp-3">{t.description}</p>
                     <a href={hrefFor(t)}
                       className="mt-auto inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-[#49EACB] light:bg-[#0d9488] text-black light:text-white text-sm font-bold hover:bg-[#3dd9b8] light:hover:bg-[#0b8276] active:scale-[0.985] transition group-hover:gap-2 min-h-[44px] sm:min-h-0">
-                      Use Template <span aria-hidden="true">&rarr;</span>
+                      Use Template
                     </a>
                   </div>
                 </div>

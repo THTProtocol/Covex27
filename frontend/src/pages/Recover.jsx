@@ -632,7 +632,7 @@ export default function Recover() {
               <button onClick={() => loadFromText(raw)} disabled={!raw.trim()} className="btn-shimmer mt-2.5 w-full py-2.5 rounded-xl font-bold text-sm bg-kaspa-green text-black disabled:opacity-40 hover:shadow-[0_0_18px_rgba(73,234,203,0.3)] transition-all">
                 Load recovery kit
               </button>
-              <p className="text-[11px] text-gray-500 light:text-slate-600 mt-2">No kit yet? Open any of your covenants on Covex and use <span className="text-gray-300 light:text-slate-600">Recover &rarr; Download recovery kit</span>, then keep it somewhere safe.</p>
+              <p className="text-[11px] text-gray-500 light:text-slate-600 mt-2">No kit yet? Open any of your covenants on Covex, use <span className="text-gray-300 light:text-slate-600">Recover</span>, then Download recovery kit, and keep it somewhere safe.</p>
             </div>
 
             {error && (

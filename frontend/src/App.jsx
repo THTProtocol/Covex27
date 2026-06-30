@@ -64,7 +64,7 @@ function LearnMenu() {
   const [open, setOpen] = useState(false);
   const items = [
     ['About Covex', '/about'],
-    ['How it Works', '/readme'],
+    ['How It Works', '/readme'],
     ['What is Kaspa', '/kaspa'],
     ['Whitepaper', '/whitepaper'],
     // Transparency pages: surfaced in the primary nav (were footer-only and hard to find).
@@ -453,7 +453,7 @@ export default function App() {
                   <NavLink to="/pricing" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Pricing</NavLink>
                   <div className="mt-2 pt-3 border-t border-white/10 light:border-slate-200 text-[10px] uppercase tracking-widest text-gray-500">Learn</div>
                   <NavLink to="/about" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>About Covex</NavLink>
-                  <NavLink to="/readme" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>How it Works</NavLink>
+                  <NavLink to="/readme" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>How It Works</NavLink>
                   <NavLink to="/kaspa" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>What is Kaspa</NavLink>
                   <NavLink to="/whitepaper" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Whitepaper</NavLink>
                   <NavLink to="/stats" className={NL_MOBILE} onClick={() => setMobileMenuOpen(false)}>Statistics</NavLink>
@@ -548,7 +548,7 @@ export default function App() {
               <p>Custody is on-chain: funds lock to a Kaspa P2SH script hash and your wallet signs every spend. Covex holds no user keys. For two-party covenants a co-signing key releases the winning branch (today that key is Covex-held and recomputes the result from the public move log; an external referee is on the roadmap); for ZK covenants a Groth16 proof verified off-chain by anyone gates a resolver co-signature. Either way payout is script-enforced on-chain but not trustless end to end. Real-world-outcome covenants bind to an external resolver the creator chooses; Covex does not resolve outside events. Each covenant page shows its enforcement-reality badge.</p>
               <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5">
                 {[
-                  ['How it Works', '/readme'],
+                  ['How It Works', '/readme'],
                   ['Whitepaper', '/whitepaper'],
                   ['Treasury', '/treasury'],
                   // Discoverable entry for "I have a redeem script, spend any covenant":

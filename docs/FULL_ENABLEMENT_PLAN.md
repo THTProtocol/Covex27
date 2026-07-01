@@ -62,3 +62,28 @@ review (ideally third-party) and a green TN12 end-to-end. Confirm you accept thi
 - Keep the website mainnet-only and the UI/builder at the highest premium level.
 - Never claim a kind is live/non-custodial, or a game ZK-attested, until it truly is on a live TN12/
   mainnet transaction.
+
+## Phase A build spec (ready to implement, TN12-safe) - added 2026-06-30
+
+Buildable now, on TN12, behind `COVEX_EXTERNAL_COSIGN_ENABLED` (default off), NO prover box, NO mainnet gate:
+- `derive_request_id(covenant_tx_id, input_idx, winner_xonly, amount_le) -> [u8;32]` (blake2b256), byte-parity with the existing referee / external-resolver v2 derivation + a unit test with hand-computed vectors.
+- `POST /covenant/prepare-external`: gate to `*_refundable` kinds, fetch covenant + UTXOs, build the unsigned tx, compute the sighash (no Covex key), derive request_id, return {sighash, request_id, spend_plan, kind, network}.
+- `pending_external_resolve` session table in db.rs (10-min TTL, mirrors oracle_payout_sessions).
+- `POST /covenant/submit-external`: ingest the resolver's 64-byte BIP340 sig, verify it fail-closed, serialize `0x41||sig64||0x01`, broadcast. Covex key never touches the satisfier.
+- Seams: covenant_builder.rs (types + derivation + prepare/submit), db.rs (session table), main.rs (routes), signer.rs (gate the Covex-key path off for the external `*_refundable` path), oracle.rs (external xonly passed in, not the Covex key).
+- TN12 e2e: deploy OracleEnforcedRefundable -> prepare-external -> external resolver signs -> submit broadcasts; plus the CSV refund-on-silence branch + failure modes (bad sig, expired session, non-refundable kind rejected, mainnet-without-flag rejected).
+
+### SECURITY-CRITICAL OPEN QUESTION (must be resolved by review before any funds)
+The redeem script's OP_CHECKSIG verifies a Schnorr sig over the **tx sighash** - but the resolver must
+only produce that sig once it has bound its decision to a specific covenant+outcome via the
+**request_id**. The generated design was internally inconsistent on whether the resolver signs the
+request_id digest or the sighash. Wrong either way is catastrophic: signing the wrong digest ->
+OP_CHECKSIG fails -> **funds frozen**; signing a sighash without request_id binding -> a resolver sig
+could be **replayed to spend a different covenant -> funds stolen**. This binding + its replay
+protection MUST be nailed by a focused crypto/security review (covex-security-auditor + ideally a
+human) before this path is enabled with real funds.
+
+### Games-ZK (Phase C) - PROVER-BOX blocked (unchanged)
+The RISC0 Groth16 wrap cannot run on the 7GB backend. Needs the Docker + >=12GB box. Guest compiles,
+image id frozen, succinct prove works; the sweep/re-link fund-movement + prover-service deploy + the
+box are what remain. No amount of authority substitutes for the hardware.

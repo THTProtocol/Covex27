@@ -51,11 +51,26 @@ if ! command -v rzup >/dev/null 2>&1 && ! cargo risczero --version >/dev/null 2>
 fi
 
 echo "== running image_id_matches_methods (re-derives the guest image id and asserts it equals the frozen GAMES_GUEST_ID literal) =="
+# The onchain crate is NOT part of a root workspace: cargo must run from zkvm/onchain or
+# `-p covex-games-onchain` cannot resolve a manifest (the original invocation ran at the repo
+# root, so every run failed with "could not find Cargo.toml" and the old error handling then
+# misreported that infrastructure failure as an image-id drift).
+cd "$ONCHAIN_DIR"
+
 # --release matches how the constant was frozen; the test compiles the guest via the methods dev-dep.
-if cargo test --release -p covex-games-onchain image_id_matches_methods -- --nocapture; then
+# Capture output so a real assertion failure (drift) can be told apart from an infrastructure
+# failure (toolchain missing, network, disk). A gate that reports infra noise as DRIFT trains
+# people to ignore the one alarm that guards the on-chain payout path.
+set +e
+TEST_OUT=$(cargo test --release -p covex-games-onchain image_id_matches_methods -- --nocapture 2>&1)
+TEST_STATUS=$?
+set -e
+echo "$TEST_OUT" | tail -40
+
+if [ "$TEST_STATUS" -eq 0 ]; then
   echo ""
   echo "OK: the frozen GAMES_GUEST_ID matches the live guest compile (no drift)."
-else
+elif echo "$TEST_OUT" | grep -qE "assertion.*failed|test image_id_matches_methods.*FAILED|panicked at"; then
   echo ""
   echo "FAIL: GAMES_GUEST_ID DRIFTED from the compiled guest image id."
   echo "      The on-chain-ZK games path pins this image id; a drift means receipts the prover"
@@ -64,4 +79,10 @@ else
   echo "        2. REDEPLOY any live ZkGameSettle covenant (the old covenant pins the old image id),"
   echo "        3. update COVEX_PROVER_IMAGE_ID on the backend to the new hex."
   exit 1
+else
+  echo ""
+  echo "ERROR: the image-id check could not run (cargo exit $TEST_STATUS was not a test assertion)."
+  echo "       This is an infrastructure failure (toolchain / network / manifest), NOT a drift"
+  echo "       verdict. Fix the environment and re-run; do not re-freeze anything off this result."
+  exit 2
 fi

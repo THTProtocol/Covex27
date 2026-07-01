@@ -16,7 +16,13 @@
 .cvx-panel {
   border-radius: 1rem;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.025);
+  /* Glassmorphism depth (was flat): a soft drop shadow + an inset top sheen + a light backdrop
+     blur, so every block panel reads as a premium raised surface in dark mode, matching the
+     polish the light theme already had. */
+  box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(6px) saturate(1.05);
+  -webkit-backdrop-filter: blur(6px) saturate(1.05);
 }
 .light .cvx-panel {
   border-color: rgba(13, 148, 136, 0.14);

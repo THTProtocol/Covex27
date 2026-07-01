@@ -1798,6 +1798,25 @@ export const STARTER_TEMPLATES = [
     },
   },
   {
+    id: 'escrow-3party',
+    name: 'Escrow (3-party, mediated)',
+    premium: true,
+    match: ['mediated', 'arbitration', 'dispute', '3party', 'mediator'],
+    desc: 'Buyer, seller, and a mediator who releases on dispute, with a clear timeline and terms.',
+    data: {
+      root: ROOT({ backgroundPreset: 'midnight' }),
+      content: [
+        blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.55', title: '{{name}}', subtitle: 'A mediated three-party escrow on Kaspa. {{total_locked}} held by the script until the parties agree or the mediator resolves a dispute.', ctaLabel: 'View escrow', ctaAction: 'interact', accentColor: '#49EACB', alignment: 'center' }),
+        blk('EnforcementBadge', { note: 'How this escrow is enforced' }),
+        blk('StatRow', { stats: [{ label: 'In escrow', value: '{{total_locked}}' }, { label: 'Status', value: '{{status}}' }, { label: 'Actions', value: '{{tx_count}}' }] }),
+        blk('Timeline', { title: 'How it settles', steps: [{ label: 'Funded', detail: 'The buyer locks funds to the escrow script.', state: 'done' }, { label: 'Delivery', detail: 'The seller delivers; buyer and seller both confirm to release.', state: 'active' }, { label: 'Dispute', detail: 'If they disagree, the disclosed mediator releases to the rightful party, or the timeout refunds the buyer.', state: 'upcoming' }] }),
+        blk('FeatureGrid', { columns: '3', features: [{ icon: 'Lock', headline: 'Script-held', description: 'No one holds the funds. The Kaspa script does, and moves them only by satisfying it, verifiable on the explorer.' }, { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'Every party signs in their own wallet. Keys never leave their device.' }, { icon: 'Zap', headline: 'Mediator on dispute only', description: 'The disclosed mediator can act only on the dispute branch; it cannot touch a happy-path release.' }] }),
+        blk('Accordion', { title: 'Frequently asked', items: [{ q: 'What can the mediator do?', a: 'Only what the redeem script allows on the dispute branch: release to buyer or seller. It cannot move funds on the cooperative release path. See the enforcement badge on this page.' }, { q: 'What if nobody acts?', a: 'The disclosed timeout refund path returns the funds to the buyer. Everything is on the explorer.' }] }),
+        blk('Footer', { text: '{{name}} · Mediated 3-party escrow on Kaspa', showNetwork: 'yes' }),
+      ],
+    },
+  },
+  {
     id: 'generic-covenant',
     name: 'Generic On-chain Covenant',
     match: ['generic', 'custom', 'merkle_membership', 'age_verification', 'range_proof'],

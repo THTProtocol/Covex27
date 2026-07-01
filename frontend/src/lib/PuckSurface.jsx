@@ -19,5 +19,12 @@ export default function PuckSurface({ mode = 'surface', data, liveData, backgrou
       />
     );
   }
-  return <PuckRender config={puckConfig} data={data} metadata={{ live: liveData }} />;
+  // Premium entrance: the creator-designed page gently rises + fades in on load (reduced-motion-safe
+  // via the CSS guard on .covex-puck-enter). The animation ends at transform:none, so it leaves no
+  // lingering containing block for any block; it is purely a load-in polish on the public render.
+  return (
+    <div className="covex-puck-enter">
+      <PuckRender config={puckConfig} data={data} metadata={{ live: liveData }} />
+    </div>
+  );
 }

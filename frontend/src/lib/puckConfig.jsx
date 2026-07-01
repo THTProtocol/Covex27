@@ -1713,6 +1713,27 @@ export const STARTER_TEMPLATES = [
     },
   },
   {
+    id: 'bounty-board',
+    name: 'Bounty Board',
+    premium: true,
+    match: ['bounty', 'task', 'job', 'grant', 'reward'],
+    desc: 'A fixed one-time payout escrowed on-chain, a claim CTA, and a live submission feed.',
+    data: {
+      root: ROOT({ backgroundPreset: 'midnight' }),
+      content: [
+        blk('HeroImage', { backgroundImageUrl: '', overlayOpacity: '0.55', title: '{{name}}', subtitle: 'A one-time bounty on Kaspa. {{total_locked}} escrowed on {{network}}, paid to the claimant on delivery.', ctaLabel: 'Claim this bounty', ctaAction: 'interact', accentColor: '#49EACB', alignment: 'center' }),
+        blk('EnforcementBadge', { note: 'How this bounty is enforced' }),
+        blk('AnimatedCounter', { label: 'Bounty payout', value: '{{amount_kaspa}}', suffix: 'KAS', decimals: '0', color: '#49EACB' }),
+        blk('StatRow', { stats: [{ label: 'Payout', value: '{{total_locked}}' }, { label: 'Status', value: '{{status}}' }, { label: 'Submissions', value: '{{tx_count}}' }] }),
+        blk('FeatureGrid', { columns: '3', features: [{ icon: 'Lock', headline: 'Escrowed on-chain', description: 'The payout is locked in the covenant and released to the claimant on delivery, verifiable on the explorer.' }, { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device.' }, { icon: 'Zap', headline: 'Paid fast', description: 'Settles on the Kaspa BlockDAG at 10 blocks per second.' }] }),
+        blk('Timeline', { title: 'How it works', steps: [{ label: 'Posted', detail: 'The poster escrows a fixed payout on-chain.', state: 'done' }, { label: 'Claimed', detail: 'A contributor submits the deliverable.', state: 'active' }, { label: 'Paid', detail: 'On acceptance the escrow releases the payout, or refunds on timeout.', state: 'upcoming' }] }),
+        blk('ActivityFeed', { title: 'Recent submissions', emptyText: 'No submissions on-chain yet. Be the first to claim.', maxRows: '5', accentColor: '#49EACB' }),
+        blk('Accordion', { title: 'Frequently asked', items: [{ q: 'When do I get paid?', a: 'On acceptance the on-chain escrow releases the fixed payout to your address; if it is not accepted by the deadline, the poster is refunded. See the enforcement badge on this page.' }, { q: 'Is it non-custodial?', a: 'Yes. You sign in your own wallet; keys never leave your device.' }] }),
+        blk('Footer', { text: '{{name}} · One-time bounty on Kaspa', showNetwork: 'yes' }),
+      ],
+    },
+  },
+  {
     id: 'generic-covenant',
     name: 'Generic On-chain Covenant',
     match: ['generic', 'custom', 'merkle_membership', 'age_verification', 'range_proof'],

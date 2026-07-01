@@ -41,12 +41,12 @@ describe('parseVideoEmbed allowlist (Video block)', () => {
 });
 
 describe('STARTER_TEMPLATES integrity', () => {
-  it('exposes the 10 expected templates', () => {
-    expect(STARTER_TEMPLATES).toHaveLength(10);
+  it('exposes the 11 expected templates', () => {
+    expect(STARTER_TEMPLATES).toHaveLength(11);
     const ids = STARTER_TEMPLATES.map((t) => t.id);
-    expect(new Set(ids).size).toBe(10); // unique ids
-    // The three domain templates added on top of the original seven.
-    for (const id of ['access-pass', 'dao-governance', 'nft-drop']) {
+    expect(new Set(ids).size).toBe(11); // unique ids
+    // The domain templates added on top of the original seven.
+    for (const id of ['access-pass', 'dao-governance', 'nft-drop', 'bounty-board']) {
       expect(ids).toContain(id);
     }
   });

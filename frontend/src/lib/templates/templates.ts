@@ -141,7 +141,7 @@ export const COVENANT_TEMPLATES: CovenantTemplate[] = [
     difficulty: 'Beginner',
     estimatedTime: '4 min',
     recommendedTier: 'BUILDER',
-    tags: ['Finance', 'Split', 'Recurring'],
+    tags: ['Finance', 'Split', 'One-time'],
     generateConfig: (addr) => ({
       ...createDefaultConfig(addr, 'escrow'),
       covenant: { ...createDefaultConfig(addr).covenant, name: 'Revenue Share Pool', description: 'Automatic proportional distribution.' },

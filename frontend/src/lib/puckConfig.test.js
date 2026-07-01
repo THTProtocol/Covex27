@@ -46,7 +46,7 @@ describe('STARTER_TEMPLATES integrity', () => {
     const ids = STARTER_TEMPLATES.map((t) => t.id);
     expect(new Set(ids).size).toBe(10); // unique ids
     // The three domain templates added on top of the original seven.
-    for (const id of ['subscription', 'dao-governance', 'nft-drop']) {
+    for (const id of ['access-pass', 'dao-governance', 'nft-drop']) {
       expect(ids).toContain(id);
     }
   });

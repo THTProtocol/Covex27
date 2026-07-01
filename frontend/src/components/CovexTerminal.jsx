@@ -541,7 +541,7 @@ const TEMPLATE_CIRCUIT_OVERRIDES = {
   'market-multi-oracle': 'oracle_multi_threshold',
   // DeFi (the oracle-resolved ones; multisig/timelock defi route to /deploy/enforced)
   'defi-revenue-share': 'oracle_single', 'defi-collateral-loan': 'collateral_loan',
-  'defi-tip-jar': 'oracle_single', 'defi-subscription': 'oracle_single',
+  'defi-tip-jar': 'oracle_single',
   'defi-royalty-split': 'oracle_single', 'defi-fee-pot-split': 'oracle_single',
   'defi-crowdfund': 'oracle_single',
   // Identity & gating

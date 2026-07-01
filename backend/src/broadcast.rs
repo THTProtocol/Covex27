@@ -351,10 +351,7 @@ mod tests {
     }
     impl EnvGuard {
         fn capture(keys: &[&'static str]) -> Self {
-            let saved = keys
-                .iter()
-                .map(|k| (*k, std::env::var(k).ok()))
-                .collect();
+            let saved = keys.iter().map(|k| (*k, std::env::var(k).ok())).collect();
             // Start from a known-clean slate so a value leaking in from the host or another test
             // cannot change the branch under test.
             for k in keys {
@@ -397,7 +394,10 @@ mod tests {
         assert_eq!(wrpc_url_for_network("testnet-10"), "ws://127.0.0.1:17210");
         // testnet-12 (and any other non-mainnet, non-TN10 label) falls to the TN12 default.
         assert_eq!(wrpc_url_for_network("testnet-12"), "ws://127.0.0.1:17219");
-        assert_eq!(wrpc_url_for_network("anything-else"), "ws://127.0.0.1:17219");
+        assert_eq!(
+            wrpc_url_for_network("anything-else"),
+            "ws://127.0.0.1:17219"
+        );
         // is_mainnet is a starts_with("mainnet") check, so every mainnet variant routes to the
         // single mainnet endpoint (never a testnet one).
         assert_eq!(wrpc_url_for_network("mainnet"), "ws://127.0.0.1:17310");
@@ -448,12 +448,14 @@ mod tests {
         )
         .expect("legacy + unknown fields must still parse (no deny_unknown_fields)");
         assert_eq!(parsed.tx_hex, "deadbeef");
-        assert_eq!(parsed.network, "testnet-12", "omitted network -> wire default");
+        assert_eq!(
+            parsed.network, "testnet-12",
+            "omitted network -> wire default"
+        );
 
-        let parsed2: BroadcastRequest = serde_json::from_str(
-            r#"{"tx_hex":"00","deployer_addr":"x","network":"testnet-10"}"#,
-        )
-        .expect("explicit network must parse");
+        let parsed2: BroadcastRequest =
+            serde_json::from_str(r#"{"tx_hex":"00","deployer_addr":"x","network":"testnet-10"}"#)
+                .expect("explicit network must parse");
         assert_eq!(parsed2.network, "testnet-10");
     }
 }

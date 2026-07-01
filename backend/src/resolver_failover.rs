@@ -117,11 +117,7 @@ pub fn build_client(network: &str, direct_url: &str) -> Result<Arc<KaspaRpcClien
     let (ctor_url, resolver, net_id) = match ctor_plan_for(network) {
         // url:None so resolve_url can fall through to the resolver; network_id
         // is required by the resolver to pick a node for the right network.
-        CtorPlan::ResolverAttached => (
-            None,
-            Some(Resolver::default()),
-            network_id_for(network),
-        ),
+        CtorPlan::ResolverAttached => (None, Some(Resolver::default()), network_id_for(network)),
         // Non-eligible (or unparseable): pin the direct URL, no resolver path.
         CtorPlan::DirectPinned => (Some(direct_url), None, None),
     };

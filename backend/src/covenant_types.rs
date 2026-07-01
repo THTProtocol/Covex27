@@ -69,10 +69,13 @@ impl CovenantCategory {
         }
 
         // Multi-sig: OpCheckMultiSig family present
-        if has_opcodes && (script_hex.contains("ae") && script_hex.contains("51")) && raw_len > 36
-            && script_hex.matches("21").count() >= 2 {
-                return CovenantCategory::Multisig;
-            }
+        if has_opcodes
+            && (script_hex.contains("ae") && script_hex.contains("51"))
+            && raw_len > 36
+            && script_hex.matches("21").count() >= 2
+        {
+            return CovenantCategory::Multisig;
+        }
 
         // HTLC / atomic swap: hash-op plus locktime verify in one script
         if has_opcodes && script_hex.contains("a8") && script_hex.contains("b1") {

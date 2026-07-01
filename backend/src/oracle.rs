@@ -1171,7 +1171,10 @@ mod tests {
         let mut emitting = Vec::new();
         for (id, spec) in registry.iter() {
             let id: &str = id;
-            if !matches!(spec, crate::oracle_verifier::VerifierSpec::StrictGroth16 { .. }) {
+            if !matches!(
+                spec,
+                crate::oracle_verifier::VerifierSpec::StrictGroth16 { .. }
+            ) {
                 continue;
             }
             let circom = zk_dir.join(format!("{id}.circom"));

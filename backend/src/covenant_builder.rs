@@ -2715,7 +2715,9 @@ fn parse_redeem_spec(
                 Err(format!("{what} dev mode needs two dev wallets"))
             }
         } else {
-            Err(format!("{what} requires pubkeys_hex=[a, b] (or use_dev_mode)"))
+            Err(format!(
+                "{what} requires pubkeys_hex=[a, b] (or use_dev_mode)"
+            ))
         }
     };
     match spec.kind.as_str() {
@@ -6018,10 +6020,11 @@ pub async fn prepare_deploy_handler(
             )
         }
     };
-    let (redeem, redeem_kind) = match build_redeem_from_spec(&req.redeem, &owner_xonly, &req.network) {
-        Ok(v) => v,
-        Err(e) => return err(e),
-    };
+    let (redeem, redeem_kind) =
+        match build_redeem_from_spec(&req.redeem, &owner_xonly, &req.network) {
+            Ok(v) => v,
+            Err(e) => return err(e),
+        };
     let p2sh_spk = p2sh_script_pubkey(&redeem);
     let p2sh_addr = match p2sh_address(&redeem, prefix_for_network(&req.network)) {
         Ok(a) => a.to_string(),
@@ -7791,7 +7794,8 @@ mod tests {
                 let resp = oracle_payout_handler(Extension(db.clone()), Json(req)).await;
                 let body = resp.0;
                 assert_eq!(
-                    body["success"], serde_json::json!(false),
+                    body["success"],
+                    serde_json::json!(false),
                     "{net} dev={dev}: a raw mainnet key on the escrow branch must be refused"
                 );
                 let msg = body["error"].as_str().unwrap_or("");
@@ -7896,8 +7900,7 @@ mod tests {
                 Err(e) => {
                     // The ONE thing the union must never produce for a catalog kind: an unknown kind.
                     assert!(
-                        !e.contains("unknown redeem kind")
-                            && !e.contains("does not support kind"),
+                        !e.contains("unknown redeem kind") && !e.contains("does not support kind"),
                         "catalog kind '{}' ({}) is not recognized by the shared builder: {e}",
                         entry.id,
                         kind
@@ -8726,7 +8729,8 @@ mod tests {
         );
 
         let ok_esc_ref =
-            redeem_oracle_escrow_refundable(&covex_oracle, &winner, &player_b, 10, &refund).unwrap();
+            redeem_oracle_escrow_refundable(&covex_oracle, &winner, &player_b, 10, &refund)
+                .unwrap();
         assert!(
             assert_covenant_bound_to_covex_oracle(&ok_esc_ref).is_ok(),
             "a Covex-bound oracle_escrow_refundable covenant must be co-signable"

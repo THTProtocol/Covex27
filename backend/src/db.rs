@@ -56,9 +56,7 @@ pub fn conn(db: &Db) -> Result<DbConn, r2d2::Error> {
                     // Brief backoff so a busy slot can be returned before we retry. A pool
                     // error means there was no free connection anyway, so the caller was
                     // already going to wait.
-                    std::thread::sleep(std::time::Duration::from_millis(
-                        20 * (attempt as u64 + 1),
-                    ));
+                    std::thread::sleep(std::time::Duration::from_millis(20 * (attempt as u64 + 1)));
                 }
                 last_err = Some(e);
             }

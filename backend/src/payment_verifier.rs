@@ -170,9 +170,10 @@ pub async fn run_payment_verifier(
                                     // succeeded, so if the pool is momentarily exhausted just skip
                                     // the event row (conn_or_log records why) instead of panicking
                                     // the background verifier task.
-                                    if let Some(conn) =
-                                        crate::db::conn_or_log(&db, "payment_verifier::tier_upgraded_event")
-                                    {
+                                    if let Some(conn) = crate::db::conn_or_log(
+                                        &db,
+                                        "payment_verifier::tier_upgraded_event",
+                                    ) {
                                         crate::db::record_event_once(
                                             &conn,
                                             "tier_upgraded",
@@ -456,7 +457,10 @@ mod tests {
         // Defense in depth: when MULTIPLE reject conditions hold at once, the result is still
         // None. No single satisfied condition can override another's veto.
         assert_eq!(authorize_tier_upgrade(0, 0, ""), None);
-        assert_eq!(authorize_tier_upgrade(BUILDER_SOMPI - 1, 0, GOOD_ADDR), None);
+        assert_eq!(
+            authorize_tier_upgrade(BUILDER_SOMPI - 1, 0, GOOD_ADDR),
+            None
+        );
         assert_eq!(authorize_tier_upgrade(MAX_SOMPI, 1, ""), None);
     }
 }

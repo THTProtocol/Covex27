@@ -317,8 +317,7 @@ fn index_block_covenants(
                 // Record the selected-chain block this was discovered in, so the reorg
                 // reconciler can detect if it later leaves the chain. Also clears any
                 // stale reorg flag (re-discovery proves it is back on the chain).
-                let _ =
-                    db::mark_covenant_seen_in_block(db, &tid, &block.header.hash.to_string());
+                let _ = db::mark_covenant_seen_in_block(db, &tid, &block.header.hash.to_string());
                 info!(
                     "Crawler: FOUND {} {} DAA={} amt={}K tier={} script={}",
                     ctype,
@@ -920,8 +919,7 @@ pub async fn run_backfill(
             // re-walking from the tip.
             stale_strikes = 0;
             let resume = resume_hash.map(|h| h.to_string());
-            let _ =
-                db::save_backfill_cursor(&db, &network, seed_top, last_daa, resume.as_deref());
+            let _ = db::save_backfill_cursor(&db, &network, seed_top, last_daa, resume.as_deref());
             if interrupted {
                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             } else {
@@ -1102,7 +1100,10 @@ mod tests {
         assert!(backfill_armed(95_000, 0));
         // After a descent covered up past the gap, it disarms (does not re-walk forever).
         assert!(!backfill_armed(95_000, 100_000));
-        assert!(!backfill_armed(95_000, 95_000), "equal is covered, not armed");
+        assert!(
+            !backfill_armed(95_000, 95_000),
+            "equal is covered, not armed"
+        );
         // A later, higher deferral (e.g. after a long stall) re-arms exactly once.
         assert!(backfill_armed(150_000, 100_000));
     }

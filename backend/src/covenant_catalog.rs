@@ -854,7 +854,11 @@ mod tests {
                 );
                 let (available, reason) = e.gate.availability();
                 assert!(available, "ungated {} must always be available", e.id);
-                assert!(reason.is_none(), "ungated {} must have no gated_reason", e.id);
+                assert!(
+                    reason.is_none(),
+                    "ungated {} must have no gated_reason",
+                    e.id
+                );
             }
         }
     }
@@ -872,13 +876,19 @@ mod tests {
         std::env::remove_var("COVEX_KIP10_BOUND_ENABLED");
         std::env::remove_var("KASPA_ZK_PRECOMPILE_ENABLED");
         let (kip_avail, kip_reason) = DeployGate::Kip10Bound.availability();
-        assert!(!kip_avail, "Kip10Bound must be unavailable when the env flag is off");
+        assert!(
+            !kip_avail,
+            "Kip10Bound must be unavailable when the env flag is off"
+        );
         assert!(
             kip_reason.map(|r| !r.is_empty()).unwrap_or(false),
             "an unavailable gate must carry a non-empty reason"
         );
         let (zk_avail, zk_reason) = DeployGate::ZkPrecompile.availability();
-        assert!(!zk_avail, "ZkPrecompile must be unavailable when the env flag is off");
+        assert!(
+            !zk_avail,
+            "ZkPrecompile must be unavailable when the env flag is off"
+        );
         assert!(
             zk_reason.map(|r| !r.is_empty()).unwrap_or(false),
             "an unavailable gate must carry a non-empty reason"
@@ -889,10 +899,19 @@ mod tests {
         std::env::set_var("COVEX_KIP10_BOUND_ENABLED", "1");
         std::env::set_var("KASPA_ZK_PRECOMPILE_ENABLED", "1");
         let (kip_avail, kip_reason) = DeployGate::Kip10Bound.availability();
-        assert!(kip_avail, "Kip10Bound must be available when COVEX_KIP10_BOUND_ENABLED=1");
-        assert!(kip_reason.is_none(), "an available ungated-by-mainnet kind has no reason");
+        assert!(
+            kip_avail,
+            "Kip10Bound must be available when COVEX_KIP10_BOUND_ENABLED=1"
+        );
+        assert!(
+            kip_reason.is_none(),
+            "an available ungated-by-mainnet kind has no reason"
+        );
         let (zk_avail, zk_reason) = DeployGate::ZkPrecompile.availability();
-        assert!(zk_avail, "ZkPrecompile must be available on testnet when the env flag is on");
+        assert!(
+            zk_avail,
+            "ZkPrecompile must be available on testnet when the env flag is on"
+        );
         assert!(
             zk_reason.map(|r| r.contains("mainnet")).unwrap_or(false),
             "ZkPrecompile must keep noting the standing mainnet freeze even when available"

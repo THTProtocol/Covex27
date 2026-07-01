@@ -614,17 +614,18 @@ async fn state_handler(
     let (chips1, chips2, hand_no, button, status) =
         match_row(&db, &covenant_id).unwrap_or((START_CHIPS, START_CHIPS, 1, 0, "active".into()));
 
-    let last_result: Option<serde_json::Value> = crate::db::conn_or_log(&db, "poker::state_handler::last_result")
-        .and_then(|conn| {
-            conn.query_row(
-                "SELECT result FROM poker_hands WHERE covenant_id = ?1 AND result IS NOT NULL \
+    let last_result: Option<serde_json::Value> =
+        crate::db::conn_or_log(&db, "poker::state_handler::last_result")
+            .and_then(|conn| {
+                conn.query_row(
+                    "SELECT result FROM poker_hands WHERE covenant_id = ?1 AND result IS NOT NULL \
                  ORDER BY hand_no DESC LIMIT 1",
-                params![covenant_id],
-                |r| r.get::<_, String>(0),
-            )
-            .ok()
-        })
-        .and_then(|s| serde_json::from_str(&s).ok());
+                    params![covenant_id],
+                    |r| r.get::<_, String>(0),
+                )
+                .ok()
+            })
+            .and_then(|s| serde_json::from_str(&s).ok());
 
     let hand_json = hand_row(&db, &covenant_id, hand_no).and_then(
         |(seed, commitment, phase, actions_raw, result, c1s, c2s, hbtn)| {

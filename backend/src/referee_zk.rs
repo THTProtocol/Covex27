@@ -317,8 +317,11 @@ fn verify_receipt(
     // valid proof of a DIFFERENT game cannot release this pot.
     let expected_digest_hex = hex::encode(server_moves_digest(moves));
     if committed_digest_hex != expected_digest_hex {
-        return Err("zkVM proof verifies, but its committed moves_digest does not match this match's \
-             recorded move log (proof is for a different game); refusing to reveal the secret".to_string());
+        return Err(
+            "zkVM proof verifies, but its committed moves_digest does not match this match's \
+             recorded move log (proof is for a different game); refusing to reveal the secret"
+                .to_string(),
+        );
     }
 
     Ok(format!(

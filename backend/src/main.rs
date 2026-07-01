@@ -2592,10 +2592,7 @@ async fn marketplace_publish_handler(
     Extension(db): Extension<db::Db>,
     Json(input): Json<MarketplacePublishInput>,
 ) -> Json<serde_json::Value> {
-    let id = format!(
-        "tmpl_{}",
-        &uuid::Uuid::new_v4().to_string()[..12]
-    );
+    let id = format!("tmpl_{}", &uuid::Uuid::new_v4().to_string()[..12]);
 
     // Actually store the template in generated_uis as a published template. On pool exhaustion
     // return success:false with a clear error instead of panicking the handler thread.

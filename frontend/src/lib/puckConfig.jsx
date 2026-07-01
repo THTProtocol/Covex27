@@ -238,7 +238,7 @@ export const puckConfig = {
   categories: {
     hero: { title: 'Hero & banners', components: ['HeroImage', 'CTABanner', 'StatBanner', 'EnforcementBadge'] },
     layout: { title: 'Layout', components: ['Hero', 'GoldenGrid', 'TwoColumns', 'Spacer', 'Divider', 'SectionBackground', 'Tabs', 'Accordion'] },
-    content: { title: 'Content', components: ['Heading', 'Paragraph', 'RichText', 'BulletList', 'FAQItem', 'ImageBlock', 'Video', 'ImageGallery', 'Carousel', 'FeatureGrid', 'GlowCard', 'LogoStrip', 'Timeline', 'ProcessFlow', 'PricingTier', 'Testimonials', 'SocialLinks', 'Footer'] },
+    content: { title: 'Content', components: ['Heading', 'Paragraph', 'RichText', 'BulletList', 'FAQItem', 'ImageBlock', 'Video', 'ImageGallery', 'Carousel', 'FeatureGrid', 'GlowCard', 'LogoStrip', 'Timeline', 'ProcessFlow', 'PricingTier', 'Testimonials', 'ComparisonTable', 'SocialLinks', 'Footer'] },
     covenant: { title: 'Covenant (live)', components: ['StatRow', 'AnimatedCounter', 'OddsBar', 'OddsHighlightCard', 'PoolMeter', 'PoolChart', 'ActivityFeed', 'Leaderboard', 'Marquee', 'Countdown', 'StakeCTA', 'FeeNotice'] },
   },
   components: {
@@ -532,6 +532,70 @@ export const puckConfig = {
                 </div>
               </Card>
             ))}
+          </div>
+        );
+      },
+    },
+    ComparisonTable: {
+      label: 'Comparison table',
+      fields: {
+        title: { type: 'text' },
+        colA: { type: 'text', label: 'Column A header' },
+        colB: { type: 'text', label: 'Column B header' },
+        colC: { type: 'text', label: 'Column C header (blank to hide)' },
+        highlight: { type: 'select', options: [{ label: 'None', value: 'none' }, { label: 'Column A', value: 'a' }, { label: 'Column B', value: 'b' }, { label: 'Column C', value: 'c' }] },
+        rows: {
+          type: 'array',
+          arrayFields: { feature: { type: 'text' }, a: { type: 'text', label: 'A (yes / no / text)' }, b: { type: 'text', label: 'B (yes / no / text)' }, c: { type: 'text', label: 'C (yes / no / text)' } },
+          defaultItemProps: { feature: 'Feature', a: 'yes', b: 'no', c: '' },
+        },
+      },
+      defaultProps: {
+        title: 'How it compares',
+        colA: 'Covex', colB: 'Elsewhere', colC: '',
+        highlight: 'a',
+        rows: [
+          { feature: 'Non-custodial (you sign)', a: 'yes', b: 'no', c: '' },
+          { feature: 'On-chain, verifiable', a: 'yes', b: 'no', c: '' },
+          { feature: 'One-time payment', a: 'yes', b: 'sometimes', c: '' },
+          { feature: 'No account required', a: 'yes', b: 'no', c: '' },
+        ],
+      },
+      render: ({ title, colA, colB, colC, highlight, rows, puck }) => {
+        const live = puck?.metadata?.live || {};
+        const cols = [['a', colA], ['b', colB], ['c', colC]].filter(([, label]) => label && String(label).trim());
+        const list = rows || [];
+        const cell = (v) => {
+          const t = String(v ?? '').trim().toLowerCase();
+          if (t === 'yes' || t === 'true' || t === 'y') return (<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="inline text-kaspa-green" aria-label="yes"><path d="M20 6 9 17l-5-5" /></svg>);
+          if (t === 'no' || t === 'false' || t === 'n' || t === '') return (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" className="inline cvx-faint" aria-label="no"><path d="M5 12h14" /></svg>);
+          return <span className="text-sm cvx-title">{resolveTokens(String(v), live)}</span>;
+        };
+        return (
+          <div className="px-2 md:px-4 mb-5">
+            {title && <h3 className="text-lg font-bold cvx-title mb-4 px-1 text-center">{resolveTokens(title, live)}</h3>}
+            <Card className="overflow-x-auto p-0">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-white/10 light:border-slate-200">
+                    <th className="p-3 text-[11px] uppercase tracking-widest cvx-faint font-bold">Feature</th>
+                    {cols.map(([key, label]) => (
+                      <th key={key} className={`p-3 text-center text-xs font-bold ${highlight === key ? 'cvx-accent-teal' : 'cvx-title'}`}>{resolveTokens(String(label), live)}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((r, i) => (
+                    <tr key={i} className="border-b border-white/10 light:border-slate-200 last:border-0">
+                      <td className="p-3 text-sm cvx-body">{resolveTokens(r.feature, live)}</td>
+                      {cols.map(([key]) => (
+                        <td key={key} className={`p-3 text-center ${highlight === key ? 'cvx-panel-soft' : ''}`}>{cell(r[key])}</td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
           </div>
         );
       },

@@ -298,6 +298,13 @@ export const PAGE_BLOCKS = [
     insertHint: INSERT_HINT,
   },
   {
+    id: 'ComparisonTable',
+    name: 'Comparison table',
+    oneLiner: 'A feature matrix with check/dash cells and a highlighted column.',
+    category: 'Content',
+    insertHint: INSERT_HINT,
+  },
+  {
     id: 'FeatureGrid',
     name: 'Feature Grid',
     oneLiner: 'A grid of icon-led feature cards.',

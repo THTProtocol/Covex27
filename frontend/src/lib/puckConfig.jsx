@@ -959,9 +959,17 @@ export const puckConfig = {
       defaultProps: { stats: [{ label: 'Locked', value: '{{total_locked}}' }, { label: 'Status', value: '{{status}}' }, { label: 'Actions', value: '{{tx_count}}' }] },
       render: ({ stats, puck }) => {
         const live = puck?.metadata?.live || {};
+        const items = (stats || []).slice(0, 6);
+        const n = items.length;
+        // Responsive columns: 2-up on phones (readable, not a cramped 3-across), fanning out on
+        // larger screens. Was a hardcoded grid-cols-3 that squeezed stat cards on mobile.
+        const colClass = n <= 1 ? 'grid-cols-1'
+          : n === 2 ? 'grid-cols-2'
+          : n === 4 ? 'grid-cols-2 lg:grid-cols-4'
+          : 'grid-cols-2 sm:grid-cols-3';
         return (
-          <div className="grid grid-cols-3 gap-3 px-2 md:px-4 mb-5">
-            {(stats || []).slice(0, 6).map((s, i) => (
+          <div className={`grid ${colClass} gap-3 px-2 md:px-4 mb-5`}>
+            {items.map((s, i) => (
               <div key={i} className="cvx-panel rounded-xl p-3 text-center">
                 <p className="text-[10px] uppercase tracking-widest cvx-faint">{resolveTokens(s.label, live)}</p>
                 <p className="text-lg font-bold cvx-title">{resolveTokens(s.value, live)}</p>

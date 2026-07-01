@@ -284,6 +284,13 @@ export const PAGE_BLOCKS = [
     insertHint: INSERT_HINT,
   },
   {
+    id: 'ProcessFlow',
+    name: 'Process flow (horizontal)',
+    oneLiner: 'Numbered horizontal steps with connectors; stacks on mobile.',
+    category: 'Content',
+    insertHint: INSERT_HINT,
+  },
+  {
     id: 'Testimonials',
     name: 'Quotes / Testimonials',
     oneLiner: 'A row of quoted testimonials with attribution.',

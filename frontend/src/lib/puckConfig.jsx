@@ -238,7 +238,7 @@ export const puckConfig = {
   categories: {
     hero: { title: 'Hero & banners', components: ['HeroImage', 'CTABanner', 'StatBanner', 'EnforcementBadge'] },
     layout: { title: 'Layout', components: ['Hero', 'GoldenGrid', 'TwoColumns', 'Spacer', 'Divider', 'SectionBackground', 'Tabs', 'Accordion'] },
-    content: { title: 'Content', components: ['Heading', 'Paragraph', 'RichText', 'BulletList', 'FAQItem', 'ImageBlock', 'Video', 'ImageGallery', 'Carousel', 'FeatureGrid', 'LogoStrip', 'Timeline', 'PricingTier', 'Testimonials', 'SocialLinks', 'Footer'] },
+    content: { title: 'Content', components: ['Heading', 'Paragraph', 'RichText', 'BulletList', 'FAQItem', 'ImageBlock', 'Video', 'ImageGallery', 'Carousel', 'FeatureGrid', 'LogoStrip', 'Timeline', 'ProcessFlow', 'PricingTier', 'Testimonials', 'SocialLinks', 'Footer'] },
     covenant: { title: 'Covenant (live)', components: ['StatRow', 'AnimatedCounter', 'OddsBar', 'OddsHighlightCard', 'PoolMeter', 'PoolChart', 'ActivityFeed', 'Leaderboard', 'Marquee', 'Countdown', 'StakeCTA', 'FeeNotice'] },
   },
   components: {
@@ -685,6 +685,47 @@ export const puckConfig = {
                 ))}
               </div>
             </div>
+          </div>
+        );
+      },
+    },
+    ProcessFlow: {
+      label: 'Process flow (horizontal)',
+      fields: {
+        title: { type: 'text' },
+        steps: {
+          type: 'array',
+          arrayFields: {
+            label: { type: 'text' },
+            detail: { type: 'textarea' },
+          },
+          defaultItemProps: { label: 'Step', detail: 'Describe this step.' },
+        },
+      },
+      defaultProps: {
+        title: 'How it works',
+        steps: [
+          { label: 'Lock', detail: 'Funds lock into the on-chain covenant.' },
+          { label: 'Act', detail: 'Participants interact, signing in their own wallet.' },
+          { label: 'Settle', detail: 'The script releases funds per its disclosed rules.' },
+        ],
+      },
+      render: ({ title, steps, puck }) => {
+        const live = puck?.metadata?.live || {};
+        const list = steps || [];
+        return (
+          <div className="mx-2 md:mx-4 mb-5">
+            {title && <h3 className="text-lg font-bold cvx-title mb-4 px-1 text-center">{resolveTokens(title, live)}</h3>}
+            <ol className="flex flex-col sm:flex-row items-stretch gap-4 sm:gap-0">
+              {list.map((s, i) => (
+                <li key={i} className="relative flex-1 flex flex-col items-center text-center px-2">
+                  {i > 0 && <span aria-hidden="true" className="cvx-timeline-rail hidden sm:block absolute left-0 top-4 -translate-y-1/2 w-full h-0.5" />}
+                  <span className="relative z-10 grid place-items-center w-8 h-8 rounded-full text-xs font-black mb-2" style={{ background: '#49EACB', color: '#000' }}>{i + 1}</span>
+                  <p className="text-sm font-bold cvx-title">{resolveTokens(s.label, live)}</p>
+                  {s.detail && <p className="text-xs cvx-muted mt-0.5 leading-relaxed max-w-[24ch]">{resolveTokens(s.detail, live)}</p>}
+                </li>
+              ))}
+            </ol>
           </div>
         );
       },

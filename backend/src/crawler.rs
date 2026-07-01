@@ -664,6 +664,7 @@ fn backfill_reached_floor(block_daa: u64, stop_floor: u64) -> bool {
 ///     deferral (e.g. after a long node stall) raises `gap_top` above `covered_top` and re-arms a
 ///     fresh descent that only re-walks the NEW gap (floor = previous covered_top), not the whole
 ///     chain.
+///
 /// Re-walking the recent FORWARD_WINDOW the forward walk already indexed is harmless: every insert
 /// is idempotent. Disable with COVEX_BACKFILL_ENABLED=false. Tune with COVEX_BACKFILL_CHUNK /
 /// COVEX_BACKFILL_INTERVAL_MS.

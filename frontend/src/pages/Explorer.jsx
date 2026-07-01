@@ -555,13 +555,15 @@ export default function Explorer() {
     if (!q) return;
     setSearchLoading(true); setSearchError(null); setSearchResults(null); setResolvedChip(null);
 
-    // Auto-detect network from a pasted address prefix and switch to match before
-    // searching, so a kaspatest: address pasted while the picker is on mainnet does
-    // not silently return nothing. The picker (and WalletContext / Stats) follow.
+    // Covex displays Kaspa mainnet only. A pasted testnet (kaspatest:) address has no results
+    // here, so say so honestly instead of switching the whole app to a testnet.
     let net = kaspaNetwork;
-    if (q.startsWith('kaspatest:') && kaspaNetwork === 'mainnet') {
-      net = switchNetwork('testnet-10');
-    } else if (q.startsWith('kaspa:') && kaspaNetwork !== 'mainnet') {
+    if (q.startsWith('kaspatest:')) {
+      setSearchError('Covex is on Kaspa mainnet. That looks like a testnet address, so it has no results here.');
+      setSearchLoading(false);
+      return;
+    }
+    if (q.startsWith('kaspa:') && kaspaNetwork !== 'mainnet') {
       net = switchNetwork('mainnet');
     }
 
@@ -583,7 +585,7 @@ export default function Explorer() {
           // Honor an explicit network_hint when the backend supplies one.
           let searchNet = net;
           if (d && d.network_hint === 'mainnet' && net !== 'mainnet') searchNet = switchNetwork('mainnet');
-          else if (d && d.network_hint === 'testnet' && net === 'mainnet') searchNet = switchNetwork('testnet-10');
+          // Mainnet-only site: never switch to a testnet on a network_hint.
 
           if (d && d.resolved && d.address) {
             setResolvedChip({ name: q, address: d.address });

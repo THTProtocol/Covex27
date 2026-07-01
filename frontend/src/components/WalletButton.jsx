@@ -412,7 +412,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
             </div>
 
             <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-              <p className="text-sm text-gray-300 light:text-slate-600 mb-4">Select a Kaspa wallet to connect to Covex ({netLabel})</p>
+              <p className="text-sm text-gray-300 light:text-slate-600 mb-4">Select a Kaspa wallet to connect to Covex.</p>
 
               {error && (
                 <div className="mb-4 p-3 rounded-lg bg-red-500/[0.06] border border-red-500/20 flex items-start gap-2.5">

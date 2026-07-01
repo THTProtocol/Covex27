@@ -72,15 +72,17 @@ function getDevStorageKey(net) {
   return `covex_dev_wallet_${safe}`;
 }
 
-// ── Wallet logos from Chrome Web Store CDN (pattern from THTProtocol/27) ──
+// ── Wallet logos, bundled LOCALLY under public/wallets/ ──
+// These are the official brand marks, downloaded from the Chrome Web Store and served same-origin
+// so they ALWAYS render: no external CDN dependency that can be slow, referrer-blocked, or
+// unreachable on a phone (which is exactly when the logos went missing before). 128x128 PNGs.
 const WALLET_LOGOS = {
-  KasWare:  'https://lh3.googleusercontent.com/GWR2Bode3QAzDrsZJHVRsYhCN60azRCtL1xoOBxqCYcDpbMD_avwiFkuiAOAkuyLnEh9DGOAoZSbWDcNUhiZ7X6RZE8=s128',
-  Kastle:   'https://lh3.googleusercontent.com/byDg7ykj9UUJRur0v8jFr9orcj7N1_M6LuqtwnJxlnVNk4GV0JrhFmS0Xp0U9QRgxGZa4wf7-8M29v7kfEBc-Ha9kg=s128',
-  Kasperia: 'https://lh3.googleusercontent.com/b08QPuruZqIwLRmpcTrN54hmxY6YEQgVKS4y1s7LAYiIulTlZAaxvsWRUK2SIivLecsxgoCuoH66jNLnQLzjMWXtFr0=s128',
-  OKX:      'https://lh3.googleusercontent.com/2bBevW79q6gRZTFdm42CzUetuEKndq4fn41HQGknMpKMF_d-Ae2sJJzgfFUAVb1bJKCBb4ptZ9EAPp-QhWYIvc35yw=s128',
-  // Mobile-only wallets have no stable official logo CDN (no Chrome Web Store image), and the
-  // favicon service returned generic/wrong icons that read as fake. They intentionally fall back
-  // to the clean letter-avatar in WalletButton (empty logo) rather than show a wrong/fake image.
+  KasWare:  '/wallets/kasware.png',
+  Kastle:   '/wallets/kastle.png',
+  Kasperia: '/wallets/kasperia.png',
+  OKX:      '/wallets/okx.png',
+  // Mobile-only wallets have no official bundled mark yet, so they intentionally fall back to the
+  // clean letter-avatar in WalletButton (empty logo) rather than show a wrong/fake image.
   Kasanova: '',
   Kaspium:  '',
   KaspaCom: '',

@@ -332,8 +332,12 @@ const ALL_WALLETS = [
   // desktop platform keeps it honest. `sub` reflects the desktop extension only.
   { id: 'Kastle', name: 'Kastle', url: WALLET_INSTALL_URLS.Kastle, logo: WALLET_LOGOS.Kastle, sub: 'Chrome extension', platform: 'desktop', detect: () => detectWallet('Kastle'), provider: () => getProvider('Kastle'), canSignCovenants: true },
   // OKX is KasWare-compatible (window.okxwallet.kaspa exposes signPskt), so it can sign covenant
-  // deploy/redeem the same way. Desktop extension + a mobile in-app dApp browser (deep link).
-  { id: 'OKX', name: 'OKX Wallet', url: WALLET_INSTALL_URLS.OKX, logo: WALLET_LOGOS.OKX, sub: 'Chrome · iOS · Android', platform: 'desktop', deepLink: WALLET_DEEP_LINKS.OKX, detect: () => detectWallet('OKX'), provider: () => getProvider('OKX'), canSignCovenants: true },
+  // deploy/redeem the same way. It is genuinely CROSS-PLATFORM: a desktop extension AND a mobile
+  // in-app dApp browser reachable via a deep link. platform:'both' so walletsForDevice() surfaces it
+  // on a phone too (as "Open in OKX" -> the app's in-app browser injects window.okxwallet.kaspa ->
+  // the one-tap in-app connect signs covenants). Marking it desktop-only silently hid the single
+  // listed wallet that actually completes an end-to-end mobile connect + sign.
+  { id: 'OKX', name: 'OKX Wallet', url: WALLET_INSTALL_URLS.OKX, logo: WALLET_LOGOS.OKX, sub: 'Chrome · iOS · Android', platform: 'both', deepLink: WALLET_DEEP_LINKS.OKX, detect: () => detectWallet('OKX'), provider: () => getProvider('OKX'), canSignCovenants: true },
   // Mobile-app wallets with an in-app dApp browser. On mobile these show "Open in <app>" (a
   // universal link that launches the app to Covex); once you are inside that app's browser, the
   // injected provider is detected and the synthetic "Your Kaspa wallet" entry (added in

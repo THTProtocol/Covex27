@@ -9,7 +9,23 @@ vi.mock('@kasflow/wallet-connector/react', () => ({}));
 vi.mock('@onekeyfe/kaspa-wasm', () => ({ default: () => {}, initSync: () => {} }));
 vi.mock('@onekeyfe/kaspa-wasm/kaspa_bg.wasm.bin?url', () => ({ default: '' }));
 
-const { walletCovenantBadge } = await import('../WalletContext.jsx');
+const { walletCovenantBadge, ALL_WALLETS } = await import('../WalletContext.jsx');
+
+// MOBILE REACH: walletsForDevice() hard-filters the picker by platform (mobile shows platform
+// 'mobile' | 'both'; desktop shows 'desktop' | 'both'). OKX is the one listed wallet with a real
+// mobile in-app dApp browser AND covenant signing, so it MUST be cross-platform ('both') or a phone
+// user never sees the only wallet that completes an end-to-end mobile connect + sign. This pins that
+// so a regression back to 'desktop' (which silently hid OKX on mobile) fails CI.
+describe('OKX is cross-platform so mobile users can reach it', () => {
+  const okx = ALL_WALLETS.find((w) => w.id === 'OKX');
+  it('OKX is listed with a mobile deep link', () => {
+    expect(okx).toBeTruthy();
+    expect(okx.deepLink).toBeTruthy();
+  });
+  it("OKX platform is 'both' (surfaces on desktop AND mobile)", () => {
+    expect(okx.platform).toBe('both');
+  });
+});
 
 // GAP 5: the green "Signs covenants" badge OVERCLAIMED for Kastle on the default network.
 // Kastle covenant signing is mainnet/TN10 only, but DEFAULT_NETWORK is testnet-12, so a first-time

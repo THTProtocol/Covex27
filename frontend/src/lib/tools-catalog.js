@@ -304,6 +304,13 @@ export const PAGE_BLOCKS = [
     category: 'Content',
     insertHint: INSERT_HINT,
   },
+  {
+    id: 'GlowCard',
+    name: 'Glow cards (premium)',
+    oneLiner: 'Glassmorphism feature cards with an accent glow.',
+    category: 'Content',
+    insertHint: INSERT_HINT,
+  },
 
   // Layout
   {

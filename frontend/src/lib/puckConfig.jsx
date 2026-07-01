@@ -238,7 +238,7 @@ export const puckConfig = {
   categories: {
     hero: { title: 'Hero & banners', components: ['HeroImage', 'CTABanner', 'StatBanner', 'EnforcementBadge'] },
     layout: { title: 'Layout', components: ['Hero', 'GoldenGrid', 'TwoColumns', 'Spacer', 'Divider', 'SectionBackground', 'Tabs', 'Accordion'] },
-    content: { title: 'Content', components: ['Heading', 'Paragraph', 'RichText', 'BulletList', 'FAQItem', 'ImageBlock', 'Video', 'ImageGallery', 'Carousel', 'FeatureGrid', 'LogoStrip', 'Timeline', 'ProcessFlow', 'PricingTier', 'Testimonials', 'SocialLinks', 'Footer'] },
+    content: { title: 'Content', components: ['Heading', 'Paragraph', 'RichText', 'BulletList', 'FAQItem', 'ImageBlock', 'Video', 'ImageGallery', 'Carousel', 'FeatureGrid', 'GlowCard', 'LogoStrip', 'Timeline', 'ProcessFlow', 'PricingTier', 'Testimonials', 'SocialLinks', 'Footer'] },
     covenant: { title: 'Covenant (live)', components: ['StatRow', 'AnimatedCounter', 'OddsBar', 'OddsHighlightCard', 'PoolMeter', 'PoolChart', 'ActivityFeed', 'Leaderboard', 'Marquee', 'Countdown', 'StakeCTA', 'FeeNotice'] },
   },
   components: {
@@ -394,6 +394,45 @@ export const puckConfig = {
                 <h3 className="text-lg font-bold cvx-title mb-1.5">{resolveTokens(f.headline, live)}</h3>
                 <p className="text-sm cvx-body leading-relaxed">{resolveTokens(f.description, live)}</p>
               </Card>
+            ))}
+          </div>
+        );
+      },
+    },
+    GlowCard: {
+      label: 'Glow cards (premium)',
+      fields: {
+        columns: { type: 'select', options: [{ label: '2', value: '2' }, { label: '3', value: '3' }] },
+        accentColor: colorField('Glow accent'),
+        cards: {
+          type: 'array',
+          arrayFields: { icon: iconField('Icon'), headline: { type: 'text' }, description: { type: 'textarea' } },
+          defaultItemProps: { icon: 'Sparkles', headline: 'Highlight', description: 'Describe this highlight.' },
+        },
+      },
+      defaultProps: {
+        columns: '3',
+        accentColor: '#49EACB',
+        cards: [
+          { icon: 'ShieldCheck', headline: 'Non-custodial', description: 'You sign in your own wallet. Keys never leave your device.' },
+          { icon: 'Zap', headline: 'Kaspa speed', description: 'Settles on the BlockDAG at 10 blocks per second.' },
+          { icon: 'Lock', headline: 'On-chain', description: 'Custody and payout are verifiable on the explorer.' },
+        ],
+      },
+      render: ({ columns, accentColor, cards, puck }) => {
+        const live = puck?.metadata?.live || {};
+        const ac = accentColor || '#49EACB';
+        return (
+          <div className={`grid grid-cols-1 ${COL_CLASS[columns] || COL_CLASS['3']} gap-4 px-2 md:px-4 mb-5`}>
+            {(cards || []).map((c, i) => (
+              <div key={i} className="relative rounded-2xl p-6 border cvx-panel overflow-hidden" style={{ borderColor: ac, boxShadow: `0 0 32px -14px ${ac}` }}>
+                <div aria-hidden="true" className="absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl opacity-30" style={{ background: ac }} />
+                <div className="relative z-10">
+                  <div className="cvx-icon-chip mb-4" style={{ color: ac }}><IconOrEmoji name={c.icon} emoji={c.iconEmoji} size={24} /></div>
+                  <h3 className="text-lg font-bold cvx-title mb-1.5">{resolveTokens(c.headline, live)}</h3>
+                  <p className="text-sm cvx-body leading-relaxed">{resolveTokens(c.description, live)}</p>
+                </div>
+              </div>
             ))}
           </div>
         );

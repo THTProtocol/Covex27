@@ -249,7 +249,7 @@ export function walletCovenantBadge(walletId, appNetwork) {
   const family = COVENANT_SIGNER_FAMILY[walletId];
   if (!family) return { canSign: false, networkLimited: false, note: null };
   if (family === 'kastle' && !COVEX_TO_KASTLE_NETWORK[appNetwork]) {
-    return { canSign: false, networkLimited: true, note: 'Mainnet / TN10 only' };
+    return { canSign: false, networkLimited: true, note: 'Unsupported network' };
   }
   return { canSign: true, networkLimited: false, note: null };
 }
@@ -1107,7 +1107,7 @@ function WalletBridge({ children, kf = KF_STUB }) {
     // Kastle supports mainnet + TN10 ONLY (no TN12). If the app is on a network Kastle cannot do,
     // report it honestly so the gate stays false rather than letting a doomed sign attempt run.
     if (family === 'kastle' && !COVEX_TO_KASTLE_NETWORK[appNetwork]) {
-      return { ok: false, family, reason: 'Kastle supports mainnet and testnet-10 only (not testnet-12). Switch networks, use KasWare/OKX, or the recovery key tool.' };
+      return { ok: false, family, reason: 'Kastle cannot sign covenants on the current network. Use KasWare/OKX, or the recovery key tool.' };
     }
     return { ok: true, family, reason: null };
   }, [devMode, activeWalletId, activeAddress, appNetwork, walletMeta]);

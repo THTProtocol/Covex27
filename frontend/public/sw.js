@@ -5,8 +5,14 @@
 // cached index.html stale-while-revalidate, which pinned visitors to outdated
 // content-hashed chunk references). Content-hashed /assets/ files are immutable,
 // so they are cache-first (instant + offline). Bumping CACHE purges the old one.
-const CACHE = 'covex-v5';
-const ASSET_RE = /\/assets\/.+\.(?:js|css|woff2?|ttf|png|jpe?g|svg|webp|gif|ico)$/i;
+//
+// NGX-8: include wasm|bin|json so the ~11.5MB kaspa-wasm bundle (and its sidecar
+// .bin/.json artifacts) is service-worker cached after the first load instead of
+// re-downloaded every visit. Only files under /assets/ match, and Vite content-
+// hashes everything there, so caching them cache-first stays immutable-safe;
+// /manifest.json lives at the root and is handled by the shell path, not here.
+const CACHE = 'covex-v6';
+const ASSET_RE = /\/assets\/.+\.(?:js|css|woff2?|ttf|png|jpe?g|svg|webp|gif|ico|wasm|bin|json)$/i;
 
 // Static app-shell pieces that make an installed PWA usable offline. These are
 // NOT content-hashed, so we refresh them opportunistically (the fetch handler

@@ -1677,7 +1677,7 @@ export default function CovenantInteractive() {
                       <div className="text-kaspa-green text-sm tracking-[3px] font-bold light:text-emerald-700">STAKED {GAME_REGISTRY[gameType].label.toUpperCase()} COVENANT</div>
                       <div className="text-3xl font-semibold text-white mt-1 light:text-slate-900">{GAME_REGISTRY[gameType].label}</div>
                       <p className="text-sm text-gray-400 mt-2 max-w-md mx-auto leading-relaxed light:text-slate-600">
-                        Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine replays the signed move log (anyone can recompute); settlement is simulated today, with the recomputable Covex engine co-signing the release (not trustless), and the winning party receives the staked amount minus the creator fee. Non-custodial: stakes go directly to the covenant on Kaspa.
+                        Stake KAS and play a real {GAME_REGISTRY[gameType].label} match. Server-authoritative engine replays the signed move log (anyone can recompute). New pots settle by the live hashlock default: the pot locks in a covenant holding no Covex key, the referee reveals the winner's secret, and the winner releases the pot with their OWN key (Covex signs nothing); if unresolved, the funder reclaims after a CSV timeout. This is still not trustless (the referee decides), and the winning party receives the staked amount minus the creator fee. Legacy co-signed pots are frozen on Kaspa. Non-custodial: stakes go directly to the covenant on Kaspa.
                       </p>
                     </div>
                     <div className="flex flex-col items-center">

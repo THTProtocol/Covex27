@@ -18,7 +18,7 @@ import { AlertTriangle } from '../lib/routeIcons.js';
  *   - on-chain        : a structural P2SH check here; the full redeem-script-hashes-to-
  *                       commitment rule is enforced by any Kaspa node at spend.
  *   - full-zk/hybrid  : the proof is verified OFF-CHAIN by you, the counterparty, or any
- *                       external verifier (snarkjs against the audited vkey), fail-closed; a
+ *                       external verifier (snarkjs against the served vkey), fail-closed; a
  *                       valid proof gates a 2-of-2 cosign (the circom proof is verified off-chain).
  *   - decorative      : not consensus-enforced at all; a metadata marker only.
  *
@@ -64,7 +64,7 @@ function limitsFor({ reality, kind }) {
     lines.push('You are trusting the deployer-bound resolver (bound by pubkey at deploy) to reveal the secret for the true result. Once revealed, every funded leg settles through any Kaspa node with no further trust in the resolver.');
   } else {
     // Primitive / oracle / zk covenant - reality-driven copy.
-    if (hasZk) lines.push('The proof is verified OFF-CHAIN (by you, the counterparty, or any external verifier - snarkjs against the audited vkey, fail-closed); for the circom suite the proof is verified off-chain, so a valid proof gates a 2-of-2 cosign rather than being checked on-chain.');
+    if (hasZk) lines.push('The proof is verified OFF-CHAIN (by you, the counterparty, or any external verifier - snarkjs against the served vkey, fail-closed); for the circom suite the proof is verified off-chain, so a valid proof gates a 2-of-2 cosign rather than being checked on-chain.');
     if (involvesOracle) lines.push('A reachable resolver now does not prove a future outcome will be honest. You are trusting a deployer-bound external resolver for the input; funds are not script-gated to its signature, and Covex never attests outcomes.');
     if (reality === 'on-chain') lines.push('The check shown on this page is structural (the P2SH lock pattern). The full redeem-script-hashes-to-commitment rule is enforced by any Kaspa node at spend, not by this page.');
     if (reality === 'decorative') lines.push('This covenant is NOT enforced by Kaspa consensus. It is a metadata marker only - do not rely on it for value at stake.');

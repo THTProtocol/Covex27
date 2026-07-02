@@ -305,6 +305,23 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
   }
 
   const onchainEntries = useMemo(() => catalog.filter((e) => e.enforcement_reality === 'on-chain'), [catalog]);
+  // FE-7: derive the gated set from the catalog's per-entry `available` flag (the SAME runtime
+  // gate the backend deploy path checks), normalizing the catalog's `p2sh_`-prefixed ids to the
+  // bare KINDS ids. This makes any backend gate flip (KIP-10 / KIP-16) propagate to the UI with no
+  // code change. The hardcoded GATED_KINDS list stays a FAIL-CLOSED FALLBACK ONLY: kindGated() is
+  // the UNION of the served flag and isGatedKind(), so a missing/failed catalog fetch can only ever
+  // keep a kind gated, never loosen it.
+  const catalogGatedKinds = useMemo(() => {
+    const s = new Set();
+    for (const e of catalog) {
+      if (e && e.available === false) s.add(String(e.id || '').replace(/^p2sh_/, ''));
+    }
+    return s;
+  }, [catalog]);
+  const kindGated = (id) => {
+    const bare = String(id || '').split(':')[0].replace(/^p2sh_/, '');
+    return catalogGatedKinds.has(bare) || isGatedKind(id);
+  };
   // Multi-party / oracle primitives deploy via server-assisted dev wallets,
   // exactly like the multisig demo. Single-signer kinds stay fully non-custodial.
   const DEV_WALLET_KINDS = ['multisig', 'htlc', 'channel', 'deadman', 'timedecay', 'oracle_enforced', 'oracle_enforced_refundable', 'oracle_escrow', 'oracle_escrow_refundable', 'binary_oracle_select'];
@@ -364,7 +381,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
     if (kind === 'market') { await createMarket(); return; }
     // Backend-gated kinds are refused server-side until their on-chain e2e is proven; refuse here
     // too so a programmatic deploy can never hit that gate error. The tiles are already disabled.
-    if (isGatedKind(kind)) {
+    if (kindGated(kind)) {
       setError('This covenant kind is gated behind a backend feature flag until its on-chain end-to-end is proven (KIP-10 output-binding / KIP-16 on-chain ZK settle). It is not deployable yet.');
       return;
     }
@@ -878,7 +895,7 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           const isMainnetCapable = MAINNET_CAPABLE_KINDS.includes(k.id);
           // Backend-gated kinds (KIP-10 output-binding / KIP-16 on-chain ZK settle) are refused by
           // the backend until their e2e is proven, so never offer them as a deployable tile.
-          const gated = isGatedKind(k.id);
+          const gated = kindGated(k.id);
           // LIVE-NETWORK DEAD-END GUARD: on the live network, only the non-custodial single-signer
           // kinds can actually deploy. The dev-wallet kinds (multisig/htlc/channel/deadman/timedecay/
           // oracle_*/binary_oracle_select) route through use_dev_mode, which the backend rejects on
@@ -887,13 +904,23 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
           // rather than render an advertised tile that errors on deploy, disable it with an honest
           // note. Gated kinds are disabled on every network.
           const mainnetUnavailable = (isMainnet && !isMainnetCapable) || gated;
+          // FE-5: binary_oracle_select is the one non-single-signer kind the BACKEND wallet path
+          // already ALLOWS on mainnet (bound to an external resolver's published hashes), so the
+          // shared dev-wallet-path reason is inaccurate for it: the missing piece is the frontend
+          // hash-entry deploy UI, not a server gate. Give it its own honest disabled reason.
+          const devPathReason = 'Routes through the server-assisted dev-wallet path, which is disabled on the live Kaspa network, so it cannot deploy with real funds yet. Non-custodial support for this primitive is coming.';
+          const disabledReason = gated
+            ? 'Gated behind a backend feature flag until its on-chain end-to-end is proven (KIP-10 output-binding / KIP-16 on-chain ZK settle). Not deployable yet.'
+            : (isMainnet && k.id === 'binary_oracle_select')
+            ? 'The Kaspa wallet path accepts this kind with an external resolver you bind by pubkey and published hashlocks, but the in-browser hash-entry deploy form is not built yet. Deployable on testnets today; non-custodial mainnet entry is coming.'
+            : devPathReason;
           return (
             <button
               key={k.id}
               onClick={() => { if (!mainnetUnavailable) setKind(k.id); }}
               aria-pressed={active}
               disabled={mainnetUnavailable}
-              title={mainnetUnavailable ? 'Routes through the server-assisted dev-wallet path, which is disabled on the live Kaspa network, so it cannot deploy with real funds yet. Non-custodial support for this primitive is coming.' : undefined}
+              title={mainnetUnavailable ? disabledReason : undefined}
               className={`hover-lift group relative overflow-hidden text-left p-4 rounded-xl border transition-all ${
                 mainnetUnavailable
                   ? 'border-white/[0.06] bg-white/[0.01] opacity-55 cursor-not-allowed light:border-slate-200 light:bg-slate-50'
@@ -926,10 +953,10 @@ export default function EnforcedDeploy({ embedded = false, onDeployed = null, in
                   </span>
                 ) : mainnetUnavailable ? (
                   <span
-                    title="Routes through the server-assisted dev-wallet path, which is disabled on the live Kaspa network, so it cannot deploy with real funds yet. Non-custodial support for this primitive is coming."
+                    title={disabledReason}
                     className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-slate-500/40 bg-slate-500/15 text-slate-300 text-[10px] font-bold uppercase tracking-wider light:border-slate-300 light:bg-slate-200 light:text-slate-600"
                   >
-                    <span className="h-1 w-1 rounded-full bg-slate-400" aria-hidden="true" /> Not yet on Kaspa
+                    <span className="h-1 w-1 rounded-full bg-slate-400" aria-hidden="true" /> {k.id === 'binary_oracle_select' ? 'UI coming' : 'Not yet on Kaspa'}
                   </span>
                 ) : isDevWalletKind ? (
                   <span

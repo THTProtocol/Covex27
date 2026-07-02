@@ -31,14 +31,16 @@ describe('OKX is cross-platform so mobile users can reach it', () => {
 // Kastle covenant signing is mainnet/TN10 only, but DEFAULT_NETWORK is testnet-12, so a first-time
 // visitor saw Kastle promising covenant signing while every TN12 deploy/redeem would be refused.
 // The badge is now computed per ACTIVE network via walletCovenantBadge(id, network): green only
-// when the wallet can truly sign on that network; a muted "Mainnet / TN10 only" chip for Kastle on
-// TN12. These pin that contract so a regression re-introducing the unconditional badge fails CI.
+// when the wallet can truly sign on that network; a muted "Unsupported network" chip for Kastle on
+// a network it cannot sign. These pin that contract so a regression re-introducing the unconditional badge fails CI.
 describe('walletCovenantBadge (network-aware covenant-sign badge)', () => {
   it('Kastle on TN12 does NOT get the green "Signs covenants" badge (the overclaim)', () => {
     const b = walletCovenantBadge('Kastle', 'testnet-12');
     expect(b.canSign).toBe(false);            // no green badge
     expect(b.networkLimited).toBe(true);      // shown as the muted chip instead
-    expect(b.note).toMatch(/mainnet.*tn10|tn10.*mainnet/i);
+    // Network-relative note (COPY-05: no testnet enumeration in rendered strings on the
+    // mainnet-only public site); the contract that matters is canSign=false + networkLimited.
+    expect(b.note).toMatch(/unsupported network/i);
   });
 
   it('Kastle on TN12 is network-limited even though DEFAULT_NETWORK is TN12', () => {

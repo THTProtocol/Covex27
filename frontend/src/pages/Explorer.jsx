@@ -559,7 +559,7 @@ export default function Explorer() {
     // here, so say so honestly instead of switching the whole app to a testnet.
     let net = kaspaNetwork;
     if (q.startsWith('kaspatest:')) {
-      setSearchError('Covex is on Kaspa mainnet. That looks like a testnet address, so it has no results here.');
+      setSearchError('Covex is on Kaspa mainnet. That is not a Kaspa mainnet address, so it has no results here.');
       setSearchLoading(false);
       return;
     }
@@ -1157,16 +1157,16 @@ export default function Explorer() {
                 <Gamepad2 size={22} className="text-kaspa-green light:text-emerald-700" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-white light:text-slate-900">Create a game covenant</p>
+                <p className="text-sm font-bold text-white light:text-slate-900">Design a game covenant</p>
                 <p className="text-[11px] text-gray-300 light:text-slate-600 mt-0.5 leading-snug">
-                  Games are covenants you deploy. Pick a game, set the stake, share the link - your opponent joins by matching it.
+                  Games are covenants. Pick a game and design its script and config in the builder. Wallet-signed on-chain deploy is live for the on-chain primitives; public deploy for game covenants is not wired yet, so game design is a preview today.
                 </p>
               </div>
               <Link
                 to="/sandbox?category=game"
                 className="shrink-0 inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-kaspa-green hover:brightness-110 text-black font-extrabold text-sm transition-surface shadow-[0_8px_24px_-10px_rgba(73,234,203,0.7)]"
               >
-                <Play size={14} /> Create a game
+                <Play size={14} /> Design a game
               </Link>
             </div>
             {liveMatches.length > 0 && (

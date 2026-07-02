@@ -32,10 +32,10 @@ const ROUTES = [
   { p: '/treasury', t: 'Treasury', d: 'The Covex treasury and payment history, public and on-chain. Settlement takes zero rake; the only value sink is the flat one-time tier payment.' },
   { p: '/terms', t: 'Terms', d: 'Covex Terms: neutral, non-custodial software. Covex is never the operator, counterparty, or house, attests no outcome, and takes no cut of any settlement.' },
   { p: '/privacy', t: 'Privacy', d: 'Covex privacy: keys never leave your browser, Covex holds no funds, and there is no IP-based geoblocking or sanctions screening. Real on-chain data only.' },
-  { p: '/recover', t: 'Recover', d: 'Recover funds from any Covex covenant using only its published redeem script and your own wallet, with zero dependency on Covex being online.' },
+  { p: '/recover', t: 'Recover', d: 'Recover funds from deterministic Covex covenants using only the published redeem script and your own wallet, with zero dependency on Covex being online. Co-signed kinds also need the resolver half-signature or a revealed secret until any refund timeout.' },
   { p: '/sandbox', t: 'Sandbox', d: 'Experiment with Covex covenant building in a safe sandbox before deploying to a live Kaspa network.' },
   { p: '/deploy', t: 'Deploy', d: 'Design and deploy a Kaspa covenant non-custodially. You sign from your own wallet; Covex never holds a key or moves funds.' },
-  { p: '/deploy/enforced', t: 'Deploy', d: 'Deploy a consensus-enforced Kaspa primitive (hashlock, timelock, HTLC, multisig) non-custodially. You sign from your own wallet; Covex never holds a key or moves funds.' },
+  { p: '/deploy/enforced', t: 'Deploy', d: 'Deploy a consensus-enforced Kaspa primitive (singlesig, hashlock, timelock, relative timelock) non-custodially. You sign from your own wallet; Covex never holds a key or moves funds.' },
   // prefix routes
   { p: '/covenant/', t: 'Covenant', d: 'A live Kaspa covenant on Covex: its lifecycle, finality, honest enforcement-reality badge, and the interactive page its creator built.' },
   { p: '/address/', t: 'Address', d: 'A Kaspa address portfolio on Covex: the covenants it deployed and interacted with, from independent on-chain indexing.' },

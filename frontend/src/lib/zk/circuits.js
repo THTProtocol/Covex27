@@ -34,7 +34,7 @@ export function vkeyPathFor(circuitId) {
 
 // Circuits whose Groth16 proof is verified END-TO-END (real accept + tamper-reject): they ship a
 // served proving key (.zkey) AND a working in-browser prover. HONESTY: this verification is OFF-CHAIN
-// (by you, the counterparty, or any external verifier - snarkjs against the audited vkey). For this
+// (by you, the counterparty, or any external verifier - snarkjs against the served vkey). For this
 // circom suite the proof is verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and
 // only a BIP340 Schnorr co-signature is verified on-chain. The KIP-16 OpZkPrecompile is a
 // separate on-chain ZK path the settlement covenant targets, gated until proven live on Kaspa.
@@ -78,25 +78,25 @@ export const VERIFIED_FULL_ZK = new Set([
 // nullifier_set + utxo_ownership + vrf_random + script_constraint compute their Poseidon
 // commitment via poseidon-lite (byte-identical to circomlib, no wasm); timelock_absolute +
 // relative_timelock + turn_timer + pot_split_math are plain-numeric (the wasm derives the
-// public valid/on_time/ok output). All fullProve the served wasm+zkey, node-verified accept +
-// tamper-reject. Kept identical to VERIFIED_FULL_ZK (same 26 ids). commitment_open / balance_threshold
-// / solvency_sum / set_non_membership / anon_membership_nullifier / merkle_range_membership /
-// equality_of_commitments / merkle_multi_membership / nullifier_uniqueness /
-// threshold_sig_knowledge / pedersen_open_equals / sorted_merkle_range compute their Poseidon
-// commitments + Merkle paths via poseidon-lite (byte-identical to circomlib, no wasm) before fullProve.
+// public valid/on_time/ok output). commitment_open / balance_threshold / solvency_sum /
+// set_non_membership / anon_membership_nullifier compute their Poseidon commitments via
+// poseidon-lite before fullProve. All fullProve the served wasm+zkey, node-verified accept +
+// tamper-reject.
+//
+// HONESTY (ZK-1): this is NINETEEN ids, a STRICT SUBSET of VERIFIED_FULL_ZK (26). It lists ONLY
+// the circuits that have a real browser input builder in PROVERS (lib/zk/provers.js). The other
+// 7 VERIFIED_FULL_ZK circuits (merkle_range_membership, equality_of_commitments,
+// merkle_multi_membership, nullifier_uniqueness, threshold_sig_knowledge, pedersen_open_equals,
+// sorted_merkle_range) are real, node-verified Groth16 circuits at the artifact level but have NO
+// in-browser prover yet, so they must NOT claim the "in-browser" badge or be counted as
+// browser-provable. A test asserts Object.keys(PROVERS) is a superset of this set so the drift
+// cannot silently return.
 export const IN_BROWSER_PROVERS = new Set([
   'merkle_membership', 'escrow_2party', 'age_verification', 'range_proof', 'vrf_dice_roll',
   'nullifier_set', 'utxo_ownership', 'hash_preimage', 'timelock_absolute', 'relative_timelock',
   'vrf_random', 'turn_timer', 'script_constraint', 'pot_split_math',
   'commitment_open', 'balance_threshold', 'solvency_sum', 'set_non_membership',
   'anon_membership_nullifier',
-  // New primitives (zkwave 2026-06-28): both fullProve the served wasm+zkey and compute their
-  // Poseidon commitments / Merkle path via the same poseidon path the other privacy circuits use.
-  'merkle_range_membership', 'equality_of_commitments',
-  // circomwave 2026-06-28 primitives: each fullProves the served wasm+zkey and computes its
-  // Poseidon commitments / Merkle paths via the same poseidon path the other privacy circuits use.
-  'merkle_multi_membership', 'nullifier_uniqueness', 'threshold_sig_knowledge',
-  'pedersen_open_equals', 'sorted_merkle_range',
 ]);
 
 // Circuits the BACKEND oracle fail-closed Groth16-verifies (oracle_verifier.rs `StrictGroth16`):

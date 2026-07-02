@@ -66,8 +66,9 @@ describe('Recover page - key-no-leak posture', () => {
     const html = renderRecover();
     expect(html).toMatch(/never transmits a private key/i);
     expect(html).toMatch(/Chain-enforced, not Covex-enforced/);
-    // Covex holds no keys claim is present (non-custodial posture).
-    expect(html).toMatch(/holds no keys/i);
+    // Covex holds no USER keys claim is present (non-custodial posture). "user" is
+    // the honest qualifier: Covex holds a co-sign key for legacy oracle/game-pot kinds.
+    expect(html).toMatch(/holds no user keys/i);
   });
 
   it('never renders a raw private key hex string on the landing view', () => {

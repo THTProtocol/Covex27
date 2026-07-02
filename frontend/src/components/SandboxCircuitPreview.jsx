@@ -35,7 +35,7 @@ const RESOLUTION_FLOW = {
     label: 'ZK proof verified off-chain',
     steps: [
       'The claimant generates a real Groth16 zero-knowledge proof for the statement.',
-      'The proof is verified OFF-CHAIN (by you, the counterparty, or any external verifier - snarkjs against the audited vkey), fail-closed.',
+      'The proof is verified OFF-CHAIN (by you, the counterparty, or any external verifier - snarkjs against the served vkey), fail-closed.',
       'Only a valid proof gates the 2-of-2 cosign; an invalid or missing proof is rejected, and only the Schnorr co-signature is checked on-chain.',
     ],
     note: 'The proof is real cryptography that anyone can re-verify off-chain. For the circom suite the proof is verified off-chain, so a valid proof gates a 2-of-2 cosign + CSV timeout rather than being checked by the chain. The trusted setup is a single-contributor dev ceremony, not a production MPC.',
@@ -203,7 +203,7 @@ export default function SandboxCircuitPreview({ circuit, kind }) {
                 <span>
                   This is the same prove + verify engine as the Build{' '}
                   <Link to="/sandbox?mode=prove" className="text-violet-300 light:text-violet-700 hover:underline font-semibold">Prove (ZK)</Link>{' '}
-                  view, which also lists every provable circuit. The proof is verified off-chain (here, by the counterparty, or any external verifier - snarkjs against the audited vkey, fail-closed) for the circom suite.
+                  view, which also lists every provable circuit. The proof is verified off-chain (here, by the counterparty, or any external verifier - snarkjs against the served vkey, fail-closed) for the circom suite.
                 </span>
               </p>
             </div>

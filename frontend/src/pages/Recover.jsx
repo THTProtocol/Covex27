@@ -145,7 +145,10 @@ export function ClaimFlow({ kit, utxos }) {
   // P2SH script) sign covenant spends in the normal deploy/redeem flow; this recovery page is the
   // fallback for the offline case, an older wallet that cannot sign a P2SH input, or when you only
   // hold the branch private key, so here the holder pastes the branch key, used locally and cleared after.
-  const canUseDevKey = wallet.isDevMode && wallet.devMode?.privateKeyHex && (!mainnet || true);
+  // Intentional: an imported/dev key in this browser may sign a recovery spend on ANY network,
+  // including mainnet. This page is the non-custodial offline fallback; the branch key is used
+  // locally in the browser and cleared, never transmitted, so there is no mainnet dev-key gate here.
+  const canUseDevKey = wallet.isDevMode && wallet.devMode?.privateKeyHex;
   const [signMode, setSignMode] = useState(canUseDevKey ? 'wallet' : 'paste');
   const [privKey, setPrivKey] = useState('');
   const [preimage, setPreimage] = useState(kit.revealed_secret || '');
@@ -579,8 +582,8 @@ export default function Recover() {
             <LifeBuoy size={20} className="text-kaspa-green" />
           </span>
           <div>
-            <h1 className="text-2xl font-black text-white light:text-slate-900 leading-tight">Claim your funds, with or without Covex</h1>
-            <p className="text-[12px] text-gray-400 light:text-slate-500">Settle directly on Kaspa from your own browser, even if this site is down.</p>
+            <h1 className="text-2xl font-black text-white light:text-slate-900 leading-tight">Claim deterministic covenants, with or without Covex</h1>
+            <p className="text-[12px] text-gray-400 light:text-slate-500">Settle deterministic primitives directly on Kaspa from your own browser, even if this site is down.</p>
           </div>
         </div>
 
@@ -589,9 +592,11 @@ export default function Recover() {
           <div className="flex items-center gap-2 text-kaspa-green font-semibold text-sm mb-1.5"><ShieldCheck size={15} /> Chain-enforced, not Covex-enforced</div>
           <p className="text-[12.5px] text-gray-300 light:text-slate-600 leading-relaxed">
             Every Covex covenant is a script-locked P2SH commitment on Kaspa. The chain itself enforces the spend
-            rules; Covex only helps build transactions and holds no keys. With the redeem script and your own
-            key(s), you can settle through <span className="text-white light:text-slate-900">any Kaspa node</span> even if
-            this site disappears. This page never transmits a private key and signs every spend in your browser.
+            rules; Covex only helps build transactions and holds no user keys. For deterministic kinds (singlesig,
+            hashlock, timelock, relative timelock), your redeem script and your own key(s) settle through <span className="text-white light:text-slate-900">any Kaspa node</span> even if
+            this site disappears. Co-signed kinds (oracle-attested and legacy game pots) additionally need the
+            resolver's half-signature or a revealed secret until any CSV timeout refund branch opens. This page never
+            transmits a private key and signs every spend in your browser.
           </p>
         </div>
 

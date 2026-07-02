@@ -464,7 +464,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
                               {covBadge.canSign ? (
                                 <span title="Can sign covenant deploy and redeem in the wallet popup (the primary money path). A recovery key tool is the backup." className="text-[9px] uppercase tracking-wider bg-emerald-500/15 text-emerald-300 light:text-emerald-700 border border-emerald-500/30 px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><ShieldCheck size={9} /> Signs covenants</span>
                               ) : covBadge.networkLimited ? (
-                                <span title={`This wallet signs covenants on mainnet and testnet-10 only, not ${netLabel}. Switch networks, or use KasWare / OKX, or the recovery key tool.`} className="text-[9px] uppercase tracking-wider bg-white/[0.04] light:bg-slate-100 text-gray-400 light:text-slate-500 border border-white/10 light:border-slate-200 px-1.5 py-0.5 rounded-sm shrink-0">{covBadge.note}</span>
+                                <span title={`This wallet cannot sign covenants on the current network (${netLabel}). Use KasWare / OKX, or the recovery key tool.`} className="text-[9px] uppercase tracking-wider bg-white/[0.04] light:bg-slate-100 text-gray-400 light:text-slate-500 border border-white/10 light:border-slate-200 px-1.5 py-0.5 rounded-sm shrink-0">{covBadge.note}</span>
                               ) : null}
                             </div>
                             <div className="text-[11px] text-gray-500 truncate">{wallet.sub}</div>
@@ -510,7 +510,7 @@ export default function WalletButton({ fullLabel = false } = {}) {
                             {covBadge.canSign ? (
                               <span title="Can sign covenant deploy and redeem in the wallet popup (the primary money path). A recovery key tool is the backup." className="text-[9px] uppercase tracking-wider bg-emerald-500/10 text-emerald-300 light:text-emerald-700 border border-emerald-500/25 px-1.5 py-0.5 rounded-sm shrink-0 inline-flex items-center gap-1"><ShieldCheck size={9} /> Signs covenants</span>
                             ) : covBadge.networkLimited ? (
-                              <span title={`This wallet signs covenants on mainnet and testnet-10 only, not ${netLabel}. Switch networks, or use KasWare / OKX, or the recovery key tool.`} className="text-[9px] uppercase tracking-wider bg-white/[0.04] light:bg-slate-100 text-gray-400 light:text-slate-500 border border-white/10 light:border-slate-200 px-1.5 py-0.5 rounded-sm shrink-0">{covBadge.note}</span>
+                              <span title={`This wallet cannot sign covenants on the current network (${netLabel}). Use KasWare / OKX, or the recovery key tool.`} className="text-[9px] uppercase tracking-wider bg-white/[0.04] light:bg-slate-100 text-gray-400 light:text-slate-500 border border-white/10 light:border-slate-200 px-1.5 py-0.5 rounded-sm shrink-0">{covBadge.note}</span>
                             ) : null}
                           </div>
                           <div className="text-[11px] text-gray-500 truncate">{isOpen ? action.label : wallet.sub}</div>

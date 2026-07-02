@@ -227,7 +227,7 @@ export default function SandboxGallery({ circuits, selectedId, onSelect }) {
                     <span className="text-[10px] text-gray-500 light:text-slate-500 tabular-nums">{lead.length}</span>
                   </div>
                   <p className="text-[11px] text-gray-400 light:text-slate-600 leading-snug mb-3 max-w-xl">
-                    Each of these opens a real interactive arena - pick one, set the stake, share the link, your opponent joins by matching it. Server-authoritative engine, oracle co-signed result (not trustless), winner takes the pot minus the creator fee.
+                    Each of these opens a real interactive arena - pick one, set the stake, share the link, your opponent joins by matching it. Server-authoritative engine; new pots settle by the live hashlock default (the referee reveals the winner's secret and the winner claims with their own key, no Covex key in the redeem, funder reclaims after a CSV timeout if unresolved). Not trustless (the referee decides); winner takes the pot minus the creator fee.
                   </p>
                   <motion.div
                     className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2.5"

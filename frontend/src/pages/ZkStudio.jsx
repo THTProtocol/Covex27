@@ -17,7 +17,7 @@ import {
 // browser or by any external verifier), never trustless on its own.
 //
 // HONESTY ABSOLUTE: this is OFF-CHAIN verification (here in your browser, or by any counterparty /
-// external verifier - snarkjs against the audited vkey). For this circom suite the proof is verified
+// external verifier - snarkjs against the served vkey). For this circom suite the proof is verified
 // off-chain, never checked on-chain. In production these same proofs gate a 2-of-2 covenant co-signature
 // plus a CSV timeout; nothing here is "chain-enforced" and no copy claims it is. KIP-16's
 // OpZkPrecompile is a separate on-chain ZK path, gated until proven live on Kaspa.

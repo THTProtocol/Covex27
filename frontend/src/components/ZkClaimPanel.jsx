@@ -34,7 +34,7 @@ export function buildOraclePayload({ covenantId, circuitType, proof, publicSigna
  *   3. POST { circuit_type, proof, public_inputs, covenant_id } to the cosign endpoint;
  *   4. on success, see the cosigner's co-signature, with an HONEST explanation that the proof
  *      was verified OFF-CHAIN (by you, the counterparty, or any external verifier - snarkjs
- *      against the audited vkey) and that a valid proof gates a 2-of-2 cosign + CSV timeout,
+ *      against the served vkey) and that a valid proof gates a 2-of-2 cosign + CSV timeout,
  *      so the visitor can now spend the gated covenant branch.
  *
  * HONESTY ABSOLUTE: the copy never says trustless or on-chain ZK. Kaspa has NO on-chain pairing
@@ -66,7 +66,7 @@ export default function ZkClaimPanel({ covenant }) {
   const circuitType = circuitTypeFor(circuitId);
   // HONESTY: no deployed circuit's ZK proof is bound to a chain-checked hashlock. Every
   // in-browser-provable circuit is full-zk: a real Groth16 proof verified OFF-CHAIN (by you,
-  // the counterparty, or any external verifier - snarkjs against the audited vkey). For the
+  // the counterparty, or any external verifier - snarkjs against the served vkey). For the
   // circom suite the proof is verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout.
   const realityKey = 'full-zk';
   const realityHeadline = REALITY_HEADLINE[realityKey];
@@ -143,7 +143,7 @@ export default function ZkClaimPanel({ covenant }) {
         </div>
         <p className="text-[12.5px] leading-relaxed text-amber-100/90">
           Your proof is verified off-chain (by you, the counterparty, or any external verifier -
-          snarkjs against the audited vkey). For this circom circuit the proof is verified off-chain, so a valid
+          snarkjs against the served vkey). For this circom circuit the proof is verified off-chain, so a valid
           proof gates a 2-of-2 cosign + CSV timeout rather than being checked on-chain.
         </p>
         <p className="mt-1.5 text-[11.5px] text-gray-400 leading-relaxed">

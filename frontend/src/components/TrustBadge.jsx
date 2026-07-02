@@ -61,7 +61,7 @@ function fullZkInfo() {
   return {
     kind: 'fullzk',
     label: 'ZK proof, verified off-chain',
-    desc: 'A real Groth16 proof, verified off-chain by you, the counterparty, or any external verifier (snarkjs against the audited vkey). Kaspa has no on-chain pairing verifier on this path, so the proof gates a 2-of-2 cosign + CSV timeout. Not on-chain consensus and not trustless, but a stronger guarantee than a bare attestation.',
+    desc: 'A real Groth16 proof, verified off-chain by you, the counterparty, or any external verifier (snarkjs against the served vkey). Kaspa has no on-chain pairing verifier on this path, so the proof gates a 2-of-2 cosign + CSV timeout. Not on-chain consensus and not trustless, but a stronger guarantee than a bare attestation.',
   };
 }
 
@@ -116,7 +116,7 @@ export function trustInfo(covenant, opts) {
     return {
       kind: 'hybrid',
       label: 'Hybrid',
-      desc: 'An on-chain script gates release but checks an input supplied by the deployer-bound external resolver (never Covex). No Covex trust, and not trustless: trust sits with that resolver.',
+      desc: 'An on-chain script gates release but checks an input supplied by the deployer-bound resolver (an external resolver the deployer chooses; for two-party game pots the input today comes from the recomputable Covex-run referee engine). Not trustless: trust sits with that resolver.',
     };
   }
   // All verified ZK circuits are full-zk: a real Groth16 proof verified OFF-CHAIN
@@ -130,7 +130,7 @@ export function trustInfo(covenant, opts) {
     return {
       kind: 'oracle',
       label: 'Resolver attested',
-      desc: 'The outcome is asserted by the deployer-bound resolver signature (an external resolver the deployer chooses; Covex never attests real-world facts). Funds are not script-gated to it yet.',
+      desc: 'The outcome is asserted by the deployer-bound resolver signature (an external resolver the deployer chooses; for two-party game pots the outcome input today comes from the recomputable Covex-run referee engine). Covex does not attest real-world facts. Funds are not script-gated to it yet.',
     };
   }
   if (reality === 'decorative') {
@@ -152,7 +152,7 @@ export function trustInfo(covenant, opts) {
     return {
       kind: 'oracle',
       label: 'Resolver attested',
-      desc: 'Outcomes are attested and signed by the deployer-bound resolver (an external resolver the deployer chooses; Covex never attests real-world facts).',
+      desc: 'Outcomes are attested and signed by the deployer-bound resolver (an external resolver the deployer chooses; for two-party game pots the outcome input today comes from the recomputable Covex-run referee engine). Covex does not attest real-world facts.',
     };
   }
   return {

@@ -129,7 +129,7 @@ function releaseBranches(circuit) {
   if (/merkle|member|whitelist|age|range/.test(c)) return {
     title: 'Proof-gated release',
     branches: [
-      { label: 'Release', to: 'Eligible holder', cond: 'presents a real zero-knowledge proof of eligibility that anyone can verify off-chain (snarkjs against the audited vkey, fail-closed), gating a 2-of-2 cosign', when: 'any time', accent: '#49EACB' },
+      { label: 'Release', to: 'Eligible holder', cond: 'presents a real zero-knowledge proof of eligibility that anyone can verify off-chain (snarkjs against the served vkey, fail-closed), gating a 2-of-2 cosign', when: 'any time', accent: '#49EACB' },
     ],
   };
   // kyc / credential / nft / reputation / identity / age-gate resolve resolver-attested today:

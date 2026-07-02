@@ -29,7 +29,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
 import * as circuitsModule from '../circuits.js';
-import { VERIFIED_FULL_ZK } from '../circuits.js';
+import { VERIFIED_FULL_ZK, IN_BROWSER_PROVERS } from '../circuits.js';
+import { PROVERS } from '../provers.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 // frontend/src/lib/zk/__tests__ -> repo root is six levels up; then backend/src/...
@@ -66,6 +67,24 @@ describe('backend <-> frontend ZK-set parity', () => {
 
   it('VERIFIED_FULL_ZK id set matches backend VERIFIED_FULL_ZK_CIRCUITS exactly', () => {
     expect(sortedUnique(rustVerified)).toEqual(sortedUnique([...VERIFIED_FULL_ZK]));
+  });
+});
+
+describe('IN_BROWSER_PROVERS honesty (ZK-1): every claimed in-browser prover has a real prover', () => {
+  // The "in-browser provable" badge + count (ZkStudio, SandboxCircuitPreview, OnChainLockSection,
+  // TransparencyModal, CovexTerminal) all gate off IN_BROWSER_PROVERS. If an id is listed there
+  // without a real input builder in PROVERS, the UI paints a false "in-browser" badge and the
+  // claim path is silently hidden. This test fails-closed on that drift.
+  const proverKeys = new Set(Object.keys(PROVERS));
+
+  it('PROVERS keys are a SUPERSET of IN_BROWSER_PROVERS (no phantom in-browser prover)', () => {
+    const missing = [...IN_BROWSER_PROVERS].filter((id) => !proverKeys.has(id));
+    expect(missing).toEqual([]);
+  });
+
+  it('every IN_BROWSER_PROVERS id is a genuinely verified circuit (subset of VERIFIED_FULL_ZK)', () => {
+    const notVerified = [...IN_BROWSER_PROVERS].filter((id) => !VERIFIED_FULL_ZK.has(id));
+    expect(notVerified).toEqual([]);
   });
 });
 

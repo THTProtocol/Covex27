@@ -46,7 +46,7 @@ const REALITY = {
   // never as a green ZK on-chain badge. KIP-16's on-chain path is gated until proven live on Kaspa.
   'full-zk': {
     label: 'Resolver-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
-    note: 'A real Groth16 proof is verified fail-closed OFF-CHAIN by you, the counterparty, or any external resolver (snarkjs against the audited vkey). For the circom suite the proof is verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and only the Schnorr co-signature is checked on-chain. KIP-16 adds a separate on-chain ZK path, gated until proven live on Kaspa.',
+    note: 'A real Groth16 proof is verified fail-closed OFF-CHAIN by you, the counterparty, or any external resolver (snarkjs against the served vkey). For the circom suite the proof is verified off-chain; a valid proof gates a 2-of-2 cosign + CSV timeout, and only the Schnorr co-signature is checked on-chain. KIP-16 adds a separate on-chain ZK path, gated until proven live on Kaspa.',
   },
   hybrid: {
     label: 'Resolver-attested', accent: '#fbbf24', badgeVariant: 'oracle', Icon: Radio,
@@ -756,14 +756,16 @@ export default function Sandbox() {
                       />
                     ) : (
                       <>
-                        {/* Build-flow signpost: without this, a non-primitive circuit dropped into
-                            the generic terminal with no explanation of why the guided on-chain
-                            builder was not shown. */}
+                        {/* FE-1: HONEST GATE. This circuit is NOT one of the publicly deployable
+                            on-chain primitives (game / ZK / long-tail circuits are not wired to a
+                            wallet-signed deploy yet). The script terminal below can DESIGN the
+                            covenant script + config, but it cannot deploy on-chain, so we say that
+                            plainly instead of promising a deploy that never completes. */}
                         <div className="rounded-xl border border-amber-500/30 light:border-amber-300 bg-amber-500/[0.06] light:bg-amber-50 light:shadow-sm px-4 py-3 flex items-start gap-2.5">
                           <Cpu size={16} className="text-amber-300 light:text-amber-700 mt-0.5 shrink-0" />
                           <div className="text-xs">
-                            <div className="font-bold text-white light:text-slate-900">This circuit deploys through the script terminal below.</div>
-                            <div className="text-gray-400 light:text-slate-700 mt-0.5">Live on-chain signing is available for the on-chain primitives (single-key, hashlock, timelock, conditional payment, escrow).</div>
+                            <div className="font-bold text-white light:text-slate-900">This circuit is not publicly deployable yet.</div>
+                            <div className="text-gray-400 light:text-slate-700 mt-0.5">Wallet-signed on-chain deploy is live today for the on-chain primitives only (single-key, hashlock, timelock, relative timelock). The terminal below lets you DESIGN and export this covenant's script and config, but it does not deploy on-chain. To deploy something live now, pick an on-chain primitive in the <button type="button" onClick={() => navigate('/deploy/enforced')} className="text-kaspa-green light:text-emerald-700 hover:underline font-semibold">enforced deploy builder</button>.</div>
                           </div>
                         </div>
                         <CovexTerminal externalCircuit={selectedId} />

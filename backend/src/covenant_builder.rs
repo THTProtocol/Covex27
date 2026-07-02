@@ -3098,6 +3098,13 @@ pub async fn p2sh_deploy_handler(
             req.redeem.kind
         ));
     }
+    // FAIL-CLOSED (fund-stranding): mirror of the wallet-path freeze in
+    // prepare_deploy_handler. timedecay has no working Covex spend path yet, so a mainnet
+    // deploy would strand the locked funds. Frozen until the spend assembler lands and is
+    // TN12-proven; testnets stay open.
+    if is_mainnet && req.redeem.kind == "timedecay" {
+        return err("timedecay covenants are frozen on mainnet: no wallet spend path can redeem them yet, so locked funds would be stranded. Deploy on a testnet while the timedecay spend assembler is completed, or use timelock/multisig on mainnet.".into());
+    }
     // binary_oracle_select has two ways to set the branch hashes: commit to an EXTERNAL resolver's
     // PUBLISHED hashes (hash_a_hex+hash_b_hex), or derive them from preimages the DEPLOYER supplies.
     // The preimage path lets the market creator learn both secrets and pick which legitimate winner
@@ -5997,6 +6004,15 @@ pub async fn prepare_deploy_handler(
             "oracle-enforced covenants ('{}') are frozen on mainnet: the disclosed oracle key is still in the payout path, so funds are not yet trustless. Use a deterministic primitive (timelock/hashlock/multisig/htlc) on mainnet, or this covenant on a testnet.",
             req.redeem.kind
         ));
+    }
+    // FAIL-CLOSED (fund-stranding): timedecay deploys fine but NO Covex spend path can
+    // redeem it yet (the prepare-spend whitelist omits it and the custodial path is
+    // key-blocked on mainnet), so mainnet funds locked to it would be stranded until the
+    // spend assembler ships. Freeze mainnet deploys of the kind until
+    // build_timedecay_signature_script is wired into prepare-spend and TN12-proven on
+    // both threshold branches. Testnets stay open so that work can happen.
+    if is_mainnet && req.redeem.kind == "timedecay" {
+        return err("timedecay covenants are frozen on mainnet: no wallet spend path can redeem them yet, so locked funds would be stranded. Deploy on a testnet while the timedecay spend assembler is completed, or use timelock/multisig on mainnet.".into());
     }
     // binary_oracle_select on mainnet must commit to an EXTERNAL resolver's published hashes
     // (hash_a_hex + hash_b_hex) so the market creator cannot self-resolve via the preimage path.

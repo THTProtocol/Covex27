@@ -1459,7 +1459,12 @@ pub fn get_custom_ui_id_set(db: &Db) -> anyhow::Result<std::collections::HashSet
 pub fn get_custom_ui_id_set_conn(
     conn: &Connection,
 ) -> anyhow::Result<std::collections::HashSet<String>> {
-    let mut stmt = conn.prepare("SELECT DISTINCT covenant_id FROM generated_uis")?;
+    // Only genuine creator UIs count as "has custom UI". The indexer auto-writes an EXPLORER-tier
+    // row for every raw covenant it sees (crawler.rs), so counting those made the badge meaningless
+    // (every covenant showed it) and inflated this cached set to ~375k entries. Excluding EXPLORER
+    // makes the badge honest AND shrinks the hot cached set ~100x (complements the BE-01 Arc fix).
+    let mut stmt =
+        conn.prepare("SELECT DISTINCT covenant_id FROM generated_uis WHERE tier != 'EXPLORER'")?;
     let rows = stmt.query_map([], |row| row.get::<_, String>(0))?;
     let mut set = std::collections::HashSet::new();
     for r in rows {

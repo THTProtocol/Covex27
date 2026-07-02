@@ -559,13 +559,10 @@ fn build_registry() -> HashMap<&'static str, VerifierSpec> {
             prefix: "covex_auc",
         },
     );
-    m.insert(
-        "private_transfer_nullifier",
-        VerifierSpec::HybridGroth16 {
-            script: "verify_private_transfer_nullifier.js",
-            prefix: "covex_ptn",
-        },
-    );
+    // ZK-3: private_transfer_nullifier was registered HybridGroth16 pointing at
+    // verify_private_transfer_nullifier.js, which does not exist in zk/ (no served artifacts
+    // either). It was a permanently dead, fail-closed id. Removed so the registry only lists ids
+    // backed by a real verifier script on disk.
     m.insert(
         "election_feed",
         VerifierSpec::HybridGroth16 {

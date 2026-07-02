@@ -10,7 +10,9 @@
 # that needed a datadir wipe - a restart loop would only mask that). A recovered tip resets
 # the counter. Restart is on by default; set KASPAD_WATCHDOG_NO_RESTART=1 for alert-only.
 #
-# Mainnet runs off-box (WSL on the operator PC), so only TN10/TN12 are handled here.
+# Mainnet runs on-box as covex-kaspad-mainnet.service (the old "off-box WSL" note is stale).
+# TN10 has no server-resident kaspad unit (public-resolver failover only), so it is not watched
+# here; the two units that actually exist and matter are TN12 and mainnet.
 set -uo pipefail
 
 STATUS_URL="${COVEX_STATUS_URL:-http://127.0.0.1:3006/status}"
@@ -36,11 +38,14 @@ json=$(curl -fsS --max-time 12 "$STATUS_URL" 2>/dev/null) || {
   exit 0
 }
 
-# network -> systemd unit (server-resident kaspad services only).
-declare -A UNIT=( [testnet-12]=kaspad [testnet-10]=kaspad-tn10 )
+# network -> systemd unit (server-resident kaspad services only). The live units are
+# kaspad-tn12.service and covex-kaspad-mainnet.service; the old [testnet-12]=kaspad /
+# [testnet-10]=kaspad-tn10 map named units that do not exist, so the watchdog checked the
+# wrong service (false "not active" on TN12) and never watched mainnet at all (OPS-03).
+declare -A UNIT=( [testnet-12]=kaspad-tn12 [mainnet]=covex-kaspad-mainnet )
 now=$(date +%s)
 
-for net in testnet-12 testnet-10; do
+for net in testnet-12 mainnet; do
   reason=$(printf '%s' "$json" | python3 -c "import sys,json;print(json.load(sys.stdin).get('node_sync',{}).get('$net',{}).get('stall_reason',''))" 2>/dev/null || echo "")
   unit="${UNIT[$net]}"
   state="$STATE_DIR/kaspad-$net.state"

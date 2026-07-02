@@ -24,6 +24,24 @@ cd frontend
 npm install --no-audit --no-fund 2>&1 | tail -3; IE=${PIPESTATUS[0]}; echo "NPM_INSTALL_EXIT=$IE"
 npm run build 2>&1 | tail -4; BE=${PIPESTATUS[0]}; echo "FE_BUILD_EXIT=$BE"
 if [ "$BE" != "0" ]; then echo "FE BUILD FAILED - served dir untouched"; echo "FE_DEPLOY_DONE"; exit 0; fi
+
+# Precompress static assets so nginx (brotli_static on; gzip_static on; already enabled in
+# conf.d/htp-headers.conf) serves prebuilt .br/.gz at ZERO per-request CPU instead of
+# dynamically recompressing the ~1MB vendor-zk bundle and ~89MB of /zk zkey/wasm on every
+# cold request (NGX-2/NGX-3). brotli -q11 + gzip -9 are a one-time build cost (~30-60s); the
+# siblings land INSIDE dist/ so the rsync lines below carry them, and the assets --delete
+# prunes them in lockstep with their parents (never orphaned).
+echo "precompressing dist assets (brotli -q11 + gzip -9)..."
+PC=0
+while IFS= read -r -d '' f; do
+  brotli -q 11 -f -k -o "$f.br" "$f" 2>/dev/null || true
+  gzip -9 -f -k -c "$f" > "$f.gz" 2>/dev/null || true
+  PC=$((PC+1))
+done < <(find dist -type f \( -name '*.js' -o -name '*.mjs' -o -name '*.css' \
+  -o -name '*.wasm' -o -name '*.bin' -o -name '*.json' -o -name '*.svg' \
+  -o -name '*.zkey' -o -name '*.html' -o -name '*.txt' -o -name '*.xml' \) -print0)
+echo "PRECOMPRESSED=$PC files (.br + .gz)"
+
 rsync -a dist/ /root/htp/public/
 # Prune stale content-hashed chunks: mirror ONLY the assets dir so orphaned old bundles do not
 # accumulate (hashed chunks are immutable and index.html is network-first, so this never serves a

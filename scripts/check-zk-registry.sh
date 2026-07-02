@@ -40,6 +40,14 @@ if ! runnode zk/scripts/check_registry_honesty.js; then fail=1; fi
 # (backend-read sample, kept in sync separately).
 if ! runnode zk/scripts/reconcile_root_samples.js --check; then fail=1; fi
 
+# 5b. EVERY served demo_proof.json must be a proof that VERIFIES against its paired vkey. A served
+# demo proof that can never verify (e.g. the old zeroed pi_a=["0","0","0"] placeholders for the
+# vkey-only chess_ai_move / sorting_proof / verifiable_poker_solver / weather_feed) is a false
+# artifact and REDs the build. Structural soundness (reject degenerate point-at-infinity proofs)
+# runs with pure node; when snarkjs resolves (local `npm ci` in zk/, or the zk-prove CI job) this
+# ALSO runs a real snarkjs.groth16.verify and fails on `false`. Fail-closed in both tiers.
+if ! runnode zk/scripts/check_demo_proofs.js; then fail=1; fi
+
 # 6. No INFLATED circuit-count marketing on the honest surfaces. The real suite is 26 provable /
 # 65 served (see circuit_registry.json); claims like "200+", "over 200", "250+", or "~204
 # circuits" wildly overstate it. This greps the USER-FACING surfaces only (frontend/src, README,

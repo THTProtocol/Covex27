@@ -19,6 +19,22 @@ copy_pair() {
   fi
 }
 
+# copy_vkey_only: for vkey-only (NOT_PROVABLE) circuits that have no served wasm/zkey and
+# thus cannot generate a proof that verifies. We serve the vkey but deliberately NOT a
+# demo_proof.json - a placeholder (all-zero pi_a/pi_b/pi_c) can NEVER verify against its
+# vkey, and check-zk-registry.sh now REDs the build if a served demo_proof fails to verify.
+# Honest: no proof link is served for a circuit that cannot produce a verifiable proof.
+copy_vkey_only() {
+  local id="$1" vkey="$2"
+  local dir="$PUB/$id"
+  mkdir -p "$dir"
+  if [[ -f "$vkey" ]]; then
+    cp -f "$vkey" "$dir/${id}_vkey.json"
+  fi
+  # never write a demo_proof.json here; drop any stale one so served == generated.
+  rm -f "$dir/demo_proof.json"
+}
+
 # Core full-zk
 copy_pair merkle_membership "$ZK/merkle_membership_vkey.json" "$ZK/merkle_proof.json"
 copy_pair range_proof "$ZK/range_proof/range_proof_vkey.json" "$ZK/range_proof/range_proof_proof.json"
@@ -53,15 +69,15 @@ copy_pair poker_vrf_deal "$ZK/poker_vrf_deal_vkey.json" "$ZK/poker_vrf_deal_proo
 copy_pair poker_equity "$ZK/poker_equity_vkey.json" "$ZK/poker_equity_proof.json"
 copy_pair ml_inference_stub "$ZK/ml_inference_stub_vkey.json" "$ZK/ml_inference_stub_proof.json"
 copy_pair private_transfer_nullifier "$ZK/private_transfer_nullifier_vkey.json" "$ZK/private_transfer_nullifier_proof.json"
-copy_pair chess_ai_move "$ZK/chess_ai_move_vkey.json" "$ZK/chess_ai_move_proof.json"
+copy_vkey_only chess_ai_move "$ZK/chess_ai_move_vkey.json"        # vkey-only: no served proof (would never verify)
 
 # Feeds / gating / compute stubs with real dev proofs
 copy_pair election_feed "$ZK/election_feed_vkey.json" "$ZK/election_feed_proof.json"
-copy_pair weather_feed "$ZK/weather_feed_vkey.json" "$ZK/weather_feed_proof.json"
-copy_pair sorting_proof "$ZK/sorting_proof_vkey.json" "$ZK/sorting_proof_proof.json"
+copy_vkey_only weather_feed "$ZK/weather_feed_vkey.json"         # vkey-only: no served proof (would never verify)
+copy_vkey_only sorting_proof "$ZK/sorting_proof_vkey.json"       # vkey-only: no served proof (would never verify)
 copy_pair multi_sig_gating "$ZK/multi_sig_gating_vkey.json" "$ZK/multi_sig_gating_proof.json"
 copy_pair anon_credential "$ZK/anon_credential_vkey.json" "$ZK/anon_credential_proof.json"
-copy_pair verifiable_poker_solver "$ZK/verifiable_poker_solver_vkey.json" "$ZK/verifiable_poker_solver_proof.json"
+copy_vkey_only verifiable_poker_solver "$ZK/verifiable_poker_solver_vkey.json"  # vkey-only: no served proof (would never verify)
 
 # Legacy paths (keep existing merkle/range wasm+zkey in place)
 [[ -f "$PUB/merkle_membership/merkle_membership_vkey.json" ]] || true

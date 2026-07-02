@@ -51,7 +51,7 @@
     {
       "id": "chess_ai_move",
       "vkey": "/zk/chess_ai_move/chess_ai_move_vkey.json",
-      "demo_proof": "/zk/chess_ai_move/demo_proof.json",
+      "demo_proof": null,
       "provable": false
     },
     {
@@ -309,7 +309,7 @@
     {
       "id": "sorting_proof",
       "vkey": "/zk/sorting_proof/sorting_proof_vkey.json",
-      "demo_proof": "/zk/sorting_proof/demo_proof.json",
+      "demo_proof": null,
       "provable": false
     },
     {
@@ -357,7 +357,7 @@
     {
       "id": "verifiable_poker_solver",
       "vkey": "/zk/verifiable_poker_solver/verifiable_poker_solver_vkey.json",
-      "demo_proof": "/zk/verifiable_poker_solver/demo_proof.json",
+      "demo_proof": null,
       "provable": false
     },
     {
@@ -381,7 +381,7 @@
     {
       "id": "weather_feed",
       "vkey": "/zk/weather_feed/weather_feed_vkey.json",
-      "demo_proof": "/zk/weather_feed/demo_proof.json",
+      "demo_proof": null,
       "provable": false
     },
     {

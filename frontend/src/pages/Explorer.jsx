@@ -140,6 +140,20 @@ const isSkillGame = (c) => {
     || !!detectGameType(c);
 };
 
+// Human-readable network chip label for a covenant/game record's network id. To a
+// visitor there is only one live network, so any mainnet-prefixed id reads "Kaspa";
+// the dev testnet ids stay explicit so a developer on a testnet never sees a game or
+// covenant implied to be mainnet. Returns null when the network is unknown so the
+// caller can render a clearly-defensive "unverified" badge instead of guessing.
+const netChipLabel = (net) => {
+  if (!net) return null;
+  if (isMainnet(net)) return 'Kaspa';
+  const s = String(net);
+  if (s === 'testnet-12') return 'TN12';
+  if (s === 'testnet-10') return 'TN10';
+  return s.toUpperCase();
+};
+
 // Server-side q terms per category (pipe-separated = OR). Keeps filters working
 // now that the list is paginated instead of fully downloaded.
 const CATEGORY_QUERY = {
@@ -486,17 +500,24 @@ export default function Explorer() {
   }, [kaspaNetwork, activeCategory]);
 
   // Live matchmaking: waiting matches from the persistent games API.
+  // We pass ?network= so this fetch scopes to the active network AS SOON AS the backend
+  // supports it. TODO(backend games.rs): skill_games has no network column and list_games
+  // filters by status only (games.rs list_games ~2248), so this param is currently ignored
+  // and the response can mix games from any network with no network field on each row. Until
+  // that column + filter land, we CANNOT determine a game's network from its record, so the
+  // rail badges each match defensively as network-unverified rather than implying it belongs
+  // to the active (mainnet) network. See FE-3 in covex-finish-gaps.
   useEffect(() => {
     let mounted = true;
     const load = () =>
-      fetch('/api/games?status=waiting&limit=24')
+      fetch(`/api/games?status=waiting&limit=24&network=${encodeURIComponent(kaspaNetwork)}`)
         .then((r) => r.json())
         .then((d) => { if (mounted) setLiveMatches(Array.isArray(d.games) ? d.games : []); })
         .catch(() => {});
     load();
     const id = setInterval(load, 20000);
     return () => { mounted = false; clearInterval(id); };
-  }, [activeTab]);
+  }, [activeTab, kaspaNetwork]);
 
   const loadMore = useCallback(() => {
     const nextOffset = offset + PAGE_SIZE;
@@ -1175,7 +1196,14 @@ export default function Explorer() {
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Opponent waiting - join now
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {liveMatches.map((m) => (
+                  {liveMatches.map((m) => {
+                    // The /api/games record carries no network field today (see the fetch TODO
+                    // above). If the backend ever adds one, honor it; otherwise the network is
+                    // genuinely unknown, so we badge it as unverified rather than implying it is
+                    // on the active network. This keeps the mainnet arena from surfacing a
+                    // possibly-testnet game as if it were live on Kaspa.
+                    const matchNet = netChipLabel(m.network);
+                    return (
                     <Link
                       key={m.covenant_id}
                       to={`/covenant/${encodeURIComponent(m.covenant_id)}?play=1`}
@@ -1185,13 +1213,24 @@ export default function Explorer() {
                         <p className="text-sm font-bold text-white capitalize">{m.game_type} match</p>
                         <p className="text-[10px] font-mono text-gray-500 truncate">{m.covenant_id.slice(0, 22)}...</p>
                         <p className="text-[10px] text-gray-400 mt-0.5">White seat taken. Join as black.</p>
+                        {matchNet ? (
+                          <span className="inline-block mt-1.5 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-mono font-semibold text-gray-300 light:text-slate-600 light:bg-slate-100 light:border-slate-300">{matchNet}</span>
+                        ) : (
+                          <span
+                            className="inline-flex items-center gap-1 mt-1.5 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-[9px] font-mono font-semibold text-amber-300 light:text-amber-700 light:bg-amber-50 light:border-amber-300"
+                            title="This game's network is not reported by the games API yet, so it cannot be confirmed to be on the active network."
+                          >
+                            <AlertTriangle size={9} aria-hidden="true" /> network unverified
+                          </span>
+                        )}
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-base font-black text-emerald-300">{m.pot_amount_kas || 0} KAS</p>
                         <span className="inline-block mt-1 px-2.5 py-1 rounded-lg bg-emerald-500 text-black text-[10px] font-extrabold">JOIN</span>
                       </div>
                     </Link>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1226,6 +1265,11 @@ export default function Explorer() {
                   const cfg = TIER_CONFIG[tierKey] || TIER_CONFIG.FREE;
                   const stakeAmt = g.amount_kaspa || 1;
                   const tierAccent = TIER_COLOR[tierKey] || TIER_COLOR.FREE;
+                  // Arena tiles are covenant records fetched with ?network=${kaspaNetwork}, so
+                  // each g.network is the real indexed network. Badge it so a game is never
+                  // surfaced without saying which network it belongs to; fall back to the active
+                  // network label only when the record omits it (still the fetched network).
+                  const gameNet = netChipLabel(g.network) || netChipLabel(kaspaNetwork);
                   return (
                     <div key={g.tx_id || i} className={`hover-lift relative overflow-hidden glass-panel rounded-2xl p-5 border transition-surface ${cfg.border} bg-gradient-to-br ${cfg.gradient} ${cfg.glow} min-h-[210px] flex flex-col`}>
                       <div
@@ -1237,6 +1281,7 @@ export default function Explorer() {
                         <div>
                           <div className={`text-xs font-bold tracking-[2px] ${cfg.text}`}>{(g.covenant_type || g.name || 'Game').toUpperCase()}</div>
                           <div className="text-lg font-bold text-white mt-1 truncate">{g.name || g.covenant_type || 'Unknown'}</div>
+                          {gameNet && <span className="inline-block mt-1.5 px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-[9px] font-mono font-semibold text-gray-300">{gameNet}</span>}
                         </div>
                         <div className="text-right shrink-0 ml-2">
                           <div className={`text-xs ${cfg.text} font-mono`}>{g.participant_count || 1} / 2</div>

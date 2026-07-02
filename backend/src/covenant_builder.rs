@@ -3085,13 +3085,21 @@ pub async fn p2sh_deploy_handler(
 ) -> Json<serde_json::Value> {
     let err = |m: String| Json(serde_json::json!({ "success": false, "error": m }));
 
+    let is_mainnet = is_mainnet(&req.network);
+    // GATE parity (MP-6, defense-in-depth): the wallet deploy path gates every mainnet
+    // deploy behind the Toccata activation flag (prepare_deploy_handler). The custodial path
+    // is unreachable on mainnet today (key resolution rejects dev-mode and raw keys there),
+    // but a future change must never let it fund a mainnet covenant while the flag is off.
+    // Mirror the same fail-closed gate at the top so the two handlers stay in lockstep.
+    if is_mainnet && !crate::crawler::mainnet_covenants_enabled() {
+        return err("mainnet covenants activate at the Toccata hard fork (set COVEX_MAINNET_COVENANTS_ENABLED=true once it is live). Deploy on a testnet until then.".into());
+    }
     // GATE 2 (trustless-by-removal): oracle-enforced / oracle-escrow covenants still put
     // the Covex oracle key in the payout path, so they are NOT yet removable from the
     // money path. Refuse to fund them for value on mainnet until the trustless rebuild
     // (player 2-of-2 state channels / k-of-n oracle) lands. The deterministic primitives
     // (singlesig/hashlock/timelock/multisig/htlc), which the user's own wallet redeems
     // with no Covex key, are unaffected. Testnets stay open for development.
-    let is_mainnet = is_mainnet(&req.network);
     if is_mainnet && req.redeem.kind.starts_with("oracle") {
         return err(format!(
             "oracle-enforced covenants ('{}') are frozen on mainnet: the Covex oracle key is still in the payout path, so funds are not yet trustless. Use a deterministic primitive (timelock/hashlock/multisig/htlc) on mainnet, or this covenant on a testnet.",

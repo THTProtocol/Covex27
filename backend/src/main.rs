@@ -889,14 +889,32 @@ async fn rate_limit_middleware(
     }
 }
 
+// The commit the running binary was BUILT from, baked by build.rs at compile time. This is
+// the honest provenance for /status: it cannot drift when a deploy hard-resets the shared
+// runtime dir out from under a git-rev-parse fallback (infra-02). Empty/"unknown" only if the
+// build had no git context; in that case we still fall back to the runtime lookups below.
+const BUILD_GIT_COMMIT: &str = env!("COVEX_BUILD_GIT_COMMIT");
+
 fn get_git_commit() -> String {
+    // Memoize: /status, /health, and /api/status all call this per request; the value never
+    // changes for a running process, so resolve it once.
+    static CACHED: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    CACHED.get_or_init(resolve_git_commit).clone()
+}
+
+fn resolve_git_commit() -> String {
+    // 1. Explicit runtime override (a deploy script may still inject GIT_COMMIT).
     if let Ok(c) = std::env::var("GIT_COMMIT") {
         if !c.is_empty() && c != "unknown" {
             return c;
         }
     }
-    // Robust fallback: spawn git from likely working trees (local dev, Hetzner volume, cwd)
-    // This ensures /health and /status always report real deployed commit-ish even if env inject missed.
+    // 2. The commit baked into THIS binary at build time (the authoritative, drift-proof value).
+    if !BUILD_GIT_COMMIT.is_empty() && BUILD_GIT_COMMIT != "unknown" {
+        return BUILD_GIT_COMMIT.to_string();
+    }
+    // 3. Last-resort runtime fallback: spawn git from likely working trees (local dev, Hetzner
+    // volume, cwd). Only reached when neither the env nor the build stamp is present.
     for base in [
         ".",
         "/root/Covex27",

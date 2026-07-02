@@ -1169,7 +1169,7 @@ async fn covenants_handler(
     // pooled connection on a blocking thread so they never stall a Tokio worker.
     type CovQueryOut = (
         anyhow::Result<(Vec<db::DbCovenant>, i64)>,
-        std::collections::HashSet<String>,
+        std::sync::Arc<std::collections::HashSet<String>>,
         Option<(i64, i64, f64)>,
     );
     let (records_res, ui_ids, stats_row): CovQueryOut = db::blocking(&db, move |conn| {

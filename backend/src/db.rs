@@ -1477,37 +1477,47 @@ const CUSTOM_UI_CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(
 
 // `fetched_at` is None until the first successful DB load, so the very first read
 // always refreshes (no fragile Instant-underflow seeding needed).
+//
+// The set is held behind an Arc and handed out by pointer clone. The previous version
+// returned `HashSet::clone()` while holding the mutex: with a six-figure id set every
+// /covenants and /address request deep-copied megabytes inside the critical section,
+// serializing the whole read path at roughly 13 req/s and turning a modest traffic
+// spike into an API-wide brownout. An `Arc::clone` is two atomic ops; refreshes swap
+// in a freshly built set without ever mutating one a reader still holds.
 #[allow(clippy::type_complexity)]
 static CUSTOM_UI_CACHE: std::sync::OnceLock<
     std::sync::Mutex<(
         Option<std::time::Instant>,
-        std::collections::HashSet<String>,
+        std::sync::Arc<std::collections::HashSet<String>>,
     )>,
 > = std::sync::OnceLock::new();
 
-/// Cached variant of `get_custom_ui_id_set_conn`. Returns a clone of the cached set
-/// when it was loaded within CUSTOM_UI_CACHE_TTL, otherwise refreshes from the DB once
-/// and serves subsequent callers from memory. On a DB error during refresh, falls back
-/// to the (possibly stale) cached value rather than failing the request; before the
-/// first successful load this is an empty set. Honest: it is a badge hint, never a
-/// money-path gate.
-pub fn get_custom_ui_id_set_cached_conn(conn: &Connection) -> std::collections::HashSet<String> {
+/// Cached variant of `get_custom_ui_id_set_conn`. Returns a cheap `Arc` handle to the
+/// cached set when it was loaded within CUSTOM_UI_CACHE_TTL, otherwise refreshes from
+/// the DB once and serves subsequent callers from memory. On a DB error during refresh,
+/// falls back to the (possibly stale) cached value rather than failing the request;
+/// before the first successful load this is an empty set. Honest: it is a badge hint,
+/// never a money-path gate.
+pub fn get_custom_ui_id_set_cached_conn(
+    conn: &Connection,
+) -> std::sync::Arc<std::collections::HashSet<String>> {
     let now = std::time::Instant::now();
-    let cell = CUSTOM_UI_CACHE
-        .get_or_init(|| std::sync::Mutex::new((None, std::collections::HashSet::new())));
+    let cell = CUSTOM_UI_CACHE.get_or_init(|| {
+        std::sync::Mutex::new((None, std::sync::Arc::new(std::collections::HashSet::new())))
+    });
     let mut guard = cell.lock().unwrap_or_else(|p| p.into_inner());
     let fresh = matches!(guard.0, Some(at) if now.duration_since(at) < CUSTOM_UI_CACHE_TTL);
     if fresh {
-        return guard.1.clone();
+        return std::sync::Arc::clone(&guard.1);
     }
     match get_custom_ui_id_set_conn(conn) {
         Ok(set) => {
             guard.0 = Some(now);
-            guard.1 = set;
-            guard.1.clone()
+            guard.1 = std::sync::Arc::new(set);
+            std::sync::Arc::clone(&guard.1)
         }
         // Keep serving the last good set on a transient DB error; retry next call.
-        Err(_) => guard.1.clone(),
+        Err(_) => std::sync::Arc::clone(&guard.1),
     }
 }
 
